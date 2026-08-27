@@ -13,7 +13,8 @@ pub enum SimWarning {
     DepletedFunds { period: usize },
     /// An account's planned contribution exceeds its limit and was clamped.
     ContributionClamped { account: AccountId },
-    /// Surplus cash had no taxable account to land in and was not invested.
+    /// Sweep is enabled but there is no taxable account for surplus cash to
+    /// land in.
     SurplusUnallocated,
     /// A stream references a person id that does not exist; it was skipped.
     UnknownPersonRef { stream: StreamId },
@@ -35,7 +36,10 @@ pub struct PeriodSnapshot {
     pub taxes: f64,
     /// Contributions deposited into accounts this period.
     pub contributions: f64,
-    /// Leftover cash swept into the taxable account this period.
+    /// Leftover household cash this period (income minus contributions,
+    /// taxes, and expenses). Only actually invested when
+    /// `assumptions.sweep_surplus_to_taxable` is set — otherwise this is
+    /// informational only.
     pub surplus: f64,
     /// Gross withdrawals per account this period.
     pub withdrawals: BTreeMap<AccountId, f64>,

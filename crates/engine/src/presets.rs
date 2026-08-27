@@ -57,6 +57,7 @@ pub fn default_assumptions() -> Assumptions {
         ]),
         flat_tax_rate: 0.22,
         plan_end_age: 95,
+        sweep_surplus_to_taxable: false,
     }
 }
 
@@ -111,7 +112,7 @@ pub fn seed_plan() -> Plan {
                 balance: 150_000.0,
                 cost_basis: Some(110_000.0),
                 allocation: AllocationRef::Aggressive,
-                annual_contribution: 12_000.0,
+                annual_contribution: 40_000.0,
                 contribution_limit: None,
             },
             Account {

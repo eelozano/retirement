@@ -19,8 +19,8 @@ use crate::strategies::{AccountState, DrawdownStrategy, IncomeBreakdown, ReturnM
 /// 1. accrue stream income and expenses (prorated by months active)
 /// 2. contribute to accounts while their owner still works (clamped to limits)
 /// 3. tax ordinary income (gross income minus pre-tax deferrals)
-/// 4. sweep surplus into the taxable account, or draw down the shortfall
-///    (grossed up through the tax model)
+/// 4. sweep surplus into the taxable account (if enabled), or draw down the
+///    shortfall (grossed up through the tax model)
 /// 5. apply market growth to post-flow balances
 /// 6. snapshot
 pub fn simulate(
@@ -142,17 +142,19 @@ pub fn simulate(
             .tax;
         let mut taxes = income_tax;
 
-        // 4. Surplus sweep or shortfall drawdown.
+        // 4. Surplus sweep (optional) or shortfall drawdown.
         let cash = income - contributions - income_tax - expenses;
-        let mut surplus = 0.0;
+        // Always the raw household leftover, invested or not — this keeps
+        // cash-conservation checks (income = outflow + surplus) true
+        // regardless of the sweep toggle below.
+        let surplus = cash.max(0.0);
         let mut withdrawals = BTreeMap::new();
         if cash >= 0.0 {
-            if cash > 0.0 {
+            if surplus > 0.0 && plan.assumptions.sweep_surplus_to_taxable {
                 if let Some(taxable) = accounts.iter_mut().find(|a| a.kind == AccountKind::Taxable)
                 {
-                    taxable.balance += cash;
-                    taxable.cost_basis += cash;
-                    surplus = cash;
+                    taxable.balance += surplus;
+                    taxable.cost_basis += surplus;
                 } else {
                     push_warning(&mut warnings, SimWarning::SurplusUnallocated);
                 }

@@ -26,7 +26,10 @@ taxes: number,
  */
 contributions: number, 
 /**
- * Leftover cash swept into the taxable account this period.
+ * Leftover household cash this period (income minus contributions,
+ * taxes, and expenses). Only actually invested when
+ * `assumptions.sweep_surplus_to_taxable` is set — otherwise this is
+ * informational only.
  */
 surplus: number, 
 /**
