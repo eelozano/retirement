@@ -55,7 +55,14 @@ dependencies for user data.
 - [x] M3 — Dashboard UI: input drawer, Recharts, nominal/real toggle
 - [x] M4 — Polish: validation, formatting, README, tag v1.0.0
 
-V2 backlog (architected for, not built): Monte Carlo (rayon), historical
-sequence backtesting, federal/state tax brackets, ordered drawdown, monthly
-periods, Social Security/pension streams, RMDs, employer match, multi-scenario
-comparison.
+V2 backlog: prioritized via a BPA against actual usage (periodic "how are we
+doing" check-ins + scenario comparison). Now-tier items are tracked as
+GitHub `Feature` issues, not duplicated here:
+- Multi-scenario comparison — issue #6
+- Social Security/pension streams — issue #7
+- Monte Carlo (rayon) — issue #8
+- Federal/state tax brackets — issue #9
+
+Later (architected for, not yet filed — revisit closer to retirement or once
+the above land): historical sequence backtesting, ordered drawdown, RMDs,
+employer match.
