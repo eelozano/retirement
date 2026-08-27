@@ -51,7 +51,12 @@ jobs:
       - name: Generated TypeScript types are in sync
         run: |
           pnpm types:generate
-          git diff --exit-code src/types/generated
+          # status catches modified AND untracked (newly exported) bindings
+          if [ -n "$(git status --porcelain src/types/generated)" ]; then
+            git status --porcelain src/types/generated
+            echo "::error::Generated types out of sync — run pnpm types:generate and commit"
+            exit 1
+          fi
 
       - name: TypeScript typecheck
         run: pnpm typecheck
