@@ -15,10 +15,26 @@ fn data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         .map_err(|e| format!("resolving app data dir: {e}"))
 }
 
+/// A plan that fails validation is never simulated or written to disk; every
+/// message is user-facing (see `engine::model::validate`), so callers can
+/// join them straight into a banner.
+fn require_valid(plan: &Plan) -> Result<(), String> {
+    let errors = plan.validate();
+    if errors.is_empty() {
+        return Ok(());
+    }
+    Err(errors
+        .into_iter()
+        .map(|e| e.message)
+        .collect::<Vec<_>>()
+        .join("\n"))
+}
+
 /// Stateless projection: the frontend sends the full plan (a few KB) and gets
 /// the full deterministic projection back.
 #[tauri::command]
 pub fn run_projection(plan: Plan) -> Result<Projection, String> {
+    require_valid(&plan)?;
     Ok(engine::run_deterministic(&plan))
 }
 
@@ -30,6 +46,7 @@ pub fn load_plan(app: tauri::AppHandle) -> Result<Plan, String> {
 
 #[tauri::command]
 pub fn save_plan(app: tauri::AppHandle, plan: Plan) -> Result<(), String> {
+    require_valid(&plan)?;
     storage::save_plan(&data_dir(&app)?, &plan)
 }
 

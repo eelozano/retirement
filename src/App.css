@@ -255,6 +255,16 @@ button.remove:hover {
 .banner.critical {
   border: 1px solid var(--status-critical);
   color: var(--status-critical);
+  /* Validation errors can be multiple messages, one per line. */
+  white-space: pre-line;
+}
+
+.empty-state {
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: center;
+  padding: 24px 0;
+  margin: 0;
 }
 
 /* Tooltip: values lead, names follow, line keys not boxes. */

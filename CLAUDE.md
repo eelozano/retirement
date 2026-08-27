@@ -53,7 +53,7 @@ dependencies for user data.
 - [x] M1 — Engine core: domain model, deterministic annual `simulate()`, tests
 - [x] M2 — IPC + persistence: commands, JSON storage, seed plan bootstrap
 - [x] M3 — Dashboard UI: input drawer, Recharts, nominal/real toggle
-- [ ] M4 — Polish: validation, formatting, README, tag v1.0.0
+- [x] M4 — Polish: validation, formatting, README, tag v1.0.0
 
 V2 backlog (architected for, not built): Monte Carlo (rayon), historical
 sequence backtesting, federal/state tax brackets, ordered drawdown, monthly

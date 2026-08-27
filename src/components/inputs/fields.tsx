@@ -27,6 +27,9 @@ export function NumberField(props: {
   step?: number;
   min?: number;
 }) {
+  // Clamped, not just HTML-decorated: the browser's min attribute styles an
+  // out-of-range value but does not stop it reaching onChange.
+  const min = props.min ?? 0;
   return (
     <label className="field">
       <span>{props.label}</span>
@@ -34,10 +37,10 @@ export function NumberField(props: {
         type="number"
         value={props.value}
         step={props.step ?? 1000}
-        min={props.min ?? 0}
+        min={min}
         onChange={(e) => {
           const parsed = e.currentTarget.valueAsNumber;
-          if (!Number.isNaN(parsed)) props.onChange(parsed);
+          if (!Number.isNaN(parsed)) props.onChange(Math.max(min, parsed));
         }}
       />
     </label>
@@ -49,7 +52,12 @@ export function PercentField(props: {
   /** Stored as a decimal rate (0.025 = 2.5%). */
   rate: number;
   onChange: (rate: number) => void;
+  /** Display-percent bounds; default allows mild deflation, no upper cap. */
+  minPercent?: number;
+  maxPercent?: number;
 }) {
+  const min = props.minPercent ?? -25;
+  const max = props.maxPercent;
   return (
     <label className="field">
       <span>{props.label} (%)</span>
@@ -57,10 +65,13 @@ export function PercentField(props: {
         type="number"
         value={rateToPercent(props.rate)}
         step={0.1}
-        min={0}
+        min={min}
+        max={max}
         onChange={(e) => {
           const parsed = e.currentTarget.valueAsNumber;
-          if (!Number.isNaN(parsed)) props.onChange(percentToRate(parsed));
+          if (Number.isNaN(parsed)) return;
+          const clamped = Math.min(max ?? Infinity, Math.max(min, parsed));
+          props.onChange(percentToRate(clamped));
         }}
       />
     </label>

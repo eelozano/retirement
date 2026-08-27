@@ -25,19 +25,20 @@ export function Dashboard() {
     [plan, projection, realDollars],
   );
 
-  if (error) {
-    return (
-      <main className="page">
-        <p role="alert" className="banner critical">
-          {error}
-        </p>
-      </main>
-    );
-  }
+  // A hard failure (nothing has ever loaded) has no drawer to show yet.
+  // Once a plan exists, keep the shell up — the error banner below sits
+  // alongside the last good projection so the offending input stays
+  // editable and fixable, rather than replacing the whole screen.
   if (!plan || !projection) {
     return (
       <main className="page">
-        <p>Loading…</p>
+        {error ? (
+          <p role="alert" className="banner critical">
+            {error}
+          </p>
+        ) : (
+          <p>Loading…</p>
+        )}
       </main>
     );
   }
@@ -72,6 +73,14 @@ export function Dashboard() {
         </label>
       </header>
 
+      {error && (
+        <p role="alert" className="banner critical">
+          Couldn't save your plan:
+          {"\n"}
+          {error}
+        </p>
+      )}
+
       {depletionYear !== null && (
         <p role="alert" className="banner critical">
           ⚠ Portfolio depletes in {depletionYear} — spending exceeds what the
@@ -96,15 +105,26 @@ export function Dashboard() {
             realDollars={realDollars}
             depletionYear={depletionYear}
           />
-          <section className="card">
-            <h2>Account balances</h2>
-            <BalancesChart rows={rows} series={series} />
-          </section>
-          <section className="card">
-            <h2>Net worth</h2>
-            <NetWorthChart rows={rows} plan={plan} depletionYear={depletionYear} />
-          </section>
-          <DataTable rows={rows} series={series} />
+          {series.length === 0 ? (
+            <section className="card">
+              <p className="empty-state">
+                Add an account in the drawer to see balance and net-worth
+                projections.
+              </p>
+            </section>
+          ) : (
+            <>
+              <section className="card">
+                <h2>Account balances</h2>
+                <BalancesChart rows={rows} series={series} />
+              </section>
+              <section className="card">
+                <h2>Net worth</h2>
+                <NetWorthChart rows={rows} plan={plan} depletionYear={depletionYear} />
+              </section>
+              <DataTable rows={rows} series={series} />
+            </>
+          )}
         </main>
       </div>
     </div>
