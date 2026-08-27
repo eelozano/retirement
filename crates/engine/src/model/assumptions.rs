@@ -40,4 +40,10 @@ pub struct Assumptions {
     /// field existed load as `false`.
     #[serde(default)]
     pub sweep_surplus_to_taxable: bool,
+    /// Plan-level default annual COLA for Social Security benefits that
+    /// don't set their own `cola_override`. `#[serde(default)]` — inert
+    /// (0.0) for plans predating this field, which is safe since they also
+    /// have no `social_security` entries to apply it to.
+    #[serde(default)]
+    pub social_security_cola: f64,
 }

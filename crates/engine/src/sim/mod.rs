@@ -44,9 +44,27 @@ pub fn simulate(
         }
     };
 
+    // Materialize Social Security benefits into synthetic Income streams.
+    // Declared before `resolved_streams` — that Vec borrows `&CashFlowStream`,
+    // so these owned streams must outlive it.
+    let mut derived_streams: Vec<CashFlowStream> = Vec::new();
+    for ss in &plan.social_security {
+        match plan.person(&ss.owner) {
+            Some(person) => {
+                derived_streams.push(ss.to_stream(person, plan.assumptions.social_security_cola))
+            }
+            None => push_warning(
+                &mut warnings,
+                SimWarning::UnknownPersonRef {
+                    stream: ss.id.clone(),
+                },
+            ),
+        }
+    }
+
     // Resolve stream boundaries to concrete months once.
     let mut resolved_streams: Vec<(&CashFlowStream, YearMonth, YearMonth)> = Vec::new();
-    for stream in &plan.streams {
+    for stream in plan.streams.iter().chain(derived_streams.iter()) {
         match (
             resolve_boundary(plan, &stream.start, start, end),
             resolve_boundary(plan, &stream.end, start, end),
