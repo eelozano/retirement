@@ -71,6 +71,7 @@ fn micro_plan() -> Plan {
             // Person is 60 at plan start (2026); age 63 → end month 2029-01,
             // giving exactly 3 annual periods.
             plan_end_age: 63,
+            sweep_surplus_to_taxable: false,
         },
         sim_config: SimConfig {
             start: YearMonth::new(2026, 1),
@@ -116,6 +117,62 @@ fn three_periods_match_hand_computation() {
     let p2 = &projection.snapshots[2];
     assert_close(p2.withdrawals["401k"], 40_000.0, "p2 gross withdrawal");
     assert_close(p2.net_worth, 54_010.0, "p2 net worth");
+}
+
+/// A zero-balance, zero-contribution taxable account added to the micro plan,
+/// with spending lowered so period 0 has positive leftover cash to sweep (or
+/// not). Isolates the surplus-sweep toggle from the rest of the hand-checked
+/// scenario.
+fn micro_plan_with_taxable_account() -> Plan {
+    let mut plan = micro_plan();
+    plan.accounts.push(Account {
+        id: "taxable".to_string(),
+        owner: "p1".to_string(),
+        kind: AccountKind::Taxable,
+        name: "Taxable".to_string(),
+        balance: 0.0,
+        cost_basis: Some(0.0),
+        allocation: AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 0.0)])),
+        annual_contribution: 0.0,
+        contribution_limit: None,
+    });
+    for stream in &mut plan.streams {
+        if stream.id == "spending" {
+            // salary 50k - pretax contribution 10k - tax 8k - spending 20k = 12k cash.
+            stream.annual_amount = 20_000.0;
+        }
+    }
+    plan
+}
+
+#[test]
+fn sweep_disabled_leaves_surplus_uninvested_but_reported() {
+    let plan = micro_plan_with_taxable_account();
+    assert!(!plan.assumptions.sweep_surplus_to_taxable);
+
+    let projection = run_deterministic(&plan);
+    let p0 = &projection.snapshots[0];
+    assert_close(p0.surplus, 12_000.0, "p0 surplus");
+    assert_close(
+        p0.balances["taxable"],
+        0.0,
+        "taxable account should stay untouched",
+    );
+}
+
+#[test]
+fn sweep_enabled_invests_surplus_into_taxable_account() {
+    let mut plan = micro_plan_with_taxable_account();
+    plan.assumptions.sweep_surplus_to_taxable = true;
+
+    let projection = run_deterministic(&plan);
+    let p0 = &projection.snapshots[0];
+    assert_close(p0.surplus, 12_000.0, "p0 surplus");
+    assert_close(
+        p0.balances["taxable"],
+        12_000.0,
+        "taxable account should absorb the surplus",
+    );
 }
 
 #[test]

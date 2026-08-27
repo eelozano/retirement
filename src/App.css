@@ -158,6 +158,24 @@ body {
   border-radius: 6px;
 }
 
+.field-checkbox {
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.field-checkbox input {
+  width: auto;
+  margin: 2px 8px 0 0;
+}
+
+.field-hint {
+  flex-basis: 100%;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .field input:focus,
 .field select:focus {
   outline: 2px solid var(--series-1);

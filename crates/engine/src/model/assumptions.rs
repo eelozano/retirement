@@ -30,4 +30,14 @@ pub struct Assumptions {
     pub flat_tax_rate: f64,
     /// The simulation runs until every person reaches this age.
     pub plan_end_age: u8,
+    /// When `true`, leftover household cash each period (income minus
+    /// contributions, taxes, and expenses) is swept into the first account
+    /// of kind `Taxable`. When `false` (the default), leftover cash is left
+    /// unallocated by the simulation — it is still reported via
+    /// `PeriodSnapshot::surplus`, just not invested, on the assumption the
+    /// user is directing it elsewhere (an explicit contribution, or a goal
+    /// outside this plan). `#[serde(default)]` so plans saved before this
+    /// field existed load as `false`.
+    #[serde(default)]
+    pub sweep_surplus_to_taxable: bool,
 }

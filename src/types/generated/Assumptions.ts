@@ -21,4 +21,15 @@ flat_tax_rate: number,
 /**
  * The simulation runs until every person reaches this age.
  */
-plan_end_age: number, };
+plan_end_age: number, 
+/**
+ * When `true`, leftover household cash each period (income minus
+ * contributions, taxes, and expenses) is swept into the first account
+ * of kind `Taxable`. When `false` (the default), leftover cash is left
+ * unallocated by the simulation — it is still reported via
+ * `PeriodSnapshot::surplus`, just not invested, on the assumption the
+ * user is directing it elsewhere (an explicit contribution, or a goal
+ * outside this plan). `#[serde(default)]` so plans saved before this
+ * field existed load as `false`.
+ */
+sweep_surplus_to_taxable: boolean, };

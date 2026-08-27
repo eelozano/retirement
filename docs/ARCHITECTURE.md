@@ -143,6 +143,7 @@ pub struct Assumptions {
     pub asset_returns: BTreeMap<AssetClass, f64>,  // nominal expected returns
     pub flat_tax_rate: f64,
     pub plan_end_age: u8,                          // e.g. 95, per eldest person
+    pub sweep_surplus_to_taxable: bool,             // default false; see sim/mod.rs step 4
 }
 
 pub enum AssetClass { UsEquity, IntlEquity, GlobalEquity, UsBonds }

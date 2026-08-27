@@ -78,6 +78,25 @@ export function PercentField(props: {
   );
 }
 
+export function CheckboxField(props: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  hint?: string;
+}) {
+  return (
+    <label className="field field-checkbox">
+      <input
+        type="checkbox"
+        checked={props.checked}
+        onChange={(e) => props.onChange(e.currentTarget.checked)}
+      />
+      <span>{props.label}</span>
+      {props.hint && <small className="field-hint">{props.hint}</small>}
+    </label>
+  );
+}
+
 export function YearMonthField(props: {
   label: string;
   value: YearMonth;
