@@ -32,6 +32,8 @@ export function AssumptionsSection() {
         <PercentField
           label="Flat tax rate"
           rate={assumptions.flat_tax_rate}
+          minPercent={0}
+          maxPercent={100}
           onChange={(rate) =>
             updatePlan((d) => {
               d.assumptions.flat_tax_rate = rate;

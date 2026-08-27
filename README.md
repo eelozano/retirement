@@ -8,9 +8,20 @@ and swappable drawdown strategies.
 **All financial data stays on your machine.** Plans are JSON files in your OS
 app-data directory (or the git-ignored `data/` folder). No cloud, no telemetry.
 
+## Features (V1)
+
+- Edit people (staggered retirement dates supported), accounts (taxable,
+  pre-tax, Roth) with Boglehead allocation presets, income/expense streams,
+  and market/tax assumptions — every input drives a live re-projection.
+- Stacked account-balance and net-worth charts, with retirement and
+  fund-depletion markers, a nominal/today's-dollars toggle, and a table view
+  of every plotted value.
+- Plans are validated before they're simulated or saved, with plain-language
+  error messages.
+
 ## Stack
 
-- **Frontend:** React 19 + TypeScript + Vite, Recharts dashboard
+- **Frontend:** React 19 + TypeScript + Vite, Zustand, Recharts dashboard
 - **Backend:** Tauri v2 with a pure-Rust simulation engine (`crates/engine`)
 - **Types:** TypeScript interfaces generated from Rust structs via ts-rs
 
