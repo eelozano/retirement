@@ -1,0 +1,4 @@
+# ts-rs writes generated TypeScript bindings here (relative to workspace root).
+# Regenerate with: pnpm types:generate
+[env]
+TS_RS_EXPORT_DIR = { value = "src/types/generated", relative = true }

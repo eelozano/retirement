@@ -1,0 +1,32 @@
+# Rust build output (workspace target lives at repo root)
+/target
+
+# PRIVACY: local financial data must never be committed.
+# Plans live in the OS app-data dir by default; data/ is the optional
+# keep-it-next-to-the-repo location.
+/data
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
