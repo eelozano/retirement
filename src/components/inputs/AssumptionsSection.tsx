@@ -61,6 +61,15 @@ export function AssumptionsSection() {
             })
           }
         />
+        <PercentField
+          label="Social Security COLA"
+          rate={assumptions.social_security_cola}
+          onChange={(rate) =>
+            updatePlan((d) => {
+              d.assumptions.social_security_cola = rate;
+            })
+          }
+        />
       </fieldset>
       <fieldset>
         <legend>Nominal returns / yr</legend>

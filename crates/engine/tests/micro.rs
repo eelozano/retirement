@@ -64,6 +64,7 @@ fn micro_plan() -> Plan {
                 growth: GrowthRule::None,
             },
         ],
+        social_security: vec![],
         assumptions: Assumptions {
             inflation: 0.0,
             asset_returns: BTreeMap::from([(AssetClass::UsBonds, 0.10)]),
@@ -72,6 +73,7 @@ fn micro_plan() -> Plan {
             // giving exactly 3 annual periods.
             plan_end_age: 63,
             sweep_surplus_to_taxable: false,
+            social_security_cola: 0.0,
         },
         sim_config: SimConfig {
             start: YearMonth::new(2026, 1),
