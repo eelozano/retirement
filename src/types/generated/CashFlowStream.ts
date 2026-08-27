@@ -4,8 +4,11 @@ import type { StreamBoundary } from "./StreamBoundary";
 import type { StreamDirection } from "./StreamDirection";
 
 /**
- * A dated cash flow: salary, retirement spending — and in V2, Social
- * Security, pensions, or one-offs, with no schema change.
+ * A dated cash flow: salary, retirement spending, pensions, or one-offs.
+ * Social Security is the one exception — it's a `SocialSecurityBenefit`
+ * (PIA + claiming age) resolved into one of these at simulate time, so
+ * claiming age stays interactively recomputable rather than a one-time
+ * manually-computed dollar entry.
  */
 export type CashFlowStream = { id: string, name: string, 
 /**

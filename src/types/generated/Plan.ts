@@ -4,9 +4,16 @@ import type { Assumptions } from "./Assumptions";
 import type { CashFlowStream } from "./CashFlowStream";
 import type { Person } from "./Person";
 import type { SimConfig } from "./SimConfig";
+import type { SocialSecurityBenefit } from "./SocialSecurityBenefit";
 
 /**
  * The complete user plan — the single JSON document that is persisted, sent
  * over IPC, and fed to `simulate`.
  */
-export type Plan = { schema_version: number, name: string, people: Array<Person>, accounts: Array<Account>, streams: Array<CashFlowStream>, assumptions: Assumptions, sim_config: SimConfig, };
+export type Plan = { schema_version: number, name: string, people: Array<Person>, accounts: Array<Account>, streams: Array<CashFlowStream>, 
+/**
+ * `#[serde(default)]` so plans saved before this field existed load as
+ * empty, same migration precedent as
+ * `Assumptions::sweep_surplus_to_taxable`.
+ */
+social_security: Array<SocialSecurityBenefit>, assumptions: Assumptions, sim_config: SimConfig, };

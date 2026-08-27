@@ -8,8 +8,8 @@ use ts_rs::TS;
 
 use crate::model::{
     Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, GrowthRule,
-    PeriodLength, Person, Plan, SimConfig, StreamBoundary, StreamDirection, YearMonth,
-    SCHEMA_VERSION,
+    PeriodLength, Person, Plan, SimConfig, SocialSecurityBenefit, StreamBoundary, StreamDirection,
+    YearMonth, SCHEMA_VERSION,
 };
 
 /// Bundle the frontend fetches once at startup.
@@ -58,6 +58,7 @@ pub fn default_assumptions() -> Assumptions {
         flat_tax_rate: 0.22,
         plan_end_age: 95,
         sweep_surplus_to_taxable: false,
+        social_security_cola: 0.025,
     }
 }
 
@@ -146,7 +147,7 @@ pub fn seed_plan() -> Plan {
                 direction: StreamDirection::Income,
                 annual_amount: 140_000.0,
                 start: StreamBoundary::PlanStart,
-                end: StreamBoundary::AtRetirement(enrique),
+                end: StreamBoundary::AtRetirement(enrique.clone()),
                 growth: GrowthRule::Inflation,
             },
             CashFlowStream {
@@ -170,6 +171,14 @@ pub fn seed_plan() -> Plan {
                 growth: GrowthRule::Inflation,
             },
         ],
+        social_security: vec![SocialSecurityBenefit {
+            id: "enrique-social-security".to_string(),
+            owner: enrique,
+            benefit_at_fra: 32_000.0,
+            full_retirement_age: 67,
+            claiming_age: 70,
+            cola_override: None,
+        }],
         assumptions: default_assumptions(),
         sim_config: SimConfig {
             start: YearMonth::new(2026, 1),

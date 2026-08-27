@@ -150,6 +150,48 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
         }
     }
 
+    let mut seen_ss_ids = HashSet::new();
+    for (i, ss) in plan.social_security.iter().enumerate() {
+        if !seen_ss_ids.insert(ss.id.as_str()) {
+            errors.push(err(
+                &format!("social_security[{i}].id"),
+                &format!("Duplicate Social Security benefit id \"{}\".", ss.id),
+            ));
+        }
+        if plan.person(&ss.owner).is_none() {
+            errors.push(err(
+                &format!("social_security[{i}].owner"),
+                "This benefit has no owner — pick one of the people on this plan.",
+            ));
+        }
+        if !(62..=70).contains(&ss.claiming_age) {
+            errors.push(err(
+                &format!("social_security[{i}].claiming_age"),
+                "Claiming age must be between 62 and 70.",
+            ));
+        }
+        if !(60..=70).contains(&ss.full_retirement_age) {
+            errors.push(err(
+                &format!("social_security[{i}].full_retirement_age"),
+                "Full retirement age must be between 60 and 70.",
+            ));
+        }
+        if ss.benefit_at_fra < 0.0 {
+            errors.push(err(
+                &format!("social_security[{i}].benefit_at_fra"),
+                "Benefit at full retirement age can't be negative.",
+            ));
+        }
+        if let Some(rate) = ss.cola_override {
+            if rate <= -1.0 {
+                errors.push(err(
+                    &format!("social_security[{i}].cola_override"),
+                    "COLA override can't be -100% or lower.",
+                ));
+            }
+        }
+    }
+
     if !(0.0..=1.0).contains(&plan.assumptions.flat_tax_rate) {
         errors.push(err(
             "assumptions.flat_tax_rate",
@@ -160,6 +202,12 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
         errors.push(err(
             "assumptions.inflation",
             "Inflation can't be -100% or lower.",
+        ));
+    }
+    if plan.assumptions.social_security_cola <= -1.0 {
+        errors.push(err(
+            "assumptions.social_security_cola",
+            "Social Security COLA can't be -100% or lower.",
         ));
     }
     for (class, rate) in &plan.assumptions.asset_returns {
@@ -301,6 +349,76 @@ mod tests {
         assert!(errors
             .iter()
             .any(|e| e.field == "assumptions.flat_tax_rate"));
+    }
+
+    #[test]
+    fn catches_duplicate_social_security_id() {
+        let mut plan = seed_plan();
+        let dup = plan.social_security[0].clone();
+        let dup_index = plan.social_security.len();
+        plan.social_security.push(dup);
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == format!("social_security[{dup_index}].id")));
+    }
+
+    #[test]
+    fn catches_unknown_social_security_owner() {
+        let mut plan = seed_plan();
+        plan.social_security[0].owner = "nobody".to_string();
+        let errors = plan.validate();
+        assert!(errors.iter().any(|e| e.field == "social_security[0].owner"));
+    }
+
+    #[test]
+    fn catches_out_of_range_claiming_age() {
+        let mut plan = seed_plan();
+        plan.social_security[0].claiming_age = 61;
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "social_security[0].claiming_age"));
+    }
+
+    #[test]
+    fn catches_out_of_range_full_retirement_age() {
+        let mut plan = seed_plan();
+        plan.social_security[0].full_retirement_age = 71;
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "social_security[0].full_retirement_age"));
+    }
+
+    #[test]
+    fn catches_negative_benefit_at_fra() {
+        let mut plan = seed_plan();
+        plan.social_security[0].benefit_at_fra = -1.0;
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "social_security[0].benefit_at_fra"));
+    }
+
+    #[test]
+    fn catches_bad_cola_override() {
+        let mut plan = seed_plan();
+        plan.social_security[0].cola_override = Some(-1.5);
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "social_security[0].cola_override"));
+    }
+
+    #[test]
+    fn catches_bad_social_security_cola_assumption() {
+        let mut plan = seed_plan();
+        plan.assumptions.social_security_cola = -1.5;
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "assumptions.social_security_cola"));
     }
 
     #[test]

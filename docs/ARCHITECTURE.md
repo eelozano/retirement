@@ -10,7 +10,7 @@ A local, privacy-first retirement projection tool (ProjectionLab/Boldin-inspired
 **Foundational decisions:**
 - Engine simulates in **nominal dollars**; UI offers a today's-dollars (real) display toggle.
 - Persistence: **JSON files** (one per plan) with `schema_version`, stored in a git-ignored local path. No SQLite, no cloud.
-- Income/expenses modeled as **generic dated cash-flow streams** (salary, retirement spending, contributions in V1; Social Security/pensions become new streams in V2 with no schema change).
+- Income/expenses modeled as **generic dated cash-flow streams** (salary, retirement spending, contributions in V1; pensions fit the same shape, no schema change). Social Security is the exception: a first-class `SocialSecurityBenefit` (PIA + claiming age) resolved into a stream at simulate time, so claiming age stays interactively recomputable instead of a one-time manually-computed dollar entry.
 - **Single plan** in V1; file format is scenario-ready (a scenario = another plan file).
 
 ---
@@ -126,7 +126,9 @@ pub struct Account {
     pub contribution_limit: Option<f64>,
 }
 
-// Generic dated stream — salary, retirement spending; V2: SS, pensions, one-offs.
+// Generic dated stream — salary, retirement spending, pensions, one-offs.
+// Social Security resolves into one of these from a SocialSecurityBenefit
+// (PIA + claiming age), rather than being modeled as a stream directly.
 pub struct CashFlowStream {
     pub id: StreamId,
     pub name: String,
@@ -227,7 +229,7 @@ Frontend consumes `Projection` directly (generated types); the real-dollar toggl
 
 **M4 — Polish & V1 close-out.** Input validation + friendly errors, empty/depleted states, number formatting, README (privacy model, how to back up data), tag v1.
 
-**V2 backlog (architected-for, not built):** Monte Carlo (rayon over `path_id`, percentile-fan chart), historical sequence backtesting, federal/state bracket `TaxModel`, `OrderedDrawdown`, monthly periods, Social Security/pension streams, RMDs, employer match, multi-scenario compare UI.
+**V2 backlog (architected-for, not built):** Monte Carlo (rayon over `path_id`, percentile-fan chart), historical sequence backtesting, federal/state bracket `TaxModel`, `OrderedDrawdown`, monthly periods, RMDs, employer match, multi-scenario compare UI. (Social Security/pension income streams shipped — see `SocialSecurityBenefit`.)
 
 ## Branch & Delivery Strategy
 

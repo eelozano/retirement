@@ -32,4 +32,11 @@ plan_end_age: number,
  * outside this plan). `#[serde(default)]` so plans saved before this
  * field existed load as `false`.
  */
-sweep_surplus_to_taxable: boolean, };
+sweep_surplus_to_taxable: boolean, 
+/**
+ * Plan-level default annual COLA for Social Security benefits that
+ * don't set their own `cola_override`. `#[serde(default)]` — inert
+ * (0.0) for plans predating this field, which is safe since they also
+ * have no `social_security` entries to apply it to.
+ */
+social_security_cola: number, };

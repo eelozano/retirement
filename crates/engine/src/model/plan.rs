@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{Account, Assumptions, CashFlowStream, Person, YearMonth};
+use super::{Account, Assumptions, CashFlowStream, Person, SocialSecurityBenefit, YearMonth};
 
 /// Bump when the Plan JSON layout changes incompatibly; the storage layer
 /// migrates or rejects on mismatch.
@@ -45,6 +45,11 @@ pub struct Plan {
     pub people: Vec<Person>,
     pub accounts: Vec<Account>,
     pub streams: Vec<CashFlowStream>,
+    /// `#[serde(default)]` so plans saved before this field existed load as
+    /// empty, same migration precedent as
+    /// `Assumptions::sweep_surplus_to_taxable`.
+    #[serde(default)]
+    pub social_security: Vec<SocialSecurityBenefit>,
     pub assumptions: Assumptions,
     pub sim_config: SimConfig,
 }

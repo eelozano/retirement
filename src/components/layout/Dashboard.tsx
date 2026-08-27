@@ -8,6 +8,7 @@ import { DataTable } from "../charts/DataTable";
 import { PeopleSection } from "../inputs/PeopleSection";
 import { AccountsSection } from "../inputs/AccountsSection";
 import { StreamsSection } from "../inputs/StreamsSection";
+import { SocialSecuritySection } from "../inputs/SocialSecuritySection";
 import { AssumptionsSection } from "../inputs/AssumptionsSection";
 
 export function Dashboard() {
@@ -94,6 +95,7 @@ export function Dashboard() {
             <PeopleSection />
             <AccountsSection />
             <StreamsSection />
+            <SocialSecuritySection />
             <AssumptionsSection />
           </aside>
         )}
