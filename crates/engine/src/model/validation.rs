@@ -3,7 +3,17 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::Plan;
+use super::{Plan, StreamBoundary, YearMonth};
+
+/// Bounds on any date in a plan. `YearMonth::new` asserts the month range,
+/// but serde deserialization constructs the struct field-by-field and never
+/// calls it — so a hand-edited plan file (or any future UI path) can carry a
+/// nonsense date. An out-of-range month silently normalizes through
+/// `month_index()` (month 85 reads as the next year), and an absurd year
+/// makes `simulate()` allocate a period per year between plan start and end,
+/// so a stray digit turns into hundreds of thousands of snapshots.
+const MIN_YEAR: i32 = 1900;
+const MAX_YEAR: i32 = 2200;
 
 /// A single reason a plan cannot be simulated or saved. `field` is a
 /// stable, dotted path (e.g. `"accounts[1].owner"`) the frontend can use to
@@ -33,6 +43,33 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
         message: message.to_string(),
     };
 
+    /// Month in 1..=12 and year within [MIN_YEAR, MAX_YEAR]. `label` names the
+    /// date the way the user sees it, e.g. "Enrique's birth date".
+    fn check_date(errors: &mut Vec<ValidationError>, field: &str, label: &str, date: YearMonth) {
+        if !(1..=12).contains(&date.month) {
+            errors.push(ValidationError {
+                field: field.to_string(),
+                message: format!("{label} has an invalid month ({}).", date.month),
+            });
+        }
+        if !(MIN_YEAR..=MAX_YEAR).contains(&date.year) {
+            errors.push(ValidationError {
+                field: field.to_string(),
+                message: format!(
+                    "{label} must be between {MIN_YEAR} and {MAX_YEAR} (got {}).",
+                    date.year
+                ),
+            });
+        }
+    }
+
+    check_date(
+        &mut errors,
+        "sim_config.start",
+        "The plan start date",
+        plan.sim_config.start,
+    );
+
     if plan.people.is_empty() {
         errors.push(err("people", "A plan needs at least one person."));
     }
@@ -45,6 +82,18 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                 &format!("Duplicate person id \"{}\".", person.id),
             ));
         }
+        check_date(
+            &mut errors,
+            &format!("people[{i}].birth"),
+            &format!("{}'s birth date", person.name),
+            person.birth,
+        );
+        check_date(
+            &mut errors,
+            &format!("people[{i}].retirement"),
+            &format!("{}'s retirement date", person.name),
+            person.retirement,
+        );
         if person.retirement.month_index() <= person.birth.month_index() {
             errors.push(err(
                 &format!("people[{i}].retirement"),
@@ -88,6 +137,16 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                 &format!("streams[{i}].id"),
                 &format!("Duplicate stream id \"{}\".", stream.id),
             ));
+        }
+        for (boundary, edge) in [(&stream.start, "start"), (&stream.end, "end")] {
+            if let StreamBoundary::Date(date) = boundary {
+                check_date(
+                    &mut errors,
+                    &format!("streams[{i}].{edge}"),
+                    &format!("\"{}\"'s {edge} date", stream.name),
+                    *date,
+                );
+            }
         }
     }
 
@@ -184,6 +243,54 @@ mod tests {
         assert!(errors
             .iter()
             .any(|e| e.field == format!("streams[{stream_dup_index}].id")));
+    }
+
+    #[test]
+    fn catches_out_of_range_month() {
+        // Reachable because serde builds YearMonth field-by-field and never
+        // calls YearMonth::new, so its 1..=12 assert does not apply.
+        let mut plan = seed_plan();
+        plan.people[0].birth.month = 85;
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "people[0].birth" && e.message.contains("invalid month")));
+    }
+
+    #[test]
+    fn catches_absurd_year() {
+        // A stray digit while typing a year previously reached the engine and
+        // made simulate() allocate a period per year to the plan end.
+        let mut plan = seed_plan();
+        plan.people[0].birth.year = 198_308;
+        let errors = plan.validate();
+        assert!(errors.iter().any(|e| e.field == "people[0].birth"));
+    }
+
+    #[test]
+    fn catches_bad_dates_on_streams_and_sim_start() {
+        let mut plan = seed_plan();
+        plan.sim_config.start.month = 0;
+        plan.streams[0].start = super::StreamBoundary::Date(super::YearMonth {
+            year: 12,
+            month: 13,
+        });
+        let errors = plan.validate();
+        assert!(errors.iter().any(|e| e.field == "sim_config.start"));
+        assert!(errors.iter().any(|e| e.field == "streams[0].start"));
+    }
+
+    #[test]
+    fn accepts_every_valid_month() {
+        for month in 1..=12 {
+            let mut plan = seed_plan();
+            plan.people[0].birth.month = month;
+            assert!(
+                plan.validate().is_empty(),
+                "month {month} should be valid: {:?}",
+                plan.validate()
+            );
+        }
     }
 
     #[test]

@@ -158,6 +158,27 @@ body {
   border-radius: 6px;
 }
 
+/* Two controls (month select + year box) sharing one field's control slot.
+   The children need width:auto + min-width:0 to override the 150px rule
+   above and to overcome form controls' intrinsic minimum width. */
+.field-group {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 168px;
+}
+
+.field-group select {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.field-group input {
+  width: auto;
+  flex: 0 0 62px;
+  min-width: 0;
+}
+
 .field-checkbox {
   align-items: flex-start;
   justify-content: flex-start;
