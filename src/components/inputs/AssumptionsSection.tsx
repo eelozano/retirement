@@ -1,6 +1,6 @@
 import type { AssetClass } from "../../types/generated/AssetClass";
 import { usePlanStore } from "../../store/planStore";
-import { NumberField, PercentField } from "./fields";
+import { CheckboxField, NumberField, PercentField } from "./fields";
 
 const ASSET_LABELS: Record<AssetClass, string> = {
   UsEquity: "US equity (VTI)",
@@ -48,6 +48,16 @@ export function AssumptionsSection() {
           onChange={(age) =>
             updatePlan((d) => {
               d.assumptions.plan_end_age = Math.round(age);
+            })
+          }
+        />
+        <CheckboxField
+          label="Sweep leftover income into taxable brokerage"
+          hint="When off, leftover cash each year (income minus contributions, taxes, and spending) is left out of the plan — assume it's going toward other goals. When on, it's automatically invested in your first taxable account."
+          checked={assumptions.sweep_surplus_to_taxable}
+          onChange={(checked) =>
+            updatePlan((d) => {
+              d.assumptions.sweep_surplus_to_taxable = checked;
             })
           }
         />
