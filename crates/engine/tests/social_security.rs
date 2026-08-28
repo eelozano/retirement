@@ -26,6 +26,7 @@ fn plan_with(
     let birth = YearMonth::new(2000, 1);
     let start = YearMonth::new(2000 + claiming_age as i32, 1);
     Plan {
+        id: "ss-test".to_string(),
         schema_version: SCHEMA_VERSION,
         name: "ss-test".to_string(),
         people: vec![Person {

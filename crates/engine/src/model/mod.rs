@@ -10,7 +10,7 @@ mod year_month;
 pub use account::{Account, AccountId, AccountKind, AllocationRef};
 pub use assumptions::{AssetClass, Assumptions};
 pub use person::{Person, PersonId};
-pub use plan::{PeriodLength, Plan, SimConfig, SCHEMA_VERSION};
+pub use plan::{PeriodLength, Plan, PlanId, SimConfig, SCHEMA_VERSION};
 pub use social_security::{adjustment_factor, SocialSecurityBenefit, SocialSecurityBenefitId};
 pub use stream::{CashFlowStream, GrowthRule, StreamBoundary, StreamDirection, StreamId};
 pub use validation::ValidationError;

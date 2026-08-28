@@ -10,7 +10,15 @@ import type { SocialSecurityBenefit } from "./SocialSecurityBenefit";
  * The complete user plan — the single JSON document that is persisted, sent
  * over IPC, and fed to `simulate`.
  */
-export type Plan = { schema_version: number, name: string, people: Array<Person>, accounts: Array<Account>, streams: Array<CashFlowStream>, 
+export type Plan = { 
+/**
+ * Stable identity, independent of the (editable, non-unique) `name` —
+ * this is what a plan file is keyed by on disk, so renaming a plan is
+ * an in-place edit rather than a file move. `#[serde(default)]` so
+ * plans saved before scenario support (#6) load with an empty id; the
+ * storage layer backfills it once from the pre-#6 filename slug.
+ */
+id: string, schema_version: number, name: string, people: Array<Person>, accounts: Array<Account>, streams: Array<CashFlowStream>, 
 /**
  * `#[serde(default)]` so plans saved before this field existed load as
  * empty, same migration precedent as

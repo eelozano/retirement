@@ -33,9 +33,15 @@ pub fn migrate_json_dir_to_yaml(legacy_plans_dir: &Path, to_base: &Path) -> Resu
         let Ok(json) = fs::read_to_string(&path) else {
             continue;
         };
-        let Ok(plan) = serde_json::from_str::<Plan>(&json) else {
+        let Ok(mut plan) = serde_json::from_str::<Plan>(&json) else {
             continue;
         };
+        // Pre-#13 JSON plans predate the #6 `id` field too; storage now
+        // requires one, so backfill it the same way `storage::load_plan`
+        // does for legacy YAML.
+        if plan.id.trim().is_empty() {
+            plan.id = storage::generate_id(to_base, &plan.name);
+        }
         if storage::save_plan(to_base, &plan).is_ok() {
             migrated += 1;
         }
@@ -117,6 +123,32 @@ mod tests {
 
         // Original untouched.
         assert!(legacy_path.exists());
+    }
+
+    #[test]
+    fn migrate_json_dir_to_yaml_backfills_missing_id() {
+        // Pre-#13 JSON plans predate the #6 `id` field entirely — simulate
+        // one by stripping "id" from the serialized seed plan.
+        let legacy_base = TempDir::new("legacy-no-id");
+        let legacy_plans = legacy_base.0.join("plans");
+        fs::create_dir_all(&legacy_plans).unwrap();
+
+        let plan = engine::presets::seed_plan();
+        let mut value = serde_json::to_value(&plan).unwrap();
+        value.as_object_mut().unwrap().remove("id");
+        fs::write(
+            legacy_plans.join("base-plan.json"),
+            serde_json::to_string_pretty(&value).unwrap(),
+        )
+        .unwrap();
+
+        let to_base = TempDir::new("new-no-id");
+        let migrated = migrate_json_dir_to_yaml(&legacy_plans, &to_base.0).unwrap();
+        assert_eq!(migrated, 1);
+
+        let summaries = storage::list_plans(&to_base.0).unwrap();
+        assert_eq!(summaries.len(), 1);
+        assert!(!summaries[0].id.is_empty());
     }
 
     #[test]
