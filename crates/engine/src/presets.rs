@@ -88,6 +88,7 @@ pub fn seed_plan() -> Plan {
     let enrique = "enrique".to_string();
     let claire = "claire".to_string();
     Plan {
+        id: "base-plan".to_string(),
         schema_version: SCHEMA_VERSION,
         name: "Base plan".to_string(),
         people: vec![

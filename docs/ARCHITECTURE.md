@@ -11,7 +11,7 @@ A local, privacy-first retirement projection tool (ProjectionLab/Boldin-inspired
 - Engine simulates in **nominal dollars**; UI offers a today's-dollars (real) display toggle.
 - Persistence: **YAML files** (one per plan) with `schema_version`, stored in a user-configurable path (default: OS Documents folder, changeable in-app under Storage); a small JSON settings file in the app-config dir records the chosen location. No SQLite, no cloud.
 - Income/expenses modeled as **generic dated cash-flow streams** (salary, retirement spending, contributions in V1; pensions fit the same shape, no schema change). Social Security is the exception: a first-class `SocialSecurityBenefit` (PIA + claiming age) resolved into a stream at simulate time, so claiming age stays interactively recomputable instead of a one-time manually-computed dollar entry.
-- **Single plan** in V1; file format is scenario-ready (a scenario = another plan file).
+- **Single plan** in V1; file format is scenario-ready (a scenario = another plan file). V2 multi-scenario comparison (#6) builds on this directly: each `Plan` carries a stable `id` (files are keyed by it, not by the editable `name`), and the storage/IPC layer already supports listing, duplicating, deleting, and switching the active scenario — the comparison UI (overlay chart + summary table) is the remaining piece.
 
 ---
 
@@ -99,6 +99,7 @@ retirement/
 pub struct YearMonth { pub year: i32, pub month: u8 }   // ordered; month-index arithmetic
 
 pub struct Plan {
+    pub id: PlanId,                  // stable identity; files are keyed by this, not `name` (#6)
     pub schema_version: u32,
     pub name: String,
     pub people: Vec<Person>,
@@ -214,8 +215,9 @@ Frontend consumes `Projection` directly (generated types); the real-dollar toggl
 
 ### Tauri commands (`src-tauri/src/commands.rs`)
 
-- `run_projection(plan: Plan) -> Projection` — stateless; frontend sends full plan (small payload, ~KB).
-- `save_plan(plan) / load_plan(name) / list_plans()` — YAML in the resolved plans directory, atomic write + `.bak`, `schema_version` checked on load. `load_plan` also runs the one-shot legacy-JSON migration check.
+- `run_projection(plan: Plan) -> Projection` — stateless; frontend sends full plan (small payload, ~KB). `run_projections(plans: Vec<Plan>) -> Vec<Result<Projection, String>>` does the same for N scenarios in one round-trip, for the comparison view (#6) — one entry per plan, so one invalid scenario doesn't blank the rest.
+- `save_plan(plan) / load_plan() / load_plan_named(id) / list_plans() -> Vec<PlanSummary>` — YAML in the resolved plans directory, keyed by each plan's stable `id` (not its editable `name`), atomic write + `.bak`, `schema_version` checked on load. `load_plan` loads the active scenario (see `set_active_plan`, falling back to the first stored plan or a fresh seed) and also runs the one-shot legacy-JSON migration check; plans saved before `id` existed are backfilled once from their pre-#6 filename slug.
+- `duplicate_plan(id, new_name) / delete_plan(id) / set_active_plan(id)` — scenario management: branch a new plan off an existing one (deep copy, fresh id), remove a scenario (moved aside as `.deleted`, never unlinked — refused for the last remaining scenario), and record which scenario loads on next launch.
 - `get_presets() -> Presets` — allocations + default assumptions so defaults live in one place (Rust).
 - `get_storage_info() / choose_storage_dir() / set_storage_dir(path) / reveal_storage_dir()` — the Storage settings surface: report the effective/default plans dir, open a native folder picker, persist a new location (copying existing plans forward), and reveal the folder in Finder/Explorer.
 
