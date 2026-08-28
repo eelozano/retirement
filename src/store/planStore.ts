@@ -1,9 +1,11 @@
 import { create } from "zustand";
 import type { Plan } from "../types/generated/Plan";
+import type { Presets } from "../types/generated/Presets";
 import type { Projection } from "../types/generated/Projection";
 import {
   deletePlan,
   duplicatePlan,
+  getPresets,
   listPlans,
   loadPlan,
   loadPlanNamed,
@@ -28,6 +30,9 @@ const DEBOUNCE_MS = 300;
 interface PlanStore {
   scenarios: PlanSummary[];
   plan: Plan | null;
+  /** State-tax bracket prefills and other Rust-side defaults, fetched once
+   * at startup so the frontend never duplicates them. */
+  presets: Presets | null;
   projection: Projection | null;
   /** True while a re-projection is in flight (previous result stays shown). */
   projecting: boolean;
@@ -86,6 +91,7 @@ async function activate(
 export const usePlanStore = create<PlanStore>((set, get) => ({
   scenarios: [],
   plan: null,
+  presets: null,
   projection: null,
   projecting: false,
   error: null,
@@ -93,8 +99,12 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
 
   init: async () => {
     try {
-      const [scenarios, plan] = await Promise.all([listPlans(), loadPlan()]);
-      set({ scenarios });
+      const [scenarios, plan, presets] = await Promise.all([
+        listPlans(),
+        loadPlan(),
+        getPresets(),
+      ]);
+      set({ scenarios, presets });
       await activate(set, plan);
     } catch (e) {
       set({ error: String(e) });

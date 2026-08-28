@@ -1,6 +1,9 @@
 import type { AssetClass } from "../../types/generated/AssetClass";
+import type { FilingStatus } from "../../types/generated/FilingStatus";
+import type { StateCode } from "../../types/generated/StateCode";
 import { usePlanStore } from "../../store/planStore";
-import { CheckboxField, NumberField, PercentField } from "./fields";
+import { CheckboxField, NumberField, PercentField, SelectField } from "./fields";
+import { TaxBracketEditor } from "./TaxBracketEditor";
 
 const ASSET_LABELS: Record<AssetClass, string> = {
   UsEquity: "US equity (VTI)",
@@ -9,8 +12,74 @@ const ASSET_LABELS: Record<AssetClass, string> = {
   UsBonds: "US bonds (BND)",
 };
 
+const FILING_STATUS_OPTIONS: { value: FilingStatus; label: string }[] = [
+  { value: "Single", label: "Single" },
+  { value: "MarriedFilingJointly", label: "Married filing jointly" },
+];
+
+const STATE_LABELS: Record<StateCode, string> = {
+  Alabama: "Alabama",
+  Alaska: "Alaska",
+  Arizona: "Arizona",
+  Arkansas: "Arkansas",
+  California: "California",
+  Colorado: "Colorado",
+  Connecticut: "Connecticut",
+  Delaware: "Delaware",
+  Florida: "Florida",
+  Georgia: "Georgia",
+  Hawaii: "Hawaii",
+  Idaho: "Idaho",
+  Illinois: "Illinois",
+  Indiana: "Indiana",
+  Iowa: "Iowa",
+  Kansas: "Kansas",
+  Kentucky: "Kentucky",
+  Louisiana: "Louisiana",
+  Maine: "Maine",
+  Maryland: "Maryland",
+  Massachusetts: "Massachusetts",
+  Michigan: "Michigan",
+  Minnesota: "Minnesota",
+  Mississippi: "Mississippi",
+  Missouri: "Missouri",
+  Montana: "Montana",
+  Nebraska: "Nebraska",
+  Nevada: "Nevada",
+  NewHampshire: "New Hampshire",
+  NewJersey: "New Jersey",
+  NewMexico: "New Mexico",
+  NewYork: "New York",
+  NorthCarolina: "North Carolina",
+  NorthDakota: "North Dakota",
+  Ohio: "Ohio",
+  Oklahoma: "Oklahoma",
+  Oregon: "Oregon",
+  Pennsylvania: "Pennsylvania",
+  RhodeIsland: "Rhode Island",
+  SouthCarolina: "South Carolina",
+  SouthDakota: "South Dakota",
+  Tennessee: "Tennessee",
+  Texas: "Texas",
+  Utah: "Utah",
+  Vermont: "Vermont",
+  Virginia: "Virginia",
+  Washington: "Washington",
+  WashingtonDc: "Washington, DC",
+  WestVirginia: "West Virginia",
+  Wisconsin: "Wisconsin",
+  Wyoming: "Wyoming",
+  Other: "Other / custom",
+};
+
+const STATE_OPTIONS = (Object.keys(STATE_LABELS) as StateCode[]).map((value) => ({
+  value,
+  label: STATE_LABELS[value],
+}));
+
 export function AssumptionsSection() {
   const plan = usePlanStore((s) => s.plan);
+  const presets = usePlanStore((s) => s.presets);
   const updatePlan = usePlanStore((s) => s.updatePlan);
   if (!plan) return null;
 
@@ -29,14 +98,36 @@ export function AssumptionsSection() {
             })
           }
         />
-        <PercentField
-          label="Flat tax rate"
-          rate={assumptions.flat_tax_rate}
-          minPercent={0}
-          maxPercent={100}
-          onChange={(rate) =>
+        <SelectField
+          label="Filing status"
+          value={assumptions.filing_status}
+          options={FILING_STATUS_OPTIONS}
+          onChange={(filing_status: FilingStatus) =>
             updatePlan((d) => {
-              d.assumptions.flat_tax_rate = rate;
+              d.assumptions.filing_status = filing_status;
+            })
+          }
+        />
+        <SelectField
+          label="State"
+          value={assumptions.state_tax.state}
+          options={STATE_OPTIONS}
+          onChange={(state: StateCode) =>
+            updatePlan((d) => {
+              // Prefill from the preset table; the brackets below stay
+              // fully editable afterward regardless of this pick.
+              const preset = presets?.state_tax_profiles[state];
+              d.assumptions.state_tax = preset
+                ? { ...preset, brackets: preset.brackets.map((b) => ({ ...b })) }
+                : { state, brackets: [{ up_to: null, rate: 0 }], standard_deduction: 0 };
+            })
+          }
+        />
+        <TaxBracketEditor
+          value={assumptions.state_tax}
+          onChange={(state_tax) =>
+            updatePlan((d) => {
+              d.assumptions.state_tax = state_tax;
             })
           }
         />

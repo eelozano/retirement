@@ -7,10 +7,11 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::model::{
-    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, GrowthRule,
-    PeriodLength, Person, Plan, SimConfig, SocialSecurityBenefit, StreamBoundary, StreamDirection,
-    YearMonth, SCHEMA_VERSION,
+    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, FilingStatus,
+    GrowthRule, PeriodLength, Person, Plan, SimConfig, SocialSecurityBenefit, StateCode,
+    StateTaxProfile, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
 };
+use crate::state_tax_data::state_tax_profiles;
 
 /// Bundle the frontend fetches once at startup.
 #[derive(Serialize, Deserialize, TS, Clone, Debug)]
@@ -19,6 +20,11 @@ pub struct Presets {
     pub default_assumptions: Assumptions,
     /// Asset-class weights for each named `AllocationRef` preset.
     pub allocations: BTreeMap<String, BTreeMap<AssetClass, f64>>,
+    /// Prefill bracket schedule for each state's income tax, keyed by
+    /// `StateCode`. Picking a state in the UI copies its entry into
+    /// `Assumptions.state_tax`; the plan then owns an editable copy — this
+    /// map is never consulted again at simulate time.
+    pub state_tax_profiles: BTreeMap<StateCode, StateTaxProfile>,
 }
 
 /// Boglehead-style three-fund weights for a named preset.
@@ -55,7 +61,11 @@ pub fn default_assumptions() -> Assumptions {
             (AssetClass::GlobalEquity, 0.078),
             (AssetClass::UsBonds, 0.04),
         ]),
-        flat_tax_rate: 0.22,
+        filing_status: FilingStatus::Single,
+        // No state selected by default — we don't know where the user
+        // lives; the state picker prefills a real bracket schedule once
+        // they choose one.
+        state_tax: StateTaxProfile::none(),
         plan_end_age: 95,
         sweep_surplus_to_taxable: false,
         social_security_cola: 0.025,
@@ -79,6 +89,7 @@ pub fn presets() -> Presets {
                 allocation_weights(&AllocationRef::Conservative),
             ),
         ]),
+        state_tax_profiles: state_tax_profiles(),
     }
 }
 
