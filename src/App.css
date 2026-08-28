@@ -392,6 +392,91 @@ button.remove:hover {
   padding: 40px;
 }
 
+/* Storage settings modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  width: 420px;
+  max-width: calc(100vw - 40px);
+}
+
+.modal h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.storage-path {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  word-break: break-all;
+  margin: 0 0 8px;
+}
+
+.storage-badge {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0 0 12px;
+}
+
+.storage-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.storage-actions button {
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.storage-actions button:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--muted);
+}
+
+.storage-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.modal-close {
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  color: var(--text-primary);
+  border-color: var(--muted);
+}
+
 /* Responsive: drawer overlays content on narrow windows */
 @media (max-width: 860px) {
   .content {

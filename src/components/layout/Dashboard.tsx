@@ -10,6 +10,7 @@ import { AccountsSection } from "../inputs/AccountsSection";
 import { StreamsSection } from "../inputs/StreamsSection";
 import { SocialSecuritySection } from "../inputs/SocialSecuritySection";
 import { AssumptionsSection } from "../inputs/AssumptionsSection";
+import { StorageSettings } from "./StorageSettings";
 
 export function Dashboard() {
   const plan = usePlanStore((s) => s.plan);
@@ -19,6 +20,7 @@ export function Dashboard() {
   const realDollars = usePlanStore((s) => s.realDollars);
   const setRealDollars = usePlanStore((s) => s.setRealDollars);
   const [drawerOpen, setDrawerOpen] = useState(true);
+  const [storageOpen, setStorageOpen] = useState(false);
 
   const series = useMemo(() => (plan ? seriesDefs(plan) : []), [plan]);
   const rows = useMemo(
@@ -72,7 +74,16 @@ export function Dashboard() {
           />
           Today's dollars
         </label>
+        <button
+          type="button"
+          className="drawer-toggle"
+          onClick={() => setStorageOpen(true)}
+        >
+          Storage…
+        </button>
       </header>
+
+      <StorageSettings open={storageOpen} onClose={() => setStorageOpen(false)} />
 
       {error && (
         <p role="alert" className="banner critical">
