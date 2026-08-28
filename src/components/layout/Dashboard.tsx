@@ -12,6 +12,8 @@ import { SocialSecuritySection } from "../inputs/SocialSecuritySection";
 import { AssumptionsSection } from "../inputs/AssumptionsSection";
 import { StorageSettings } from "./StorageSettings";
 import { ScenariosSettings } from "./ScenariosSettings";
+import { ComparisonView } from "./ComparisonView";
+import { depletionYear as computeDepletionYear } from "../../lib/projection";
 
 export function Dashboard() {
   const plan = usePlanStore((s) => s.plan);
@@ -26,6 +28,7 @@ export function Dashboard() {
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [storageOpen, setStorageOpen] = useState(false);
   const [scenariosOpen, setScenariosOpen] = useState(false);
+  const [compareMode, setCompareMode] = useState(false);
 
   const series = useMemo(() => (plan ? seriesDefs(plan) : []), [plan]);
   const rows = useMemo(
@@ -51,25 +54,21 @@ export function Dashboard() {
     );
   }
 
-  const depletion = projection.warnings.find(
-    (w): w is { DepletedFunds: { period: number } } =>
-      typeof w === "object" && "DepletedFunds" in w,
-  );
-  const depletionYear = depletion
-    ? (projection.snapshots[depletion.DepletedFunds.period]?.period_start.year ?? null)
-    : null;
+  const depletionYear = computeDepletionYear(projection);
 
   return (
     <div className="app-shell">
       <header className="topbar">
-        <button
-          type="button"
-          className="drawer-toggle"
-          aria-expanded={drawerOpen}
-          onClick={() => setDrawerOpen((open) => !open)}
-        >
-          ☰ Inputs
-        </button>
+        {!compareMode && (
+          <button
+            type="button"
+            className="drawer-toggle"
+            aria-expanded={drawerOpen}
+            onClick={() => setDrawerOpen((open) => !open)}
+          >
+            ☰ Inputs
+          </button>
+        )}
         <input
           className="plan-name"
           aria-label="Scenario name"
@@ -110,6 +109,16 @@ export function Dashboard() {
         >
           Scenarios…
         </button>
+        {scenarios.length > 1 && (
+          <button
+            type="button"
+            className="drawer-toggle"
+            aria-pressed={compareMode}
+            onClick={() => setCompareMode((c) => !c)}
+          >
+            {compareMode ? "Back to editing" : "Compare…"}
+          </button>
+        )}
         <button
           type="button"
           className="drawer-toggle"
@@ -138,7 +147,7 @@ export function Dashboard() {
       )}
 
       <div className="content">
-        {drawerOpen && (
+        {!compareMode && drawerOpen && (
           <aside className="drawer">
             <PeopleSection />
             <AccountsSection />
@@ -148,34 +157,40 @@ export function Dashboard() {
           </aside>
         )}
 
-        <main className={`charts ${projecting ? "refreshing" : ""}`}>
-          <SummaryStats
-            plan={plan}
-            projection={projection}
-            realDollars={realDollars}
-            depletionYear={depletionYear}
-          />
-          {series.length === 0 ? (
-            <section className="card">
-              <p className="empty-state">
-                Add an account in the drawer to see balance and net-worth
-                projections.
-              </p>
-            </section>
-          ) : (
-            <>
+        {compareMode ? (
+          <main className="charts">
+            <ComparisonView />
+          </main>
+        ) : (
+          <main className={`charts ${projecting ? "refreshing" : ""}`}>
+            <SummaryStats
+              plan={plan}
+              projection={projection}
+              realDollars={realDollars}
+              depletionYear={depletionYear}
+            />
+            {series.length === 0 ? (
               <section className="card">
-                <h2>Account balances</h2>
-                <BalancesChart rows={rows} series={series} />
+                <p className="empty-state">
+                  Add an account in the drawer to see balance and net-worth
+                  projections.
+                </p>
               </section>
-              <section className="card">
-                <h2>Net worth</h2>
-                <NetWorthChart rows={rows} plan={plan} depletionYear={depletionYear} />
-              </section>
-              <DataTable rows={rows} series={series} />
-            </>
-          )}
-        </main>
+            ) : (
+              <>
+                <section className="card">
+                  <h2>Account balances</h2>
+                  <BalancesChart rows={rows} series={series} />
+                </section>
+                <section className="card">
+                  <h2>Net worth</h2>
+                  <NetWorthChart rows={rows} plan={plan} depletionYear={depletionYear} />
+                </section>
+                <DataTable rows={rows} series={series} />
+              </>
+            )}
+          </main>
+        )}
       </div>
     </div>
   );

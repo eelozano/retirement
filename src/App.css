@@ -19,6 +19,7 @@
   --series-7: #4a3aa7;
   --series-8: #e34948;
   --status-critical: #d03b3b;
+  --status-good: #1a8a4a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -40,6 +41,7 @@
     --series-7: #9085e9;
     --series-8: #e66767;
     --status-critical: #d03b3b;
+    --status-good: #3fbd6f;
   }
 }
 
@@ -408,6 +410,69 @@ button.remove:hover {
 .data-table th:first-child,
 .data-table td:first-child {
   text-align: left;
+}
+
+/* Comparison view */
+.compare-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 16px;
+}
+
+.compare-picker label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.compare-picker label:has(input:disabled) {
+  opacity: 0.5;
+}
+
+.compare-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 16px;
+}
+
+.comparison-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+
+.comparison-table th,
+.comparison-table td {
+  text-align: right;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--grid);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.comparison-table th {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.comparison-table th:first-child,
+.comparison-table td:first-child {
+  text-align: left;
+}
+
+.comparison-base-row td:first-child {
+  font-weight: 600;
+}
+
+.delta-positive {
+  color: var(--status-good);
+}
+
+.delta-negative {
+  color: var(--status-critical);
 }
 
 .page {
