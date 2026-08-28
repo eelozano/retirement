@@ -62,6 +62,7 @@ GitHub `Feature` issues, not duplicated here:
 - Social Security/pension streams — issue #7
 - Monte Carlo (rayon) — issue #8
 - Federal/state tax brackets — issue #9
+- Visible, user-configurable plan storage location — issue #13
 
 Later (architected for, not yet filed — revisit closer to retirement or once
 the above land): historical sequence backtesting, ordered drawdown, RMDs,
