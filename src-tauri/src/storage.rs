@@ -1,8 +1,10 @@
-//! JSON persistence for plans. PRIVACY: everything here writes only to the
-//! local plans directory (OS app-data dir); nothing leaves the machine.
+//! YAML persistence for plans, chosen over JSON so a plan file is readable
+//! and hand-editable outside the app. PRIVACY: everything here writes only
+//! to the local plans directory; nothing leaves the machine.
 //!
 //! Functions take an explicit base directory so they are unit-testable
-//! without a Tauri runtime; commands.rs supplies the real app-data path.
+//! without a Tauri runtime; commands.rs resolves the real, user-configurable
+//! base path (see settings.rs).
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -15,7 +17,7 @@ pub fn plans_dir(base: &Path) -> PathBuf {
 }
 
 fn plan_path(base: &Path, name: &str) -> PathBuf {
-    plans_dir(base).join(format!("{}.json", slugify(name)))
+    plans_dir(base).join(format!("{}.yaml", slugify(name)))
 }
 
 /// Filesystem-safe file name from a plan name ("Base plan" → "base-plan").
@@ -50,12 +52,12 @@ pub fn save_plan(base: &Path, plan: &Plan) -> Result<(), String> {
     fs::create_dir_all(&dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
 
     let path = plan_path(base, &plan.name);
-    let json = serde_json::to_string_pretty(plan).map_err(|e| format!("serializing plan: {e}"))?;
+    let yaml = serde_yaml_ng::to_string(plan).map_err(|e| format!("serializing plan: {e}"))?;
 
-    let tmp = path.with_extension("json.tmp");
-    fs::write(&tmp, &json).map_err(|e| format!("writing {}: {e}", tmp.display()))?;
+    let tmp = path.with_extension("yaml.tmp");
+    fs::write(&tmp, &yaml).map_err(|e| format!("writing {}: {e}", tmp.display()))?;
     if path.exists() {
-        let bak = path.with_extension("json.bak");
+        let bak = path.with_extension("yaml.bak");
         fs::copy(&path, &bak).map_err(|e| format!("backing up {}: {e}", path.display()))?;
     }
     fs::rename(&tmp, &path).map_err(|e| format!("replacing {}: {e}", path.display()))?;
@@ -63,9 +65,9 @@ pub fn save_plan(base: &Path, plan: &Plan) -> Result<(), String> {
 }
 
 pub fn load_plan_file(path: &Path) -> Result<Plan, String> {
-    let json = fs::read_to_string(path).map_err(|e| format!("reading {}: {e}", path.display()))?;
+    let yaml = fs::read_to_string(path).map_err(|e| format!("reading {}: {e}", path.display()))?;
     let plan: Plan =
-        serde_json::from_str(&json).map_err(|e| format!("parsing {}: {e}", path.display()))?;
+        serde_yaml_ng::from_str(&yaml).map_err(|e| format!("parsing {}: {e}", path.display()))?;
     if plan.schema_version != SCHEMA_VERSION {
         return Err(format!(
             "{} has schema version {}, this app supports {} — migration needed",
@@ -86,7 +88,7 @@ pub fn list_plans(base: &Path) -> Result<Vec<String>, String> {
     let mut names = Vec::new();
     for entry in fs::read_dir(&dir).map_err(|e| format!("reading {}: {e}", dir.display()))? {
         let path = entry.map_err(|e| e.to_string())?.path();
-        if path.extension().and_then(|e| e.to_str()) == Some("json") {
+        if path.extension().and_then(|e| e.to_str()) == Some("yaml") {
             if let Ok(plan) = load_plan_file(&path) {
                 names.push(plan.name);
             }
@@ -104,7 +106,7 @@ pub fn load_or_bootstrap(base: &Path) -> Result<Plan, String> {
         let mut paths: Vec<PathBuf> = fs::read_dir(&dir)
             .map_err(|e| format!("reading {}: {e}", dir.display()))?
             .filter_map(|entry| entry.ok().map(|e| e.path()))
-            .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("json"))
+            .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("yaml"))
             .collect();
         paths.sort();
         if let Some(path) = paths.first() {
@@ -154,7 +156,7 @@ mod tests {
         let reloaded = load_or_bootstrap(&base.0).unwrap();
         assert_eq!(reloaded.assumptions.inflation, 0.03);
         // Previous version preserved as .bak.
-        assert!(plans_dir(&base.0).join("base-plan.json.bak").exists());
+        assert!(plans_dir(&base.0).join("base-plan.yaml.bak").exists());
     }
 
     #[test]
@@ -168,7 +170,7 @@ mod tests {
         let path = plan_path(&base.0, &plan.name);
         let mangled = fs::read_to_string(&path)
             .unwrap()
-            .replace("\"schema_version\": 1", "\"schema_version\": 999");
+            .replace("schema_version: 1", "schema_version: 999");
         fs::write(&path, mangled).unwrap();
         assert!(load_plan_file(&path).is_err());
     }
