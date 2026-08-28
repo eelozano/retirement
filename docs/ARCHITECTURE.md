@@ -9,7 +9,7 @@ A local, privacy-first retirement projection tool (ProjectionLab/Boldin-inspired
 
 **Foundational decisions:**
 - Engine simulates in **nominal dollars**; UI offers a today's-dollars (real) display toggle.
-- Persistence: **JSON files** (one per plan) with `schema_version`, stored in a git-ignored local path. No SQLite, no cloud.
+- Persistence: **YAML files** (one per plan) with `schema_version`, stored in a user-configurable path (default: OS Documents folder, changeable in-app under Storage); a small JSON settings file in the app-config dir records the chosen location. No SQLite, no cloud.
 - Income/expenses modeled as **generic dated cash-flow streams** (salary, retirement spending, contributions in V1; pensions fit the same shape, no schema change). Social Security is the exception: a first-class `SocialSecurityBenefit` (PIA + claiming age) resolved into a stream at simulate time, so claiming age stays interactively recomputable instead of a one-time manually-computed dollar entry.
 - **Single plan** in V1; file format is scenario-ready (a scenario = another plan file).
 
@@ -28,7 +28,7 @@ A local, privacy-first retirement projection tool (ProjectionLab/Boldin-inspired
 9. **Recharts is fine for V1** (~60 annual data points, stacked areas). If V2 Monte Carlo percentile fans strain it, swap the chart layer only — chart components will consume a stable `Projection` view-model, so the charting lib is not load-bearing.
 10. **Zustand for frontend state** (small, no boilerplate). Inputs live in the store; a debounced effect calls the `run_projection` Tauri command; results are kept separate from inputs so stale results are detectable.
 11. **Blind spots flagged for the backlog** (not V1, but the schema won't fight them): employer 401(k) match, RMDs, IRMAA/ACA cliffs, catch-up contributions, contribution-limit inflation indexing, capital gains vs ordinary income, rebalancing drift/glide paths, survivor scenarios, filing status.
-12. **Data safety:** plans saved to Tauri `app_data_dir` by default (outside the repo entirely); `data/` also git-ignored in case the user prefers keeping files next to the repo. Atomic writes (write temp + rename) and a `.bak` of the previous version on save.
+12. **Data safety:** plans saved to a user-visible, user-configurable location (default: `~/Documents/Retirement Planner`, or `~/RetirementPlanner` if Documents can't be resolved) — outside the repo entirely; `data/` also git-ignored in case the user prefers keeping files next to the repo. Atomic writes (write temp + rename) and a `.bak` of the previous version on save. Legacy pre-#13 plans in the old `app_data_dir` are migrated forward automatically on first launch (copy, never delete).
 
 ---
 
@@ -44,8 +44,9 @@ A local, privacy-first retirement projection tool (ProjectionLab/Boldin-inspired
 ┌──────────────────────┴──────────────────────────────┐
 │  src-tauri (thin adapter)                           │
 │  commands: run_projection, load_plan, save_plan,    │
-│            list_plans, get_presets                  │
-│  persistence: JSON files, atomic write, versioned   │
+│            list_plans, get_presets, storage settings│
+│  persistence: YAML files, atomic write, versioned,  │
+│               user-configurable location            │
 └──────────────────────┬──────────────────────────────┘
                        │ plain Rust call
 ┌──────────────────────┴──────────────────────────────┐
@@ -73,8 +74,10 @@ retirement/
 ├── src-tauri/
 │   ├── src/
 │   │   ├── main.rs / lib.rs
-│   │   ├── commands.rs        # run_projection, load/save/list_plan, get_presets
-│   │   └── storage.rs         # app_data_dir JSON I/O, atomic writes, schema_version
+│   │   ├── commands.rs        # run_projection, load/save/list_plan, get_presets, storage settings
+│   │   ├── storage.rs         # YAML plan I/O (base dir passed in), atomic writes, schema_version
+│   │   ├── settings.rs        # app-config-dir settings.json: user-chosen plans dir override
+│   │   └── migrate.rs         # copy-forward migration: legacy JSON, and relocation via Settings
 │   └── tauri.conf.json
 ├── src/
 │   ├── App.tsx
@@ -212,8 +215,9 @@ Frontend consumes `Projection` directly (generated types); the real-dollar toggl
 ### Tauri commands (`src-tauri/src/commands.rs`)
 
 - `run_projection(plan: Plan) -> Projection` — stateless; frontend sends full plan (small payload, ~KB).
-- `save_plan(plan) / load_plan(name) / list_plans()` — JSON in `app_data_dir`, atomic write + `.bak`, `schema_version` checked on load.
+- `save_plan(plan) / load_plan(name) / list_plans()` — YAML in the resolved plans directory, atomic write + `.bak`, `schema_version` checked on load. `load_plan` also runs the one-shot legacy-JSON migration check.
 - `get_presets() -> Presets` — allocations + default assumptions so defaults live in one place (Rust).
+- `get_storage_info() / choose_storage_dir() / set_storage_dir(path) / reveal_storage_dir()` — the Storage settings surface: report the effective/default plans dir, open a native folder picker, persist a new location (copying existing plans forward), and reveal the folder in Finder/Explorer.
 
 ---
 
@@ -245,7 +249,7 @@ Frontend consumes `Projection` directly (generated types); the real-dollar toggl
 The branch strategy and other session-spanning rules live in a root `CLAUDE.md`, which Claude Code auto-loads in every future session (and doubles as contributor docs). It will contain:
 - **Branch/PR workflow** (the strategy above: PR per milestone, squash merge, main always green, tag at V1).
 - **Architecture invariants:** engine crate stays Tauri-free; TS types are generated by ts-rs, never hand-edited; all dates are `YearMonth`; engine outputs nominal dollars + deflator; new behaviors go behind the `ReturnModel`/`TaxModel`/`DrawdownStrategy` traits.
-- **Privacy rule:** financial data never committed — plans live in `app_data_dir` or git-ignored `data/`; keep `.gitignore` covering it.
+- **Privacy rule:** financial data never committed — plans live in a user-configurable location (Documents by default) or git-ignored `data/`; keep `.gitignore` covering it.
 - **Dev commands:** `pnpm tauri dev`, `cargo test -p engine`, fmt/clippy/tsc checks to run before pushing.
 - **Roadmap pointer:** current milestone status and the V2 backlog list, updated as milestones land.
 

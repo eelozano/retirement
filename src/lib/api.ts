@@ -29,3 +29,28 @@ export function getPresets(): Promise<Presets> {
 export function engineVersion(): Promise<string> {
   return invoke<string>("engine_version");
 }
+
+// StorageInfo is a Tauri-command-only response shape (src-tauri/src/commands.rs),
+// not an engine domain type, so it isn't part of the ts-rs pipeline — hand-declared
+// here like any other command wrapper's shape.
+export interface StorageInfo {
+  effective_dir: string;
+  is_default: boolean;
+  default_dir: string;
+}
+
+export function getStorageInfo(): Promise<StorageInfo> {
+  return invoke<StorageInfo>("get_storage_info");
+}
+
+export function chooseStorageDir(): Promise<string | null> {
+  return invoke<string | null>("choose_storage_dir");
+}
+
+export function setStorageDir(path: string): Promise<void> {
+  return invoke<void>("set_storage_dir", { path });
+}
+
+export function revealStorageDir(): Promise<void> {
+  return invoke<void>("reveal_storage_dir");
+}
