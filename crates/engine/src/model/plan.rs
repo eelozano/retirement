@@ -35,11 +35,20 @@ pub struct SimConfig {
     pub display_real_dollars: bool,
 }
 
+pub type PlanId = String;
+
 /// The complete user plan — the single JSON document that is persisted, sent
 /// over IPC, and fed to `simulate`.
 #[derive(Serialize, Deserialize, TS, Clone, Debug)]
 #[ts(export)]
 pub struct Plan {
+    /// Stable identity, independent of the (editable, non-unique) `name` —
+    /// this is what a plan file is keyed by on disk, so renaming a plan is
+    /// an in-place edit rather than a file move. `#[serde(default)]` so
+    /// plans saved before scenario support (#6) load with an empty id; the
+    /// storage layer backfills it once from the pre-#6 filename slug.
+    #[serde(default)]
+    pub id: PlanId,
     pub schema_version: u32,
     pub name: String,
     pub people: Vec<Person>,

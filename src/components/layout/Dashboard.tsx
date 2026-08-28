@@ -11,6 +11,9 @@ import { StreamsSection } from "../inputs/StreamsSection";
 import { SocialSecuritySection } from "../inputs/SocialSecuritySection";
 import { AssumptionsSection } from "../inputs/AssumptionsSection";
 import { StorageSettings } from "./StorageSettings";
+import { ScenariosSettings } from "./ScenariosSettings";
+import { ComparisonView } from "./ComparisonView";
+import { depletionYear as computeDepletionYear } from "../../lib/projection";
 
 export function Dashboard() {
   const plan = usePlanStore((s) => s.plan);
@@ -19,8 +22,13 @@ export function Dashboard() {
   const error = usePlanStore((s) => s.error);
   const realDollars = usePlanStore((s) => s.realDollars);
   const setRealDollars = usePlanStore((s) => s.setRealDollars);
+  const scenarios = usePlanStore((s) => s.scenarios);
+  const switchScenario = usePlanStore((s) => s.switchScenario);
+  const updatePlan = usePlanStore((s) => s.updatePlan);
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [storageOpen, setStorageOpen] = useState(false);
+  const [scenariosOpen, setScenariosOpen] = useState(false);
+  const [compareMode, setCompareMode] = useState(false);
 
   const series = useMemo(() => (plan ? seriesDefs(plan) : []), [plan]);
   const rows = useMemo(
@@ -46,26 +54,46 @@ export function Dashboard() {
     );
   }
 
-  const depletion = projection.warnings.find(
-    (w): w is { DepletedFunds: { period: number } } =>
-      typeof w === "object" && "DepletedFunds" in w,
-  );
-  const depletionYear = depletion
-    ? (projection.snapshots[depletion.DepletedFunds.period]?.period_start.year ?? null)
-    : null;
+  const depletionYear = computeDepletionYear(projection);
 
   return (
     <div className="app-shell">
       <header className="topbar">
-        <button
-          type="button"
-          className="drawer-toggle"
-          aria-expanded={drawerOpen}
-          onClick={() => setDrawerOpen((open) => !open)}
-        >
-          ☰ Inputs
-        </button>
-        <h1>{plan.name}</h1>
+        {!compareMode && (
+          <button
+            type="button"
+            className="drawer-toggle"
+            aria-expanded={drawerOpen}
+            onClick={() => setDrawerOpen((open) => !open)}
+          >
+            ☰ Inputs
+          </button>
+        )}
+        <input
+          className="plan-name"
+          aria-label="Scenario name"
+          value={plan.name}
+          onChange={(e) =>
+            updatePlan((draft) => {
+              draft.name = e.currentTarget.value;
+            })
+          }
+        />
+        {scenarios.length > 1 && (
+          <select
+            className="scenario-switcher"
+            aria-label="Switch scenario"
+            value={plan.id}
+            disabled={projecting}
+            onChange={(e) => void switchScenario(e.currentTarget.value)}
+          >
+            {scenarios.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        )}
         <label className="dollar-toggle">
           <input
             type="checkbox"
@@ -77,6 +105,23 @@ export function Dashboard() {
         <button
           type="button"
           className="drawer-toggle"
+          onClick={() => setScenariosOpen(true)}
+        >
+          Scenarios…
+        </button>
+        {scenarios.length > 1 && (
+          <button
+            type="button"
+            className="drawer-toggle"
+            aria-pressed={compareMode}
+            onClick={() => setCompareMode((c) => !c)}
+          >
+            {compareMode ? "Back to editing" : "Compare…"}
+          </button>
+        )}
+        <button
+          type="button"
+          className="drawer-toggle"
           onClick={() => setStorageOpen(true)}
         >
           Storage…
@@ -84,10 +129,11 @@ export function Dashboard() {
       </header>
 
       <StorageSettings open={storageOpen} onClose={() => setStorageOpen(false)} />
+      <ScenariosSettings open={scenariosOpen} onClose={() => setScenariosOpen(false)} />
 
       {error && (
         <p role="alert" className="banner critical">
-          Couldn't save your plan:
+          Something went wrong:
           {"\n"}
           {error}
         </p>
@@ -101,7 +147,7 @@ export function Dashboard() {
       )}
 
       <div className="content">
-        {drawerOpen && (
+        {!compareMode && drawerOpen && (
           <aside className="drawer">
             <PeopleSection />
             <AccountsSection />
@@ -111,34 +157,40 @@ export function Dashboard() {
           </aside>
         )}
 
-        <main className={`charts ${projecting ? "refreshing" : ""}`}>
-          <SummaryStats
-            plan={plan}
-            projection={projection}
-            realDollars={realDollars}
-            depletionYear={depletionYear}
-          />
-          {series.length === 0 ? (
-            <section className="card">
-              <p className="empty-state">
-                Add an account in the drawer to see balance and net-worth
-                projections.
-              </p>
-            </section>
-          ) : (
-            <>
+        {compareMode ? (
+          <main className="charts">
+            <ComparisonView />
+          </main>
+        ) : (
+          <main className={`charts ${projecting ? "refreshing" : ""}`}>
+            <SummaryStats
+              plan={plan}
+              projection={projection}
+              realDollars={realDollars}
+              depletionYear={depletionYear}
+            />
+            {series.length === 0 ? (
               <section className="card">
-                <h2>Account balances</h2>
-                <BalancesChart rows={rows} series={series} />
+                <p className="empty-state">
+                  Add an account in the drawer to see balance and net-worth
+                  projections.
+                </p>
               </section>
-              <section className="card">
-                <h2>Net worth</h2>
-                <NetWorthChart rows={rows} plan={plan} depletionYear={depletionYear} />
-              </section>
-              <DataTable rows={rows} series={series} />
-            </>
-          )}
-        </main>
+            ) : (
+              <>
+                <section className="card">
+                  <h2>Account balances</h2>
+                  <BalancesChart rows={rows} series={series} />
+                </section>
+                <section className="card">
+                  <h2>Net worth</h2>
+                  <NetWorthChart rows={rows} plan={plan} depletionYear={depletionYear} />
+                </section>
+                <DataTable rows={rows} series={series} />
+              </>
+            )}
+          </main>
+        )}
       </div>
     </div>
   );

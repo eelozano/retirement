@@ -70,6 +70,10 @@ pub fn run_projection(plan: Plan) -> Result<Projection, String> {
 /// bootstrapping, checks for legacy pre-#13 JSON plans and migrates them
 /// into the new location as YAML — a one-shot, copy-forward check, not
 /// permanent dual-format support.
+///
+/// If a scenario was chosen as active in a previous session, it's loaded
+/// directly; otherwise falls back to `load_or_bootstrap`'s default (first
+/// stored plan, or a fresh seed).
 #[tauri::command]
 pub fn load_plan(app: tauri::AppHandle) -> Result<Plan, String> {
     let base = plans_base_dir(&app)?;
@@ -78,6 +82,13 @@ pub fn load_plan(app: tauri::AppHandle) -> Result<Plan, String> {
         if legacy_plans.exists() {
             migrate::migrate_json_dir_to_yaml(&legacy_plans, &base)?;
         }
+    }
+    if let Some(id) = settings::active_plan_id(&config_dir(&app)?) {
+        if let Ok(plan) = storage::load_plan(&base, &id) {
+            return Ok(plan);
+        }
+        // Active plan was deleted or moved out from under us — fall through
+        // to the default rather than erroring the whole app out.
     }
     storage::load_or_bootstrap(&base)
 }
@@ -88,9 +99,66 @@ pub fn save_plan(app: tauri::AppHandle, plan: Plan) -> Result<(), String> {
     storage::save_plan(&plans_base_dir(&app)?, &plan)
 }
 
+#[derive(Serialize)]
+pub struct PlanSummary {
+    id: String,
+    name: String,
+}
+
 #[tauri::command]
-pub fn list_plans(app: tauri::AppHandle) -> Result<Vec<String>, String> {
-    storage::list_plans(&plans_base_dir(&app)?)
+pub fn list_plans(app: tauri::AppHandle) -> Result<Vec<PlanSummary>, String> {
+    Ok(storage::list_plans(&plans_base_dir(&app)?)?
+        .into_iter()
+        .map(|s| PlanSummary {
+            id: s.id,
+            name: s.name,
+        })
+        .collect())
+}
+
+/// Loads a specific scenario by id, e.g. when switching in the scenario
+/// picker.
+#[tauri::command]
+pub fn load_plan_named(app: tauri::AppHandle, id: String) -> Result<Plan, String> {
+    storage::load_plan(&plans_base_dir(&app)?, &id)
+}
+
+/// Records which scenario should load on next launch.
+#[tauri::command]
+pub fn set_active_plan(app: tauri::AppHandle, id: String) -> Result<(), String> {
+    settings::set_active_plan_id(&config_dir(&app)?, &id)
+}
+
+/// Creates a new scenario as a deep copy of an existing one under a new
+/// name, so the user can branch off the base plan without losing it.
+#[tauri::command]
+pub fn duplicate_plan(app: tauri::AppHandle, id: String, new_name: String) -> Result<Plan, String> {
+    storage::duplicate_plan(&plans_base_dir(&app)?, &id, &new_name)
+}
+
+/// Removes a scenario. Never the last one — a plan-less app has nothing to
+/// show.
+#[tauri::command]
+pub fn delete_plan(app: tauri::AppHandle, id: String) -> Result<(), String> {
+    let base = plans_base_dir(&app)?;
+    if storage::list_plans(&base)?.len() <= 1 {
+        return Err("Can't delete the only scenario.".to_string());
+    }
+    storage::delete_plan(&base, &id)
+}
+
+/// Projects several scenarios in one round-trip for the comparison view.
+/// Each scenario's result is independent so one invalid or unsimulatable
+/// plan doesn't blank out the rest of the comparison.
+#[tauri::command]
+pub fn run_projections(plans: Vec<Plan>) -> Vec<Result<Projection, String>> {
+    plans
+        .iter()
+        .map(|plan| {
+            require_valid(plan)?;
+            Ok(engine::run_deterministic(plan))
+        })
+        .collect()
 }
 
 /// Where plans are currently stored, for display in the Storage settings

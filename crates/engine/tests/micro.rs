@@ -23,6 +23,7 @@ fn micro_plan() -> Plan {
     let person = "p1".to_string();
     let bonds_only = AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)]));
     Plan {
+        id: "micro".to_string(),
         schema_version: SCHEMA_VERSION,
         name: "micro".to_string(),
         people: vec![Person {

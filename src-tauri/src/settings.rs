@@ -18,6 +18,10 @@ struct SettingsFile {
     /// the computed default" (Documents/Retirement Planner, or the Linux
     /// fallback).
     plans_dir: Option<PathBuf>,
+    /// Id of the scenario shown on launch. `None` means "use whichever plan
+    /// `load_or_bootstrap` picks" (the first stored plan, or a fresh seed).
+    #[serde(default)]
+    active_plan_id: Option<String>,
 }
 
 fn settings_path(config_dir: &Path) -> PathBuf {
@@ -64,12 +68,21 @@ pub fn effective_plans_dir(config_dir: &Path, default: &Path) -> PathBuf {
 }
 
 pub fn set_plans_dir(config_dir: &Path, dir: &Path) -> Result<(), String> {
-    write(
-        config_dir,
-        &SettingsFile {
-            plans_dir: Some(dir.to_path_buf()),
-        },
-    )
+    let mut settings = read(config_dir);
+    settings.plans_dir = Some(dir.to_path_buf());
+    write(config_dir, &settings)
+}
+
+/// The scenario to show on launch, if one has been chosen; `None` defers to
+/// `load_or_bootstrap`'s default (first stored plan, or a fresh seed).
+pub fn active_plan_id(config_dir: &Path) -> Option<String> {
+    read(config_dir).active_plan_id
+}
+
+pub fn set_active_plan_id(config_dir: &Path, id: &str) -> Result<(), String> {
+    let mut settings = read(config_dir);
+    settings.active_plan_id = Some(id.to_string());
+    write(config_dir, &settings)
 }
 
 #[cfg(test)]
@@ -135,5 +148,38 @@ mod tests {
 
         set_plans_dir(&config.0, &chosen).unwrap();
         assert_eq!(effective_plans_dir(&config.0, &default), chosen);
+    }
+
+    #[test]
+    fn active_plan_id_unset_by_default() {
+        let config = TempDir::new("active-unset");
+        assert_eq!(active_plan_id(&config.0), None);
+    }
+
+    #[test]
+    fn set_active_plan_id_persists_and_is_read_back() {
+        let config = TempDir::new("active-roundtrip");
+        set_active_plan_id(&config.0, "sell-the-home").unwrap();
+        assert_eq!(active_plan_id(&config.0), Some("sell-the-home".to_string()));
+    }
+
+    #[test]
+    fn set_plans_dir_preserves_active_plan_id() {
+        let config = TempDir::new("independent-fields");
+        set_active_plan_id(&config.0, "sell-the-home").unwrap();
+        set_plans_dir(&config.0, &PathBuf::from("/custom/plans")).unwrap();
+        assert_eq!(active_plan_id(&config.0), Some("sell-the-home".to_string()));
+    }
+
+    #[test]
+    fn set_active_plan_id_preserves_plans_dir() {
+        let config = TempDir::new("independent-fields-2");
+        let chosen = PathBuf::from("/custom/plans");
+        set_plans_dir(&config.0, &chosen).unwrap();
+        set_active_plan_id(&config.0, "sell-the-home").unwrap();
+        assert_eq!(
+            effective_plans_dir(&config.0, &PathBuf::from("/default")),
+            chosen
+        );
     }
 }

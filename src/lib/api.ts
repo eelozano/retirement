@@ -10,16 +10,47 @@ export function runProjection(plan: Plan): Promise<Projection> {
   return invoke<Projection>("run_projection", { plan });
 }
 
+// One entry per scenario result, in the same order as the request — a
+// scenario that fails validation gets its own Err rather than blanking the
+// whole comparison. Neither shape is a ts-rs domain type (this is a
+// command-only response), so it's hand-declared like StorageInfo below.
+export type ProjectionResult = { Ok: Projection } | { Err: string };
+
+export function runProjections(plans: Plan[]): Promise<ProjectionResult[]> {
+  return invoke<ProjectionResult[]>("run_projections", { plans });
+}
+
 export function loadPlan(): Promise<Plan> {
   return invoke<Plan>("load_plan");
+}
+
+export function loadPlanNamed(id: string): Promise<Plan> {
+  return invoke<Plan>("load_plan_named", { id });
 }
 
 export function savePlan(plan: Plan): Promise<void> {
   return invoke<void>("save_plan", { plan });
 }
 
-export function listPlans(): Promise<string[]> {
-  return invoke<string[]>("list_plans");
+export interface PlanSummary {
+  id: string;
+  name: string;
+}
+
+export function listPlans(): Promise<PlanSummary[]> {
+  return invoke<PlanSummary[]>("list_plans");
+}
+
+export function setActivePlan(id: string): Promise<void> {
+  return invoke<void>("set_active_plan", { id });
+}
+
+export function duplicatePlan(id: string, newName: string): Promise<Plan> {
+  return invoke<Plan>("duplicate_plan", { id, newName });
+}
+
+export function deletePlan(id: string): Promise<void> {
+  return invoke<void>("delete_plan", { id });
 }
 
 export function getPresets(): Promise<Presets> {
