@@ -11,6 +11,7 @@ import { StreamsSection } from "../inputs/StreamsSection";
 import { SocialSecuritySection } from "../inputs/SocialSecuritySection";
 import { AssumptionsSection } from "../inputs/AssumptionsSection";
 import { StorageSettings } from "./StorageSettings";
+import { ScenariosSettings } from "./ScenariosSettings";
 
 export function Dashboard() {
   const plan = usePlanStore((s) => s.plan);
@@ -19,8 +20,12 @@ export function Dashboard() {
   const error = usePlanStore((s) => s.error);
   const realDollars = usePlanStore((s) => s.realDollars);
   const setRealDollars = usePlanStore((s) => s.setRealDollars);
+  const scenarios = usePlanStore((s) => s.scenarios);
+  const switchScenario = usePlanStore((s) => s.switchScenario);
+  const updatePlan = usePlanStore((s) => s.updatePlan);
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [storageOpen, setStorageOpen] = useState(false);
+  const [scenariosOpen, setScenariosOpen] = useState(false);
 
   const series = useMemo(() => (plan ? seriesDefs(plan) : []), [plan]);
   const rows = useMemo(
@@ -65,7 +70,31 @@ export function Dashboard() {
         >
           ☰ Inputs
         </button>
-        <h1>{plan.name}</h1>
+        <input
+          className="plan-name"
+          aria-label="Scenario name"
+          value={plan.name}
+          onChange={(e) =>
+            updatePlan((draft) => {
+              draft.name = e.currentTarget.value;
+            })
+          }
+        />
+        {scenarios.length > 1 && (
+          <select
+            className="scenario-switcher"
+            aria-label="Switch scenario"
+            value={plan.id}
+            disabled={projecting}
+            onChange={(e) => void switchScenario(e.currentTarget.value)}
+          >
+            {scenarios.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        )}
         <label className="dollar-toggle">
           <input
             type="checkbox"
@@ -77,6 +106,13 @@ export function Dashboard() {
         <button
           type="button"
           className="drawer-toggle"
+          onClick={() => setScenariosOpen(true)}
+        >
+          Scenarios…
+        </button>
+        <button
+          type="button"
+          className="drawer-toggle"
           onClick={() => setStorageOpen(true)}
         >
           Storage…
@@ -84,10 +120,11 @@ export function Dashboard() {
       </header>
 
       <StorageSettings open={storageOpen} onClose={() => setStorageOpen(false)} />
+      <ScenariosSettings open={scenariosOpen} onClose={() => setScenariosOpen(false)} />
 
       {error && (
         <p role="alert" className="banner critical">
-          Couldn't save your plan:
+          Something went wrong:
           {"\n"}
           {error}
         </p>

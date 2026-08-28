@@ -70,11 +70,33 @@ body {
   background: var(--surface-1);
 }
 
-.topbar h1 {
+.plan-name {
   font-size: 18px;
   font-weight: 600;
   margin: 0;
   flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-primary);
+}
+
+.plan-name:hover,
+.plan-name:focus {
+  border-color: var(--border);
+  background: var(--page);
+}
+
+.scenario-switcher {
+  font-size: 13px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--page);
+  color: var(--text-primary);
+  max-width: 200px;
 }
 
 .drawer-toggle {
@@ -458,6 +480,102 @@ button.remove:hover {
 }
 
 .storage-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Scenarios modal */
+.scenario-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.scenario-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.scenario-list li:last-child {
+  border-bottom: none;
+}
+
+.scenario-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scenario-active .scenario-name {
+  font-weight: 600;
+}
+
+.scenario-badge {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.scenario-list button {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.scenario-list button:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--muted);
+}
+
+.scenario-list button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.scenario-new {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.scenario-new input {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.scenario-new button {
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.scenario-new button:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--muted);
+}
+
+.scenario-new button:disabled {
   opacity: 0.5;
   cursor: default;
 }
