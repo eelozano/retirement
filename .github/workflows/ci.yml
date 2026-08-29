@@ -28,12 +28,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
 
       - name: Install frontend dependencies
@@ -58,8 +56,14 @@ jobs:
             exit 1
           fi
 
+      - name: Lint and format check
+        run: pnpm lint
+
       - name: TypeScript typecheck
         run: pnpm typecheck
+
+      - name: Production frontend build
+        run: pnpm build
 
       - name: Frontend tests
         run: pnpm test

@@ -9,8 +9,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { Plan } from "../../types/generated/Plan";
 import { currency, currencyCompact } from "../../lib/format";
+import type { Plan } from "../../types/generated/Plan";
 import type { FanRow } from "./monteCarloData";
 
 // Percentile fan: two nested stacked bands (p10-p90, p25-p75) under a
@@ -47,7 +47,10 @@ function FanTooltip(props: {
 export function MonteCarloChart(props: { rows: FanRow[]; plan: Plan }) {
   return (
     <ResponsiveContainer width="100%" height={320}>
-      <ComposedChart data={props.rows} margin={{ top: 32, right: 16, bottom: 0, left: 8 }}>
+      <ComposedChart
+        data={props.rows}
+        margin={{ top: 32, right: 16, bottom: 0, left: 8 }}
+      >
         <CartesianGrid stroke="var(--grid)" vertical={false} />
         <XAxis
           dataKey="year"
@@ -62,7 +65,10 @@ export function MonteCarloChart(props: { rows: FanRow[]; plan: Plan }) {
           axisLine={false}
           width={64}
         />
-        <Tooltip content={<FanTooltip />} cursor={{ stroke: "var(--axis)", strokeWidth: 1 }} />
+        <Tooltip
+          content={<FanTooltip />}
+          cursor={{ stroke: "var(--axis)", strokeWidth: 1 }}
+        />
         {props.plan.people.map((person, i) => (
           <ReferenceLine
             key={person.id}

@@ -1,6 +1,6 @@
+import { currencyCompact } from "../../lib/format";
 import type { Plan } from "../../types/generated/Plan";
 import type { Projection } from "../../types/generated/Projection";
-import { currencyCompact } from "../../lib/format";
 
 // KPI row of stat tiles: label + value (compact figure). The depletion tile
 // is status, not a series — reserved color plus icon + label, never color alone.
@@ -41,9 +41,7 @@ export function SummaryStats(props: {
         );
       })}
       <div className="stat-tile">
-        <span className="stat-label">
-          At plan end ({last?.period_start.year ?? "—"})
-        </span>
+        <span className="stat-label">At plan end ({last?.period_start.year ?? "—"})</span>
         <span className="stat-value">{currencyCompact(finalNetWorth)}</span>
       </div>
       <div className={`stat-tile ${props.depletionYear !== null ? "stat-critical" : ""}`}>

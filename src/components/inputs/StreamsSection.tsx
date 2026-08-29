@@ -1,6 +1,6 @@
+import { usePlanStore } from "../../store/planStore";
 import type { Plan } from "../../types/generated/Plan";
 import type { StreamBoundary } from "../../types/generated/StreamBoundary";
-import { usePlanStore } from "../../store/planStore";
 import { NumberField, SelectField, TextField, YearMonthField } from "./fields";
 
 // Boundary editing: a select for the boundary kind plus a month input when a
@@ -78,10 +78,12 @@ export function StreamsSection() {
           <SelectField
             label="Direction"
             value={stream.direction}
-            options={[
-              { value: "Income", label: "Income" },
-              { value: "Expense", label: "Expense" },
-            ] as const}
+            options={
+              [
+                { value: "Income", label: "Income" },
+                { value: "Expense", label: "Expense" },
+              ] as const
+            }
             onChange={(direction) =>
               updatePlan((d) => {
                 d.streams[i].direction = direction;
@@ -142,10 +144,12 @@ export function StreamsSection() {
           <SelectField
             label="Grows with"
             value={stream.growth === "Inflation" ? "Inflation" : "None"}
-            options={[
-              { value: "Inflation", label: "Inflation" },
-              { value: "None", label: "Nothing (flat)" },
-            ] as const}
+            options={
+              [
+                { value: "Inflation", label: "Inflation" },
+                { value: "None", label: "Nothing (flat)" },
+              ] as const
+            }
             onChange={(growth) =>
               updatePlan((d) => {
                 d.streams[i].growth = growth;

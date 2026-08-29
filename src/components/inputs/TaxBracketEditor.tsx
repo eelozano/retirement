@@ -23,7 +23,8 @@ export function TaxBracketEditor(props: {
 
   const addBracket = () => {
     const last = brackets[brackets.length - 1];
-    const prevBound = brackets.length >= 2 ? brackets[brackets.length - 2].up_to ?? 0 : 0;
+    const prevBound =
+      brackets.length >= 2 ? (brackets[brackets.length - 2].up_to ?? 0) : 0;
     const newBound = prevBound + 10_000;
     const inserted: TaxBracket = { up_to: newBound, rate: last.rate };
     setBrackets([...brackets.slice(0, -1), inserted, last]);

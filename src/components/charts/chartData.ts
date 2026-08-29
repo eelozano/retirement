@@ -20,13 +20,11 @@ export interface ChartRow {
 }
 
 export function seriesDefs(plan: Plan): SeriesDef[] {
-  const defs: SeriesDef[] = plan.accounts
-    .slice(0, MAX_SERIES)
-    .map((account, i) => ({
-      key: account.id,
-      label: account.name,
-      color: `var(--series-${i + 1})`,
-    }));
+  const defs: SeriesDef[] = plan.accounts.slice(0, MAX_SERIES).map((account, i) => ({
+    key: account.id,
+    label: account.name,
+    color: `var(--series-${i + 1})`,
+  }));
   if (plan.accounts.length > MAX_SERIES) {
     defs.push({ key: OTHER_KEY, label: "Other", color: "var(--muted)" });
   }

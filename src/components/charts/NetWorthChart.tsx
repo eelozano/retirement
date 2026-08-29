@@ -8,10 +8,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { Plan } from "../../types/generated/Plan";
 import { currencyCompact } from "../../lib/format";
-import type { ChartRow } from "./chartData";
+import type { Plan } from "../../types/generated/Plan";
 import { ChartTooltip } from "./ChartTooltip";
+import type { ChartRow } from "./chartData";
 
 // Single series: no legend box (the card title names it). Retirement dates
 // ride as labeled reference lines; a depletion year, if any, in the reserved

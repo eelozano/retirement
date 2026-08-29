@@ -36,17 +36,25 @@ cloud/network dependencies for user data.
 - One short-lived branch + one squash-merged PR per milestone. Claude Code
   session branches (`claude/*`) serve as milestone branches.
 - Commit freely in small steps on a branch; squash merge keeps `main` linear.
-- Tag `v1.0.0` on `main` when M4 lands.
+- Releases use a `0.x` scheme (`v0.1`, `v0.2`, …). Bump `package.json`,
+  `Cargo.toml` (`workspace.package.version`), and `src-tauri/tauri.conf.json`
+  together — all three, or none — then tag `v0.N` on `main`.
 
 ## Dev commands
 
 - `pnpm tauri dev` — run the app (needs webkit2gtk/gtk3 on Linux).
-- `cargo test -p engine` — engine tests (also exports ts-rs bindings).
+- `pnpm app:build` — build the installable `.dmg` for real use.
+- `pnpm check` — **run this before pushing.** It chains every gate CI runs, in
+  the same order: fmt, clippy, cargo test, type regeneration + drift check,
+  Biome lint, tsc, vitest. Green here means green in CI.
+- `cargo test -p engine` — engine tests alone (also exports ts-rs bindings).
 - `pnpm types:generate` — regenerate `src/types/generated/`.
-- Before pushing, all of these must pass:
-  `cargo fmt --all --check` · `cargo clippy --workspace --all-targets -- -D warnings`
-  · `cargo test --workspace` · `pnpm typecheck` — plus regenerate types and
-  confirm `git diff --exit-code src/types/generated`.
+- `pnpm format` — apply Biome formatting and safe fixes.
+
+Biome skips `src/types/generated/` — reformatting ts-rs output would make the
+CI drift check fail permanently. A few a11y and `noArrayIndexKey` rules are set
+to `warn` rather than `error` because fixing them needs real component changes;
+that debt is tracked in #20.
 
 ## Roadmap status
 
@@ -54,13 +62,16 @@ cloud/network dependencies for user data.
 - [x] M1 — Engine core: domain model, deterministic annual `simulate()`, tests
 - [x] M2 — IPC + persistence: commands, YAML storage, seed plan bootstrap
 - [x] M3 — Dashboard UI: input drawer, Recharts, nominal/real toggle
-- [x] M4 — Polish: validation, formatting, README, tag v1.0.0
+- [x] M4 — Polish: validation, formatting, README, first release tag
 
 V2 backlog: prioritized via a BPA against actual usage (periodic "how are we
-doing" check-ins + scenario comparison). Now-tier items are tracked as
-GitHub `Feature` issues, not duplicated here. All three have shipped:
+doing" check-ins + scenario comparison). Now-tier items are tracked as GitHub
+issues, not duplicated here. All three have shipped:
 multi-scenario comparison (#6), Monte Carlo (#8), federal/state tax
 brackets (#9).
+
+Filed and open: plan snapshot history / restore / export (#19), accessibility
+and lint debt (#20).
 
 Later (architected for, not yet filed — revisit closer to retirement):
 historical sequence backtesting, ordered drawdown, RMDs, employer match,
