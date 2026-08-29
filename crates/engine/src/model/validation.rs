@@ -192,11 +192,53 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
         }
     }
 
-    if !(0.0..=1.0).contains(&plan.assumptions.flat_tax_rate) {
+    if plan.assumptions.state_tax.standard_deduction < 0.0 {
         errors.push(err(
-            "assumptions.flat_tax_rate",
-            "Tax rate must be between 0% and 100%.",
+            "assumptions.state_tax.standard_deduction",
+            "State standard deduction can't be negative.",
         ));
+    }
+    let brackets = &plan.assumptions.state_tax.brackets;
+    if brackets.is_empty() {
+        errors.push(err(
+            "assumptions.state_tax.brackets",
+            "State tax needs at least one bracket.",
+        ));
+    } else {
+        let mut prev_up_to = 0.0;
+        let last = brackets.len() - 1;
+        for (i, bracket) in brackets.iter().enumerate() {
+            if !(0.0..=1.0).contains(&bracket.rate) {
+                errors.push(err(
+                    &format!("assumptions.state_tax.brackets[{i}].rate"),
+                    "Bracket rate must be between 0% and 100%.",
+                ));
+            }
+            match bracket.up_to {
+                Some(_) if i == last => {
+                    errors.push(err(
+                        &format!("assumptions.state_tax.brackets[{i}].up_to"),
+                        "The last bracket must be unbounded.",
+                    ));
+                }
+                Some(up_to) => {
+                    if up_to <= prev_up_to {
+                        errors.push(err(
+                            &format!("assumptions.state_tax.brackets[{i}].up_to"),
+                            "Brackets must have strictly ascending thresholds.",
+                        ));
+                    }
+                    prev_up_to = up_to;
+                }
+                None if i != last => {
+                    errors.push(err(
+                        &format!("assumptions.state_tax.brackets[{i}].up_to"),
+                        "Only the last bracket may be unbounded.",
+                    ));
+                }
+                None => {}
+            }
+        }
     }
     if plan.assumptions.inflation <= -1.0 {
         errors.push(err(
@@ -342,13 +384,62 @@ mod tests {
     }
 
     #[test]
-    fn catches_out_of_range_tax_rate() {
+    fn catches_out_of_range_state_bracket_rate() {
         let mut plan = seed_plan();
-        plan.assumptions.flat_tax_rate = 1.5;
+        plan.assumptions.state_tax.brackets = vec![crate::model::TaxBracket {
+            up_to: None,
+            rate: 1.5,
+        }];
         let errors = plan.validate();
         assert!(errors
             .iter()
-            .any(|e| e.field == "assumptions.flat_tax_rate"));
+            .any(|e| e.field == "assumptions.state_tax.brackets[0].rate"));
+    }
+
+    #[test]
+    fn catches_non_ascending_state_brackets() {
+        let mut plan = seed_plan();
+        plan.assumptions.state_tax.brackets = vec![
+            crate::model::TaxBracket {
+                up_to: Some(50_000.0),
+                rate: 0.05,
+            },
+            crate::model::TaxBracket {
+                up_to: Some(20_000.0),
+                rate: 0.06,
+            },
+            crate::model::TaxBracket {
+                up_to: None,
+                rate: 0.07,
+            },
+        ];
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "assumptions.state_tax.brackets[1].up_to"));
+    }
+
+    #[test]
+    fn catches_state_brackets_missing_unbounded_last_rung() {
+        let mut plan = seed_plan();
+        plan.assumptions.state_tax.brackets = vec![crate::model::TaxBracket {
+            up_to: Some(50_000.0),
+            rate: 0.05,
+        }];
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "assumptions.state_tax.brackets[0].up_to"));
+    }
+
+    #[test]
+    fn catches_negative_state_standard_deduction() {
+        let mut plan = seed_plan();
+        plan.assumptions.state_tax.standard_deduction = -1.0;
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "assumptions.state_tax.standard_deduction"));
     }
 
     #[test]

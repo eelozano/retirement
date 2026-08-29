@@ -3,6 +3,8 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use super::{FilingStatus, StateTaxProfile};
+
 /// Broad asset classes the engine models. Portfolio presets map fund tickers
 /// (VT, VTI, VXUS, BND) onto these.
 #[derive(Serialize, Deserialize, TS, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -26,8 +28,21 @@ pub struct Assumptions {
     /// deterministic `FixedReturns` model; stochastic models bring their own
     /// distribution parameters in V2).
     pub asset_returns: BTreeMap<AssetClass, f64>,
-    /// V1 flat tax rate applied to ordinary income and realized gains alike.
-    pub flat_tax_rate: f64,
+    /// Federal filing status — drives the federal bracket/standard-deduction
+    /// table and Social Security taxability thresholds `BracketTax` uses.
+    /// `#[serde(default)]` (→ `Single`) so plans saved before this field
+    /// existed load unchanged.
+    #[serde(default)]
+    pub filing_status: FilingStatus,
+    /// State income tax as an editable bracket schedule. A state picker in
+    /// the UI prefills this from `Presets::state_tax_profiles`, but the
+    /// stored brackets — not the state selection — are what `BracketTax`
+    /// evaluates, so user edits always stick. `#[serde(default)]` (→ no
+    /// state tax) so plans saved before this field existed load unchanged;
+    /// this also supersedes the old flat `flat_tax_rate` field, dropped in
+    /// favor of real bracket-table computation (#9).
+    #[serde(default)]
+    pub state_tax: StateTaxProfile,
     /// The simulation runs until every person reaches this age.
     pub plan_end_age: u8,
     /// When `true`, leftover household cash each period (income minus
