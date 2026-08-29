@@ -1,5 +1,7 @@
+mod monte_carlo;
 mod projection;
 
+pub use monte_carlo::{run_monte_carlo, MonteCarloConfig, MonteCarloResult, PeriodPercentiles};
 pub use projection::{PeriodSnapshot, Projection, SimWarning};
 
 use std::collections::BTreeMap;
