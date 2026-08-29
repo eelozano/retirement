@@ -1,7 +1,4 @@
 import { create } from "zustand";
-import type { Plan } from "../types/generated/Plan";
-import type { Presets } from "../types/generated/Presets";
-import type { Projection } from "../types/generated/Projection";
 import {
   deletePlan,
   duplicatePlan,
@@ -9,11 +6,14 @@ import {
   listPlans,
   loadPlan,
   loadPlanNamed,
+  type PlanSummary,
   runProjection,
   savePlan,
   setActivePlan,
-  type PlanSummary,
 } from "../lib/api";
+import type { Plan } from "../types/generated/Plan";
+import type { Presets } from "../types/generated/Presets";
+import type { Projection } from "../types/generated/Projection";
 
 // Inputs (plan) and results (projection) are kept separate so a stale
 // projection is detectable; edits debounce into re-project + save, and the
@@ -125,10 +125,7 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
       const latest = get().plan;
       if (!latest) return;
       try {
-        const [projection] = await Promise.all([
-          runProjection(latest),
-          savePlan(latest),
-        ]);
+        const [projection] = await Promise.all([runProjection(latest), savePlan(latest)]);
         // Drop stale results if another edit landed meanwhile.
         if (get().plan === latest) {
           set({ projection, projecting: false, error: null });

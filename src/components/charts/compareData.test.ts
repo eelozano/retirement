@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { Projection } from "../../types/generated/Projection";
 import type { PeriodSnapshot } from "../../types/generated/PeriodSnapshot";
-import { comparisonSummary, compareRows } from "./compareData";
+import type { Projection } from "../../types/generated/Projection";
+import { compareRows, comparisonSummary } from "./compareData";
 
 function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
   return {
@@ -20,7 +20,10 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
   };
 }
 
-function projection(snapshots: PeriodSnapshot[], warnings: Projection["warnings"] = []): Projection {
+function projection(
+  snapshots: PeriodSnapshot[],
+  warnings: Projection["warnings"] = [],
+): Projection {
   return { snapshots, warnings };
 }
 

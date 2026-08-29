@@ -9,10 +9,13 @@ import {
   YAxis,
 } from "recharts";
 import { currencyCompact } from "../../lib/format";
-import type { CompareRow, CompareSeriesDef } from "./compareData";
 import { ChartTooltip } from "./ChartTooltip";
+import type { CompareRow, CompareSeriesDef } from "./compareData";
 
-export function ComparisonChart(props: { rows: CompareRow[]; series: CompareSeriesDef[] }) {
+export function ComparisonChart(props: {
+  rows: CompareRow[];
+  series: CompareSeriesDef[];
+}) {
   return (
     <ResponsiveContainer width="100%" height={320}>
       <LineChart data={props.rows} margin={{ top: 8, right: 16, bottom: 0, left: 8 }}>

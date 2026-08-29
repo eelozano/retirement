@@ -2,11 +2,11 @@
 // from the ts-rs generated types — never hand-declare engine types here.
 
 import { invoke } from "@tauri-apps/api/core";
-import type { Plan } from "../types/generated/Plan";
-import type { Projection } from "../types/generated/Projection";
-import type { Presets } from "../types/generated/Presets";
 import type { MonteCarloConfig } from "../types/generated/MonteCarloConfig";
 import type { MonteCarloResult } from "../types/generated/MonteCarloResult";
+import type { Plan } from "../types/generated/Plan";
+import type { Presets } from "../types/generated/Presets";
+import type { Projection } from "../types/generated/Projection";
 
 export function runProjection(plan: Plan): Promise<Projection> {
   return invoke<Projection>("run_projection", { plan });

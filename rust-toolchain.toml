@@ -1,0 +1,7 @@
+# Pins the local toolchain so your machine matches CI. Kept deliberately in
+# sync with the `dtolnay/rust-toolchain` step in .github/workflows/ci.yml —
+# that action selects its channel by ref, not from this file, so if you pin a
+# specific version here, pin it there too.
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]

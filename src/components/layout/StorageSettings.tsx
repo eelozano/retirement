@@ -3,8 +3,8 @@ import {
   chooseStorageDir,
   getStorageInfo,
   revealStorageDir,
-  setStorageDir,
   type StorageInfo,
+  setStorageDir,
 } from "../../lib/api";
 
 interface StorageSettingsProps {

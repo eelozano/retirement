@@ -9,8 +9,8 @@ import {
   YAxis,
 } from "recharts";
 import { currencyCompact } from "../../lib/format";
-import type { ChartRow, SeriesDef } from "./chartData";
 import { ChartTooltip } from "./ChartTooltip";
+import type { ChartRow, SeriesDef } from "./chartData";
 
 export function BalancesChart(props: { rows: ChartRow[]; series: SeriesDef[] }) {
   return (

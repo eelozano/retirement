@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react";
+import { loadPlanNamed, type ProjectionResult, runProjections } from "../../lib/api";
 import { usePlanStore } from "../../store/planStore";
-import { loadPlanNamed, runProjections, type ProjectionResult } from "../../lib/api";
 import type { Plan } from "../../types/generated/Plan";
 import type { Projection } from "../../types/generated/Projection";
-import { compareRows, compareSeriesDefs, comparisonSummary, MAX_COMPARE } from "../charts/compareData";
 import { ComparisonChart } from "../charts/ComparisonChart";
 import { ComparisonTable } from "../charts/ComparisonTable";
+import {
+  compareRows,
+  compareSeriesDefs,
+  comparisonSummary,
+  MAX_COMPARE,
+} from "../charts/compareData";
 
 interface ScenarioResult {
   id: string;
@@ -43,7 +48,9 @@ export function ComparisonView() {
     (async () => {
       try {
         const plans: Plan[] = await Promise.all(
-          selectedIds.map((id) => (id === activePlan.id ? activePlan : loadPlanNamed(id))),
+          selectedIds.map((id) =>
+            id === activePlan.id ? activePlan : loadPlanNamed(id),
+          ),
         );
         const projections = await runProjections(plans);
         if (cancelled) return;

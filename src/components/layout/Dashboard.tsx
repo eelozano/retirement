@@ -1,20 +1,20 @@
 import { useMemo, useState } from "react";
+import { depletionYear as computeDepletionYear } from "../../lib/projection";
 import { usePlanStore } from "../../store/planStore";
-import { chartRows, seriesDefs } from "../charts/chartData";
 import { BalancesChart } from "../charts/BalancesChart";
+import { chartRows, seriesDefs } from "../charts/chartData";
+import { DataTable } from "../charts/DataTable";
 import { NetWorthChart } from "../charts/NetWorthChart";
 import { SummaryStats } from "../charts/SummaryStats";
-import { DataTable } from "../charts/DataTable";
-import { PeopleSection } from "../inputs/PeopleSection";
 import { AccountsSection } from "../inputs/AccountsSection";
-import { StreamsSection } from "../inputs/StreamsSection";
-import { SocialSecuritySection } from "../inputs/SocialSecuritySection";
 import { AssumptionsSection } from "../inputs/AssumptionsSection";
-import { StorageSettings } from "./StorageSettings";
-import { ScenariosSettings } from "./ScenariosSettings";
+import { PeopleSection } from "../inputs/PeopleSection";
+import { SocialSecuritySection } from "../inputs/SocialSecuritySection";
+import { StreamsSection } from "../inputs/StreamsSection";
 import { ComparisonView } from "./ComparisonView";
 import { MonteCarloView } from "./MonteCarloView";
-import { depletionYear as computeDepletionYear } from "../../lib/projection";
+import { ScenariosSettings } from "./ScenariosSettings";
+import { StorageSettings } from "./StorageSettings";
 
 export function Dashboard() {
   const plan = usePlanStore((s) => s.plan);
@@ -152,8 +152,8 @@ export function Dashboard() {
 
       {depletionYear !== null && (
         <p role="alert" className="banner critical">
-          ⚠ Portfolio depletes in {depletionYear} — spending exceeds what the
-          accounts can fund.
+          ⚠ Portfolio depletes in {depletionYear} — spending exceeds what the accounts can
+          fund.
         </p>
       )}
 
@@ -187,8 +187,7 @@ export function Dashboard() {
             {series.length === 0 ? (
               <section className="card">
                 <p className="empty-state">
-                  Add an account in the drawer to see balance and net-worth
-                  projections.
+                  Add an account in the drawer to see balance and net-worth projections.
                 </p>
               </section>
             ) : (

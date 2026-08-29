@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { usePlanStore } from "../../store/planStore";
 import { runMonteCarlo } from "../../lib/api";
+import { currencyCompact } from "../../lib/format";
+import { usePlanStore } from "../../store/planStore";
 import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
 import { MonteCarloChart } from "../charts/MonteCarloChart";
 import { fanRows, successTone } from "../charts/monteCarloData";
-import { currencyCompact } from "../../lib/format";
 
 // Run on demand, not on every plan edit: hundreds of paths is orders of
 // magnitude more work than the deterministic projection that re-runs on the
@@ -43,9 +43,9 @@ export function MonteCarloView() {
     <section className="card monte-carlo-view">
       <h2>Monte Carlo</h2>
       <p className="compare-hint">
-        Re-runs {plan.name} across many random market sequences, using the same
-        expected returns with historical volatility applied. Success means the
-        portfolio never runs out before plan end.
+        Re-runs {plan.name} across many random market sequences, using the same expected
+        returns with historical volatility applied. Success means the portfolio never runs
+        out before plan end.
       </p>
 
       <div className="mc-controls">
@@ -89,9 +89,7 @@ export function MonteCarloView() {
             </div>
             <div className="stat-tile">
               <span className="stat-label">Median at plan end</span>
-              <span className="stat-value">
-                {last ? currencyCompact(last.p50) : "—"}
-              </span>
+              <span className="stat-value">{last ? currencyCompact(last.p50) : "—"}</span>
             </div>
             <div className="stat-tile">
               <span className="stat-label">Range at plan end (10th–90th)</span>

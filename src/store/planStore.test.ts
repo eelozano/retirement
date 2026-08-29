@@ -33,7 +33,11 @@ function makePlan(overrides: Partial<Plan>): Plan {
       inflation: 0.03,
       asset_returns: {},
       filing_status: "Single",
-      state_tax: { state: "Other", brackets: [{ up_to: null, rate: 0 }], standard_deduction: 0 },
+      state_tax: {
+        state: "Other",
+        brackets: [{ up_to: null, rate: 0 }],
+        standard_deduction: 0,
+      },
       plan_end_age: 95,
       sweep_surplus_to_taxable: false,
       social_security_cola: 0,
