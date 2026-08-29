@@ -38,8 +38,9 @@ For actual use, build and install the app rather than running a dev server:
 pnpm app:build
 ```
 
-This produces a `.dmg` under `src-tauri/target/release/bundle/dmg/`. Open it and
-drag **Retirement Planner** to Applications.
+This produces a `.dmg` under `target/release/bundle/dmg/` (the Cargo workspace
+target dir lives at the repo root, not under `src-tauri/`). Open it and drag
+**Retirement Planner** to Applications.
 
 The build is unsigned — there's no Apple Developer account behind this — so
 macOS will refuse to open it the first time. Clear the quarantine flag once:
