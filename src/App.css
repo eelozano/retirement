@@ -19,6 +19,7 @@
   --series-7: #4a3aa7;
   --series-8: #e34948;
   --status-critical: #d03b3b;
+  --status-warn: #b57200;
   --status-good: #1a8a4a;
 }
 
@@ -41,6 +42,7 @@
     --series-7: #9085e9;
     --series-8: #e66767;
     --status-critical: #d03b3b;
+    --status-warn: #d99b12;
     --status-good: #3fbd6f;
   }
 }
@@ -346,6 +348,14 @@ button.remove:hover {
 
 .stat-critical .stat-value {
   color: var(--status-critical);
+}
+
+.stat-warn .stat-value {
+  color: var(--status-warn);
+}
+
+.stat-good .stat-value {
+  color: var(--status-good);
 }
 
 /* Banners */
@@ -713,4 +723,24 @@ button.remove:hover {
     border-bottom: 1px solid var(--border);
     max-height: 45vh;
   }
+}
+
+/* Monte Carlo view */
+.mc-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.mc-controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.monte-carlo-view .stat-row {
+  margin-bottom: 16px;
 }

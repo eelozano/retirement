@@ -5,6 +5,8 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Plan } from "../types/generated/Plan";
 import type { Projection } from "../types/generated/Projection";
 import type { Presets } from "../types/generated/Presets";
+import type { MonteCarloConfig } from "../types/generated/MonteCarloConfig";
+import type { MonteCarloResult } from "../types/generated/MonteCarloResult";
 
 export function runProjection(plan: Plan): Promise<Projection> {
   return invoke<Projection>("run_projection", { plan });
@@ -18,6 +20,13 @@ export type ProjectionResult = { Ok: Projection } | { Err: string };
 
 export function runProjections(plans: Plan[]): Promise<ProjectionResult[]> {
   return invoke<ProjectionResult[]>("run_projections", { plans });
+}
+
+export function runMonteCarlo(
+  plan: Plan,
+  config: MonteCarloConfig,
+): Promise<MonteCarloResult> {
+  return invoke<MonteCarloResult>("run_monte_carlo", { plan, config });
 }
 
 export function loadPlan(): Promise<Plan> {
