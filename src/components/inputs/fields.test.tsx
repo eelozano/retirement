@@ -1,10 +1,9 @@
-import { useState } from "react";
-import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import { NumberField, PercentField, YearMonthField } from "./fields";
+import { useState } from "react";
+import { describe, expect, it } from "vitest";
 import type { YearMonth } from "../../types/generated/YearMonth";
+import { NumberField, PercentField, YearMonthField } from "./fields";
 
 // These cover the "input fights the user while typing" class of bug: the
 // fields are controlled and re-derived from the store on every keystroke, so

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { usePlanStore } from "./store/planStore";
 import { Dashboard } from "./components/layout/Dashboard";
+import { usePlanStore } from "./store/planStore";
 import "./App.css";
 
 function App() {

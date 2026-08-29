@@ -1,5 +1,5 @@
-import type { Projection } from "../../types/generated/Projection";
 import { depletionYear } from "../../lib/projection";
+import type { Projection } from "../../types/generated/Projection";
 
 // Comparing net worth across scenarios, not accounts within one — a
 // separate palette assignment from chartData.ts's per-account series, but
@@ -45,9 +45,7 @@ export function compareRows(
   realDollars: boolean,
 ): CompareRow[] {
   const byYear = scenarios.map(({ id, projection }) => {
-    const snapshots = new Map(
-      projection.snapshots.map((s) => [s.period_start.year, s]),
-    );
+    const snapshots = new Map(projection.snapshots.map((s) => [s.period_start.year, s]));
     return { id, snapshots };
   });
 
@@ -56,14 +54,16 @@ export function compareRows(
     for (const year of snapshots.keys()) years.add(year);
   }
 
-  return [...years].sort((a, b) => a - b).map((year) => {
-    const row: CompareRow = { year };
-    for (const { id, snapshots } of byYear) {
-      const snap = snapshots.get(year);
-      row[id] = snap ? snap.net_worth / (realDollars ? snap.deflator : 1) : null;
-    }
-    return row;
-  });
+  return [...years]
+    .sort((a, b) => a - b)
+    .map((year) => {
+      const row: CompareRow = { year };
+      for (const { id, snapshots } of byYear) {
+        const snap = snapshots.get(year);
+        row[id] = snap ? snap.net_worth / (realDollars ? snap.deflator : 1) : null;
+      }
+      return row;
+    });
 }
 
 export interface ComparisonSummaryRow {

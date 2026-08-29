@@ -1,7 +1,7 @@
+import { usePlanStore } from "../../store/planStore";
 import type { AssetClass } from "../../types/generated/AssetClass";
 import type { FilingStatus } from "../../types/generated/FilingStatus";
 import type { StateCode } from "../../types/generated/StateCode";
-import { usePlanStore } from "../../store/planStore";
 import { CheckboxField, NumberField, PercentField, SelectField } from "./fields";
 import { TaxBracketEditor } from "./TaxBracketEditor";
 

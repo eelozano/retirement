@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import type { YearMonth } from "../../types/generated/YearMonth";
 import { percentToRate, rateToPercent } from "../../lib/format";
+import type { YearMonth } from "../../types/generated/YearMonth";
 
 // Small controlled field primitives shared by the drawer forms.
 //
@@ -210,9 +210,7 @@ export function YearMonthField(props: {
         <select
           aria-label={`${props.label} month`}
           value={month}
-          onChange={(e) =>
-            props.onChange({ year, month: Number(e.currentTarget.value) })
-          }
+          onChange={(e) => props.onChange({ year, month: Number(e.currentTarget.value) })}
         >
           {MONTH_NAMES.map((name, i) => (
             <option key={name} value={i + 1}>
@@ -226,9 +224,7 @@ export function YearMonthField(props: {
           min={props.minYear ?? 1900}
           max={props.maxYear ?? 2200}
           step={1}
-          onCommit={(nextYear) =>
-            props.onChange({ year: Math.round(nextYear), month })
-          }
+          onCommit={(nextYear) => props.onChange({ year: Math.round(nextYear), month })}
         />
       </span>
     </div>

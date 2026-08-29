@@ -1,7 +1,7 @@
-import type { Plan } from "../../types/generated/Plan";
-import { usePlanStore } from "../../store/planStore";
 import { currency } from "../../lib/format";
 import { adjustmentFactor } from "../../lib/socialSecurity";
+import { usePlanStore } from "../../store/planStore";
+import type { Plan } from "../../types/generated/Plan";
 import { CheckboxField, NumberField, PercentField, SelectField } from "./fields";
 
 const CLAIMING_AGES = Array.from({ length: 9 }, (_, i) => String(62 + i));
@@ -38,7 +38,9 @@ export function SocialSecuritySection() {
 
         return (
           <fieldset key={benefit.id}>
-            <legend>{owner ? `${owner.name}'s Social Security` : `Benefit ${i + 1}`}</legend>
+            <legend>
+              {owner ? `${owner.name}'s Social Security` : `Benefit ${i + 1}`}
+            </legend>
             <SelectField
               label="Owner"
               value={benefit.owner}

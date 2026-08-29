@@ -1,6 +1,6 @@
+import { usePlanStore } from "../../store/planStore";
 import type { AccountKind } from "../../types/generated/AccountKind";
 import type { AllocationRef } from "../../types/generated/AllocationRef";
-import { usePlanStore } from "../../store/planStore";
 import { NumberField, SelectField, TextField } from "./fields";
 
 const KIND_OPTIONS = [
