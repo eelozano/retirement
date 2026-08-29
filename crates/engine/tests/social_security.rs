@@ -48,7 +48,8 @@ fn plan_with(
         assumptions: engine::model::Assumptions {
             inflation: 0.0,
             asset_returns: Default::default(),
-            flat_tax_rate: 0.0,
+            filing_status: engine::model::FilingStatus::Single,
+            state_tax: engine::model::StateTaxProfile::none(),
             plan_end_age: claiming_age + 3,
             sweep_surplus_to_taxable: false,
             social_security_cola: plan_cola,

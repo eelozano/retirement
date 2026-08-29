@@ -7,22 +7,25 @@
 pub mod model;
 pub mod presets;
 pub mod sim;
+mod state_tax_data;
 pub mod strategies;
 
 pub use model::{Plan, YearMonth};
 pub use sim::{simulate, PeriodSnapshot, Projection, SimWarning};
 
-use strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
+use strategies::{BracketTax, FixedReturns, ProportionalDrawdown};
 
-/// The V1 configuration: deterministic fixed returns, flat tax, proportional
-/// drawdown — all read from the plan's assumptions.
+/// The V1 configuration: deterministic fixed returns, federal + state
+/// bracket tax, proportional drawdown — all read from the plan's
+/// assumptions.
 pub fn run_deterministic(plan: &Plan) -> Projection {
     let returns = FixedReturns::new(
         &plan.assumptions.asset_returns,
         plan.sim_config.period.months(),
     );
-    let tax = FlatTax {
-        rate: plan.assumptions.flat_tax_rate,
+    let tax = BracketTax {
+        filing_status: plan.assumptions.filing_status,
+        state_tax: plan.assumptions.state_tax.clone(),
     };
     simulate(plan, &returns, &tax, &ProportionalDrawdown, 0)
 }

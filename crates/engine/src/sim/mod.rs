@@ -62,14 +62,23 @@ pub fn simulate(
         }
     }
 
-    // Resolve stream boundaries to concrete months once.
-    let mut resolved_streams: Vec<(&CashFlowStream, YearMonth, YearMonth)> = Vec::new();
-    for stream in plan.streams.iter().chain(derived_streams.iter()) {
+    // Resolve stream boundaries to concrete months once. `is_social_security`
+    // marks streams materialized from `plan.social_security` so step 1 can
+    // tally their income separately — the federal tax model applies the
+    // partial-taxability rule to Social Security instead of taxing it as
+    // plain ordinary income.
+    let mut resolved_streams: Vec<(&CashFlowStream, YearMonth, YearMonth, bool)> = Vec::new();
+    let tagged_streams = plan
+        .streams
+        .iter()
+        .map(|s| (s, false))
+        .chain(derived_streams.iter().map(|s| (s, true)));
+    for (stream, is_social_security) in tagged_streams {
         match (
             resolve_boundary(plan, &stream.start, start, end),
             resolve_boundary(plan, &stream.end, start, end),
         ) {
-            (Some(s), Some(e)) => resolved_streams.push((stream, s, e)),
+            (Some(s), Some(e)) => resolved_streams.push((stream, s, e, is_social_security)),
             _ => push_warning(
                 &mut warnings,
                 SimWarning::UnknownPersonRef {
@@ -100,8 +109,9 @@ pub fn simulate(
 
         // 1. Streams.
         let mut income = 0.0;
+        let mut ss_income = 0.0;
         let mut expenses = 0.0;
-        for (stream, s, e) in &resolved_streams {
+        for (stream, s, e, is_social_security) in &resolved_streams {
             let fraction = overlap_fraction(period_start, period_end, *s, *e);
             if fraction <= 0.0 {
                 continue;
@@ -109,7 +119,12 @@ pub fn simulate(
             let growth = growth_factor(stream.growth, plan.assumptions.inflation, years_elapsed);
             let amount = stream.annual_amount * growth * fraction * (period_months as f64 / 12.0);
             match stream.direction {
-                StreamDirection::Income => income += amount,
+                StreamDirection::Income => {
+                    income += amount;
+                    if *is_social_security {
+                        ss_income += amount;
+                    }
+                }
                 StreamDirection::Expense => expenses += amount,
             }
         }
@@ -148,11 +163,13 @@ pub fn simulate(
             contributions += amount;
         }
 
-        // 3. Tax on income (pre-tax deferrals reduce ordinary income).
+        // 3. Tax on income (pre-tax deferrals reduce ordinary income; Social
+        // Security is carried separately since it's only partially taxable).
         let income_tax = tax
             .tax(
                 &IncomeBreakdown {
-                    ordinary: (income - pretax_contributions).max(0.0),
+                    ordinary: (income - ss_income - pretax_contributions).max(0.0),
+                    social_security: ss_income,
                     ..Default::default()
                 },
                 period,

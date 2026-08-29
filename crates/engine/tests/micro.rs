@@ -13,11 +13,28 @@
 use std::collections::BTreeMap;
 
 use engine::model::{
-    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, GrowthRule,
-    PeriodLength, Person, Plan, SimConfig, StreamBoundary, StreamDirection, YearMonth,
-    SCHEMA_VERSION,
+    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, FilingStatus,
+    GrowthRule, PeriodLength, Person, Plan, SimConfig, StateTaxProfile, StreamBoundary,
+    StreamDirection, YearMonth, SCHEMA_VERSION,
 };
-use engine::run_deterministic;
+use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
+use engine::{simulate, Projection};
+
+/// `run_deterministic` now taxes via real federal/state brackets
+/// (`BracketTax`), which would make this file's hand-computed dollar
+/// amounts depend on IRS bracket data instead of arithmetic anyone can
+/// verify on paper. These tests care about `simulate()`'s own mechanics —
+/// contributions, growth, withdrawal gross-up — not tax-law accuracy (that
+/// has its own coverage in `strategies::tax`), so they call `simulate()`
+/// directly with the trivial flat-rate `FlatTax`, matching the plan's old
+/// "20% flat tax" framing exactly.
+fn run_with_flat_tax(plan: &Plan, rate: f64) -> Projection {
+    let returns = FixedReturns::new(
+        &plan.assumptions.asset_returns,
+        plan.sim_config.period.months(),
+    );
+    simulate(plan, &returns, &FlatTax { rate }, &ProportionalDrawdown, 0)
+}
 
 fn micro_plan() -> Plan {
     let person = "p1".to_string();
@@ -69,7 +86,8 @@ fn micro_plan() -> Plan {
         assumptions: Assumptions {
             inflation: 0.0,
             asset_returns: BTreeMap::from([(AssetClass::UsBonds, 0.10)]),
-            flat_tax_rate: 0.20,
+            filing_status: FilingStatus::Single,
+            state_tax: StateTaxProfile::none(),
             // Person is 60 at plan start (2026); age 63 → end month 2029-01,
             // giving exactly 3 annual periods.
             plan_end_age: 63,
@@ -93,7 +111,7 @@ fn assert_close(actual: f64, expected: f64, label: &str) {
 
 #[test]
 fn three_periods_match_hand_computation() {
-    let projection = run_deterministic(&micro_plan());
+    let projection = run_with_flat_tax(&micro_plan(), 0.20);
     assert_eq!(projection.snapshots.len(), 3);
     assert!(
         projection.warnings.is_empty(),
@@ -153,7 +171,7 @@ fn sweep_disabled_leaves_surplus_uninvested_but_reported() {
     let plan = micro_plan_with_taxable_account();
     assert!(!plan.assumptions.sweep_surplus_to_taxable);
 
-    let projection = run_deterministic(&plan);
+    let projection = run_with_flat_tax(&plan, 0.20);
     let p0 = &projection.snapshots[0];
     assert_close(p0.surplus, 12_000.0, "p0 surplus");
     assert_close(
@@ -168,7 +186,7 @@ fn sweep_enabled_invests_surplus_into_taxable_account() {
     let mut plan = micro_plan_with_taxable_account();
     plan.assumptions.sweep_surplus_to_taxable = true;
 
-    let projection = run_deterministic(&plan);
+    let projection = run_with_flat_tax(&plan, 0.20);
     let p0 = &projection.snapshots[0];
     assert_close(p0.surplus, 12_000.0, "p0 surplus");
     assert_close(
@@ -186,7 +204,7 @@ fn depletion_emits_warning_and_balances_stay_nonnegative() {
             stream.annual_amount = 200_000.0;
         }
     }
-    let projection = run_deterministic(&plan);
+    let projection = run_with_flat_tax(&plan, 0.20);
     assert!(projection
         .warnings
         .iter()
@@ -202,7 +220,7 @@ fn depletion_emits_warning_and_balances_stay_nonnegative() {
 fn contribution_above_limit_is_clamped_with_warning() {
     let mut plan = micro_plan();
     plan.accounts[0].annual_contribution = 60_000.0; // limit stays 10k
-    let projection = run_deterministic(&plan);
+    let projection = run_with_flat_tax(&plan, 0.20);
     assert!(projection
         .warnings
         .iter()

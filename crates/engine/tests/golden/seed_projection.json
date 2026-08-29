@@ -13,9 +13,9 @@
       },
       "income": 250000.0,
       "expenses": 96000.0,
-      "taxes": 49940.0,
+      "taxes": 44663.0,
       "contributions": 70000.0,
-      "surplus": 34060.0,
+      "surplus": 39337.0,
       "withdrawals": {},
       "net_worth": 751475.75,
       "deflator": 1.0
@@ -33,9 +33,9 @@
       },
       "income": 256250.0,
       "expenses": 98399.99999999999,
-      "taxes": 51315.0,
+      "taxes": 46663.0,
       "contributions": 70000.0,
-      "surplus": 36535.000000000015,
+      "surplus": 41187.000000000015,
       "withdrawals": {},
       "net_worth": 881902.1871875001,
       "deflator": 1.025
@@ -53,9 +53,9 @@
       },
       "income": 262656.25,
       "expenses": 100859.99999999999,
-      "taxes": 52724.375,
+      "taxes": 48713.0,
       "contributions": 70000.0,
-      "surplus": 39071.875000000015,
+      "surplus": 43083.250000000015,
       "withdrawals": {},
       "net_worth": 1021939.5124074533,
       "deflator": 1.050625
@@ -73,9 +73,9 @@
       },
       "income": 269222.6562499999,
       "expenses": 103381.49999999997,
-      "taxes": 54168.98437499998,
+      "taxes": 50814.24999999996,
       "contributions": 70000.0,
-      "surplus": 41672.17187499994,
+      "surplus": 45026.90624999994,
       "withdrawals": {},
       "net_worth": 1172296.6692256145,
       "deflator": 1.0768906249999997
@@ -93,9 +93,9 @@
       },
       "income": 275953.2226562499,
       "expenses": 105966.03749999996,
-      "taxes": 55649.70898437498,
+      "taxes": 52968.03124999996,
       "contributions": 70000.0,
-      "surplus": 44337.47617187495,
+      "surplus": 47019.15390624995,
       "withdrawals": {},
       "net_worth": 1333734.945741578,
       "deflator": 1.1038128906249995
@@ -113,9 +113,9 @@
       },
       "income": 282852.05322265613,
       "expenses": 108615.18843749995,
-      "taxes": 57167.45170898435,
+      "taxes": 55175.65703124996,
       "contributions": 70000.0,
-      "surplus": 47069.413076171826,
+      "surplus": 49061.20775390623,
       "withdrawals": {},
       "net_worth": 1507071.8427664463,
       "deflator": 1.1314082128906244
@@ -133,9 +133,9 @@
       },
       "income": 289923.3545532225,
       "expenses": 111330.56814843744,
-      "taxes": 58723.13800170895,
+      "taxes": 57457.924093627866,
       "contributions": 70000.0,
-      "surplus": 49869.64840307609,
+      "surplus": 51134.86231115718,
       "withdrawals": {},
       "net_worth": 1693185.2280777723,
       "deflator": 1.15969341821289
@@ -153,9 +153,9 @@
       },
       "income": 297171.4384170531,
       "expenses": 114113.83235214838,
-      "taxes": 60317.71645175168,
+      "taxes": 59994.75344596858,
       "contributions": 70000.0,
-      "surplus": 52739.88961315302,
+      "surplus": 53062.852618936115,
       "withdrawals": {},
       "net_worth": 1893017.797924226,
       "deflator": 1.1886857536682123
@@ -173,9 +173,9 @@
       },
       "income": 304600.7243774793,
       "expenses": 116966.67816095205,
-      "taxes": 61952.159363045444,
+      "taxes": 62595.00353211775,
       "contributions": 70000.0,
-      "surplus": 55681.88685348179,
+      "surplus": 55039.042684409476,
       "withdrawals": {},
       "net_worth": 2107581.868520414,
       "deflator": 1.2184028975099173
@@ -193,9 +193,9 @@
       },
       "income": 312215.7424869163,
       "expenses": 119890.84511497586,
-      "taxes": 63627.463347121586,
+      "taxes": 65260.259870420705,
       "contributions": 70000.0,
-      "surplus": 58697.43402481887,
+      "surplus": 57064.63750151974,
       "withdrawals": {},
       "net_worth": 2337964.521956461,
       "deflator": 1.2488629699476652
@@ -213,9 +213,9 @@
       },
       "income": 320021.13604908914,
       "expenses": 122888.11624285024,
-      "taxes": 65344.64993079961,
+      "taxes": 67992.1476171812,
       "contributions": 70000.0,
-      "surplus": 61788.36987543928,
+      "surplus": 59140.872189057714,
       "withdrawals": {},
       "net_worth": 2585333.1327559315,
       "deflator": 1.2800845441963566
@@ -233,9 +233,9 @@
       },
       "income": 328021.66445031634,
       "expenses": 125960.3191489215,
-      "taxes": 67104.7661790696,
+      "taxes": 70792.33255761072,
       "contributions": 70000.0,
-      "surplus": 64956.57912232526,
+      "surplus": 61269.012743784144,
       "withdrawals": {},
       "net_worth": 2850941.3032587026,
       "deflator": 1.3120866578012655
@@ -253,9 +253,9 @@
       },
       "income": 257770.35798054026,
       "expenses": 129109.32712764452,
-      "taxes": 53757.81208905219,
+      "taxes": 50216.181220439554,
       "contributions": 43750.0,
-      "surplus": 31153.218763843543,
+      "surplus": 34694.849632456186,
       "withdrawals": {},
       "net_worth": 3107929.613092437,
       "deflator": 1.344888824246297
@@ -267,21 +267,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 359353.3368027537,
-        "enrique-401k": 1620419.3006092808,
-        "taxable-brokerage": 1337900.3826799176
+        "claire-roth": 360713.47355691856,
+        "enrique-401k": 1626552.5172019694,
+        "taxable-brokerage": 1342964.2774529136
       },
       "income": 151636.21493376995,
       "expenses": 132337.06030583562,
-      "taxes": 37155.48459617183,
+      "taxes": 25459.69158410479,
       "contributions": 7000.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 2709.737719709501,
-        "enrique-401k": 12130.79361400695,
-        "taxable-brokerage": 10015.798634519206
+        "claire-roth": 1434.7091242890058,
+        "enrique-401k": 6422.820982374781,
+        "taxable-brokerage": 5303.006849506671
       },
-      "net_worth": 3317673.020091952,
+      "net_worth": 3330230.2682118015,
       "deflator": 1.3785110448524542
     },
     {
@@ -291,21 +291,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 387827.01074929157,
-        "enrique-401k": 1727862.0933748498,
-        "taxable-brokerage": 1426610.6032402406
+        "claire-roth": 390661.22781426634,
+        "enrique-401k": 1740614.614983547,
+        "taxable-brokerage": 1437139.732049059
       },
       "income": 155427.12030711424,
       "expenses": 135645.48681348152,
-      "taxes": 38136.558782897606,
+      "taxes": 26369.50887370742,
       "contributions": 7000.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 2793.917304941132,
-        "enrique-401k": 12357.789790435032,
-        "taxable-brokerage": 10203.218193886227
+        "claire-roth": 1497.1831287335954,
+        "enrique-401k": 6622.675430404092,
+        "taxable-brokerage": 5468.016820937005
       },
-      "net_worth": 3542299.707364382,
+      "net_worth": 3568415.574846872,
       "deflator": 1.4129738209737657
     },
     {
@@ -315,21 +315,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 418112.8470880131,
-        "enrique-401k": 1843060.1180645453,
-        "taxable-brokerage": 1521723.9367202625
+        "claire-roth": 422541.0124492416,
+        "enrique-401k": 1862953.4941428946,
+        "taxable-brokerage": 1538148.917253395
       },
       "income": 159312.79831479205,
       "expenses": 139036.6239838185,
-      "taxes": 39137.52365546723,
+      "taxes": 27302.071595550093,
       "contributions": 7000.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 2876.8377115478893,
-        "enrique-401k": 12589.763859218863,
-        "taxable-brokerage": 10394.747753723614
+        "claire-roth": 1559.9740535524043,
+        "enrique-401k": 6828.208149768801,
+        "taxable-brokerage": 5637.715061255356
       },
-      "net_worth": 3782896.901872821,
+      "net_worth": 3823643.4238455314,
       "deflator": 1.4482981664981096
     },
     {
@@ -339,21 +339,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 440134.0450376903,
-        "enrique-401k": 1935325.1173103228,
-        "taxable-brokerage": 1597902.6009415993
+        "claire-roth": 447321.11330452416,
+        "enrique-401k": 1967521.7574477678,
+        "taxable-brokerage": 1624485.780458592
       },
       "income": 95255.77732571942,
       "expenses": 142512.53958341398,
-      "taxes": 34793.82747165818,
+      "taxes": 14098.653413754771,
       "contributions": 4083.3333333333335,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 9602.747060493059,
-        "enrique-401k": 41919.94374130407,
-        "taxable-brokerage": 34611.23226088665
+        "claire-roth": 7293.562277044911,
+        "enrique-401k": 31849.02001747083,
+        "taxable-brokerage": 26296.166710266185
       },
-      "net_worth": 3973361.7632896127,
+      "net_worth": 4039328.651210884,
       "deflator": 1.4845056206605622
     },
     {
@@ -363,21 +363,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 448885.6478217086,
-        "enrique-401k": 1988146.8440615572,
-        "taxable-brokerage": 1641514.8983313662
+        "claire-roth": 458170.11753307405,
+        "enrique-401k": 2029881.4523827,
+        "taxable-brokerage": 1675973.1082668195
       },
       "income": 0.0,
       "expenses": 146075.3530729993,
-      "taxes": 28488.299262781355,
+      "taxes": 14841.655147284679,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 19336.625003278717,
-        "enrique-401k": 85025.5881697392,
-        "taxable-brokerage": 70201.43916275668
+        "claire-roth": 17820.182877456868,
+        "enrique-401k": 78381.27128424981,
+        "taxable-brokerage": 64715.55405857383
       },
-      "net_worth": 4078547.3902146323,
+      "net_worth": 4164024.678182594,
       "deflator": 1.521618261177076
     },
     {
@@ -387,21 +387,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 457781.50550323294,
-        "enrique-401k": 2042277.4851392577,
-        "taxable-brokerage": 1686207.901793701
+        "claire-roth": 469326.2427375416,
+        "enrique-401k": 2094413.9501533902,
+        "taxable-brokerage": 1729254.4123282027
       },
       "income": 0.0,
       "expenses": 149727.2368998243,
-      "taxes": 29711.078062799235,
+      "taxes": 15782.515903424886,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 19749.01271204568,
-        "enrique-401k": 87469.79879468167,
-        "taxable-brokerage": 72219.50345588825
+        "claire-roth": 18211.136762001548,
+        "enrique-401k": 80682.80170481258,
+        "taxable-brokerage": 66615.81433643066
       },
-      "net_worth": 4186266.892436192,
+      "net_worth": 4292994.605219135,
       "deflator": 1.5596587177065029
     },
     {
@@ -411,21 +411,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 466825.76457421697,
-        "enrique-401k": 2097756.579639174,
-        "taxable-brokerage": 1732014.256811976
+        "claire-roth": 480804.08590378484,
+        "enrique-401k": 2161223.1013171053,
+        "taxable-brokerage": 1784415.4369314313
       },
       "income": 0.0,
       "expenses": 153470.41782231987,
-      "taxes": 30946.202851280595,
+      "taxes": 16736.199083252774,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 20166.53988409354,
-        "enrique-401k": 89967.96476776023,
-        "taxable-brokerage": 74282.11602173651
+        "claire-roth": 18607.624594785724,
+        "enrique-401k": 83038.33236176109,
+        "taxable-brokerage": 68560.65994902041
       },
-      "net_worth": 4296596.601025367,
+      "net_worth": 4426442.624152321,
       "deflator": 1.5986501856491653
     },
     {
@@ -435,21 +435,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 476022.65027291345,
-        "enrique-401k": 2154624.8332149326,
-        "taxable-brokerage": 1778967.5720389287
+        "claire-roth": 492619.0509091427,
+        "enrique-401k": 2230418.8297652686,
+        "taxable-brokerage": 1841546.9408179896
       },
       "income": 0.0,
       "expenses": 157307.17826787784,
-      "taxes": 32194.5996649145,
+      "taxes": 17703.40569631103,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 20589.392159955525,
-        "enrique-401k": 92521.7418402605,
-        "taxable-brokerage": 76390.64393256343
+        "claire-roth": 19009.80335478774,
+        "enrique-401k": 85449.41144714855,
+        "taxable-brokerage": 70551.36916224597
       },
-      "net_worth": 4409615.055526774,
+      "net_worth": 4564584.821492401,
       "deflator": 1.6386164402903942
     },
     {
@@ -459,21 +459,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 485376.4701515136,
-        "enrique-401k": 2212924.160172518,
-        "taxable-brokerage": 1827102.4540520022
+        "claire-roth": 504787.4008029072,
+        "enrique-401k": 2302117.544457292,
+        "taxable-brokerage": 1900745.0371304988
       },
       "income": 0.0,
       "expenses": 161239.8577245748,
-      "taxes": 33457.21520497632,
+      "taxes": 18684.85037452956,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 21017.756763174963,
-        "enrique-401k": 95132.82747038371,
-        "taxable-brokerage": 78546.48869597644
+        "claire-roth": 19417.831501683482,
+        "enrique-401k": 87917.6250586216,
+        "taxable-brokerage": 72589.25153879132
       },
-      "net_worth": 4525403.084376033,
+      "net_worth": 4707649.982390699,
       "deflator": 1.6795818512976541
     },
     {
@@ -483,21 +483,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 494891.6180732104,
-        "enrique-401k": 2272697.728702797,
-        "taxable-brokerage": 1876454.5446996118
+        "claire-roth": 517326.3136333826,
+        "enrique-401k": 2376442.581298571,
+        "taxable-brokerage": 1962111.5582496047
       },
       "income": 0.0,
       "expenses": 165270.85416768913,
-      "taxes": 34735.01522808858,
+      "taxes": 19681.26079292917,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 21451.822320990643,
-        "enrique-401k": 97802.96082138017,
-        "taxable-brokerage": 80751.08625338726
+        "claire-roth": 19831.868922539175,
+        "enrique-401k": 90444.5976926844,
+        "taxable-brokerage": 74675.6483453852
       },
-      "net_worth": 4644043.891475619,
+      "net_worth": 4855880.453181558,
       "deflator": 1.7215713975800953
     },
     {
@@ -507,21 +507,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 504572.57863161986,
-        "enrique-401k": 2333990.009344641,
-        "taxable-brokerage": 1927060.5611147548
+        "claire-roth": 530253.9420410523,
+        "enrique-401k": 2453524.677327243,
+        "taxable-brokerage": 2025754.447306625
       },
       "income": 0.0,
       "expenses": 169402.62552188136,
-      "taxes": 36028.9831747811,
+      "taxes": 20693.37720864498,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 21891.778718516416,
-        "enrique-401k": 100533.92289112555,
-        "taxable-brokerage": 83005.90708699673
+        "claire-roth": 20252.076894641355,
+        "enrique-401k": 93031.99281346782,
+        "taxable-brokerage": 76811.93302240597
       },
-      "net_worth": 4765623.149091016,
+      "net_worth": 5009533.066674921,
       "deflator": 1.7646106825195975
     },
     {
@@ -531,21 +531,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 514423.93198828836,
-        "enrique-401k": 2396846.8267856613,
-        "taxable-brokerage": 1978958.3384843294
+        "claire-roth": 543589.4768537198,
+        "enrique-401k": 2533502.479539543,
+        "taxable-brokerage": 2091788.1782955746
       },
       "income": 0.0,
       "expenses": 173637.69115992836,
-      "taxes": 37340.11901901454,
+      "taxes": 21721.952109078633,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 22337.816983353372,
-        "enrique-401k": 103327.53676608263,
-        "taxable-brokerage": 85312.45642947842
+        "claire-roth": 20678.618062875823,
+        "enrique-401k": 95681.51349332689,
+        "taxable-brokerage": 78999.5117127912
       },
-      "net_worth": 4890229.097258279,
+      "net_worth": 5168880.134688837,
       "deflator": 1.8087259495825871
     },
     {
@@ -555,21 +555,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 524450.3591268243,
-        "enrique-401k": 2461315.4151230045,
-        "taxable-brokerage": 2032186.8756752494
+        "claire-roth": 557353.2149368079,
+        "enrique-401k": 2616523.090860857,
+        "taxable-brokerage": 2160334.2068545674
       },
       "income": 0.0,
       "expenses": 177978.63343892657,
-      "taxes": 38669.43832219221,
+      "taxes": 22767.74996047558,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 22790.129197733633,
-        "enrique-401k": 106185.66799273,
-        "taxable-brokerage": 87672.27457064914
+        "claire-roth": 21111.65643018305,
+        "enrique-401k": 98394.90312180735,
+        "taxable-brokerage": 81239.82384739659
       },
-      "net_worth": 5017952.649925078,
+      "net_worth": 5334210.512652232,
       "deflator": 1.8539440983221518
     },
     {
@@ -579,21 +579,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 534656.6475250331,
-        "enrique-401k": 2527444.47672309,
-        "taxable-brokerage": 2086786.3838320284
+        "claire-roth": 571566.6315703475,
+        "enrique-401k": 2702742.6559598474,
+        "taxable-brokerage": 2231521.453943677
       },
       "income": 0.0,
       "expenses": 182428.0992748997,
-      "taxes": 40017.97147567686,
+      "taxes": 23831.54704873814,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 23248.908435441088,
-        "enrique-401k": 109110.22505963538,
-        "taxable-brokerage": 90086.93725549297
+        "claire-roth": 21551.357359730366,
+        "enrique-401k": 101173.94617975241,
+        "taxable-brokerage": 83534.34278413763
       },
-      "net_worth": 5148887.508080151,
+      "net_worth": 5505830.741473871,
       "deflator": 1.9002927007802053
     },
     {
@@ -603,21 +603,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 548445.9653971128,
-        "enrique-401k": 2611465.3457352947,
-        "taxable-brokerage": 2156158.2758863014
+        "claire-roth": 590487.5370041829,
+        "enrique-401k": 2812498.7200032836,
+        "taxable-brokerage": 2322141.628629292
       },
       "income": 32203.626969221878,
       "expenses": 186988.80175677218,
-      "taxes": 42911.939204516406,
+      "taxes": 18874.49968089579,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 20528.72120948335,
-        "enrique-401k": 97043.96882611942,
-        "taxable-brokerage": 80124.42395645675
+        "claire-roth": 18027.810849294925,
+        "enrique-401k": 85247.33720388326,
+        "taxable-brokerage": 70384.52641525283
       },
-      "net_worth": 5316069.587018709,
+      "net_worth": 5725127.885636759,
       "deflator": 1.9478000182997104
     },
     {
@@ -627,21 +627,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 567571.9058130395,
-        "enrique-401k": 2722168.973046191,
-        "taxable-brokerage": 2247560.806877887
+        "claire-roth": 616335.5752058557,
+        "enrique-401k": 2956940.612601292,
+        "taxable-brokerage": 2441400.183072099
       },
       "income": 79220.92234428582,
       "expenses": 191663.5218006915,
-      "taxes": 46414.21118134566,
+      "taxes": 10866.687556358804,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 16388.870657914824,
-        "enrique-401k": 78036.79939170153,
-        "taxable-brokerage": 64431.14058812847
+        "claire-roth": 12718.073488030439,
+        "enrique-401k": 60576.325772206634,
+        "taxable-brokerage": 50014.88775251291
       },
-      "net_worth": 5537301.685737117,
+      "net_worth": 6014676.370879247,
       "deflator": 1.996495018757203
     },
     {
@@ -651,21 +651,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 587628.015609383,
-        "enrique-401k": 2838836.9586658017,
-        "taxable-brokerage": 2343887.8146765986
+        "claire-roth": 643606.2768717131,
+        "enrique-401k": 3110207.7938242625,
+        "taxable-brokerage": 2567945.343533581
       },
       "income": 81201.44540289296,
       "expenses": 196455.10984570876,
-      "taxes": 47807.03457932376,
+      "taxes": 11628.150098409154,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 16713.676978370735,
-        "enrique-401k": 80161.56619109382,
-        "taxable-brokerage": 66185.45585266752
+        "claire-roth": 13001.826087774445,
+        "enrique-401k": 62377.751899325965,
+        "taxable-brokerage": 51502.236554107876
       },
-      "net_worth": 5770352.788951783,
+      "net_worth": 6321759.414229557,
       "deflator": 2.046407394226133
     },
     {
@@ -675,21 +675,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 608671.1440140033,
-        "enrique-401k": 2961859.4035037723,
-        "taxable-brokerage": 2445461.3863842753
+        "claire-roth": 672392.1079023762,
+        "enrique-401k": 3272920.9044092786,
+        "taxable-brokerage": 2702289.5424929988
       },
       "income": 83231.48153796526,
       "expenses": 201366.48759185144,
-      "taxes": 49226.65706112494,
+      "taxes": 12384.27595085743,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 17043.39501973851,
-        "enrique-401k": 82336.8158051479,
-        "taxable-brokerage": 67981.45229011618
+        "claire-roth": 13287.919334918055,
+        "enrique-401k": 64213.46677979648,
+        "taxable-brokerage": 53017.895890027445
       },
-      "net_worth": 6015991.933902051,
+      "net_worth": 6647602.554804653,
       "deflator": 2.097567579081786
     },
     {
@@ -699,21 +699,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 630761.7919759848,
-        "enrique-401k": 3091653.9173530773,
-        "taxable-brokerage": 2552626.3218324315
+        "claire-roth": 702799.3643487513,
+        "enrique-401k": 3445783.848332851,
+        "taxable-brokerage": 2845013.9587842426
       },
       "income": 85312.2685764144,
       "expenses": 206400.64978164775,
-      "taxes": 50674.09546379396,
+      "taxes": 13063.220411214708,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 17378.158800987465,
-        "enrique-401k": 84563.99414772056,
-        "taxable-brokerage": 69820.3237203096
+        "claire-roth": 13569.174367104391,
+        "enrique-401k": 66049.01205669483,
+        "taxable-brokerage": 54533.41519263341
       },
-      "net_worth": 6275042.031161493,
+      "net_worth": 6993597.171465845,
       "deflator": 2.1500067685588307
     },
     {
@@ -723,21 +723,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 653964.355192686,
-        "enrique-401k": 3228667.633481827,
-        "taxable-brokerage": 2665751.7969314544
+        "claire-roth": 734931.3079029211,
+        "enrique-401k": 3629503.235267233,
+        "taxable-brokerage": 2996702.0052008764
       },
       "income": 87445.07529082474,
       "expenses": 211560.6660261889,
-      "taxes": 52150.3825430617,
+      "taxes": 13757.181921021278,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 17718.10302104138,
-        "enrique-401k": 86844.57953844099,
-        "taxable-brokerage": 71703.29071893264
+        "claire-roth": 13855.086961433675,
+        "enrique-401k": 67930.67451504456,
+        "taxable-brokerage": 56087.01117989053
       },
-      "net_worth": 6548383.785605967,
+      "net_worth": 7361136.54837103,
       "deflator": 2.203756937772801
     },
     {
@@ -747,21 +747,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 678347.3833234125,
-        "enrique-401k": 3373379.372513233,
-        "taxable-brokerage": 2785233.150279688
+        "claire-roth": 768898.1340186577,
+        "enrique-401k": 3824837.72730231,
+        "taxable-brokerage": 3157980.0716532157
       },
       "income": 89631.20217309536,
       "expenses": 216849.6826768436,
-      "taxes": 53656.5672659224,
+      "taxes": 14465.278601639317,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 18063.363091994637,
-        "enrique-401k": 89180.08344624464,
-        "taxable-brokerage": 73631.60123141918
+        "claire-roth": 14145.61864240305,
+        "enrique-401k": 69859.00325019244,
+        "taxable-brokerage": 57679.137212774105
       },
-      "net_worth": 6836959.906116334,
+      "net_worth": 7751715.932974184,
       "deflator": 2.258850861217121
     },
     {
@@ -771,21 +771,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 703983.8564634608,
-        "enrique-401k": 3526301.9666649373,
-        "taxable-brokerage": 2911493.8021733323
+        "claire-roth": 804817.2843812786,
+        "enrique-401k": 4032601.1591804433,
+        "taxable-brokerage": 3329520.101392513
       },
       "income": 91871.98222742273,
       "expenses": 222270.92474376466,
-      "taxes": 55193.71516831436,
+      "taxes": 15188.010713075568,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 18414.075178616826,
-        "enrique-401k": 91572.05128016007,
-        "taxable-brokerage": 75606.53122586581
+        "claire-roth": 14440.871884813241,
+        "enrique-401k": 71835.25249501076,
+        "taxable-brokerage": 59310.82884957401
       },
-      "net_worth": 7141779.625301731,
+      "net_worth": 8166938.544954236,
       "deflator": 2.3153221327475486
     },
     {
@@ -795,21 +795,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 730951.4800248406,
-        "enrique-401k": 3687984.7562461277,
-        "taxable-brokerage": 3044987.3158411193
+        "claire-roth": 842813.9293866258,
+        "enrique-401k": 4253666.616379913,
+        "taxable-brokerage": 3512042.95808354
       },
       "income": 94168.7817831083,
       "expenses": 227827.69786235876,
-      "taxes": 56762.9087722456,
+      "taxes": 15925.8871912014,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 18770.376243315088,
-        "enrique-401k": 94022.0632250795,
-        "taxable-brokerage": 77629.38538308647
+        "claire-roth": 14740.950294917417,
+        "enrique-401k": 73860.70652347442,
+        "taxable-brokerage": 60983.146452038505
       },
-      "net_worth": 7463923.552112088,
+      "net_worth": 8608523.503850078,
       "deflator": 2.373205186066237
     },
     {
@@ -819,21 +819,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 759332.9992472922,
-        "enrique-401k": 3859016.271199491,
-        "taxable-brokerage": 3186199.6114613903
+        "claire-roth": 883010.5833521244,
+        "enrique-401k": 4488915.407297487,
+        "taxable-brokerage": 3706276.294649742
       },
       "income": 96523.00132768598,
       "expenses": 233523.3903089177,
-      "taxes": 58365.24805723474,
+      "taxes": 16783.786913923188,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 19132.40409581117,
-        "enrique-401k": 96531.7351204962,
-        "taxable-brokerage": 79701.49782214254
+        "claire-roth": 15056.176068487099,
+        "enrique-401k": 75988.24755954256,
+        "taxable-brokerage": 62739.75226712139
       },
-      "net_worth": 7804548.881908173,
+      "net_worth": 9078202.285299353,
       "deflator": 2.432535315717893
     },
     {
@@ -843,21 +843,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 789216.5346455994,
-        "enrique-401k": 4040027.1114295805,
-        "taxable-brokerage": 3335651.3443073225
+        "claire-roth": 925546.9494387557,
+        "enrique-401k": 4739338.563676663,
+        "taxable-brokerage": 3913038.357176173
       },
       "income": 98936.07636087813,
       "expenses": 239361.47506664065,
-      "taxes": 60001.85098143739,
+      "taxes": 17676.35423272699,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 19500.297446870965,
-        "enrique-401k": 99102.71938043038,
-        "taxable-brokerage": 81824.23285988039
+        "claire-roth": 15378.102040893422,
+        "enrique-401k": 78176.8650204631,
+        "taxable-brokerage": 64546.78587712872
       },
-      "net_worth": 8164894.990382503,
+      "net_worth": 9577923.870291593,
       "deflator": 2.49334869861084
     },
     {
@@ -867,21 +867,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 820695.9397869975,
-        "enrique-401k": 4231693.040684594,
-        "taxable-brokerage": 3493900.4592126845
+        "claire-roth": 970573.5517449712,
+        "enrique-401k": 5006007.56509042,
+        "taxable-brokerage": 4133213.8135572392
       },
       "income": 101409.47826990008,
       "expenses": 245345.51194330666,
-      "taxes": 61673.85404829965,
+      "taxes": 18588.857582492186,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 19874.195965498653,
-        "enrique-401k": 101736.70595299234,
-        "taxable-brokerage": 83998.98580319535
+        "claire-roth": 15705.326054672298,
+        "enrique-401k": 80420.40165672824,
+        "taxable-brokerage": 66399.16354449354
       },
-      "net_worth": 8546289.439684276,
+      "net_worth": 10109794.93039263,
       "deflator": 2.555682416076111
     },
     {
@@ -891,21 +891,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 853871.1828860705,
-        "enrique-401k": 4434738.30986014,
-        "taxable-brokerage": 3661544.9344600285
+        "claire-roth": 1018250.8439044364,
+        "enrique-401k": 5290072.158482599,
+        "taxable-brokerage": 4367751.953199437
       },
       "income": 103944.71522664756,
       "expenses": 251479.14974188927,
-      "taxes": 63382.41291502068,
+      "taxes": 19521.913808763326,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 20254.24033907597,
-        "enrique-401k": 104435.42331824616,
-        "taxable-brokerage": 86227.18377291865
+        "claire-roth": 16037.958677770397,
+        "enrique-401k": 82720.30731229138,
+        "taxable-brokerage": 68298.08233393813
       },
-      "net_worth": 8950154.427206239,
+      "net_worth": 10676074.95558647,
       "deflator": 2.619574476478013
     },
     {
@@ -915,21 +915,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 888848.7538042994,
-        "enrique-401k": 4649939.226777001,
-        "taxable-brokerage": 3839225.7291703117
+        "claire-roth": 1068749.8703537588,
+        "enrique-401k": 5592766.151123667,
+        "taxable-brokerage": 4617671.469979524
       },
       "income": 106543.33310731374,
       "expenses": 257766.12848543646,
-      "taxes": 65128.70303951674,
+      "taxes": 20476.152176808468,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 20640.572335989113,
-        "enrique-401k": 107200.63952323783,
-        "taxable-brokerage": 88510.28655838908
+        "claire-roth": 16376.11191122463,
+        "enrique-401k": 85078.0671622945,
+        "taxable-brokerage": 70244.76848140651
       },
-      "net_worth": 9378013.709751613,
+      "net_worth": 11279187.491456948,
       "deflator": 2.685063838389963
     },
     {
@@ -939,21 +939,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 925742.0981477987,
-        "enrique-401k": 4878127.990756282,
-        "taxable-brokerage": 4027629.949322679
+        "claire-roth": 1122252.9717020518,
+        "enrique-401k": 5915413.634190587,
+        "taxable-brokerage": 4884065.600747799
       },
       "income": 109206.91643499659,
       "expenses": 264210.2816975724,
-      "taxes": 66913.92036295983,
+      "taxes": 21452.21468512973,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 21033.334870342387,
-        "enrique-401k": 110034.16325324048,
-        "taxable-brokerage": 90849.78750192742
+        "claire-roth": 16719.899224579793,
+        "enrique-401k": 87495.20259822489,
+        "taxable-brokerage": 72240.4781248948
       },
-      "net_worth": 9831500.038226759,
+      "net_worth": 11921732.20664044,
       "deflator": 2.7521904343497123
     },
     {
@@ -963,21 +963,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 964672.0802701892,
-        "enrique-401k": 5120196.811681267,
-        "taxable-brokerage": 4227494.248660906
+        "claire-roth": 1178954.5371444202,
+        "enrique-401k": 6259435.669022012,
+        "taxable-brokerage": 5168107.6458396
       },
       "income": 111937.08934587149,
       "expenses": 270815.53874001163,
-      "taxes": 68739.28202531504,
+      "taxes": 22450.75639858233,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 21432.67206840886,
-        "enrique-401k": 112937.84493844368,
-        "taxable-brokerage": 93247.21441257538
+        "claire-roth": 17069.43559291659,
+        "enrique-401k": 89973.27214125148,
+        "taxable-brokerage": 74286.49805854785
       },
-      "net_worth": 10312363.140612364,
+      "net_worth": 12606497.852006031,
       "deflator": 2.8209951952084547
     },
     {
@@ -987,21 +987,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 1005767.4771084975,
-        "enrique-401k": 5377102.33470283,
-        "taxable-brokerage": 4439608.481954657
+        "claire-roth": 1239061.8070579886,
+        "enrique-401k": 6626357.470487825,
+        "taxable-brokerage": 5471056.900029633
       },
       "income": 114735.51657951825,
       "expenses": 277585.9272085119,
-      "taxes": 70606.0271116255,
+      "taxes": 23472.44580010978,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 21838.72933651456,
-        "enrique-401k": 115913.57789547865,
-        "taxable-brokerage": 95704.13050859654
+        "claire-roth": 17424.837535337923,
+        "enrique-401k": 92513.87238373801,
+        "taxable-brokerage": 76384.14651002048
       },
-      "net_worth": 10822478.293765984,
+      "net_worth": 13336476.177575447,
       "deflator": 2.891520075088666
     },
     {
@@ -1011,21 +1011,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 1049165.5049089368,
-        "enrique-401k": 5649870.393321873,
-        "taxable-brokerage": 4664819.629385484
+        "claire-roth": 1302795.7291287493,
+        "enrique-401k": 7017816.124477726,
+        "taxable-brokerage": 5794265.0244820705
       },
       "income": 117603.90449400622,
       "expenses": 284525.5753887247,
-      "taxes": 72515.41742709023,
+      "taxes": 24517.9651602185,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 22251.653430094248,
-        "enrique-401k": 118963.29950332125,
-        "taxable-brokerage": 98222.13538836173
+        "claire-roth": 17786.223154778516,
+        "enrique-401k": 95118.63895899613,
+        "taxable-brokerage": 78534.77394115474
       },
-      "net_worth": 11363855.527616294,
+      "net_worth": 14114876.878088547,
       "deflator": 2.9638080769658823
     },
     {
@@ -1035,21 +1035,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 1095012.3810369577,
-        "enrique-401k": 5939601.11527631,
-        "taxable-brokerage": 4904036.012226161
+        "claire-roth": 1370391.8715811246,
+        "enrique-401k": 7435568.879270227,
+        "taxable-brokerage": 6139182.892525437
       },
       "income": 120544.00210635636,
       "expenses": 291638.7147734428,
-      "taxes": 74468.7382992528,
+      "taxes": 25588.010923423026,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 22671.592523694057,
-        "enrique-401k": 122088.99241325552,
-        "taxable-brokerage": 100802.86602935604
+        "claire-roth": 18153.712179019407,
+        "enrique-401k": 97789.24753940437,
+        "taxable-brokerage": 80739.76387207757
       },
-      "net_worth": 11938649.508539429,
+      "net_worth": 14945143.643376788,
       "deflator": 3.0379032788900293
     },
     {
@@ -1059,21 +1059,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 1143463.9232126393,
-        "enrique-401k": 6247474.407480126,
-        "taxable-brokerage": 5158231.821484626
+        "claire-roth": 1442100.3695105768,
+        "enrique-401k": 7881496.43622544,
+        "taxable-brokerage": 6507363.306615529
       },
       "income": 123557.60215901525,
       "expenses": 298929.68264277885,
-      "taxes": 76467.29940586792,
+      "taxes": 26693.801759781974,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 23098.696281729968,
-        "enrique-401k": 125292.68579271117,
-        "taxable-brokerage": 103447.99781515445
+        "claire-roth": 18528.389499496647,
+        "enrique-401k": 100532.64267139872,
+        "taxable-brokerage": 83004.85007264146
       },
-      "net_worth": 12549170.152177393,
+      "net_worth": 15830960.112351544,
       "deflator": 3.1138508608622795
     },
     {
@@ -1083,21 +1083,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 1194686.1886689258,
-        "enrique-401k": 6574755.84821757,
-        "taxable-brokerage": 5428451.982798443
+        "claire-roth": 1518186.9165044338,
+        "enrique-401k": 8357612.054731722,
+        "taxable-brokerage": 6900468.515841269
       },
       "income": 126646.54221299062,
       "expenses": 306402.9247088483,
-      "taxes": 78512.43562723939,
+      "taxes": 27846.631487936527,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 23533.115929840475,
-        "enrique-401k": 128576.45660290835,
-        "taxable-brokerage": 106159.24559030996
+        "claire-roth": 18911.321932012295,
+        "enrique-401k": 103355.8548092264,
+        "taxable-brokerage": 85335.83724254619
       },
-      "net_worth": 13197894.019684939,
+      "net_worth": 16776267.487077424,
       "deflator": 3.1916971323838363
     },
     {
@@ -1107,21 +1107,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 1248856.155897071,
-        "enrique-401k": 6922803.016896605,
-        "taxable-brokerage": 5715817.382600369
+        "claire-roth": 1598936.80437398,
+        "enrique-401k": 8866087.870540313,
+        "taxable-brokerage": 7320291.945676996
       },
       "income": 129812.70576831538,
       "expenses": 314062.9978265695,
-      "taxes": 80605.50792202979,
+      "taxes": 29026.977911833972,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 23975.004326698614,
-        "enrique-401k": 131942.43091035346,
-        "taxable-brokerage": 108938.36474319117
+        "claire-roth": 19300.76288457919,
+        "enrique-401k": 106250.6116974606,
+        "taxable-brokerage": 87725.89538803829
       },
-      "net_worth": 13887476.555394044,
+      "net_worth": 17785316.62059129,
       "deflator": 3.271489560693432
     },
     {
@@ -1131,21 +1131,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 1306162.4518216099,
-        "enrique-401k": 7293072.2939232355,
-        "taxable-brokerage": 6021530.482439578
+        "claire-roth": 1684654.2324015037,
+        "enrique-401k": 9409255.848691998,
+        "taxable-brokerage": 7768758.984767048
       },
       "income": 133058.02341252327,
       "expenses": 321914.5727722337,
-      "taxes": 82747.90422573841,
+      "taxes": 30235.617450860263,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 24424.51603617581,
-        "enrique-401k": 135392.78523235567,
-        "taxable-brokerage": 111787.15231690888
+        "claire-roth": 19696.839619816747,
+        "enrique-401k": 109218.76984976168,
+        "taxable-brokerage": 90176.5573409816
       },
-      "net_worth": 14620765.228184424,
+      "net_worth": 18862669.06586055,
       "deflator": 3.3532767997107675
     },
     {
@@ -1155,21 +1155,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 1366806.1274370253,
-        "enrique-401k": 7687126.165684045,
-        "taxable-brokerage": 6346881.350345842
+        "claire-roth": 1775663.5674231974,
+        "enrique-401k": 9989619.641622448,
+        "taxable-brokerage": 8247936.775579132
       },
       "income": 136384.47399783632,
       "expenses": 329962.4370915395,
-      "taxes": 84941.04037115602,
+      "taxes": 31473.343440590896,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 24881.807399744084,
-        "enrique-401k": 138929.74791667904,
-        "taxable-brokerage": 114707.44814842704
+        "claire-roth": 20099.681266563686,
+        "enrique-401k": 112262.2315468624,
+        "taxable-brokerage": 92689.39372085666
       },
-      "net_worth": 15400813.643466912,
+      "net_worth": 20013219.984624777,
       "deflator": 3.437108719703536
     },
     {
@@ -1179,21 +1179,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 1431001.485140688,
-        "enrique-401k": 8106641.072230109,
-        "taxable-brokerage": 6693254.140275504
+        "claire-roth": 1872310.6879735433,
+        "enrique-401k": 10609867.329430304,
+        "taxable-brokerage": 8760044.733416
       },
       "income": 139794.08584778223,
       "expenses": 338211.49801882793,
-      "taxes": 87186.3610304342,
+      "taxes": 32740.966617384645,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 25347.036609101404,
-        "enrique-401k": 142555.60055597732,
-        "taxable-brokerage": 117701.13603639166
+        "claire-roth": 20509.4188658568,
+        "enrique-401k": 115382.94601490536,
+        "taxable-brokerage": 95266.01390765619
       },
-      "net_worth": 16230896.697646301,
+      "net_worth": 21242222.750819847,
       "deflator": 3.5230364376961245
     },
     {
@@ -1203,21 +1203,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 1493516.423607605,
-        "enrique-401k": 8522257.087758968,
-        "taxable-brokerage": 7036407.807980454
+        "claire-roth": 1968378.7005886782,
+        "enrique-401k": 11235294.538669532,
+        "taxable-brokerage": 9276429.166917238
       },
       "income": 83585.21382981978,
       "expenses": 346666.7854692986,
-      "taxes": 87841.3689865,
+      "taxes": 44378.22854812726,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 30939.217873188576,
-        "enrique-401k": 175271.05104912442,
-        "taxable-brokerage": 144712.67170365373
+        "claire-roth": 27099.81327124371,
+        "enrique-401k": 153567.15384209427,
+        "taxable-brokerage": 126792.8330742243
       },
-      "net_worth": 17052181.319347028,
+      "net_worth": 22480102.406175446,
       "deflator": 3.6111123486385273
     },
     {
@@ -1227,21 +1227,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 1551801.3157068081,
-        "enrique-401k": 8919171.455947826,
-        "taxable-brokerage": 7364120.446858157
+        "claire-roth": 2060530.9094177096,
+        "enrique-401k": 11846735.907742033,
+        "taxable-brokerage": 9781266.181238683
       },
       "income": 0.0,
       "expenses": 355333.4551060311,
-      "taxes": 87850.98739430876,
+      "taxes": 64738.35659232235,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 38816.33857661562,
-        "enrique-401k": 221492.58710952543,
-        "taxable-brokerage": 182875.516814183
+        "claire-roth": 36781.8790112615,
+        "enrique-401k": 209947.02099430285,
+        "taxable-brokerage": 173342.9116927774
       },
-      "net_worth": 17835093.218512792,
+      "net_worth": 23688532.998398427,
       "deflator": 3.7013901573544903
     },
     {
@@ -1251,21 +1251,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 1613205.2961400715,
-        "enrique-401k": 9339460.81386651,
-        "taxable-brokerage": 7711132.663130992
+        "claire-roth": 2158052.0356960227,
+        "enrique-401k": 12497560.680260196,
+        "taxable-brokerage": 10318620.131467627
       },
       "income": 0.0,
       "expenses": 364216.79148368177,
-      "taxes": 90216.7692905801,
+      "taxes": 67069.84174691644,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 39539.49603015347,
-        "enrique-401k": 227258.18106042733,
-        "taxable-brokerage": 187635.88368366443
+        "claire-roth": 37515.17405701354,
+        "enrique-401k": 215688.27604338527,
+        "taxable-brokerage": 178083.18313014068
       },
-      "net_worth": 18663798.773137573,
+      "net_worth": 24974232.847423844,
       "deflator": 3.793924911288352
     },
     {
@@ -1275,21 +1275,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 1677923.0398637732,
-        "enrique-401k": 9784710.278329257,
-        "taxable-brokerage": 8078753.209657903
+        "claire-roth": 2261256.784344951,
+        "enrique-401k": 13190370.452747665,
+        "taxable-brokerage": 10890639.02767977
       },
       "income": 0.0,
       "expenses": 373322.21127077384,
-      "taxes": 92638.74420511008,
+      "taxes": 69785.06598458812,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 40275.33142127791,
-        "enrique-401k": 233169.25655682402,
-        "taxable-brokerage": 192516.36749776453
+        "claire-roth": 38289.40682801153,
+        "enrique-401k": 221738.94666534662,
+        "taxable-brokerage": 183078.92376193174
       },
-      "net_worth": 19541386.527850933,
+      "net_worth": 26342266.26477239,
       "deflator": 3.8887730340705606
     },
     {
@@ -1299,21 +1299,21 @@
         "month": 1
       },
       "balances": {
-        "claire-roth": 1771690.0478942709,
-        "enrique-401k": 10406566.10551952,
-        "taxable-brokerage": 8592188.92895399
+        "claire-roth": 2395532.621525548,
+        "enrique-401k": 14075147.919187408,
+        "taxable-brokerage": 11621156.19104064
       },
       "income": 0.0,
       "expenses": 159439.694396893,
-      "taxes": 39632.72243352512,
+      "taxes": 22528.3723352881,
       "contributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "claire-roth": 17093.37228067436,
-        "enrique-401k": 99679.00283412388,
-        "taxable-brokerage": 82300.04171561223
+        "claire-roth": 15620.392007901246,
+        "enrique-401k": 91116.92162862536,
+        "taxable-brokerage": 75230.75309564467
       },
-      "net_worth": 20770445.082367778,
+      "net_worth": 28091836.731753595,
       "deflator": 3.9859923599223244
     }
   ],

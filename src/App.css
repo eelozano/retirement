@@ -245,6 +245,47 @@ button.remove:hover {
   border-color: var(--muted);
 }
 
+/* State tax bracket editor (AssumptionsSection) */
+.tax-bracket-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+  margin: 6px 0;
+}
+
+.tax-bracket-table th,
+.tax-bracket-table td {
+  text-align: left;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--grid);
+}
+
+.tax-bracket-table th {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+/* Reuse the shared Field components for buffered numeric input, but drop
+   their space-between row layout and visible label text — the table's own
+   header cells already label each column. */
+.tax-bracket-table .field {
+  display: block;
+  margin: 0;
+}
+
+.tax-bracket-table .field span {
+  display: none;
+}
+
+.tax-bracket-table .field input {
+  width: 90px;
+  padding: 4px 6px;
+}
+
+.tax-bracket-table button.remove {
+  margin-top: 0;
+}
+
 /* Main charts column */
 .charts {
   flex: 1;
