@@ -116,7 +116,13 @@ impl DrawdownStrategy for ProportionalDrawdown {
                 let basis_recovered = account.cost_basis * (amount / account.balance);
                 account.cost_basis = (account.cost_basis - basis_recovered).max(0.0);
             }
-            account.balance -= amount;
+            // Full depletion caps `gross` at the portfolio total, so this
+            // subtraction lands on zero mathematically but can leave
+            // floating-point residue (a tiny negative, or -0.0). Clamp
+            // explicitly rather than with `max`, which is free to return
+            // -0.0 for the -0.0/+0.0 pair.
+            let remaining = account.balance - amount;
+            account.balance = if remaining > 0.0 { remaining } else { 0.0 };
             result.gross_by_account.insert(account.id.clone(), amount);
         }
         result

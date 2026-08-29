@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use engine::model::Plan;
 use engine::presets::Presets;
-use engine::Projection;
+use engine::{MonteCarloConfig, MonteCarloResult, Projection};
 use serde::Serialize;
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
@@ -159,6 +159,15 @@ pub fn run_projections(plans: Vec<Plan>) -> Vec<Result<Projection, String>> {
             Ok(engine::run_deterministic(plan))
         })
         .collect()
+}
+
+/// Monte Carlo run: N stochastic paths in parallel, returning a success rate
+/// and per-period net-worth percentiles. Run on demand (not on every edit
+/// like `run_projection`) since it's orders of magnitude more work.
+#[tauri::command]
+pub fn run_monte_carlo(plan: Plan, config: MonteCarloConfig) -> Result<MonteCarloResult, String> {
+    require_valid(&plan)?;
+    Ok(engine::run_monte_carlo(&plan, &config))
 }
 
 /// Where plans are currently stored, for display in the Storage settings

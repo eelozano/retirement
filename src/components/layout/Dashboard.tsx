@@ -13,6 +13,7 @@ import { AssumptionsSection } from "../inputs/AssumptionsSection";
 import { StorageSettings } from "./StorageSettings";
 import { ScenariosSettings } from "./ScenariosSettings";
 import { ComparisonView } from "./ComparisonView";
+import { MonteCarloView } from "./MonteCarloView";
 import { depletionYear as computeDepletionYear } from "../../lib/projection";
 
 export function Dashboard() {
@@ -28,7 +29,9 @@ export function Dashboard() {
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [storageOpen, setStorageOpen] = useState(false);
   const [scenariosOpen, setScenariosOpen] = useState(false);
-  const [compareMode, setCompareMode] = useState(false);
+  // One exclusive main view rather than independent booleans, so opening
+  // one analysis panel always closes the other.
+  const [view, setView] = useState<"edit" | "compare" | "monteCarlo">("edit");
 
   const series = useMemo(() => (plan ? seriesDefs(plan) : []), [plan]);
   const rows = useMemo(
@@ -59,7 +62,7 @@ export function Dashboard() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        {!compareMode && (
+        {view === "edit" && (
           <button
             type="button"
             className="drawer-toggle"
@@ -113,12 +116,20 @@ export function Dashboard() {
           <button
             type="button"
             className="drawer-toggle"
-            aria-pressed={compareMode}
-            onClick={() => setCompareMode((c) => !c)}
+            aria-pressed={view === "compare"}
+            onClick={() => setView((v) => (v === "compare" ? "edit" : "compare"))}
           >
-            {compareMode ? "Back to editing" : "Compare…"}
+            {view === "compare" ? "Back to editing" : "Compare…"}
           </button>
         )}
+        <button
+          type="button"
+          className="drawer-toggle"
+          aria-pressed={view === "monteCarlo"}
+          onClick={() => setView((v) => (v === "monteCarlo" ? "edit" : "monteCarlo"))}
+        >
+          {view === "monteCarlo" ? "Back to editing" : "Monte Carlo…"}
+        </button>
         <button
           type="button"
           className="drawer-toggle"
@@ -147,7 +158,7 @@ export function Dashboard() {
       )}
 
       <div className="content">
-        {!compareMode && drawerOpen && (
+        {view === "edit" && drawerOpen && (
           <aside className="drawer">
             <PeopleSection />
             <AccountsSection />
@@ -157,9 +168,13 @@ export function Dashboard() {
           </aside>
         )}
 
-        {compareMode ? (
+        {view === "compare" ? (
           <main className="charts">
             <ComparisonView />
+          </main>
+        ) : view === "monteCarlo" ? (
+          <main className="charts">
+            <MonteCarloView />
           </main>
         ) : (
           <main className={`charts ${projecting ? "refreshing" : ""}`}>

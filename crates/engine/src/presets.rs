@@ -72,6 +72,18 @@ pub fn default_assumptions() -> Assumptions {
     }
 }
 
+/// Fixed annualized standard deviation per asset class, used by
+/// `StochasticReturns` (Monte Carlo). Approximate historical figures, not
+/// user-editable in V1 — unlike `asset_returns`, which the plan owns.
+pub fn asset_volatility() -> BTreeMap<AssetClass, f64> {
+    BTreeMap::from([
+        (AssetClass::UsEquity, 0.18),
+        (AssetClass::IntlEquity, 0.20),
+        (AssetClass::GlobalEquity, 0.17),
+        (AssetClass::UsBonds, 0.06),
+    ])
+}
+
 pub fn presets() -> Presets {
     Presets {
         default_assumptions: default_assumptions(),

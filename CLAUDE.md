@@ -58,11 +58,11 @@ cloud/network dependencies for user data.
 
 V2 backlog: prioritized via a BPA against actual usage (periodic "how are we
 doing" check-ins + scenario comparison). Now-tier items are tracked as
-GitHub `Feature` issues, not duplicated here:
-- Multi-scenario comparison — issue #6
-- Monte Carlo (rayon) — issue #8
-- Federal/state tax brackets — issue #9
+GitHub `Feature` issues, not duplicated here. All three have shipped:
+multi-scenario comparison (#6), Monte Carlo (#8), federal/state tax
+brackets (#9).
 
-Later (architected for, not yet filed — revisit closer to retirement or once
-the above land): historical sequence backtesting, ordered drawdown, RMDs,
-employer match.
+Later (architected for, not yet filed — revisit closer to retirement):
+historical sequence backtesting, ordered drawdown, RMDs, employer match,
+user-editable per-asset-class volatility (Monte Carlo currently uses the
+fixed defaults in `presets::asset_volatility`).
