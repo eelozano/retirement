@@ -5,7 +5,7 @@
 // decides placement: destinations live here, settings sit at the bottom, and
 // display options stayed in the header as a segmented control.
 
-export type Destination = "plan" | "inputs";
+export type Destination = "plan" | "cashflow" | "inputs";
 
 interface RailProps {
   active: Destination;
@@ -16,6 +16,12 @@ interface RailProps {
 
 const ICON = {
   plan: <path d="M3 20h18M4 16l5-6 4 3 6-8" />,
+  cashflow: (
+    <>
+      <path d="M7 20V8m0 0L4 11m3-3l3 3" />
+      <path d="M17 4v12m0 0l3-3m-3 3l-3-3" />
+    </>
+  ),
   inputs: (
     <>
       <path d="M5 7h14M5 12h14M5 17h14" />
@@ -90,6 +96,12 @@ export function Rail(props: RailProps) {
         icon={ICON.plan}
         current={props.active === "plan"}
         onClick={() => props.onNavigate("plan")}
+      />
+      <RailButton
+        label="Cash flow"
+        icon={ICON.cashflow}
+        current={props.active === "cashflow"}
+        onClick={() => props.onNavigate("cashflow")}
       />
       <RailButton
         label="Inputs"

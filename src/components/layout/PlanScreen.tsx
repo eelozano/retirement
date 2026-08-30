@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { currencyCompact } from "../../lib/format";
 import { depletionYear as computeDepletionYear } from "../../lib/projection";
 import { usePlanStore } from "../../store/planStore";
+import { cashFlowRows, cashFlowSummary } from "../charts/cashFlowData";
 import { chartRows, seriesDefs } from "../charts/chartData";
 import { DataTable } from "../charts/DataTable";
 import { HeadlineTiles } from "../charts/HeadlineTiles";
@@ -17,7 +18,7 @@ import { StatusBand } from "./StatusBand";
 //   2  projection + year inspector
 //   3  supporting detail, below the fold
 
-export function PlanScreen(props: { showBand: boolean }) {
+export function PlanScreen(props: { showBand: boolean; onOpenCashFlow: () => void }) {
   const plan = usePlanStore((s) => s.plan);
   const projection = usePlanStore((s) => s.projection);
   const monteCarlo = usePlanStore((s) => s.monteCarlo);
@@ -54,6 +55,31 @@ export function PlanScreen(props: { showBand: boolean }) {
   );
 
   if (!plan || !projection || !metrics) return null;
+
+  // Three real numbers on the entry card, so the inversion is legible before
+  // anyone clicks through.
+  const flows = cashFlowRows(projection, realDollars);
+  const firstFlow = flows[0];
+  const crossover = cashFlowSummary(flows).crossoverYear;
+  const atCrossover =
+    crossover !== null ? flows.find((f) => f.year === crossover) : undefined;
+  const cashPeek = [
+    {
+      label: `Income ${firstFlow?.year ?? ""}`,
+      value: firstFlow?.income ?? 0,
+      color: "var(--series-2)",
+    },
+    {
+      label: `Outflow ${firstFlow?.year ?? ""}`,
+      value: Math.abs((firstFlow?.expenses ?? 0) + (firstFlow?.taxes ?? 0)),
+      color: "var(--series-3)",
+    },
+    {
+      label: atCrossover ? `Withdrawals ${atCrossover.year}` : "Withdrawals",
+      value: atCrossover?.withdrawals ?? 0,
+      color: "var(--series-1)",
+    },
+  ];
 
   // Default the pin to the first retirement — the year the plan turns over —
   // rather than to the start, where nothing has happened yet.
@@ -125,6 +151,39 @@ export function PlanScreen(props: { showBand: boolean }) {
                 </div>
               ))}
             </section>
+
+            <button type="button" className="entry-card" onClick={props.onOpenCashFlow}>
+              <span className="entry-card-text">
+                <span className="entry-card-title">Cash flow</span>
+                <span className="entry-card-sub">
+                  Where money comes from and where it goes — and how that inverts at
+                  retirement.
+                </span>
+              </span>
+              <span className="card-spacer" />
+              {cashPeek.map((c) => (
+                <span className="entry-card-peek" key={c.label}>
+                  <span className="tile-label">{c.label}</span>
+                  <span className="entry-card-value" style={{ color: c.color }}>
+                    {currencyCompact(c.value)}
+                  </span>
+                </span>
+              ))}
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--muted)"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <title>Open cash flow</title>
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </button>
 
             <DataTable rows={rows} series={series} />
           </>
