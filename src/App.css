@@ -524,44 +524,6 @@ button.remove:hover {
 }
 
 /* Stat tiles */
-.stat-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
-}
-
-.stat-tile {
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 600;
-}
-
-.stat-critical .stat-value {
-  color: var(--status-critical);
-}
-
-.stat-warn .stat-value {
-  color: var(--status-warn);
-}
-
-.stat-good .stat-value {
-  color: var(--status-good);
-}
-
 /* Banners */
 .banner {
   margin: 12px 20px 0;
@@ -915,21 +877,293 @@ button.remove:hover {
 }
 
 /* Monte Carlo view */
-.mc-controls {
+
+/* ── Plan screen ─────────────────────────────────────────────────────── */
+
+.plan-screen {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  flex-direction: column;
+  transition: opacity 120ms ease;
+}
+.plan-screen.refreshing {
+  opacity: 0.6;
+}
+.plan-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--sp-5) var(--sp-6) var(--sp-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
 }
 
-.mc-controls label {
+/* Status colors are reserved: never used for a data series. */
+.stat-good {
+  color: var(--status-good);
+}
+.stat-warn {
+  color: var(--status-warn);
+}
+.stat-critical {
+  color: var(--status-critical);
+}
+
+/* Zone 0 — status band. Always rendered in one tone or the other, so the
+   layout below it never shifts when a plan starts or stops depleting. */
+.status-band {
+  flex: 0 0 38px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-6);
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
   color: var(--text-secondary);
 }
+.status-band-good {
+  background: var(--status-good-bg);
+}
+.status-band-critical {
+  background: var(--status-critical-bg);
+}
+.status-band strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.status-band-good .status-dot {
+  background: var(--status-good);
+}
+.status-band-critical .status-dot {
+  background: var(--status-critical);
+}
+.status-spacer {
+  flex: 1;
+}
+.status-warnings {
+  font-family: var(--font-num);
+  font-size: var(--t-xs);
+  color: var(--muted);
+}
 
-.monte-carlo-view .stat-row {
-  margin-bottom: 16px;
+/* Zone 1 — headline. Probability of success is the wide tile, first. */
+.headline {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr 1fr;
+  gap: var(--sp-4);
+}
+.tile {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-3);
+  padding: var(--sp-4) 18px;
+  box-shadow: var(--shadow-1);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tile-label {
+  font-size: var(--t-label);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+.tile-hero-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.tile-hero {
+  font-size: var(--t-hero);
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  font-family: var(--font-num);
+}
+.tile-wide .tile-hero {
+  font-size: var(--t-hero-lg);
+}
+.tile-muted {
+  color: var(--muted);
+}
+.tile-aside {
+  font-size: var(--t-body);
+  color: var(--text-secondary);
+}
+.tile-metric {
+  font-size: var(--t-metric);
+  font-weight: 600;
+  font-family: var(--font-num);
+  letter-spacing: -0.02em;
+  margin-top: 3px;
+}
+.tile-sub {
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+  margin-top: auto;
+}
+.tile-bar {
+  display: flex;
+  height: 5px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--surface-3);
+  margin-top: 4px;
+}
+.tile-bar-fill {
+  background: currentcolor;
+}
+
+/* Zone 2 — projection canvas and the year inspector beside it. */
+.projection-zone {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 304px;
+  gap: var(--sp-4);
+}
+.projection-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+.card-head h2 {
+  margin: 0;
+  font-size: var(--t-title);
+  font-weight: 600;
+}
+.card-note {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.card-spacer {
+  flex: 1;
+}
+.chart-legend {
+  display: flex;
+  gap: 14px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.legend-rule {
+  width: 12px;
+  height: 2px;
+  background: var(--text-primary);
+}
+.projection-chart {
+  border-radius: var(--r-2);
+}
+
+.inspector {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-3);
+  box-shadow: var(--shadow-1);
+  padding: var(--sp-3) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.inspector-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.inspector-head .tile-label {
+  flex: 1;
+}
+.inspector-year {
+  font-size: 20px;
+  font-weight: 600;
+  font-family: var(--font-num);
+  letter-spacing: -0.02em;
+}
+.inspector-ages {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  margin-top: -6px;
+}
+.inspector-block {
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-2);
+}
+.inspector-networth {
+  font-size: var(--t-metric);
+  font-weight: 600;
+  font-family: var(--font-num);
+  letter-spacing: -0.02em;
+  margin-top: 2px;
+}
+.inspector-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding: 3px 0;
+}
+.row-chip {
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+.row-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+.row-label {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Dotted leader ties a label to its figure across a variable gap. */
+.row-leader {
+  flex: 1;
+  border-bottom: 1px dotted var(--border);
+  min-width: 8px;
+}
+.row-value {
+  font-size: 12.5px;
+  font-weight: 500;
+  font-family: var(--font-num);
+}
+.row-critical {
+  color: var(--status-critical);
+}
+.inspector-hint {
+  font-size: var(--t-xs);
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-2);
+  margin: auto 0 0;
+}
+
+/* Zone 3 — supporting detail. */
+.milestones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--sp-4);
 }
