@@ -66,9 +66,16 @@ export function HeadlineTiles(props: { metrics: HeadlineMetrics; realDollars: bo
           {m.depletionYear !== null ? m.depletionYear : "Never"}
         </div>
         <div className="tile-sub">
-          {m.depletionYear !== null
-            ? "Spending exceeds what the accounts can fund."
-            : "Balances hold through the full projection."}
+          {m.depletionYear !== null ? (
+            "Spending exceeds what the accounts can fund."
+          ) : m.planEndYear !== null ? (
+            <>
+              Balances hold through {m.planEndYear}, when the plan ends at age{" "}
+              {m.planEndAge}.
+            </>
+          ) : (
+            "Balances hold through the full projection."
+          )}
         </div>
       </div>
 

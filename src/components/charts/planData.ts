@@ -49,6 +49,10 @@ export interface HeadlineMetrics {
   coverYears: number | null;
   /** The year `coverYears` is measured at. */
   coverYear: number | null;
+  /** Final projected year — the last snapshot's year, or null with no snapshots. */
+  planEndYear: number | null;
+  /** `assumptions.plan_end_age` — the age that determines `planEndYear`. */
+  planEndAge: number;
 }
 
 function snapshotForYear(
@@ -110,6 +114,9 @@ export function headlineMetrics(
     depletionYear,
     coverYears,
     coverYear: atRetirement?.period_start.year ?? null,
+    planEndYear:
+      projection.snapshots[projection.snapshots.length - 1]?.period_start.year ?? null,
+    planEndAge: plan.assumptions.plan_end_age,
   };
 }
 
@@ -152,7 +159,7 @@ export function milestones(
       key: "__end__",
       label: "At plan end",
       value: last.net_worth / basis(last, realDollars),
-      sub: `${last.period_start.year} · ${realDollars ? "today's dollars" : "nominal"}`,
+      sub: `${last.period_start.year} · age ${plan.assumptions.plan_end_age} · ${realDollars ? "today's dollars" : "nominal"}`,
     });
   }
   return out;

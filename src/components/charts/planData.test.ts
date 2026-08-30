@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Account } from "../../types/generated/Account";
+import type { Assumptions } from "../../types/generated/Assumptions";
 import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
 import type { PeriodSnapshot } from "../../types/generated/PeriodSnapshot";
 import type { Person } from "../../types/generated/Person";
@@ -50,8 +51,12 @@ function account(id: string): Account {
   return { id, name: id } as Account;
 }
 
-function plan(people: Person[], accounts: Account[]): Plan {
-  return { people, accounts } as Plan;
+function plan(people: Person[], accounts: Account[], planEndAge = 95): Plan {
+  return {
+    people,
+    accounts,
+    assumptions: { plan_end_age: planEndAge } as Assumptions,
+  } as Plan;
 }
 
 function mc(overrides: Partial<MonteCarloResult>): MonteCarloResult {
@@ -200,6 +205,24 @@ describe("headlineMetrics", () => {
     expect(m.failedPaths).toBeNull();
     expect(m.p10AtEnd).toBeNull();
   });
+
+  it("reports the plan's final year and the age that determines it", () => {
+    const p = plan([person("a", 1980, 2030)], [], 90);
+    const proj = projection([
+      snapshot({ period_start: { year: 2030, month: 1 } }),
+      snapshot({ period_start: { year: 2070, month: 1 } }),
+    ]);
+
+    const m = headlineMetrics(p, proj, null, null, false);
+    expect(m.planEndYear).toBe(2070);
+    expect(m.planEndAge).toBe(90);
+  });
+
+  it("reports a null plan end year with no snapshots", () => {
+    const p = plan([person("a", 1980, 2030)], []);
+    const m = headlineMetrics(p, projection([]), null, null, false);
+    expect(m.planEndYear).toBeNull();
+  });
 });
 
 describe("milestones", () => {
@@ -215,6 +238,18 @@ describe("milestones", () => {
     expect(end.label).toBe("At depletion");
     expect(end.value).toBe(0);
     expect(end.critical).toBe(true);
+  });
+
+  it("names the plan-end age in the plan-end milestone's sub-text", () => {
+    const p = plan([person("a", 1980, 2030)], [], 90);
+    const proj = projection([
+      snapshot({ period_start: { year: 2030, month: 1 }, net_worth: 900 }),
+      snapshot({ period_start: { year: 2070, month: 1 }, net_worth: 1200 }),
+    ]);
+
+    const [, end] = milestones(p, proj, null, false);
+    expect(end.label).toBe("At plan end");
+    expect(end.sub).toBe("2070 · age 90 · nominal");
   });
 });
 
