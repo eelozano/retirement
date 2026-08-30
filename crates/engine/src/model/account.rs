@@ -7,7 +7,7 @@ use super::{AssetClass, PersonId};
 
 pub type AccountId = String;
 
-#[derive(Serialize, Deserialize, TS, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, TS, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[ts(export)]
 pub enum AccountKind {
     /// Brokerage: contributions form cost basis; withdrawals realize gains
@@ -47,6 +47,9 @@ pub struct Account {
     /// owner is still working.
     pub annual_contribution: f64,
     /// Statutory cap in simulation-start dollars; contributions above it are
-    /// clamped with a warning. None = uncapped (taxable).
+    /// clamped with a warning. None = uncapped (taxable). The cap is shared
+    /// per person per year with the owner's other accounts in the same
+    /// statutory bucket rather than granted per account — see
+    /// `sim::contributions`.
     pub contribution_limit: Option<f64>,
 }

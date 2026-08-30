@@ -17,6 +17,7 @@ use engine::model::{
     GrowthRule, PeriodLength, Person, Plan, SimConfig, StateTaxProfile, StreamBoundary,
     StreamDirection, YearMonth, SCHEMA_VERSION,
 };
+use engine::presets::{ELECTIVE_DEFERRAL_LIMIT, IRA_CONTRIBUTION_LIMIT};
 use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
 use engine::{simulate, Projection};
 
@@ -232,4 +233,161 @@ fn contribution_above_limit_is_clamped_with_warning() {
         "clamped contributions",
     );
     assert_close(projection.snapshots[0].net_worth, 121_000.0, "p0 net worth");
+}
+
+/// The clamp is reported with the numbers behind it, not just the account —
+/// the UI has nothing else to render the shortfall from.
+fn clamp_for(projection: &Projection, account: &str) -> Option<(f64, f64)> {
+    projection.warnings.iter().find_map(|w| match w {
+        engine::SimWarning::ContributionClamped {
+            account: id,
+            requested,
+            allowed,
+        } if id == account => Some((*requested, *allowed)),
+        _ => None,
+    })
+}
+
+/// Adds a second capped account to the micro plan's single person.
+fn with_second_account(id: &str, kind: AccountKind, contribution: f64, limit: f64) -> Plan {
+    let mut plan = micro_plan();
+    plan.accounts.push(Account {
+        id: id.to_string(),
+        owner: "p1".to_string(),
+        kind,
+        name: id.to_string(),
+        balance: 0.0,
+        cost_basis: None,
+        allocation: AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
+        annual_contribution: contribution,
+        contribution_limit: Some(limit),
+    });
+    plan
+}
+
+#[test]
+fn two_employer_plans_share_one_deferral_limit_filled_in_plan_order() {
+    // A 401(k) and a 403(b) do not each get their own elective-deferral
+    // limit — the limit belongs to the person.
+    let mut plan = with_second_account(
+        "403b",
+        AccountKind::TraditionalPreTax,
+        ELECTIVE_DEFERRAL_LIMIT,
+        ELECTIVE_DEFERRAL_LIMIT,
+    );
+    plan.accounts[0].annual_contribution = ELECTIVE_DEFERRAL_LIMIT;
+    plan.accounts[0].contribution_limit = Some(ELECTIVE_DEFERRAL_LIMIT);
+
+    let projection = run_with_flat_tax(&plan, 0.20);
+    assert_close(
+        projection.snapshots[0].contributions,
+        ELECTIVE_DEFERRAL_LIMIT,
+        "one shared cap across both employer plans",
+    );
+    // Plan order decides: the first account listed fills, the second gets
+    // what is left — here, nothing.
+    assert_eq!(clamp_for(&projection, "401k"), None);
+    assert_eq!(
+        clamp_for(&projection, "403b"),
+        Some((ELECTIVE_DEFERRAL_LIMIT, 0.0)),
+    );
+}
+
+#[test]
+fn ira_and_employer_plan_are_capped_independently() {
+    // Different buckets: filling the deferral limit leaves the IRA limit
+    // entirely intact, and neither is clamped.
+    let mut plan = with_second_account(
+        "roth-ira",
+        AccountKind::Roth,
+        IRA_CONTRIBUTION_LIMIT,
+        IRA_CONTRIBUTION_LIMIT,
+    );
+    plan.accounts[0].annual_contribution = ELECTIVE_DEFERRAL_LIMIT;
+    plan.accounts[0].contribution_limit = Some(ELECTIVE_DEFERRAL_LIMIT);
+
+    let projection = run_with_flat_tax(&plan, 0.20);
+    assert_close(
+        projection.snapshots[0].contributions,
+        ELECTIVE_DEFERRAL_LIMIT + IRA_CONTRIBUTION_LIMIT,
+        "employer and IRA buckets are separate",
+    );
+    assert!(
+        !projection
+            .warnings
+            .iter()
+            .any(|w| matches!(w, engine::SimWarning::ContributionClamped { .. })),
+        "nothing exceeded its bucket: {:?}",
+        projection.warnings
+    );
+}
+
+#[test]
+fn traditional_and_roth_iras_share_one_ira_limit() {
+    // Same bucket even though the kinds differ — the IRA limit is one cap
+    // across a person's traditional and Roth IRAs.
+    let mut plan = with_second_account(
+        "roth-ira",
+        AccountKind::Roth,
+        IRA_CONTRIBUTION_LIMIT,
+        IRA_CONTRIBUTION_LIMIT,
+    );
+    plan.accounts[0].annual_contribution = IRA_CONTRIBUTION_LIMIT;
+    plan.accounts[0].contribution_limit = Some(IRA_CONTRIBUTION_LIMIT);
+
+    let projection = run_with_flat_tax(&plan, 0.20);
+    assert_close(
+        projection.snapshots[0].contributions,
+        IRA_CONTRIBUTION_LIMIT,
+        "one shared IRA cap",
+    );
+}
+
+#[test]
+fn a_raised_catch_up_limit_lifts_the_whole_bucket_not_just_its_own_account() {
+    // Age-50 catch-up is entered by raising one account's limit. It is a
+    // property of the person, so it raises the shared cap — while the other
+    // account stays bound by the limit it declares.
+    let catch_up = ELECTIVE_DEFERRAL_LIMIT + 8_000.0;
+    let mut plan = with_second_account(
+        "403b",
+        AccountKind::TraditionalPreTax,
+        catch_up,
+        ELECTIVE_DEFERRAL_LIMIT,
+    );
+    plan.accounts[0].annual_contribution = catch_up;
+    plan.accounts[0].contribution_limit = Some(catch_up);
+
+    let projection = run_with_flat_tax(&plan, 0.20);
+    assert_close(
+        projection.snapshots[0].contributions,
+        catch_up,
+        "shared cap rises to the catch-up limit",
+    );
+    assert_eq!(clamp_for(&projection, "401k"), None);
+    assert_eq!(clamp_for(&projection, "403b"), Some((catch_up, 0.0)));
+}
+
+#[test]
+fn limits_are_per_person_so_two_people_do_not_share_a_bucket() {
+    let mut plan = with_second_account(
+        "spouse-401k",
+        AccountKind::TraditionalPreTax,
+        ELECTIVE_DEFERRAL_LIMIT,
+        ELECTIVE_DEFERRAL_LIMIT,
+    );
+    plan.accounts[0].annual_contribution = ELECTIVE_DEFERRAL_LIMIT;
+    plan.accounts[0].contribution_limit = Some(ELECTIVE_DEFERRAL_LIMIT);
+    plan.accounts[1].owner = "p2".to_string();
+    let mut spouse = plan.people[0].clone();
+    spouse.id = "p2".to_string();
+    spouse.name = "Spouse".to_string();
+    plan.people.push(spouse);
+
+    let projection = run_with_flat_tax(&plan, 0.20);
+    assert_close(
+        projection.snapshots[0].contributions,
+        2.0 * ELECTIVE_DEFERRAL_LIMIT,
+        "each person gets their own deferral limit",
+    );
 }
