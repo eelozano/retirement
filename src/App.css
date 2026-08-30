@@ -524,7 +524,6 @@ body {
 .input-table td.num,
 .input-table th.num {
   text-align: right;
-  padding-right: 0;
   font-variant-numeric: tabular-nums;
 }
 

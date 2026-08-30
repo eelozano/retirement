@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { currency } from "../../lib/format";
 import { usePlanStore } from "../../store/planStore";
 import type { AccountKind } from "../../types/generated/AccountKind";
@@ -67,6 +67,15 @@ export function AccountsSection() {
   const plan = usePlanStore((s) => s.plan);
   const updatePlan = usePlanStore((s) => s.updatePlan);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const editorRef = useRef<HTMLFieldSetElement>(null);
+  // The editor sits below a table that can run long, so selecting a row (or
+  // adding one) can leave it below the fold with no visible cue that it
+  // exists — scroll it into view whenever the selection changes.
+  useEffect(() => {
+    if (selectedId) {
+      editorRef.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+    }
+  }, [selectedId]);
   if (!plan) return null;
 
   const accounts = plan.accounts;
@@ -148,7 +157,7 @@ export function AccountsSection() {
       </div>
 
       {selected && (
-        <fieldset className="input-card" key={selected.id}>
+        <fieldset className="input-card" key={selected.id} ref={editorRef}>
           <legend>{selected.name || "Untitled account"}</legend>
           <TextField
             label="Name"
