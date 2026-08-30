@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::{AssetClass, PersonId};
+use crate::presets::{ELECTIVE_DEFERRAL_LIMIT, IRA_CONTRIBUTION_LIMIT};
 
 pub type AccountId = String;
 
@@ -126,9 +127,10 @@ pub struct Account {
 /// Same migration intent as the `#[serde(default)]` precedent documented on
 /// `sweep_surplus_to_taxable` and `social_security`.
 ///
-/// The legacy per-account `contribution_limit` is accepted and dropped: the
-/// engine now owns statutory limits (indexed, with catch-up tiers) instead of
-/// reading a frozen user-typed number, so there is nothing to migrate it to.
+/// The legacy per-account `contribution_limit` no longer survives as a
+/// field — the engine owns statutory limits now, indexed and with catch-up
+/// tiers, instead of reading a frozen user-typed number. It is still read
+/// once, to pick the bucket: see `migrated_plan_type`.
 #[derive(Deserialize)]
 struct AccountWire {
     id: AccountId,
@@ -146,11 +148,38 @@ struct AccountWire {
     /// Pre-#32: a flat nominal figure applied unchanged every period.
     #[serde(default)]
     annual_contribution: Option<f64>,
-    /// Pre-#32: a user-typed statutory cap. Accepted so old plans parse;
-    /// deliberately unused.
+    /// Pre-#32: a user-typed statutory cap. Read only by
+    /// `migrated_plan_type`.
     #[serde(default)]
-    #[allow(dead_code)]
     contribution_limit: Option<f64>,
+}
+
+/// The bucket a pre-#32 account belonged to, recovered from the limit it
+/// carried.
+///
+/// `AccountKind` alone puts every pre-tax account in the employer-plan
+/// bucket, which is wrong for a traditional IRA — and the old schema *did*
+/// record enough to tell, in the limit the user typed. This is #31's
+/// `bucket_for` heuristic, kept for exactly one job: reading a plan file
+/// written before the field existed. It is strictly better than ignoring
+/// the limit, and it never runs at simulate time, where the field is now
+/// read directly.
+///
+/// A taxable account is `None` regardless of any stale limit — validation
+/// requires the two axes to agree there.
+fn migrated_plan_type(kind: AccountKind, contribution_limit: Option<f64>) -> PlanType {
+    let default = PlanType::default_for(kind);
+    let Some(limit) = contribution_limit else {
+        return default;
+    };
+    if default == PlanType::None {
+        return default;
+    }
+    if (limit - IRA_CONTRIBUTION_LIMIT).abs() <= (limit - ELECTIVE_DEFERRAL_LIMIT).abs() {
+        PlanType::Ira
+    } else {
+        PlanType::EmployerPlan
+    }
 }
 
 /// Hand-written rather than `#[serde(from = "AccountWire")]` only because
@@ -168,7 +197,9 @@ impl From<AccountWire> for Account {
             .contribution
             .unwrap_or_else(|| ContributionRule::FlatAmount(w.annual_contribution.unwrap_or(0.0)));
         Account {
-            plan_type: w.plan_type.unwrap_or_else(|| PlanType::default_for(w.kind)),
+            plan_type: w
+                .plan_type
+                .unwrap_or_else(|| migrated_plan_type(w.kind, w.contribution_limit)),
             contribution,
             id: w.id,
             owner: w.owner,
@@ -205,15 +236,50 @@ mod tests {
         assert_eq!(account.plan_type, PlanType::EmployerPlan);
     }
 
+    /// The old schema could not name the bucket, but the limit the user
+    /// typed says which one it was — a traditional IRA is `TraditionalPreTax`
+    /// like a 401(k), and only its $7,500-ish limit tells them apart.
+    #[test]
+    fn a_legacy_ira_limit_migrates_into_the_ira_bucket() {
+        let account = |kind, limit: f64| {
+            let json = format!(
+                r#"{{"id":"a","owner":"p1","kind":"{kind}","name":"a","balance":0.0,
+                    "cost_basis":null,"allocation":"Moderate","annual_contribution":0.0,
+                    "contribution_limit":{limit}}}"#
+            );
+            serde_json::from_str::<Account>(&json).expect("legacy account parses")
+        };
+        assert_eq!(
+            account("TraditionalPreTax", IRA_CONTRIBUTION_LIMIT).plan_type,
+            PlanType::Ira,
+        );
+        assert_eq!(
+            account("TraditionalPreTax", ELECTIVE_DEFERRAL_LIMIT).plan_type,
+            PlanType::EmployerPlan,
+        );
+        // A Roth 401(k) is the mirror case: `Roth` alone would say IRA.
+        assert_eq!(
+            account("Roth", ELECTIVE_DEFERRAL_LIMIT).plan_type,
+            PlanType::EmployerPlan,
+        );
+    }
+
     #[test]
     fn legacy_plan_type_defaults_follow_the_account_kind() {
+        // An uncapped account carries no signal, so the kind decides. A
+        // taxable account stays `None` even if a stale limit says otherwise.
         for (kind, expected) in [
             (AccountKind::Taxable, PlanType::None),
             (AccountKind::TraditionalPreTax, PlanType::EmployerPlan),
             (AccountKind::Roth, PlanType::Ira),
         ] {
             assert_eq!(PlanType::default_for(kind), expected);
+            assert_eq!(migrated_plan_type(kind, None), expected);
         }
+        assert_eq!(
+            migrated_plan_type(AccountKind::Taxable, Some(IRA_CONTRIBUTION_LIMIT)),
+            PlanType::None,
+        );
     }
 
     /// Round-tripping a current account leaves both new fields alone.

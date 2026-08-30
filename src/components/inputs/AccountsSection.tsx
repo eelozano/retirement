@@ -17,7 +17,9 @@ const KIND_OPTIONS = [
 // makes, it is what a taxable brokerage is, so the control is hidden there
 // entirely rather than offering an option that validation would reject.
 const PLAN_TYPE_OPTIONS = [
-  { value: "EmployerPlan", label: "Employer plan (401k / 403b)" },
+  // Kept short: the select is 150px, and "Employer plan (401k / 403b)"
+  // truncated mid-word to "Employer plan (401".
+  { value: "EmployerPlan", label: "401(k) / 403(b)" },
   { value: "Ira", label: "IRA" },
 ] as const;
 
