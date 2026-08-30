@@ -61,7 +61,7 @@ export function StreamsSection() {
     });
 
   return (
-    <details className="drawer-section" open>
+    <details className="input-section" open>
       <summary>Income &amp; expenses</summary>
       {plan.streams.map((stream, i) => (
         <fieldset key={stream.id}>

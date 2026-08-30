@@ -28,7 +28,7 @@ export function SocialSecuritySection() {
     });
 
   return (
-    <details className="drawer-section" open>
+    <details className="input-section" open>
       <summary>Social Security</summary>
       {plan.social_security.map((benefit, i) => {
         const owner = plan.people.find((p) => p.id === benefit.owner);

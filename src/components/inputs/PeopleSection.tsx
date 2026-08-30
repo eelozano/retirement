@@ -7,7 +7,7 @@ export function PeopleSection() {
   if (!plan) return null;
 
   return (
-    <details className="drawer-section" open>
+    <details className="input-section" open>
       <summary>People</summary>
       {plan.people.map((person, i) => (
         <fieldset key={person.id}>

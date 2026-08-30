@@ -85,7 +85,7 @@ export function AssumptionsSection() {
 
   const assumptions = plan.assumptions;
   return (
-    <details className="drawer-section">
+    <details className="input-section">
       <summary>Assumptions</summary>
       <fieldset>
         <legend>Economy &amp; taxes</legend>
