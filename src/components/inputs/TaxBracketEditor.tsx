@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import type { StateTaxProfile } from "../../types/generated/StateTaxProfile";
 import type { TaxBracket } from "../../types/generated/TaxBracket";
 import { NumberField, PercentField } from "./fields";
@@ -18,6 +19,20 @@ export function TaxBracketEditor(props: {
 }) {
   const { brackets } = props.value;
 
+  // `TaxBracket` is generated from the Rust struct and carries no id, so row
+  // identity is tracked here instead. Keying rows by array index would let
+  // React reuse the wrong row's DOM when a middle bracket is removed — today
+  // the buffered inputs in `fields.tsx` happen to resync and hide that, which
+  // is not something to depend on.
+  const ids = useRef<string[]>([]);
+  const nextId = useRef(0);
+  const newId = () => `bracket-${nextId.current++}`;
+  // Any length we did not cause ourselves (a state preset, a scenario switch)
+  // rebuilds the list.
+  if (ids.current.length !== brackets.length) {
+    ids.current = brackets.map((_, i) => ids.current[i] ?? newId());
+  }
+
   const setBrackets = (next: TaxBracket[]) =>
     props.onChange({ ...props.value, brackets: next });
 
@@ -27,11 +42,15 @@ export function TaxBracketEditor(props: {
       brackets.length >= 2 ? (brackets[brackets.length - 2].up_to ?? 0) : 0;
     const newBound = prevBound + 10_000;
     const inserted: TaxBracket = { up_to: newBound, rate: last.rate };
+    // The new bracket lands just before the unbounded one, so its id does too.
+    ids.current.splice(brackets.length - 1, 0, newId());
     setBrackets([...brackets.slice(0, -1), inserted, last]);
   };
 
-  const removeBracket = (i: number) =>
+  const removeBracket = (i: number) => {
+    ids.current.splice(i, 1);
     setBrackets(brackets.filter((_, idx) => idx !== i));
+  };
 
   const updateBracket = (i: number, patch: Partial<TaxBracket>) =>
     setBrackets(brackets.map((b, idx) => (idx === i ? { ...b, ...patch } : b)));
@@ -57,7 +76,7 @@ export function TaxBracketEditor(props: {
           {brackets.map((bracket, i) => {
             const isLast = i === brackets.length - 1;
             return (
-              <tr key={i}>
+              <tr key={ids.current[i]}>
                 <td>
                   <PercentField
                     label={`Bracket ${i + 1} rate`}

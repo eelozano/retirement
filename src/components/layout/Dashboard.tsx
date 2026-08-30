@@ -5,6 +5,7 @@ import { AssumptionsSection } from "../inputs/AssumptionsSection";
 import { PeopleSection } from "../inputs/PeopleSection";
 import { SocialSecuritySection } from "../inputs/SocialSecuritySection";
 import { StreamsSection } from "../inputs/StreamsSection";
+import { CashFlowScreen } from "./CashFlowScreen";
 import { ComparisonView } from "./ComparisonView";
 import { PlanScreen } from "./PlanScreen";
 import { type Destination, Rail } from "./Rail";
@@ -145,7 +146,9 @@ export function Dashboard() {
         )}
 
         <div className="content">
-          {destination === "inputs" ? (
+          {destination === "cashflow" ? (
+            <CashFlowScreen />
+          ) : destination === "inputs" ? (
             <main className="inputs-screen">
               <PeopleSection />
               <AccountsSection />
@@ -158,7 +161,10 @@ export function Dashboard() {
               <ComparisonView />
             </main>
           ) : (
-            <PlanScreen showBand={showBand} />
+            <PlanScreen
+              showBand={showBand}
+              onOpenCashFlow={() => setDestination("cashflow")}
+            />
           )}
         </div>
       </div>
