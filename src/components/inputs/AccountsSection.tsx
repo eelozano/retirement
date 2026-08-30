@@ -1,7 +1,8 @@
 import { usePlanStore } from "../../store/planStore";
 import type { AccountKind } from "../../types/generated/AccountKind";
 import type { AllocationRef } from "../../types/generated/AllocationRef";
-import { NumberField, SelectField, TextField } from "./fields";
+import type { Presets } from "../../types/generated/Presets";
+import { CheckboxField, NumberField, SelectField, TextField } from "./fields";
 
 const KIND_OPTIONS = [
   { value: "Taxable", label: "Taxable brokerage" },
@@ -21,8 +22,20 @@ function allocationName(allocation: AllocationRef): PresetName {
   return typeof allocation === "string" ? allocation : "Moderate";
 }
 
+/**
+ * Statutory limit a new (or retyped) account of this kind starts with.
+ *
+ * The figures live in Rust (`presets::default_contribution_limit`) and are
+ * fetched once at startup, so there is no statutory number hardcoded here.
+ * Until they arrive the field is left uncapped rather than guessed at.
+ */
+function defaultLimit(presets: Presets | null, kind: AccountKind): number | null {
+  return presets?.contribution_limits[kind] ?? null;
+}
+
 export function AccountsSection() {
   const plan = usePlanStore((s) => s.plan);
+  const presets = usePlanStore((s) => s.presets);
   const updatePlan = usePlanStore((s) => s.updatePlan);
   if (!plan) return null;
 
@@ -37,7 +50,7 @@ export function AccountsSection() {
         cost_basis: 0,
         allocation: "Moderate",
         annual_contribution: 0,
-        contribution_limit: null,
+        contribution_limit: defaultLimit(presets, "Taxable"),
       });
     });
 
@@ -65,6 +78,9 @@ export function AccountsSection() {
                 d.accounts[i].kind = kind;
                 if (kind !== "Taxable") d.accounts[i].cost_basis = null;
                 else d.accounts[i].cost_basis ??= d.accounts[i].balance;
+                // Retyping an account re-prefills its cap: the old kind's
+                // limit is meaningless under the new one.
+                d.accounts[i].contribution_limit = defaultLimit(presets, kind);
               })
             }
           />
@@ -117,6 +133,40 @@ export function AccountsSection() {
               })
             }
           />
+          <CheckboxField
+            label="Cap contributions"
+            checked={account.contribution_limit !== null}
+            // Only explain the cap where it applies: the hint repeated under
+            // every uncapped account was three lines of noise per fieldset.
+            hint={
+              account.contribution_limit !== null
+                ? "Shared per person per year with this owner's other accounts under the same statutory limit — raise it if they are eligible for catch-up."
+                : undefined
+            }
+            onChange={(capped) =>
+              updatePlan((d) => {
+                // No preset for this kind (a taxable account) falls back to
+                // what is already being contributed, so switching the cap on
+                // never silently changes the projection — only editing the
+                // number below does.
+                d.accounts[i].contribution_limit = capped
+                  ? (defaultLimit(presets, d.accounts[i].kind) ??
+                    d.accounts[i].annual_contribution)
+                  : null;
+              })
+            }
+          />
+          {account.contribution_limit !== null && (
+            <NumberField
+              label="Contribution limit / yr ($)"
+              value={account.contribution_limit}
+              onChange={(limit) =>
+                updatePlan((d) => {
+                  d.accounts[i].contribution_limit = limit;
+                })
+              }
+            />
+          )}
           <button
             type="button"
             className="remove"

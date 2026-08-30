@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { currencyCompact } from "../../lib/format";
 import { depletionYear as computeDepletionYear } from "../../lib/projection";
+import { readableWarnings } from "../../lib/warnings";
 import { usePlanStore } from "../../store/planStore";
 import { cashFlowRows, cashFlowSummary } from "../charts/cashFlowData";
 import { chartRows, seriesDefs } from "../charts/chartData";
@@ -48,6 +49,11 @@ export function PlanScreen(props: { showBand: boolean; onOpenCashFlow: () => voi
     [plan, projection, monteCarlo, depletionYear, realDollars],
   );
 
+  const warnings = useMemo(
+    () => (plan && projection ? readableWarnings(plan, projection) : []),
+    [plan, projection],
+  );
+
   const stones = useMemo(
     () =>
       plan && projection ? milestones(plan, projection, depletionYear, realDollars) : [],
@@ -92,7 +98,7 @@ export function PlanScreen(props: { showBand: boolean; onOpenCashFlow: () => voi
 
   return (
     <main className={`plan-screen ${projecting ? "refreshing" : ""}`}>
-      <StatusBand metrics={metrics} warningCount={projection.warnings.length} />
+      <StatusBand metrics={metrics} warnings={warnings} />
 
       <div className="plan-scroll">
         <HeadlineTiles metrics={metrics} realDollars={realDollars} />
