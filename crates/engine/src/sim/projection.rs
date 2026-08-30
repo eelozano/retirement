@@ -29,6 +29,22 @@ pub enum SimWarning {
         /// Contribution the simulation actually made that period.
         allowed: f64,
     },
+    /// An employer match is declared with a destination that has no account
+    /// to land in — a pre-tax match with no pre-tax employer-plan account
+    /// for the owner, or the Roth equivalent. Depositing it in the declared
+    /// account anyway would tax the withdrawals wrongly for decades, so it
+    /// is skipped and reported.
+    MatchUnallocated { account: AccountId },
+    /// Employee deferrals plus employer match exceeded the 415(c) annual
+    /// additions cap. Only the match is trimmed — the deferrals were already
+    /// allowed under the employee's own limit. Reported for the first period
+    /// it happens in, like `ContributionClamped`.
+    AnnualAdditionsClamped {
+        account: AccountId,
+        period: usize,
+        requested: f64,
+        allowed: f64,
+    },
     /// Sweep is enabled but there is no taxable account for surplus cash to
     /// land in.
     SurplusUnallocated,
@@ -50,8 +66,14 @@ pub struct PeriodSnapshot {
     pub expenses: f64,
     /// Total tax paid this period (on income and on withdrawals).
     pub taxes: f64,
-    /// Contributions deposited into accounts this period.
+    /// Contributions deposited into accounts this period, out of household
+    /// income. Employer match is *not* included — it never passes through
+    /// the household's cash, so folding it in here would break the
+    /// income = outflow + surplus identity.
     pub contributions: f64,
+    /// Employer matching contributions deposited this period. Employer
+    /// money: it raises balances without reducing household cash.
+    pub employer_match: f64,
     /// Leftover household cash this period (income minus contributions,
     /// taxes, and expenses). Only actually invested when
     /// `assumptions.sweep_surplus_to_taxable` is set — otherwise this is

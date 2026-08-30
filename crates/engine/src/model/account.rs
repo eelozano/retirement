@@ -86,6 +86,58 @@ impl Default for ContributionRule {
     }
 }
 
+/// One tier of an employer match formula.
+///
+/// Real plan documents are tiered — "100% of the first 3% of salary, then
+/// 50% of the next 2%" — which is `[{3%, 100%}, {2%, 50%}]`. A single flat
+/// percentage is the one-tier case, so the ergonomic default costs nothing
+/// and the shape still fits the plans people actually have.
+#[derive(Serialize, Deserialize, TS, Clone, Copy, Debug, PartialEq)]
+#[ts(export)]
+pub struct MatchTier {
+    /// How wide this tier is, as a fraction of salary (0.03 = "the first
+    /// 3%"). Tiers apply in order, each consuming the employee's deferral
+    /// percentage until it runs out.
+    pub employee_percent: f64,
+    /// What fraction of the employee's deferral in this tier the employer
+    /// adds (1.0 = "100% of", 0.5 = "50% of").
+    pub match_percent: f64,
+}
+
+/// Tax treatment of matched dollars.
+///
+/// Traditionally the match lands pre-tax even when the employee defers Roth;
+/// post-SECURE 2.0 a Roth match is permitted, so this is a choice rather than
+/// an assumption. It selects *which account receives the money*, not just a
+/// label: an account's `kind` is what the drawdown and tax paths read, so
+/// pre-tax dollars sitting in a Roth account would be withdrawn untaxed. See
+/// `sim::contributions::match_target`.
+#[derive(Serialize, Deserialize, TS, Clone, Copy, Debug, PartialEq, Eq)]
+#[ts(export)]
+pub enum MatchDestination {
+    PreTax,
+    Roth,
+}
+
+/// Employer matching contributions on an employer plan.
+///
+/// Declared **per account**, not per person: the match belongs to an
+/// employer's plan document, and an account is what stands for a plan here.
+/// Someone with two jobs has two plans with two different formulas, which
+/// a per-person field could not express.
+///
+/// Vesting is **deliberately deferred**, not forgotten. An unvested balance
+/// that never vests is a real planning consideration for someone changing
+/// jobs, and modelling it needs a schedule plus a leaving date — neither of
+/// which exists yet. Until then every matched dollar is treated as vested.
+#[derive(Serialize, Deserialize, TS, Clone, Debug, PartialEq)]
+#[ts(export)]
+pub struct EmployerMatch {
+    /// Applied in order. Empty means no match.
+    pub tiers: Vec<MatchTier>,
+    pub destination: MatchDestination,
+}
+
 /// Portfolio allocation: a named preset or explicit weights summing to 1.
 #[derive(Serialize, Deserialize, TS, Clone, Debug)]
 #[ts(export)]
@@ -116,6 +168,10 @@ pub struct Account {
     pub plan_type: PlanType,
     /// What the owner puts in each year while still working.
     pub contribution: ContributionRule,
+    /// Employer match on this plan, if any. Matched dollars are employer
+    /// money: they do not count against the employee elective-deferral
+    /// limit, only against the much higher 415(c) annual-additions cap.
+    pub employer_match: Option<EmployerMatch>,
 }
 
 /// Deserialization shape for `Account`, carrying the pre-#32 fields so plans
@@ -145,6 +201,10 @@ struct AccountWire {
     plan_type: Option<PlanType>,
     #[serde(default)]
     contribution: Option<ContributionRule>,
+    /// `#[serde(default)]` so plans saved before #33 load with no match,
+    /// unchanged — the same precedent as `social_security`.
+    #[serde(default)]
+    employer_match: Option<EmployerMatch>,
     /// Pre-#32: a flat nominal figure applied unchanged every period.
     #[serde(default)]
     annual_contribution: Option<f64>,
@@ -201,6 +261,7 @@ impl From<AccountWire> for Account {
                 .plan_type
                 .unwrap_or_else(|| migrated_plan_type(w.kind, w.contribution_limit)),
             contribution,
+            employer_match: w.employer_match,
             id: w.id,
             owner: w.owner,
             kind: w.kind,
@@ -234,6 +295,7 @@ mod tests {
         let account: Account = serde_json::from_str(json).expect("legacy account parses");
         assert_eq!(account.contribution, ContributionRule::FlatAmount(23_000.0));
         assert_eq!(account.plan_type, PlanType::EmployerPlan);
+        assert_eq!(account.employer_match, None, "no match until one is set");
     }
 
     /// The old schema could not name the bucket, but the limit the user
@@ -295,6 +357,7 @@ mod tests {
             allocation: AllocationRef::Moderate,
             plan_type: PlanType::Ira,
             contribution: ContributionRule::PercentOfSalary(0.08),
+            employer_match: None,
         };
         let json = serde_json::to_string(&account).unwrap();
         let back: Account = serde_json::from_str(&json).unwrap();

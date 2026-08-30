@@ -45,6 +45,7 @@ fn plan_with(contribution: ContributionRule, kind: AccountKind, plan_type: PlanT
             allocation: AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
             plan_type,
             contribution,
+            employer_match: None,
         }],
         streams: vec![
             CashFlowStream {
