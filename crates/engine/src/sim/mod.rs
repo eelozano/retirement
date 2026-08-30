@@ -23,7 +23,8 @@ use crate::strategies::{AccountState, DrawdownStrategy, IncomeBreakdown, ReturnM
 /// 1. accrue stream income and expenses (prorated by months active)
 /// 2. contribute to accounts while their owner still works, resolving each
 ///    account's contribution mode and clamping to the owner's shared
-///    statutory limits for that year — see `contributions`
+///    statutory limits for that year, then add the employer match those
+///    deferrals earn — see `contributions`
 /// 3. tax ordinary income (gross income minus pre-tax deferrals)
 /// 4. sweep surplus into the taxable account (if enabled), or draw down the
 ///    shortfall (grossed up through the tax model)
@@ -157,24 +158,39 @@ pub fn simulate(
                 )
             })
             .collect();
+        let period_context = contributions::PeriodContext {
+            period,
+            year: period_start.year,
+            inflation: plan.assumptions.inflation,
+            period_fraction: period_months as f64 / 12.0,
+            salary: &salary,
+            working: &working,
+        };
         let allowed = contributions::allowed_contributions(
             plan,
-            &contributions::PeriodContext {
-                period,
-                year: period_start.year,
-                inflation: plan.assumptions.inflation,
-                period_fraction: period_months as f64 / 12.0,
-                salary: &salary,
-                working: &working,
-            },
+            &period_context,
+            &mut clamps_reported,
+            &mut warnings,
+        );
+        // The match is gated on what the employee actually deferred, so it
+        // is resolved from the post-clamp figures rather than alongside them.
+        let matched = contributions::employer_match(
+            plan,
+            &period_context,
+            &allowed,
             &mut clamps_reported,
             &mut warnings,
         );
 
         let mut contributions = 0.0;
+        let mut employer_match = 0.0;
         let mut pretax_contributions = 0.0;
         for (idx, account) in plan.accounts.iter().enumerate() {
-            let amount = allowed[idx];
+            // Matched dollars land in whichever account the destination
+            // routed them to, so they are deposited alongside — and taxed
+            // by — that account's own kind. A Roth match therefore never
+            // reduces ordinary income, which is the point of the choice.
+            let amount = allowed[idx] + matched[idx];
             if amount <= 0.0 {
                 continue;
             }
@@ -185,7 +201,8 @@ pub fn simulate(
             if account.kind == AccountKind::TraditionalPreTax {
                 pretax_contributions += amount;
             }
-            contributions += amount;
+            contributions += allowed[idx];
+            employer_match += matched[idx];
         }
 
         // 3. Tax on income (pre-tax deferrals reduce ordinary income; Social
@@ -254,6 +271,7 @@ pub fn simulate(
             expenses,
             taxes,
             contributions,
+            employer_match,
             surplus,
             withdrawals,
             net_worth,

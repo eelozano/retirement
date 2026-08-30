@@ -433,6 +433,15 @@ body {
   margin: 2px 8px 0 0;
 }
 
+/* One tier of an employer match formula: its two percentages read as a
+   sentence ("matches the first 3% at a rate of 100%"), so they are grouped
+   and indented rather than sitting loose among the account's own fields. */
+.match-tier {
+  margin: 6px 0 6px 12px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
+}
+
 /* A hint sits on its own line under the control it explains. */
 .field-with-hint {
   flex-wrap: wrap;

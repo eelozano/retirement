@@ -130,6 +130,16 @@ pub enum ContributionRule {
     FederalMaximum,         // intent, resolved against the indexed limit table
 }
 
+// Employer match, per account: a match belongs to one employer's plan
+// document, and an account is what stands for a plan here. Vesting is
+// deliberately deferred — every matched dollar is treated as vested.
+pub struct MatchTier { pub employee_percent: f64, pub match_percent: f64 }
+pub enum MatchDestination { PreTax, Roth }
+pub struct EmployerMatch {
+    pub tiers: Vec<MatchTier>,        // ordered: "first 3%", "next 2%"
+    pub destination: MatchDestination,
+}
+
 pub struct Account {
     pub id: AccountId,
     pub owner: PersonId,
@@ -140,6 +150,7 @@ pub struct Account {
     pub allocation: AllocationRef,  // preset id or custom weights
     pub plan_type: PlanType,              // bucket; cap shared per person per year
     pub contribution: ContributionRule,
+    pub employer_match: Option<EmployerMatch>,
 }
 
 // Generic dated stream — salary, retirement spending, pensions, one-offs.
@@ -230,6 +241,18 @@ Statutory limits are granted **per person per year**, shared across a bucket of 
 Two independent buckets, named directly by `Account::plan_type`: **employer plans** (401(k)/403(b)/TSP elective deferrals) and **IRAs** (traditional and Roth share one cap with each other). `PlanType::None` accounts — taxable brokerages — join no bucket. The bucket used to be *inferred* from whichever statutory figure the account's user-typed limit sat nearer, which mis-bucketed a 457(b) and any hand-typed figure near neither; the engine now owns the limits and reads the bucket from a field.
 
 When a person's accounts collectively ask for more than the shared cap, room is handed out **in plan account order**: the first account listed fills first. The split is resolved **per period**, not once: salaries grow, limits index, and catch-up tiers turn on with age, so what fits is a function of the year. Clamp warnings are deduplicated by account and report the first period the clamp bit.
+
+#### Employer match (`sim/contributions.rs`)
+
+Tiers apply in order, each consuming the employee's deferral percentage until it runs out: `[{3%, 100%}, {2%, 50%}]` on an 8% deferral pays 3% + 1% = 4% of salary. The gate is the **person's** deferral percentage across all their employer plans, derived from what actually went in post-clamp — so a `FlatAmount` or `FederalMaximum` contribution still produces an effective percentage, and splitting deferrals between a Roth and a traditional 401(k) at one employer still earns one match on the combined figure.
+
+Matched dollars are **not** held to the employee elective-deferral limit — applying it to them would silently destroy most of the match, which is the failure mode this exists to prevent. They are held to the 415(c) annual-additions cap instead, shared with the employee's own deferrals, and only the match gives way when it binds. 415(c) is statutorily per employer plan; with no employer grouping in the model it is applied per person, which is the stricter reading.
+
+`MatchDestination` selects *which account receives the money*, not just a label: `AccountKind` is what the tax and drawdown paths read, so pre-tax dollars parked in a Roth account would be withdrawn untaxed. The declared account is preferred when its kind already agrees; otherwise the owner's first other employer-plan account of that kind takes it, and a `MatchUnallocated` warning fires when there is none — a Roth deferral account plus a pre-tax match account is how a real statement splits the two sources.
+
+Employer money never passes through household cash, so it is `PeriodSnapshot::employer_match` rather than part of `contributions` — folding it in would break the `income = outflow + surplus` identity that `tests/properties.rs` pins.
+
+#### Contribution limits, continued
 
 `presets::CONTRIBUTION_LIMITS` carries the statutory figures for one tax year (`basis_year`, currently 2026 from IRS Notice 2025-67) and `ContributionLimits::annual_limit` indexes them forward at the plan's inflation rate, rounding down to the statutory increment ($500, or $100 for the IRA catch-up) so limits step the way the real schedule does. Catch-up is automatic from the owner's `birth`: the age-50 tier, and the SECURE 2.0 tier that replaces it for the years they turn 60 through 63. The app is local-first with no network, so the figures are only as current as the release — `basis_year` is surfaced in the UI rather than implying they are live.
 

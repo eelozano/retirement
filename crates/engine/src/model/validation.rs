@@ -175,6 +175,58 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
             }
             _ => {}
         }
+        if let Some(employer) = &account.employer_match {
+            let field = format!("accounts[{i}].employer_match");
+            if account.plan_type != PlanType::EmployerPlan {
+                errors.push(err(
+                    &field,
+                    &format!(
+                        "\"{}\" isn't an employer plan, so it can't have an employer match.",
+                        account.name
+                    ),
+                ));
+            }
+            if employer.tiers.is_empty() {
+                errors.push(err(
+                    &field,
+                    &format!("\"{}\" has a match with no tiers.", account.name),
+                ));
+            }
+            // Tiers are consecutive slices of salary, so together they cannot
+            // cover more than the whole of it.
+            let covered: f64 = employer.tiers.iter().map(|t| t.employee_percent).sum();
+            if covered > 1.0 + 1e-9 {
+                errors.push(err(
+                    &field,
+                    &format!(
+                        "\"{}\" matches on {:.0}% of salary in total — the tiers can't add up to more than 100%.",
+                        account.name,
+                        covered * 100.0
+                    ),
+                ));
+            }
+            for tier in &employer.tiers {
+                if tier.employee_percent <= 0.0 || tier.employee_percent > 1.0 {
+                    errors.push(err(
+                        &field,
+                        &format!(
+                            "\"{}\" has a match tier covering {:.0}% of salary — it has to be above 0% and at most 100%.",
+                            account.name,
+                            tier.employee_percent * 100.0
+                        ),
+                    ));
+                }
+                if tier.match_percent < 0.0 {
+                    errors.push(err(
+                        &field,
+                        &format!(
+                            "\"{}\" has a match tier paying a negative rate.",
+                            account.name
+                        ),
+                    ));
+                }
+            }
+        }
     }
 
     let mut seen_stream_ids = HashSet::new();

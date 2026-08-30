@@ -8,7 +8,10 @@ mod tax_profile;
 mod validation;
 mod year_month;
 
-pub use account::{Account, AccountId, AccountKind, AllocationRef, ContributionRule, PlanType};
+pub use account::{
+    Account, AccountId, AccountKind, AllocationRef, ContributionRule, EmployerMatch,
+    MatchDestination, MatchTier, PlanType,
+};
 pub use assumptions::{AssetClass, Assumptions};
 pub use person::{Person, PersonId};
 pub use plan::{PeriodLength, Plan, PlanId, SimConfig, SCHEMA_VERSION};

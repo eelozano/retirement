@@ -51,6 +51,11 @@ pub struct ContributionLimits {
     pub ira: f64,
     /// IRC 219(b)(5)(B) IRA catch-up, added from the year the owner turns 50.
     pub ira_catch_up_50: f64,
+    /// IRC 415(c)(1)(A) annual additions cap: everything that lands in an
+    /// employer plan in a year — the employee's own deferrals *and* the
+    /// employer match. Far higher than the deferral limit, which is the
+    /// whole point: matched dollars are not held to the employee's cap.
+    pub annual_additions: f64,
 }
 
 pub const CONTRIBUTION_LIMITS: ContributionLimits = ContributionLimits {
@@ -60,6 +65,7 @@ pub const CONTRIBUTION_LIMITS: ContributionLimits = ContributionLimits {
     employer_plan_catch_up_60_63: 11_250.0,
     ira: IRA_CONTRIBUTION_LIMIT,
     ira_catch_up_50: 1_100.0,
+    annual_additions: 72_000.0,
 };
 
 /// Indexed figures round down to a statutory increment: $500 for the
@@ -82,6 +88,23 @@ impl ContributionLimits {
     /// Catch-up eligibility is by the age *attained during* the calendar
     /// year, which is the statutory rule: someone turning 50 in December is
     /// eligible for that whole year.
+    /// The 415(c) annual-additions cap for `year`, indexed from
+    /// `basis_year`. Catch-up contributions sit on top of 415(c) rather than
+    /// inside it, so the eligible catch-up for `age` is added back.
+    ///
+    /// 415(c) is statutorily **per employer plan**; this model has no
+    /// employer grouping, so it is applied per person. That is the stricter
+    /// reading, and only differs for someone in two employers' plans at once.
+    pub fn annual_additions_limit(&self, age: i32, year: i32, inflation: f64) -> f64 {
+        let years = (year - self.basis_year) as f64;
+        let catch_up = match age {
+            60..=63 => index_to(self.employer_plan_catch_up_60_63, 500.0, years, inflation),
+            a if a >= 50 => index_to(self.employer_plan_catch_up_50, 500.0, years, inflation),
+            _ => 0.0,
+        };
+        index_to(self.annual_additions, 1_000.0, years, inflation) + catch_up
+    }
+
     pub fn annual_limit(
         &self,
         plan_type: PlanType,
@@ -245,6 +268,7 @@ pub fn seed_plan() -> Plan {
                 allocation: AllocationRef::Aggressive,
                 plan_type: PlanType::None,
                 contribution: ContributionRule::FlatAmount(40_000.0),
+                employer_match: None,
             },
             Account {
                 id: "enrique-401k".to_string(),
@@ -256,6 +280,7 @@ pub fn seed_plan() -> Plan {
                 allocation: AllocationRef::Aggressive,
                 plan_type: PlanType::EmployerPlan,
                 contribution: ContributionRule::FlatAmount(ELECTIVE_DEFERRAL_LIMIT),
+                employer_match: None,
             },
             Account {
                 id: "claire-roth".to_string(),
@@ -267,6 +292,7 @@ pub fn seed_plan() -> Plan {
                 allocation: AllocationRef::Moderate,
                 plan_type: PlanType::Ira,
                 contribution: ContributionRule::FlatAmount(IRA_CONTRIBUTION_LIMIT),
+                employer_match: None,
             },
         ],
         streams: vec![

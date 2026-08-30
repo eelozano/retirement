@@ -33,4 +33,11 @@ ira: number,
 /**
  * IRC 219(b)(5)(B) IRA catch-up, added from the year the owner turns 50.
  */
-ira_catch_up_50: number, };
+ira_catch_up_50: number, 
+/**
+ * IRC 415(c)(1)(A) annual additions cap: everything that lands in an
+ * employer plan in a year — the employee's own deferrals *and* the
+ * employer match. Far higher than the deferral limit, which is the
+ * whole point: matched dollars are not held to the employee's cap.
+ */
+annual_additions: number, };

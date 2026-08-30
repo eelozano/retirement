@@ -117,6 +117,50 @@ describe("AccountsSection", () => {
     expect(screen.getByText(/\$24,500\/yr in 2026/)).toBeTruthy();
   });
 
+  it("offers an employer match only on an employer plan, and drops it otherwise", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+    // Taxable: no match control at all.
+    expect(screen.queryByLabelText("Employer match")).toBeNull();
+
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "TraditionalPreTax");
+    await userEvent.click(screen.getByLabelText("Employer match"));
+    // Switching it on produces a working one-tier formula rather than an
+    // empty one validation would reject.
+    expect(currentAccount()?.employer_match).toEqual({
+      tiers: [{ employee_percent: 0.03, match_percent: 1 }],
+      destination: "PreTax",
+    });
+
+    // An IRA has no employer, so the match cannot survive the move.
+    await userEvent.selectOptions(screen.getByLabelText("Plan type"), "Ira");
+    expect(currentAccount()?.employer_match).toBeNull();
+    expect(screen.queryByLabelText("Employer match")).toBeNull();
+  });
+
+  it("builds a tiered match formula", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "TraditionalPreTax");
+    await userEvent.click(screen.getByLabelText("Employer match"));
+
+    await userEvent.click(screen.getByRole("button", { name: "Add match tier" }));
+    // "100% of the first 3%, then 50% of the next 2%" — the shape a real
+    // plan document uses.
+    expect(currentAccount()?.employer_match?.tiers).toEqual([
+      { employee_percent: 0.03, match_percent: 1 },
+      { employee_percent: 0.02, match_percent: 0.5 },
+    ]);
+
+    await userEvent.selectOptions(screen.getByLabelText("Match goes in as"), "Roth");
+    expect(currentAccount()?.employer_match?.destination).toBe("Roth");
+
+    await userEvent.click(screen.getAllByRole("button", { name: "Remove tier" })[1]);
+    expect(currentAccount()?.employer_match?.tiers).toHaveLength(1);
+    // The last tier cannot be removed — a match with no tiers is invalid.
+    expect(screen.queryByRole("button", { name: "Remove tier" })).toBeNull();
+  });
+
   it("drops the federal maximum when an account is retyped as taxable", async () => {
     render(<AccountsSection />);
     await addAccount();

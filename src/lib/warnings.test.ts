@@ -96,6 +96,29 @@ describe("readableWarnings", () => {
     expect(w.title).toBe("Funds run out in 2027");
   });
 
+  it("explains a match with nowhere to land, and one cut by the annual cap", () => {
+    const [unallocated, capped] = readableWarnings(
+      plan,
+      projection([
+        { MatchUnallocated: { account: "acct-1" } },
+        {
+          AnnualAdditionsClamped: {
+            account: "acct-1",
+            period: 1,
+            requested: 20000,
+            allowed: 12000,
+          },
+        },
+      ]),
+    );
+    expect(unallocated.title).toContain("nowhere to go");
+    expect(capped.title).toContain("$12,000");
+    expect(capped.title).toContain("from 2027");
+    // The distinction that matters: the employee's own contributions are not
+    // what gave way.
+    expect(capped.detail).toContain("Your own contributions are untouched");
+  });
+
   it("covers the unit-variant and stream-reference warnings", () => {
     const [surplus, unknown] = readableWarnings(
       plan,

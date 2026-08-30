@@ -60,6 +60,7 @@ fn micro_plan() -> Plan {
             allocation: bonds_only,
             plan_type: PlanType::EmployerPlan,
             contribution: ContributionRule::FlatAmount(10_000.0),
+            employer_match: None,
         }],
         streams: vec![
             CashFlowStream {
@@ -157,6 +158,7 @@ fn micro_plan_with_taxable_account() -> Plan {
         allocation: AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 0.0)])),
         plan_type: PlanType::None,
         contribution: ContributionRule::FlatAmount(0.0),
+        employer_match: None,
     });
     for stream in &mut plan.streams {
         if stream.id == "spending" {
@@ -283,6 +285,7 @@ fn with_second_account(
         allocation: AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
         plan_type,
         contribution: ContributionRule::FlatAmount(contribution),
+        employer_match: None,
     });
     plan
 }
