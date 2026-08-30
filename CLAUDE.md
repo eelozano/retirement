@@ -42,7 +42,9 @@ cloud/network dependencies for user data.
 
 ## Dev commands
 
-- `pnpm tauri dev` — run the app (needs webkit2gtk/gtk3 on Linux).
+- `pnpm tauri dev` — run the app (needs webkit2gtk/gtk3 on Linux). On macOS,
+  launching it so it is *visible to screenshots* has two non-obvious traps —
+  see `.claude/skills/run-app/SKILL.md` before driving the app by hand.
 - `pnpm app:build` — build the installable `.dmg` for real use.
 - `pnpm check` — **run this before pushing.** It chains every gate CI runs, in
   the same order: fmt, clippy, cargo test, type regeneration + drift check,
