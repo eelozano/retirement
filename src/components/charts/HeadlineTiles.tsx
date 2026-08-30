@@ -82,8 +82,8 @@ export function HeadlineTiles(props: { metrics: HeadlineMetrics; realDollars: bo
         </div>
         <div className="tile-sub">
           {m.coverYear !== null
-            ? `Net worth divided by that year's expenses, at the first retirement in ${m.coverYear}.`
-            : "No retirement falls inside the projection."}
+            ? `Net worth divided by expenses in ${m.coverYear}, the first full year of retirement.`
+            : "No full year of retirement falls inside the projection."}
         </div>
       </div>
     </section>

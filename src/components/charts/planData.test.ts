@@ -32,12 +32,17 @@ function projection(
   return { snapshots, warnings };
 }
 
-function person(id: string, birth: number, retirement: number): Person {
+function person(
+  id: string,
+  birth: number,
+  retirement: number,
+  retirementMonth = 1,
+): Person {
   return {
     id,
     name: id,
     birth: { year: birth, month: 1 },
-    retirement: { year: retirement, month: 1 },
+    retirement: { year: retirement, month: retirementMonth },
   } as Person;
 }
 
@@ -91,6 +96,44 @@ describe("headlineMetrics", () => {
     const real = headlineMetrics(p, proj, null, null, true);
     expect(nominal.coverYears).toBe(24);
     expect(real.coverYears).toBe(24);
+  });
+
+  it("skips the prorated stub year for a late-in-year retirement", () => {
+    // Retiring in December: the retirement year itself is an 11/12-stub
+    // where expenses are 1/12 of a full year, so dividing net worth by it
+    // overstates coverage by ~12x. The metric should land on 2039 instead.
+    const p = plan([person("a", 1980, 2038, 12)], []);
+    const proj = projection([
+      snapshot({
+        period_start: { year: 2038, month: 1 },
+        net_worth: 1429417,
+        expenses: 5833.33,
+      }),
+      snapshot({
+        period_start: { year: 2039, month: 1 },
+        net_worth: 1429417,
+        expenses: 70000,
+      }),
+    ]);
+
+    const m = headlineMetrics(p, proj, null, null, false);
+    expect(m.coverYear).toBe(2039);
+    expect(m.coverYears).toBeCloseTo(20.4, 1);
+  });
+
+  it("falls back to null when no full retirement period is in the projection", () => {
+    const p = plan([person("a", 1980, 2038, 12)], []);
+    const proj = projection([
+      snapshot({
+        period_start: { year: 2038, month: 1 },
+        net_worth: 1000,
+        expenses: 100,
+      }),
+    ]);
+
+    const m = headlineMetrics(p, proj, null, null, false);
+    expect(m.coverYear).toBeNull();
+    expect(m.coverYears).toBeNull();
   });
 
   it("derives failed paths and the year the median path reaches zero", () => {
