@@ -1,0 +1,244 @@
+import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
+import type { PeriodSnapshot } from "../../types/generated/PeriodSnapshot";
+import type { Plan } from "../../types/generated/Plan";
+import type { Projection } from "../../types/generated/Projection";
+import { MAX_SERIES, OTHER_KEY, type SeriesDef } from "./chartData";
+
+// Derivations for the Plan screen's headline, milestones, and year inspector.
+// Everything here reads fields that already exist on PeriodSnapshot or
+// MonteCarloResult — nothing is estimated or invented.
+
+/** Divisor that converts a nominal figure in `s` to the displayed basis. */
+function basis(s: { deflator: number }, realDollars: boolean): number {
+  return realDollars ? s.deflator : 1;
+}
+
+export interface HeadlineMetrics {
+  /** Fraction of paths that never deplete, or null before the first run. */
+  successRate: number | null;
+  nPaths: number | null;
+  /** Paths that ran dry — the complement of the success rate. */
+  failedPaths: number | null;
+  /**
+   * Where the 10th-percentile path ends, in the displayed basis.
+   *
+   * The design asked for the *worst* path; `MonteCarloResult` carries
+   * percentiles, not per-path results, so there is no minimum to report.
+   * p10 is the honest nearest thing and is labelled as such in the UI.
+   */
+  p10AtEnd: number | null;
+  /**
+   * First year the median path is at zero, or null if it never is.
+   *
+   * Also a substitute: there are no per-path depletion years to take a
+   * median of, so this is "the year p50 hits zero" and must be worded that
+   * way rather than as a median depletion year.
+   */
+  medianZeroYear: number | null;
+  /** Deterministic depletion year for the plan itself, or null. */
+  depletionYear: number | null;
+  /**
+   * Net worth at the first retirement divided by that year's expenses.
+   *
+   * Basis-independent: both figures come from the same snapshot and so carry
+   * the same deflator, which cancels. Null if nobody has retired within the
+   * projection or expenses are zero.
+   */
+  coverYears: number | null;
+  /** The year `coverYears` is measured at. */
+  coverYear: number | null;
+}
+
+function snapshotForYear(
+  projection: Projection,
+  year: number,
+): PeriodSnapshot | undefined {
+  return projection.snapshots.find((s) => s.period_start.year === year);
+}
+
+export function headlineMetrics(
+  plan: Plan,
+  projection: Projection,
+  monteCarlo: MonteCarloResult | null,
+  depletionYear: number | null,
+  realDollars: boolean,
+): HeadlineMetrics {
+  const lastPct = monteCarlo?.percentiles[monteCarlo.percentiles.length - 1];
+  const medianZero = monteCarlo?.percentiles.find((p) => p.p50 <= 0);
+
+  // The earliest retirement is the one that puts the portfolio under load.
+  const firstRetirement = plan.people
+    .map((p) => p.retirement.year)
+    .sort((a, b) => a - b)[0];
+  const atRetirement =
+    firstRetirement === undefined
+      ? undefined
+      : snapshotForYear(projection, firstRetirement);
+  const coverYears =
+    atRetirement && atRetirement.expenses > 0
+      ? atRetirement.net_worth / atRetirement.expenses
+      : null;
+
+  return {
+    successRate: monteCarlo?.success_rate ?? null,
+    nPaths: monteCarlo?.n_paths ?? null,
+    failedPaths: monteCarlo
+      ? Math.round((1 - monteCarlo.success_rate) * monteCarlo.n_paths)
+      : null,
+    p10AtEnd: lastPct ? lastPct.p10 / basis(lastPct, realDollars) : null,
+    medianZeroYear: medianZero?.period_start.year ?? null,
+    depletionYear,
+    coverYears,
+    coverYear: atRetirement?.period_start.year ?? null,
+  };
+}
+
+export interface Milestone {
+  key: string;
+  label: string;
+  value: number | null;
+  sub: string;
+  critical?: boolean;
+}
+
+/** Net worth at each person's retirement, plus the end of the plan. */
+export function milestones(
+  plan: Plan,
+  projection: Projection,
+  depletionYear: number | null,
+  realDollars: boolean,
+): Milestone[] {
+  const out: Milestone[] = plan.people.map((person) => {
+    const s = snapshotForYear(projection, person.retirement.year);
+    return {
+      key: person.id,
+      label: `At ${person.name}'s retirement`,
+      value: s ? s.net_worth / basis(s, realDollars) : null,
+      sub: `${person.retirement.year} · age ${person.retirement.year - person.birth.year}`,
+    };
+  });
+
+  const last = projection.snapshots[projection.snapshots.length - 1];
+  if (depletionYear !== null) {
+    out.push({
+      key: "__end__",
+      label: "At depletion",
+      value: 0,
+      sub: `${depletionYear} · nothing left`,
+      critical: true,
+    });
+  } else if (last) {
+    out.push({
+      key: "__end__",
+      label: "At plan end",
+      value: last.net_worth / basis(last, realDollars),
+      sub: `${last.period_start.year} · ${realDollars ? "today's dollars" : "nominal"}`,
+    });
+  }
+  return out;
+}
+
+export interface FlowRow {
+  key: string;
+  label: string;
+  color: string;
+  value: number;
+  /** Surplus is the only row that can meaningfully go negative. */
+  critical?: boolean;
+}
+
+export interface BalanceRow {
+  key: string;
+  label: string;
+  color: string;
+  value: number;
+}
+
+export interface YearDetail {
+  year: number;
+  netWorth: number;
+  ages: { name: string; age: number; retired: boolean }[];
+  flows: FlowRow[];
+  balances: BalanceRow[];
+}
+
+/**
+ * Everything the inspector shows for one year. This is the first place in
+ * the app that surfaces income, taxes, contributions, withdrawals, and
+ * surplus — the engine has computed them since M1 and nothing displayed them.
+ */
+export function yearDetail(
+  plan: Plan,
+  projection: Projection,
+  year: number,
+  series: SeriesDef[],
+  realDollars: boolean,
+): YearDetail | null {
+  const s = snapshotForYear(projection, year);
+  if (!s) return null;
+  const d = basis(s, realDollars);
+
+  const withdrawals = Object.values(s.withdrawals).reduce<number>(
+    (sum, v) => sum + (v ?? 0),
+    0,
+  );
+
+  const flows: FlowRow[] = [
+    { key: "income", label: "Income", color: "var(--series-2)", value: s.income / d },
+    {
+      key: "withdrawals",
+      label: "Withdrawals",
+      color: "var(--series-1)",
+      value: withdrawals / d,
+    },
+    {
+      key: "expenses",
+      label: "Expenses",
+      color: "var(--series-3)",
+      value: s.expenses / d,
+    },
+    { key: "taxes", label: "Taxes", color: "var(--series-7)", value: s.taxes / d },
+    {
+      key: "contributions",
+      label: "Contributions",
+      color: "var(--series-6)",
+      value: s.contributions / d,
+    },
+    {
+      key: "surplus",
+      label: "Surplus",
+      color: "var(--muted)",
+      value: s.surplus / d,
+      critical: s.surplus < 0,
+    },
+  ];
+
+  // Same bucketing as the chart stack, so the inspector and the areas can
+  // never disagree about which accounts are shown.
+  const shown = new Set(plan.accounts.slice(0, MAX_SERIES).map((a) => a.id));
+  let other = 0;
+  const byId = new Map<string, number>();
+  for (const [id, balance] of Object.entries(s.balances)) {
+    const value = (balance ?? 0) / d;
+    if (shown.has(id)) byId.set(id, value);
+    else other += value;
+  }
+  const balances: BalanceRow[] = series.map((def) => ({
+    key: def.key,
+    label: def.label,
+    color: def.color,
+    value: def.key === OTHER_KEY ? other : (byId.get(def.key) ?? 0),
+  }));
+
+  return {
+    year,
+    netWorth: s.net_worth / d,
+    ages: plan.people.map((p) => ({
+      name: p.name,
+      age: year - p.birth.year,
+      retired: year >= p.retirement.year,
+    })),
+    flows,
+    balances,
+  };
+}

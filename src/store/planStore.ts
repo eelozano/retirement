@@ -7,10 +7,12 @@ import {
   loadPlan,
   loadPlanNamed,
   type PlanSummary,
+  runMonteCarlo,
   runProjection,
   savePlan,
   setActivePlan,
 } from "../lib/api";
+import type { MonteCarloResult } from "../types/generated/MonteCarloResult";
 import type { Plan } from "../types/generated/Plan";
 import type { Presets } from "../types/generated/Presets";
 import type { Projection } from "../types/generated/Projection";
@@ -27,6 +29,20 @@ import type { Projection } from "../types/generated/Projection";
 
 const DEBOUNCE_MS = 300;
 
+// Monte Carlo runs on every re-projection, not on demand.
+//
+// The old MonteCarloView ran it lazily because it is "orders of magnitude
+// more work" than the deterministic projection. That ratio is real but the
+// consequence isn't: measured in release against the seed plan, 1,000 paths
+// takes ~36ms (200 takes ~10ms). Both are imperceptible on a 300ms debounce,
+// and probability of success is now a permanent headline tile rather than
+// something behind navigation — so it has to be current, and a reduced path
+// count would buy nothing.
+const MC_PATHS = 1000;
+// Fixed seed: the same plan must not show a different success rate each time
+// it re-projects, or the headline number would flicker while editing.
+const MC_SEED = 1;
+
 interface PlanStore {
   scenarios: PlanSummary[];
   plan: Plan | null;
@@ -34,6 +50,9 @@ interface PlanStore {
    * at startup so the frontend never duplicates them. */
   presets: Presets | null;
   projection: Projection | null;
+  /** Percentile fan + success rate for the active plan. Null only before the
+   * first run, or if a Monte Carlo run failed while the projection succeeded. */
+  monteCarlo: MonteCarloResult | null;
   /** True while a re-projection is in flight (previous result stays shown). */
   projecting: boolean;
   error: string | null;
@@ -78,11 +97,14 @@ async function activate(
     realDollars: plan.sim_config.display_real_dollars,
   });
   try {
-    const [projection] = await Promise.all([
+    const [projection, monteCarlo] = await Promise.all([
       runProjection(plan),
+      // A Monte Carlo failure must not blank a good projection — the
+      // headline tile degrades to "—" on its own.
+      runMonteCarlo(plan, { n_paths: MC_PATHS, seed: MC_SEED }).catch(() => null),
       setActivePlan(plan.id).catch(() => {}),
     ]);
-    set({ projection, projecting: false, error: null });
+    set({ projection, monteCarlo, projecting: false, error: null });
   } catch (e) {
     set({ error: String(e), projecting: false });
   }
@@ -93,6 +115,7 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
   plan: null,
   presets: null,
   projection: null,
+  monteCarlo: null,
   projecting: false,
   error: null,
   realDollars: false,
@@ -125,10 +148,14 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
       const latest = get().plan;
       if (!latest) return;
       try {
-        const [projection] = await Promise.all([runProjection(latest), savePlan(latest)]);
+        const [projection, monteCarlo] = await Promise.all([
+          runProjection(latest),
+          runMonteCarlo(latest, { n_paths: MC_PATHS, seed: MC_SEED }).catch(() => null),
+          savePlan(latest),
+        ]);
         // Drop stale results if another edit landed meanwhile.
         if (get().plan === latest) {
-          set({ projection, projecting: false, error: null });
+          set({ projection, monteCarlo, projecting: false, error: null });
         }
         // The switcher shows names, so keep it in sync after a rename.
         if (nameChanged) {
