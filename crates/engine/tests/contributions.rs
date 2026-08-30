@@ -32,6 +32,7 @@ fn plan_with(contribution: ContributionRule, kind: AccountKind, plan_type: PlanT
             name: "Saver".to_string(),
             birth: YearMonth::new(1980, 1),
             retirement: YearMonth::new(2050, 1),
+            life_expectancy_age: 71,
         }],
         accounts: vec![Account {
             id: "plan".to_string(),

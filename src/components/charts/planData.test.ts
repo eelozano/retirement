@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import type { Account } from "../../types/generated/Account";
-import type { Assumptions } from "../../types/generated/Assumptions";
 import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
 import type { PeriodSnapshot } from "../../types/generated/PeriodSnapshot";
 import type { Person } from "../../types/generated/Person";
@@ -39,12 +38,14 @@ function person(
   birth: number,
   retirement: number,
   retirementMonth = 1,
+  lifeExpectancyAge = 95,
 ): Person {
   return {
     id,
     name: id,
     birth: { year: birth, month: 1 },
     retirement: { year: retirement, month: retirementMonth },
+    life_expectancy_age: lifeExpectancyAge,
   } as Person;
 }
 
@@ -52,12 +53,8 @@ function account(id: string): Account {
   return { id, name: id } as Account;
 }
 
-function plan(people: Person[], accounts: Account[], planEndAge = 95): Plan {
-  return {
-    people,
-    accounts,
-    assumptions: { plan_end_age: planEndAge } as Assumptions,
-  } as Plan;
+function plan(people: Person[], accounts: Account[]): Plan {
+  return { people, accounts } as Plan;
 }
 
 function mc(overrides: Partial<MonteCarloResult>): MonteCarloResult {
@@ -208,7 +205,7 @@ describe("headlineMetrics", () => {
   });
 
   it("reports the plan's final year and the age that determines it", () => {
-    const p = plan([person("a", 1980, 2030)], [], 90);
+    const p = plan([person("a", 1980, 2030, 1, 90)], []);
     const proj = projection([
       snapshot({ period_start: { year: 2030, month: 1 } }),
       snapshot({ period_start: { year: 2070, month: 1 } }),
@@ -242,7 +239,7 @@ describe("milestones", () => {
   });
 
   it("names the plan-end age in the plan-end milestone's sub-text", () => {
-    const p = plan([person("a", 1980, 2030)], [], 90);
+    const p = plan([person("a", 1980, 2030, 1, 90)], []);
     const proj = projection([
       snapshot({ period_start: { year: 2030, month: 1 }, net_worth: 900 }),
       snapshot({ period_start: { year: 2070, month: 1 }, net_worth: 1200 }),

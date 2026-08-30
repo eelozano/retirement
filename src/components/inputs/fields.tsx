@@ -110,10 +110,11 @@ export function NumberField(props: {
   step?: number;
   min?: number;
   max?: number;
+  hint?: string;
 }) {
   const id = useId();
   return (
-    <label className="field" htmlFor={id}>
+    <label className={props.hint ? "field field-with-hint" : "field"} htmlFor={id}>
       <span>{props.label}</span>
       <BufferedNumberInput
         id={id}
@@ -124,6 +125,7 @@ export function NumberField(props: {
         step={props.step ?? 1000}
         onCommit={props.onChange}
       />
+      {props.hint && <small className="field-hint">{props.hint}</small>}
     </label>
   );
 }

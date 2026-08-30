@@ -43,7 +43,13 @@ pub struct Assumptions {
     /// favor of real bracket-table computation (#9).
     #[serde(default)]
     pub state_tax: StateTaxProfile,
-    /// The simulation runs until every person reaches this age.
+    /// Legacy household-wide mortality figure, superseded by
+    /// `Person::life_expectancy_age` (#28). No longer read by `end_month` or
+    /// `AtDeath` — kept only as the migration fallback for people in plans
+    /// saved before that field existed, resolved once in `Plan`'s custom
+    /// `Deserialize`. `#[serde(default = "default_plan_end_age")]` so a plan
+    /// that stops writing it still loads.
+    #[serde(default = "default_plan_end_age")]
     pub plan_end_age: u8,
     /// When `true`, leftover household cash each period (income minus
     /// contributions, taxes, and expenses) is swept into the first account
@@ -61,4 +67,9 @@ pub struct Assumptions {
     /// have no `social_security` entries to apply it to.
     #[serde(default)]
     pub social_security_cola: f64,
+}
+
+/// Historical default for `plan_end_age`, matching `presets::default_assumptions`.
+fn default_plan_end_age() -> u8 {
+    95
 }
