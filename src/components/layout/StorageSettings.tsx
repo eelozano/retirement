@@ -6,6 +6,7 @@ import {
   type StorageInfo,
   setStorageDir,
 } from "../../lib/api";
+import { Modal } from "./Modal";
 
 interface StorageSettingsProps {
   open: boolean;
@@ -24,8 +25,6 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
       .then(setInfo)
       .catch((e) => setError(String(e)));
   }, [open]);
-
-  if (!open) return null;
 
   const handleChangeLocation = async () => {
     setBusy(true);
@@ -53,36 +52,30 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Plan storage</h2>
-        {error && (
-          <p role="alert" className="banner critical">
-            {error}
+    <Modal open={open} onClose={onClose} title="Plan storage">
+      {error && (
+        <p role="alert" className="banner critical">
+          {error}
+        </p>
+      )}
+      {info ? (
+        <>
+          <p className="storage-path">{info.effective_dir}</p>
+          <p className="storage-badge">
+            {info.is_default ? "Default location" : "Custom location"}
           </p>
-        )}
-        {info ? (
-          <>
-            <p className="storage-path">{info.effective_dir}</p>
-            <p className="storage-badge">
-              {info.is_default ? "Default location" : "Custom location"}
-            </p>
-            <div className="storage-actions">
-              <button type="button" onClick={handleChangeLocation} disabled={busy}>
-                Change location…
-              </button>
-              <button type="button" onClick={handleReveal}>
-                Reveal in Finder
-              </button>
-            </div>
-          </>
-        ) : (
-          <p>Loading…</p>
-        )}
-        <button type="button" className="modal-close" onClick={onClose}>
-          Close
-        </button>
-      </div>
-    </div>
+          <div className="storage-actions">
+            <button type="button" onClick={handleChangeLocation} disabled={busy}>
+              Change location…
+            </button>
+            <button type="button" onClick={handleReveal}>
+              Reveal in Finder
+            </button>
+          </div>
+        </>
+      ) : (
+        <p>Loading…</p>
+      )}
+    </Modal>
   );
 }

@@ -13,8 +13,15 @@ import { SocialSecuritySection } from "../inputs/SocialSecuritySection";
 import { StreamsSection } from "../inputs/StreamsSection";
 import { ComparisonView } from "./ComparisonView";
 import { MonteCarloView } from "./MonteCarloView";
+import { type Destination, Rail } from "./Rail";
 import { ScenariosSettings } from "./ScenariosSettings";
 import { StorageSettings } from "./StorageSettings";
+
+// Application shell: rail on the left, then a header and one destination.
+//
+// Compare and Monte Carlo are still exclusive views of the plan area here.
+// Turning them into additive overlays on a single canvas is R2's job — this
+// change is the shell, the token layer, and the navigation model only.
 
 export function Dashboard() {
   const plan = usePlanStore((s) => s.plan);
@@ -26,12 +33,11 @@ export function Dashboard() {
   const scenarios = usePlanStore((s) => s.scenarios);
   const switchScenario = usePlanStore((s) => s.switchScenario);
   const updatePlan = usePlanStore((s) => s.updatePlan);
-  const [drawerOpen, setDrawerOpen] = useState(true);
+
+  const [destination, setDestination] = useState<Destination>("plan");
   const [storageOpen, setStorageOpen] = useState(false);
   const [scenariosOpen, setScenariosOpen] = useState(false);
-  // One exclusive main view rather than independent booleans, so opening
-  // one analysis panel always closes the other.
-  const [view, setView] = useState<"edit" | "compare" | "monteCarlo">("edit");
+  const [view, setView] = useState<"charts" | "compare" | "monteCarlo">("charts");
 
   const series = useMemo(() => (plan ? seriesDefs(plan) : []), [plan]);
   const rows = useMemo(
@@ -39,10 +45,7 @@ export function Dashboard() {
     [plan, projection, realDollars],
   );
 
-  // A hard failure (nothing has ever loaded) has no drawer to show yet.
-  // Once a plan exists, keep the shell up — the error banner below sits
-  // alongside the last good projection so the offending input stays
-  // editable and fixable, rather than replacing the whole screen.
+  // A hard failure (nothing has ever loaded) has no shell to show yet.
   if (!plan || !projection) {
     return (
       <main className="page">
@@ -61,150 +64,156 @@ export function Dashboard() {
 
   return (
     <div className="app-shell">
-      <header className="topbar">
-        {view === "edit" && (
-          <button
-            type="button"
-            className="drawer-toggle"
-            aria-expanded={drawerOpen}
-            onClick={() => setDrawerOpen((open) => !open)}
-          >
-            ☰ Inputs
-          </button>
-        )}
-        <input
-          className="plan-name"
-          aria-label="Scenario name"
-          value={plan.name}
-          onChange={(e) =>
-            updatePlan((draft) => {
-              draft.name = e.currentTarget.value;
-            })
-          }
-        />
-        {scenarios.length > 1 && (
-          <select
-            className="scenario-switcher"
-            aria-label="Switch scenario"
-            value={plan.id}
-            disabled={projecting}
-            onChange={(e) => void switchScenario(e.currentTarget.value)}
-          >
-            {scenarios.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        )}
-        <label className="dollar-toggle">
-          <input
-            type="checkbox"
-            checked={realDollars}
-            onChange={(e) => setRealDollars(e.currentTarget.checked)}
-          />
-          Today's dollars
-        </label>
-        <button
-          type="button"
-          className="drawer-toggle"
-          onClick={() => setScenariosOpen(true)}
-        >
-          Scenarios…
-        </button>
-        {scenarios.length > 1 && (
-          <button
-            type="button"
-            className="drawer-toggle"
-            aria-pressed={view === "compare"}
-            onClick={() => setView((v) => (v === "compare" ? "edit" : "compare"))}
-          >
-            {view === "compare" ? "Back to editing" : "Compare…"}
-          </button>
-        )}
-        <button
-          type="button"
-          className="drawer-toggle"
-          aria-pressed={view === "monteCarlo"}
-          onClick={() => setView((v) => (v === "monteCarlo" ? "edit" : "monteCarlo"))}
-        >
-          {view === "monteCarlo" ? "Back to editing" : "Monte Carlo…"}
-        </button>
-        <button
-          type="button"
-          className="drawer-toggle"
-          onClick={() => setStorageOpen(true)}
-        >
-          Storage…
-        </button>
-      </header>
+      <Rail
+        active={destination}
+        onNavigate={setDestination}
+        onOpenScenarios={() => setScenariosOpen(true)}
+        onOpenStorage={() => setStorageOpen(true)}
+      />
 
-      <StorageSettings open={storageOpen} onClose={() => setStorageOpen(false)} />
-      <ScenariosSettings open={scenariosOpen} onClose={() => setScenariosOpen(false)} />
-
-      {error && (
-        <p role="alert" className="banner critical">
-          Something went wrong:
-          {"\n"}
-          {error}
-        </p>
-      )}
-
-      {depletionYear !== null && (
-        <p role="alert" className="banner critical">
-          ⚠ Portfolio depletes in {depletionYear} — spending exceeds what the accounts can
-          fund.
-        </p>
-      )}
-
-      <div className="content">
-        {view === "edit" && drawerOpen && (
-          <aside className="drawer">
-            <PeopleSection />
-            <AccountsSection />
-            <StreamsSection />
-            <SocialSecuritySection />
-            <AssumptionsSection />
-          </aside>
-        )}
-
-        {view === "compare" ? (
-          <main className="charts">
-            <ComparisonView />
-          </main>
-        ) : view === "monteCarlo" ? (
-          <main className="charts">
-            <MonteCarloView />
-          </main>
-        ) : (
-          <main className={`charts ${projecting ? "refreshing" : ""}`}>
-            <SummaryStats
-              plan={plan}
-              projection={projection}
-              realDollars={realDollars}
-              depletionYear={depletionYear}
+      <div className="shell-main">
+        <header className="topbar">
+          <div className="topbar-identity">
+            <input
+              className="plan-name"
+              aria-label="Scenario name"
+              value={plan.name}
+              onChange={(e) =>
+                updatePlan((draft) => {
+                  draft.name = e.currentTarget.value;
+                })
+              }
             />
-            {series.length === 0 ? (
-              <section className="card">
-                <p className="empty-state">
-                  Add an account in the drawer to see balance and net-worth projections.
-                </p>
-              </section>
-            ) : (
-              <>
-                <section className="card">
-                  <h2>Account balances</h2>
-                  <BalancesChart rows={rows} series={series} />
-                </section>
-                <section className="card">
-                  <h2>Net worth</h2>
-                  <NetWorthChart rows={rows} plan={plan} depletionYear={depletionYear} />
-                </section>
-                <DataTable rows={rows} series={series} />
-              </>
+            {scenarios.length > 1 && (
+              <select
+                className="scenario-switcher"
+                aria-label="Switch scenario"
+                value={plan.id}
+                disabled={projecting}
+                onChange={(e) => void switchScenario(e.currentTarget.value)}
+              >
+                {scenarios.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
             )}
-          </main>
+          </div>
+
+          <div className="topbar-spacer" />
+
+          {/* Display option, not navigation — hence a segmented control
+              rather than another button in the row. */}
+          <fieldset className="segmented">
+            <legend className="visually-hidden">Dollar basis</legend>
+            <button
+              type="button"
+              aria-pressed={realDollars}
+              onClick={() => setRealDollars(true)}
+            >
+              Today's $
+            </button>
+            <button
+              type="button"
+              aria-pressed={!realDollars}
+              onClick={() => setRealDollars(false)}
+            >
+              Nominal
+            </button>
+          </fieldset>
+
+          <div className="topbar-divider" />
+
+          {scenarios.length > 1 && (
+            <button
+              type="button"
+              className="topbar-toggle"
+              aria-pressed={view === "compare"}
+              onClick={() => setView((v) => (v === "compare" ? "charts" : "compare"))}
+            >
+              Compare
+            </button>
+          )}
+          <button
+            type="button"
+            className="topbar-toggle"
+            aria-pressed={view === "monteCarlo"}
+            onClick={() => setView((v) => (v === "monteCarlo" ? "charts" : "monteCarlo"))}
+          >
+            Monte Carlo
+          </button>
+        </header>
+
+        <StorageSettings open={storageOpen} onClose={() => setStorageOpen(false)} />
+        <ScenariosSettings open={scenariosOpen} onClose={() => setScenariosOpen(false)} />
+
+        {error && (
+          <p role="alert" className="banner critical">
+            Something went wrong:
+            {"\n"}
+            {error}
+          </p>
         )}
+
+        {destination === "plan" && depletionYear !== null && (
+          <p role="alert" className="banner critical">
+            ⚠ Portfolio depletes in {depletionYear} — spending exceeds what the accounts
+            can fund.
+          </p>
+        )}
+
+        <div className="content">
+          {destination === "inputs" ? (
+            <main className="inputs-screen">
+              <PeopleSection />
+              <AccountsSection />
+              <StreamsSection />
+              <SocialSecuritySection />
+              <AssumptionsSection />
+            </main>
+          ) : view === "compare" ? (
+            <main className="charts">
+              <ComparisonView />
+            </main>
+          ) : view === "monteCarlo" ? (
+            <main className="charts">
+              <MonteCarloView />
+            </main>
+          ) : (
+            <main className={`charts ${projecting ? "refreshing" : ""}`}>
+              <SummaryStats
+                plan={plan}
+                projection={projection}
+                realDollars={realDollars}
+                depletionYear={depletionYear}
+              />
+              {series.length === 0 ? (
+                <section className="card">
+                  <p className="empty-state">
+                    Add an account under Inputs to see balance and net-worth projections.
+                  </p>
+                </section>
+              ) : (
+                <>
+                  <section className="card">
+                    <h2>Account balances</h2>
+                    <BalancesChart rows={rows} series={series} />
+                  </section>
+                  <section className="card">
+                    <h2>Net worth</h2>
+                    <NetWorthChart
+                      rows={rows}
+                      plan={plan}
+                      depletionYear={depletionYear}
+                    />
+                  </section>
+                  <DataTable rows={rows} series={series} />
+                </>
+              )}
+            </main>
+          )}
+        </div>
       </div>
     </div>
   );
