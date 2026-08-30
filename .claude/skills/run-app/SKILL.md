@@ -42,15 +42,22 @@ lsof -ti:1420 | xargs kill 2>/dev/null; true
 ```
 
 ```bash
-pnpm tauri dev
+pnpm tauri dev > dev.log 2>&1
 ```
 
-Run that in the background, and wait for the binary to actually start — not
-just for Vite. Poll for the launch line rather than sleeping a fixed amount:
+Run that in the background. Then wait for the *binary* to start, not just for
+Vite — Vite is ready in ~100ms while the Rust build can take minutes on a cold
+target dir. Poll for the launch line rather than sleeping a fixed amount:
 
 ```bash
 until grep -q 'Running `/Users' dev.log; do sleep 2; done
 ```
+
+**Run that wait loop in the background too** (`run_in_background: true`), not
+in the foreground. Foreground `sleep` is blocked in Claude Code sessions, so a
+foreground loop is killed and returns exit 137 — which looks like the build
+failed when it is still going fine. As a background command it exits the
+moment the line appears and notifies you.
 
 Then swap the fresh binary into the bundle and open the bundle:
 
@@ -62,8 +69,12 @@ No `codesign` step. An ad-hoc re-sign was tried and is **not** required — it
 also emits a "resource fork ... detritus not allowed" error that looks like a
 failure and isn't. Skip it.
 
-Screenshot now and you will see the current UI. Edits hot-reload; take another
-screenshot rather than relaunching.
+Screenshot now and you will see the current UI. Give it a couple of seconds
+first: the window paints white before the frontend loads, and a screenshot
+taken the instant `open` returns shows an empty window that reads like a
+blank-page bug. Wait and take a second one before concluding anything.
+
+Edits hot-reload; take another screenshot rather than relaunching.
 
 If `target/debug/bundle/` does not exist on a fresh clone, create it once with
 `pnpm tauri build --debug`, then use the copy step above from then on.
