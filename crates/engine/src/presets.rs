@@ -249,12 +249,14 @@ pub fn seed_plan() -> Plan {
                 name: "Enrique".to_string(),
                 birth: YearMonth::new(1983, 8),
                 retirement: YearMonth::new(2038, 8),
+                life_expectancy_age: 88,
             },
             Person {
                 id: claire.clone(),
                 name: "Claire".to_string(),
                 birth: YearMonth::new(1987, 6),
                 retirement: YearMonth::new(2042, 8),
+                life_expectancy_age: 96,
             },
         ],
         accounts: vec![

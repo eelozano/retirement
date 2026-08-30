@@ -34,6 +34,7 @@ fn plan_with(
             name: "Solo".to_string(),
             birth,
             retirement: birth.add_years(1),
+            life_expectancy_age: claiming_age + 3,
         }],
         accounts: vec![],
         streams: vec![],

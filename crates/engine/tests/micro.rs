@@ -49,6 +49,7 @@ fn micro_plan() -> Plan {
             name: "Solo".to_string(),
             birth: YearMonth::new(1966, 1),
             retirement: YearMonth::new(2027, 1),
+            life_expectancy_age: 63,
         }],
         accounts: vec![Account {
             id: "401k".to_string(),

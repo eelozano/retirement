@@ -62,6 +62,7 @@ fn plan_with(accounts: Vec<Account>) -> Plan {
             name: "Saver".to_string(),
             birth: YearMonth::new(1980, 1),
             retirement: YearMonth::new(2050, 1),
+            life_expectancy_age: 48,
         }],
         accounts,
         streams: vec![
