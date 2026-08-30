@@ -3,4 +3,12 @@
 /**
  * Non-fatal issues surfaced by a simulation run.
  */
-export type SimWarning = { "DepletedFunds": { period: number, } } | { "ContributionClamped": { account: string, } } | "SurplusUnallocated" | { "UnknownPersonRef": { stream: string, } };
+export type SimWarning = { "DepletedFunds": { period: number, } } | { "ContributionClamped": { account: string, 
+/**
+ * Planned annual contribution, as entered.
+ */
+requested: number, 
+/**
+ * Annual contribution the simulation actually made.
+ */
+allowed: number, } } | "SurplusUnallocated" | { "UnknownPersonRef": { stream: string, } };

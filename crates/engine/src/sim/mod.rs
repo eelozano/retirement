@@ -1,3 +1,4 @@
+mod contributions;
 mod monte_carlo;
 mod projection;
 
@@ -19,7 +20,8 @@ use crate::strategies::{AccountState, DrawdownStrategy, IncomeBreakdown, ReturnM
 ///
 /// Per-period order (documented so results are explainable):
 /// 1. accrue stream income and expenses (prorated by months active)
-/// 2. contribute to accounts while their owner still works (clamped to limits)
+/// 2. contribute to accounts while their owner still works (clamped to the
+///    owner's shared per-year limits — see `contributions`)
 /// 3. tax ordinary income (gross income minus pre-tax deferrals)
 /// 4. sweep surplus into the taxable account (if enabled), or draw down the
 ///    shortfall (grossed up through the tax model)
@@ -101,6 +103,11 @@ pub fn simulate(
         })
         .collect();
 
+    // Contribution limits are shared per person per year across a bucket of
+    // accounts, so the split is resolved once for the whole run rather than
+    // clamped account-by-account inside the loop. See `contributions`.
+    let allowed = contributions::allowed_contributions(plan, &mut warnings);
+
     let mut snapshots = Vec::with_capacity(n_periods);
     let mut depleted = false;
 
@@ -139,20 +146,9 @@ pub fn simulate(
                 continue;
             };
             let working = overlap_fraction(period_start, period_end, start, owner.retirement);
-            if working <= 0.0 || account.annual_contribution <= 0.0 {
+            let per_year = allowed[idx];
+            if working <= 0.0 || per_year <= 0.0 {
                 continue;
-            }
-            let mut per_year = account.annual_contribution;
-            if let Some(limit) = account.contribution_limit {
-                if per_year > limit {
-                    per_year = limit;
-                    push_warning(
-                        &mut warnings,
-                        SimWarning::ContributionClamped {
-                            account: account.id.clone(),
-                        },
-                    );
-                }
             }
             let amount = per_year * working * (period_months as f64 / 12.0);
             accounts[idx].balance += amount;

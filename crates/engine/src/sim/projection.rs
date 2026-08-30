@@ -11,8 +11,17 @@ use crate::model::{AccountId, StreamId, YearMonth};
 pub enum SimWarning {
     /// The portfolio could not cover spending from this period on.
     DepletedFunds { period: usize },
-    /// An account's planned contribution exceeds its limit and was clamped.
-    ContributionClamped { account: AccountId },
+    /// An account's planned contribution exceeded what its owner is allowed
+    /// to contribute this year and was clamped. `allowed` can be less than
+    /// the account's own limit when the owner's other accounts share the
+    /// same statutory bucket and were filled first — see `sim::contributions`.
+    ContributionClamped {
+        account: AccountId,
+        /// Planned annual contribution, as entered.
+        requested: f64,
+        /// Annual contribution the simulation actually made.
+        allowed: f64,
+    },
     /// Sweep is enabled but there is no taxable account for surplus cash to
     /// land in.
     SurplusUnallocated,

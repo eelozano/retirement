@@ -67,7 +67,7 @@ retirement/
 │       ├── src/
 │       │   ├── lib.rs
 │       │   ├── model/         # Plan, Person, Account, Stream, Assumptions, YearMonth
-│       │   ├── sim/           # simulate(), PeriodState, Projection
+│       │   ├── sim/           # simulate(), PeriodState, Projection, contribution limits
 │       │   ├── strategies/    # returns.rs, tax.rs, drawdown.rs (traits + V1 impls)
 │       │   └── presets.rs     # Boglehead allocations, default assumptions
 │       └── tests/             # golden-file + property tests
@@ -127,7 +127,7 @@ pub struct Account {
     pub cost_basis: Option<f64>,    // taxable only; tracked from day 1, used by V2 tax
     pub allocation: AllocationRef,  // preset id or custom weights
     pub annual_contribution: f64,
-    pub contribution_limit: Option<f64>,
+    pub contribution_limit: Option<f64>,  // shared per person per year, not per account
 }
 
 // Generic dated stream — salary, retirement spending, pensions, one-offs.
@@ -211,7 +211,17 @@ pub struct Projection {
 }
 ```
 
-Frontend consumes `Projection` directly (generated types); the real-dollar toggle divides by `deflator` client-side — no engine round-trip on toggle.
+#### Contribution limits (`sim/contributions.rs`)
+
+Statutory limits are granted **per person per year**, shared across a bucket of that person's accounts — not per account. Clamping per account let one person defer the elective-deferral limit once for each employer plan they hold, overstating the ending balance and understating taxable income (the same figure feeds the pre-tax deduction).
+
+Two independent buckets: **employer plans** (401(k)/403(b)/457 elective deferrals) and **IRAs** (traditional and Roth share one cap with each other). `AccountKind` cannot tell a 401(k) from a traditional IRA, so the bucket is inferred from the limit the account carries — whichever statutory figure in `presets` it sits nearer. Uncapped accounts (`contribution_limit: None`) join no bucket.
+
+When a person's accounts collectively ask for more than the shared cap, room is handed out **in plan account order**: the first account listed fills first. Each account is still additionally bound by its own limit, so a per-account limit below the bucket cap is respected. The split is period-invariant — every account a person owns starts and stops contributing on that person's single retirement date — so `simulate` resolves it once before the loop.
+
+Limits are flat nominal in V1: `presets::ELECTIVE_DEFERRAL_LIMIT` and `IRA_CONTRIBUTION_LIMIT` carry the current statutory figures with their source, and indexing them forward is backlog. Catch-up tiers are entered by raising an account's limit by hand, which raises that person's whole bucket.
+
+Frontend consumes `Projection` directly (generated types); the real-dollar toggle divides by `deflator` client-side — no engine round-trip on toggle. `SimWarning` variants carry the numbers behind them (a clamp reports `requested` and `allowed`) because the UI renders warnings as text — `src/lib/warnings.ts` — rather than a count.
 
 ### Tauri commands (`src-tauri/src/commands.rs`)
 

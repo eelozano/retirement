@@ -1,3 +1,4 @@
+import type { ReadableWarning } from "../../lib/warnings";
 import type { HeadlineMetrics } from "../charts/planData";
 
 // Zone 0 — one sentence, always rendered.
@@ -6,8 +7,12 @@ import type { HeadlineMetrics } from "../charts/planData";
 // when a plan starts or stops depleting. The old UI mounted a warning banner
 // only on failure, which moved every chart below it.
 
-export function StatusBand(props: { metrics: HeadlineMetrics; warningCount: number }) {
+export function StatusBand(props: {
+  metrics: HeadlineMetrics;
+  warnings: ReadableWarning[];
+}) {
   const m = props.metrics;
+  const count = props.warnings.length;
   const depleting = m.depletionYear !== null;
 
   return (
@@ -49,11 +54,28 @@ export function StatusBand(props: { metrics: HeadlineMetrics; warningCount: numb
         </>
       )}
       <span className="status-spacer" />
-      <span className="status-warnings">
-        {props.warningCount === 0
-          ? "no warnings"
-          : `${props.warningCount} warning${props.warningCount === 1 ? "" : "s"}`}
-      </span>
+      {/* A count on its own was the whole problem: a plan could run on
+          materially different contributions than the ones entered and say
+          only "2 warnings". A native <details> disclosure keeps the band one
+          line tall, opens on click or Enter, and needs no outside-click
+          handling. */}
+      {count === 0 ? (
+        <span className="status-warnings">no warnings</span>
+      ) : (
+        <details className="status-warnings-disclosure">
+          <summary className="status-warnings">
+            {count} warning{count === 1 ? "" : "s"}
+          </summary>
+          <ul className="warning-list">
+            {props.warnings.map((w) => (
+              <li key={w.key}>
+                <strong>{w.title}</strong>
+                <span>{w.detail}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }

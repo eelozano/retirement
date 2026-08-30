@@ -13,11 +13,47 @@ use crate::model::{
 };
 use crate::state_tax_data::state_tax_profiles;
 
+/// Statutory elective-deferral limit for employer plans — 401(k), 403(b),
+/// 457(b), Thrift Savings — shared across every such plan a person
+/// participates in. IRS Notice 2025-67, tax year 2026.
+///
+/// Flat nominal in V1: the engine does not index limits forward, so a long
+/// projection understates what a saver may actually defer in later years.
+/// Indexing is tracked separately, as are the age-50 and age-60..=63
+/// catch-up tiers — a user who is eligible for one raises the limit on the
+/// account by hand, which raises their whole employer-plan bucket.
+pub const ELECTIVE_DEFERRAL_LIMIT: f64 = 24_500.0;
+
+/// Statutory IRA contribution limit, shared across a person's traditional
+/// and Roth IRAs. IRS Notice 2025-67, tax year 2026. Same caveats as
+/// `ELECTIVE_DEFERRAL_LIMIT`: flat nominal, catch-up entered by hand.
+pub const IRA_CONTRIBUTION_LIMIT: f64 = 7_500.0;
+
+/// The limit a newly created account of this kind starts with, so an account
+/// added through the UI is capped the same way a seeded one is. `None` =
+/// uncapped.
+///
+/// `AccountKind` does not distinguish an employer plan from an IRA, so this
+/// follows the convention the kind labels already imply: pre-tax means a
+/// 401(k)-style plan, Roth means a Roth IRA. Either can be overridden per
+/// account in the UI.
+pub fn default_contribution_limit(kind: AccountKind) -> Option<f64> {
+    match kind {
+        AccountKind::Taxable => None,
+        AccountKind::TraditionalPreTax => Some(ELECTIVE_DEFERRAL_LIMIT),
+        AccountKind::Roth => Some(IRA_CONTRIBUTION_LIMIT),
+    }
+}
+
 /// Bundle the frontend fetches once at startup.
 #[derive(Serialize, Deserialize, TS, Clone, Debug)]
 #[ts(export)]
 pub struct Presets {
     pub default_assumptions: Assumptions,
+    /// Contribution limit to prefill on a newly created account, per
+    /// `AccountKind`. A kind absent from the map is uncapped. Lives here so
+    /// the frontend never hardcodes a statutory figure of its own.
+    pub contribution_limits: BTreeMap<AccountKind, f64>,
     /// Asset-class weights for each named `AllocationRef` preset.
     pub allocations: BTreeMap<String, BTreeMap<AssetClass, f64>>,
     /// Prefill bracket schedule for each state's income tax, keyed by
@@ -87,6 +123,14 @@ pub fn asset_volatility() -> BTreeMap<AssetClass, f64> {
 pub fn presets() -> Presets {
     Presets {
         default_assumptions: default_assumptions(),
+        contribution_limits: [
+            AccountKind::Taxable,
+            AccountKind::TraditionalPreTax,
+            AccountKind::Roth,
+        ]
+        .into_iter()
+        .filter_map(|kind| default_contribution_limit(kind).map(|limit| (kind, limit)))
+        .collect(),
         allocations: BTreeMap::from([
             (
                 "Aggressive".to_string(),
@@ -148,8 +192,8 @@ pub fn seed_plan() -> Plan {
                 balance: 400_000.0,
                 cost_basis: None,
                 allocation: AllocationRef::Aggressive,
-                annual_contribution: 23_000.0,
-                contribution_limit: Some(23_000.0),
+                annual_contribution: ELECTIVE_DEFERRAL_LIMIT,
+                contribution_limit: Some(ELECTIVE_DEFERRAL_LIMIT),
             },
             Account {
                 id: "claire-roth".to_string(),
@@ -159,8 +203,8 @@ pub fn seed_plan() -> Plan {
                 balance: 80_000.0,
                 cost_basis: None,
                 allocation: AllocationRef::Moderate,
-                annual_contribution: 7_000.0,
-                contribution_limit: Some(7_000.0),
+                annual_contribution: IRA_CONTRIBUTION_LIMIT,
+                contribution_limit: Some(IRA_CONTRIBUTION_LIMIT),
             },
         ],
         streams: vec![

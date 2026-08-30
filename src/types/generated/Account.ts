@@ -20,6 +20,9 @@ cost_basis: number | null, allocation: AllocationRef,
 annual_contribution: number, 
 /**
  * Statutory cap in simulation-start dollars; contributions above it are
- * clamped with a warning. None = uncapped (taxable).
+ * clamped with a warning. None = uncapped (taxable). The cap is shared
+ * per person per year with the owner's other accounts in the same
+ * statutory bucket rather than granted per account — see
+ * `sim::contributions`.
  */
 contribution_limit: number | null, };

@@ -967,6 +967,54 @@ button.remove:hover {
   color: var(--muted);
 }
 
+/* Warning detail hangs below the band rather than expanding it, so opening
+   the disclosure never moves the charts underneath. */
+.status-warnings-disclosure {
+  position: relative;
+}
+.status-warnings-disclosure > summary {
+  cursor: pointer;
+  list-style: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.status-warnings-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.status-warnings-disclosure[open] > summary {
+  color: var(--text-primary);
+}
+.warning-list {
+  position: absolute;
+  top: calc(100% + var(--sp-2));
+  right: 0;
+  z-index: 20;
+  width: min(420px, 70vw);
+  margin: 0;
+  padding: var(--sp-3);
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-3);
+  box-shadow: var(--shadow-2);
+  font-size: var(--t-xs);
+  color: var(--text-secondary);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.warning-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.warning-list strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
 /* Zone 1 — headline. Probability of success is the wide tile, first. */
 .headline {
   display: grid;
