@@ -1,50 +1,143 @@
-/* Design tokens — reference dataviz palette; dark mode is its own selected
-   steps from the same ramps, not an automatic flip. */
+/* Design tokens.
+   Names are the contract: every component references var(--token), never a
+   literal color, so a re-palette stays a CSS-only change. Dark mode is its
+   own selected steps from the same ramps, not an automatic inversion. */
 :root {
   color-scheme: light dark;
+
+  /* surfaces & text */
   --page: #f9f9f7;
   --surface-1: #fcfcfb;
+  --surface-2: #f2f1ec;
+  --surface-3: #eceae3;
   --text-primary: #0b0b0b;
   --text-secondary: #52514e;
   --muted: #898781;
   --grid: #e1e0d9;
   --axis: #c3c2b7;
   --border: rgba(11, 11, 11, 0.1);
+  --border-strong: rgba(11, 11, 11, 0.18);
+
+  /* categorical ramp */
   --series-1: #2a78d6;
-  --series-2: #eb6834;
-  --series-3: #1baf7a;
-  --series-4: #eda100;
-  --series-5: #e87ba4;
-  --series-6: #008300;
-  --series-7: #4a3aa7;
-  --series-8: #e34948;
+  --series-2: #1f7a6a;
+  --series-3: #a3572c;
+  --series-4: #7a5ea8;
+  --series-5: #b58a00;
+  --series-6: #4b7f2f;
+  --series-7: #b04a6a;
+  --series-8: #3f6d8c;
+
+  /* status, plus tinted grounds for the status band */
   --status-critical: #d03b3b;
   --status-warn: #b57200;
   --status-good: #1a8a4a;
+  --status-good-bg: rgba(26, 138, 74, 0.08);
+  --status-critical-bg: rgba(208, 59, 59, 0.08);
+
+  /* focus, monte-carlo percentile band, elevation */
+  --focus: #2a78d6;
+  --band: rgba(42, 120, 214, 0.14);
+  --shadow-1: 0 1px 2px rgba(11, 11, 11, 0.05);
+  --shadow-2: 0 4px 14px rgba(11, 11, 11, 0.08);
+
+  /* spacing scale (4px base) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+
+  /* radii */
+  --r-1: 4px;
+  --r-2: 7px;
+  --r-3: 11px;
+
+  /* type. Mono carries every figure so columns of money align. */
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  --t-label: 10.5px;
+  --t-xs: 11px;
+  --t-sm: 12px;
+  --t-body: 13px;
+  --t-title: 13.5px;
+  --t-header: 16px;
+  --t-metric: 26px;
+  --t-hero: 40px;
+  --t-hero-lg: 46px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --page: #0d0d0d;
-    --surface-1: #1a1a19;
-    --text-primary: #ffffff;
-    --text-secondary: #c3c2b7;
-    --muted: #898781;
-    --grid: #2c2c2a;
-    --axis: #383835;
-    --border: rgba(255, 255, 255, 0.1);
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --series-3: #199e70;
-    --series-4: #c98500;
-    --series-5: #d55181;
-    --series-6: #008300;
-    --series-7: #9085e9;
-    --series-8: #e66767;
-    --status-critical: #d03b3b;
-    --status-warn: #d99b12;
-    --status-good: #3fbd6f;
+    --page: #121210;
+    --surface-1: #1a1a17;
+    --surface-2: #22221e;
+    --surface-3: #2b2b26;
+    --text-primary: #f4f3ee;
+    --text-secondary: #b0aea6;
+    --muted: #7e7c74;
+    --grid: #2c2c27;
+    --axis: #4a4941;
+    --border: rgba(244, 243, 238, 0.12);
+    --border-strong: rgba(244, 243, 238, 0.22);
+
+    --series-1: #5da2f0;
+    --series-2: #46a894;
+    --series-3: #d08850;
+    --series-4: #a68ccd;
+    --series-5: #d8b02e;
+    --series-6: #7fae57;
+    --series-7: #d97e9c;
+    --series-8: #74a3c4;
+
+    --status-critical: #f06a6a;
+    --status-warn: #e0a52c;
+    --status-good: #43c07a;
+    --status-good-bg: rgba(67, 192, 122, 0.1);
+    --status-critical-bg: rgba(240, 106, 106, 0.1);
+
+    --focus: #7db6f5;
+    --band: rgba(93, 162, 240, 0.16);
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-2: 0 4px 14px rgba(0, 0, 0, 0.5);
   }
+}
+
+/* Focus is designed in, not retrofitted: kill the default ring, then give
+   every keyboard-reached control the same one. */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--r-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* biome-ignore-start lint/complexity/noImportantStyles: an accessibility override must beat component-level transitions — standard reduced-motion idiom */
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* biome-ignore-end lint/complexity/noImportantStyles: see above */
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 * {
@@ -53,38 +146,162 @@
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
+  font-size: var(--t-body);
+  line-height: 1.45;
   background: var(--page);
   color: var(--text-primary);
 }
 
 /* Shell */
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+}
+.shell-main {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
 
+/* Left icon rail — primary navigation. */
+.rail {
+  box-sizing: border-box;
+  width: 56px;
+  flex: 0 0 56px;
+  height: 100%;
+  background: var(--surface-1);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--sp-3) 0;
+  gap: var(--sp-1);
+}
+.rail-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-2);
+  background: var(--text-primary);
+  color: var(--page);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: var(--t-body);
+  margin-bottom: 10px;
+}
+.rail-spacer {
+  flex: 1;
+}
+.rail-button {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: var(--r-2);
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.rail-button:hover {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+.rail-current {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
 .topbar {
+  height: 56px;
+  flex: 0 0 56px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 12px 20px;
+  gap: var(--sp-4);
+  padding: 0 var(--sp-6);
   border-bottom: 1px solid var(--border);
   background: var(--surface-1);
 }
+.topbar-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.topbar-spacer {
+  flex: 1;
+}
+.topbar-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--border);
+}
+.topbar-toggle {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--r-2);
+  padding: 6px 11px;
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+.topbar-toggle:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+/* Active overlay/view state is announced by aria-pressed and shown by fill —
+   never by color alone. */
+.topbar-toggle[aria-pressed="true"] {
+  background: var(--series-1);
+  border-color: var(--series-1);
+  color: var(--page);
+}
+
+/* Segmented control: a display option, visually distinct from navigation. */
+.segmented {
+  display: flex;
+  margin: 0;
+  min-width: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-2);
+  padding: 2px;
+  gap: 2px;
+}
+.segmented button {
+  border: 0;
+  border-radius: 5px;
+  padding: 5px 11px;
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-secondary);
+}
+.segmented button[aria-pressed="true"] {
+  background: var(--surface-1);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-1);
+}
 
 .plan-name {
-  font-size: 18px;
+  font-size: var(--t-header);
   font-weight: 600;
   margin: 0;
-  flex: 1;
   min-width: 0;
+  width: 22ch;
   padding: 4px 6px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--r-2);
   background: none;
   color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .plan-name:hover,
@@ -103,60 +320,47 @@ body {
   max-width: 200px;
 }
 
-.drawer-toggle {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-secondary);
-  padding: 6px 12px;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.dollar-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
 .content {
   display: flex;
   flex: 1;
   min-height: 0;
 }
 
-/* Input drawer */
-.drawer {
-  width: 320px;
-  flex-shrink: 0;
+/* Inputs destination */
+.inputs-screen {
+  flex: 1;
+  min-width: 0;
   overflow-y: auto;
-  padding: 16px;
-  border-right: 1px solid var(--border);
+  padding: var(--sp-5) var(--sp-6) var(--sp-6);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  align-content: start;
+  gap: var(--sp-4);
+}
+
+.input-section {
   background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-3);
+  box-shadow: var(--shadow-1);
+  padding: var(--sp-3) var(--sp-4);
 }
 
-.drawer-section {
-  margin-bottom: 12px;
-}
-
-.drawer-section > summary {
+.input-section > summary {
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--t-title);
   cursor: pointer;
-  padding: 6px 0;
+  padding: 2px 0;
 }
 
-.drawer fieldset {
+.inputs-screen fieldset {
   border: 1px solid var(--border);
   border-radius: 8px;
   margin: 8px 0;
   padding: 10px 12px;
 }
 
-.drawer legend {
+.inputs-screen legend {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
@@ -531,23 +735,22 @@ button.remove:hover {
 }
 
 /* Storage settings modal */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
 
 .modal {
-  background: var(--surface-1);
+  padding: 0;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 20px;
+  border-radius: var(--r-3);
+  background: var(--surface-1);
+  color: var(--text-primary);
   width: 420px;
   max-width: calc(100vw - 40px);
+  box-shadow: var(--shadow-2);
+}
+.modal::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+.modal-body {
+  padding: var(--sp-5);
 }
 
 .modal h2 {
@@ -557,7 +760,7 @@ button.remove:hover {
 }
 
 .storage-path {
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-num);
   font-size: 12px;
   color: var(--text-primary);
   background: var(--page);
@@ -709,20 +912,6 @@ button.remove:hover {
 .modal-close:hover {
   color: var(--text-primary);
   border-color: var(--muted);
-}
-
-/* Responsive: drawer overlays content on narrow windows */
-@media (max-width: 860px) {
-  .content {
-    flex-direction: column;
-  }
-
-  .drawer {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    max-height: 45vh;
-  }
 }
 
 /* Monte Carlo view */

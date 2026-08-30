@@ -42,7 +42,7 @@ export function AccountsSection() {
     });
 
   return (
-    <details className="drawer-section" open>
+    <details className="input-section" open>
       <summary>Accounts</summary>
       {plan.accounts.map((account, i) => (
         <fieldset key={account.id}>

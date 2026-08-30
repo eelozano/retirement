@@ -11,7 +11,7 @@ import { NumberField, PercentField, YearMonthField } from "./fields";
 // the DOM mid-edit. Each test drives real keyboard input rather than firing a
 // synthetic change event, because the bugs only appear across keystrokes.
 
-/** Wrapper that owns state the way the real drawer sections do. */
+/** Wrapper that owns state the way the real input sections do. */
 function NumberHarness(props: { initial: number; min?: number }) {
   const [value, setValue] = useState(props.initial);
   return (

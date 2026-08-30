@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { percentToRate, rateToPercent } from "../../lib/format";
 import type { YearMonth } from "../../types/generated/YearMonth";
 
-// Small controlled field primitives shared by the drawer forms.
+// Small controlled field primitives shared by the input forms.
 //
 // Numeric inputs here are *buffered*: while the field has focus the user's
 // literal keystrokes are held in local state and only committed upstream once

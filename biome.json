@@ -20,8 +20,6 @@
       "preset": "recommended",
       "a11y": {
         "noLabelWithoutControl": "warn",
-        "noStaticElementInteractions": "warn",
-        "useKeyWithClickEvents": "warn",
         "useSemanticElements": "warn"
       },
       "suspicious": {
