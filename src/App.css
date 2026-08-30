@@ -397,6 +397,19 @@ body {
   flex: 0 0 168px;
 }
 
+/* YearMonthField is a <fieldset> so its two controls are grouped
+   semantically; strip the UA chrome so it matches every other .field row. */
+.field-yearmonth {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.field-yearmonth > legend {
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
 .field-group select {
   width: auto;
   flex: 1 1 auto;
@@ -1166,4 +1179,51 @@ button.remove:hover {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--sp-4);
+}
+
+/* Zone 3 entry card — a doorway to another destination that already shows
+   enough real numbers to be worth reading on its own. */
+.entry-card {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-3);
+  padding: var(--sp-3) var(--sp-4);
+  box-shadow: var(--shadow-1);
+  cursor: pointer;
+}
+.entry-card:hover {
+  border-color: var(--border-strong);
+}
+.entry-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.entry-card-title {
+  font-size: var(--t-title);
+  font-weight: 600;
+}
+.entry-card-sub {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.entry-card-peek {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  text-align: right;
+}
+.entry-card-value {
+  font-size: 17px;
+  font-weight: 600;
+  font-family: var(--font-num);
 }

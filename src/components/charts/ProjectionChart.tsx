@@ -85,7 +85,6 @@ export function ProjectionChart(props: {
   return (
     // Focusable so the pinned year is reachable without a mouse; arrow keys
     // step it, which is the keyboard equivalent of clicking the chart.
-    // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: the chart's keyboard affordance — slider is the closest role for stepping a pinned year, and it carries the valuemin/max/now below
     <div
       className="projection-chart"
       role="slider"

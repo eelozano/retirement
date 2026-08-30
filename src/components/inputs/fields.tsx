@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { percentToRate, rateToPercent } from "../../lib/format";
 import type { YearMonth } from "../../types/generated/YearMonth";
 
@@ -34,6 +34,8 @@ function useEditBuffer(canonical: string) {
 
 /** Shared numeric input body: commit when valid, clamp once on blur. */
 function BufferedNumberInput(props: {
+  /** Ties the wrapping <label> to this input via htmlFor. */
+  id?: string;
   ariaLabel: string;
   canonical: string;
   min: number;
@@ -49,6 +51,7 @@ function BufferedNumberInput(props: {
 
   return (
     <input
+      id={props.id}
       type="number"
       inputMode="decimal"
       aria-label={props.ariaLabel}
@@ -108,10 +111,12 @@ export function NumberField(props: {
   min?: number;
   max?: number;
 }) {
+  const id = useId();
   return (
-    <label className="field">
+    <label className="field" htmlFor={id}>
       <span>{props.label}</span>
       <BufferedNumberInput
+        id={id}
         ariaLabel={props.label}
         canonical={String(props.value)}
         min={props.min ?? 0}
@@ -133,10 +138,12 @@ export function PercentField(props: {
   maxPercent?: number;
 }) {
   const label = `${props.label} (%)`;
+  const id = useId();
   return (
-    <label className="field">
+    <label className="field" htmlFor={id}>
       <span>{label}</span>
       <BufferedNumberInput
+        id={id}
         ariaLabel={label}
         canonical={rateToPercent(props.rate)}
         min={props.minPercent ?? -25}
@@ -192,8 +199,8 @@ const MONTH_NAMES = [
  * A select plus a number input has no unsupported-type fallback and no
  * half-typed string to misparse, so an out-of-range month is unrepresentable.
  *
- * This is a `div role="group"` rather than a `<label>` because it wraps two
- * controls; each carries its own aria-label.
+ * A `<fieldset>` rather than a `<label>` because it wraps two controls; the
+ * `<legend>` names the pair and each control keeps its own aria-label.
  */
 export function YearMonthField(props: {
   label: string;
@@ -204,8 +211,8 @@ export function YearMonthField(props: {
 }) {
   const { year, month } = props.value;
   return (
-    <div className="field" role="group" aria-label={props.label}>
-      <span>{props.label}</span>
+    <fieldset className="field field-yearmonth">
+      <legend>{props.label}</legend>
       <span className="field-group">
         <select
           aria-label={`${props.label} month`}
@@ -227,7 +234,7 @@ export function YearMonthField(props: {
           onCommit={(nextYear) => props.onChange({ year: Math.round(nextYear), month })}
         />
       </span>
-    </div>
+    </fieldset>
   );
 }
 
