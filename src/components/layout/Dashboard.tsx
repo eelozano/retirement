@@ -1,27 +1,22 @@
-import { useMemo, useState } from "react";
-import { depletionYear as computeDepletionYear } from "../../lib/projection";
+import { useState } from "react";
 import { usePlanStore } from "../../store/planStore";
-import { BalancesChart } from "../charts/BalancesChart";
-import { chartRows, seriesDefs } from "../charts/chartData";
-import { DataTable } from "../charts/DataTable";
-import { NetWorthChart } from "../charts/NetWorthChart";
-import { SummaryStats } from "../charts/SummaryStats";
 import { AccountsSection } from "../inputs/AccountsSection";
 import { AssumptionsSection } from "../inputs/AssumptionsSection";
 import { PeopleSection } from "../inputs/PeopleSection";
 import { SocialSecuritySection } from "../inputs/SocialSecuritySection";
 import { StreamsSection } from "../inputs/StreamsSection";
 import { ComparisonView } from "./ComparisonView";
-import { MonteCarloView } from "./MonteCarloView";
+import { PlanScreen } from "./PlanScreen";
 import { type Destination, Rail } from "./Rail";
 import { ScenariosSettings } from "./ScenariosSettings";
 import { StorageSettings } from "./StorageSettings";
 
 // Application shell: rail on the left, then a header and one destination.
 //
-// Compare and Monte Carlo are still exclusive views of the plan area here.
-// Turning them into additive overlays on a single canvas is R2's job — this
-// change is the shell, the token layer, and the navigation model only.
+// Monte Carlo is no longer a mode. It is an additive overlay that paints the
+// percentile band onto the same chart, so the fan is read against the plan
+// rather than replacing it. Compare is still a separate view; whether it
+// becomes an overlay too is R3's call, once the band has proven the pattern.
 
 export function Dashboard() {
   const plan = usePlanStore((s) => s.plan);
@@ -37,13 +32,8 @@ export function Dashboard() {
   const [destination, setDestination] = useState<Destination>("plan");
   const [storageOpen, setStorageOpen] = useState(false);
   const [scenariosOpen, setScenariosOpen] = useState(false);
-  const [view, setView] = useState<"charts" | "compare" | "monteCarlo">("charts");
-
-  const series = useMemo(() => (plan ? seriesDefs(plan) : []), [plan]);
-  const rows = useMemo(
-    () => (plan && projection ? chartRows(plan, projection, realDollars) : []),
-    [plan, projection, realDollars],
-  );
+  const [showBand, setShowBand] = useState(false);
+  const [comparing, setComparing] = useState(false);
 
   // A hard failure (nothing has ever loaded) has no shell to show yet.
   if (!plan || !projection) {
@@ -59,8 +49,6 @@ export function Dashboard() {
       </main>
     );
   }
-
-  const depletionYear = computeDepletionYear(projection);
 
   return (
     <div className="app-shell">
@@ -129,8 +117,8 @@ export function Dashboard() {
             <button
               type="button"
               className="topbar-toggle"
-              aria-pressed={view === "compare"}
-              onClick={() => setView((v) => (v === "compare" ? "charts" : "compare"))}
+              aria-pressed={comparing}
+              onClick={() => setComparing((c) => !c)}
             >
               Compare
             </button>
@@ -138,8 +126,8 @@ export function Dashboard() {
           <button
             type="button"
             className="topbar-toggle"
-            aria-pressed={view === "monteCarlo"}
-            onClick={() => setView((v) => (v === "monteCarlo" ? "charts" : "monteCarlo"))}
+            aria-pressed={showBand}
+            onClick={() => setShowBand((b) => !b)}
           >
             Monte Carlo
           </button>
@@ -156,13 +144,6 @@ export function Dashboard() {
           </p>
         )}
 
-        {destination === "plan" && depletionYear !== null && (
-          <p role="alert" className="banner critical">
-            ⚠ Portfolio depletes in {depletionYear} — spending exceeds what the accounts
-            can fund.
-          </p>
-        )}
-
         <div className="content">
           {destination === "inputs" ? (
             <main className="inputs-screen">
@@ -172,46 +153,12 @@ export function Dashboard() {
               <SocialSecuritySection />
               <AssumptionsSection />
             </main>
-          ) : view === "compare" ? (
+          ) : comparing ? (
             <main className="charts">
               <ComparisonView />
             </main>
-          ) : view === "monteCarlo" ? (
-            <main className="charts">
-              <MonteCarloView />
-            </main>
           ) : (
-            <main className={`charts ${projecting ? "refreshing" : ""}`}>
-              <SummaryStats
-                plan={plan}
-                projection={projection}
-                realDollars={realDollars}
-                depletionYear={depletionYear}
-              />
-              {series.length === 0 ? (
-                <section className="card">
-                  <p className="empty-state">
-                    Add an account under Inputs to see balance and net-worth projections.
-                  </p>
-                </section>
-              ) : (
-                <>
-                  <section className="card">
-                    <h2>Account balances</h2>
-                    <BalancesChart rows={rows} series={series} />
-                  </section>
-                  <section className="card">
-                    <h2>Net worth</h2>
-                    <NetWorthChart
-                      rows={rows}
-                      plan={plan}
-                      depletionYear={depletionYear}
-                    />
-                  </section>
-                  <DataTable rows={rows} series={series} />
-                </>
-              )}
-            </main>
+            <PlanScreen showBand={showBand} />
           )}
         </div>
       </div>
