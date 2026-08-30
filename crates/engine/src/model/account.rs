@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::{AssetClass, PersonId};
+use crate::presets::{ELECTIVE_DEFERRAL_LIMIT, IRA_CONTRIBUTION_LIMIT};
 
 pub type AccountId = String;
 
@@ -19,6 +20,72 @@ pub enum AccountKind {
     Roth,
 }
 
+/// Which statutory contribution bucket an account draws on.
+///
+/// Deliberately orthogonal to `AccountKind`, which is the *tax treatment*
+/// axis: a Roth 401(k) and a Roth IRA are taxed identically and capped
+/// separately, while a traditional IRA and a Roth IRA are taxed differently
+/// and share one cap. Two axes, each with one job — exploding `AccountKind`
+/// into five variants would force every `match` in the tax and drawdown
+/// paths to grow for a distinction those paths do not care about.
+///
+/// 457(b) has a statutorily separate limit from 401(k)/403(b) and would be a
+/// fourth variant here, not a rework.
+#[derive(Serialize, Deserialize, TS, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[ts(export)]
+pub enum PlanType {
+    /// 401(k)/403(b)/TSP elective deferrals, sharing one limit per person.
+    EmployerPlan,
+    /// Traditional and Roth IRAs, sharing one (much smaller) limit.
+    Ira,
+    /// No statutory cap — a taxable brokerage.
+    None,
+}
+
+impl PlanType {
+    /// The bucket an account of this kind belongs to by default. Follows the
+    /// convention the kind labels already imply: pre-tax means a
+    /// 401(k)-style plan, Roth means a Roth IRA. Overridable per account.
+    pub fn default_for(kind: AccountKind) -> Self {
+        match kind {
+            AccountKind::Taxable => PlanType::None,
+            AccountKind::TraditionalPreTax => PlanType::EmployerPlan,
+            AccountKind::Roth => PlanType::Ira,
+        }
+    }
+}
+
+/// How much goes into an account each year while its owner is still working.
+///
+/// A tagged enum rather than a number plus flags, so the combinations that
+/// do not mean anything cannot be written down — the same approach
+/// `StreamBoundary` and `GrowthRule` take.
+#[derive(Serialize, Deserialize, TS, Clone, Copy, Debug, PartialEq)]
+#[ts(export)]
+pub enum ContributionRule {
+    /// Fraction of the owner's gross salary for the period (0.08 = 8%),
+    /// resolved against their income streams. Grows with the salary, so it
+    /// holds its real value without any indexing machinery — and it is the
+    /// basis an employer match is expressed against.
+    PercentOfSalary(f64),
+    /// A flat annual amount, **nominal**: it does not index with inflation,
+    /// so it buys less every year. Correct for an account funded by a fixed
+    /// standing transfer; the UI says so rather than letting it decay
+    /// silently.
+    FlatAmount(f64),
+    /// The statutory maximum for the account's `plan_type`, indexed forward
+    /// and stepped up for the owner's catch-up tier. Stored as intent rather
+    /// than a number so the plan stays correct as limits index and the owner
+    /// ages — see `presets::ContributionLimits`.
+    FederalMaximum,
+}
+
+impl Default for ContributionRule {
+    fn default() -> Self {
+        ContributionRule::FlatAmount(0.0)
+    }
+}
+
 /// Portfolio allocation: a named preset or explicit weights summing to 1.
 #[derive(Serialize, Deserialize, TS, Clone, Debug)]
 #[ts(export)]
@@ -29,7 +96,7 @@ pub enum AllocationRef {
     Custom(BTreeMap<AssetClass, f64>),
 }
 
-#[derive(Serialize, Deserialize, TS, Clone, Debug)]
+#[derive(Serialize, TS, Clone, Debug)]
 #[ts(export)]
 pub struct Account {
     pub id: AccountId,
@@ -43,13 +110,195 @@ pub struct Account {
     /// flat tax already uses it to split withdrawals into principal vs gains.
     pub cost_basis: Option<f64>,
     pub allocation: AllocationRef,
-    /// Planned contribution per year (in simulation-start dollars) while the
-    /// owner is still working.
-    pub annual_contribution: f64,
-    /// Statutory cap in simulation-start dollars; contributions above it are
-    /// clamped with a warning. None = uncapped (taxable). The cap is shared
-    /// per person per year with the owner's other accounts in the same
-    /// statutory bucket rather than granted per account — see
-    /// `sim::contributions`.
-    pub contribution_limit: Option<f64>,
+    /// Which statutory limit this account is held to. The cap is shared per
+    /// person per year with the owner's other accounts in the same bucket
+    /// rather than granted per account — see `sim::contributions`.
+    pub plan_type: PlanType,
+    /// What the owner puts in each year while still working.
+    pub contribution: ContributionRule,
+}
+
+/// Deserialization shape for `Account`, carrying the pre-#32 fields so plans
+/// written before contribution modes existed still load.
+///
+/// A wire struct rather than `#[serde(default)]` on the new fields because
+/// neither default can be computed field-locally: `contribution` has to read
+/// the legacy `annual_contribution`, and `plan_type` has to read `kind`.
+/// Same migration intent as the `#[serde(default)]` precedent documented on
+/// `sweep_surplus_to_taxable` and `social_security`.
+///
+/// The legacy per-account `contribution_limit` no longer survives as a
+/// field — the engine owns statutory limits now, indexed and with catch-up
+/// tiers, instead of reading a frozen user-typed number. It is still read
+/// once, to pick the bucket: see `migrated_plan_type`.
+#[derive(Deserialize)]
+struct AccountWire {
+    id: AccountId,
+    owner: PersonId,
+    kind: AccountKind,
+    name: String,
+    balance: f64,
+    #[serde(default)]
+    cost_basis: Option<f64>,
+    allocation: AllocationRef,
+    #[serde(default)]
+    plan_type: Option<PlanType>,
+    #[serde(default)]
+    contribution: Option<ContributionRule>,
+    /// Pre-#32: a flat nominal figure applied unchanged every period.
+    #[serde(default)]
+    annual_contribution: Option<f64>,
+    /// Pre-#32: a user-typed statutory cap. Read only by
+    /// `migrated_plan_type`.
+    #[serde(default)]
+    contribution_limit: Option<f64>,
+}
+
+/// The bucket a pre-#32 account belonged to, recovered from the limit it
+/// carried.
+///
+/// `AccountKind` alone puts every pre-tax account in the employer-plan
+/// bucket, which is wrong for a traditional IRA — and the old schema *did*
+/// record enough to tell, in the limit the user typed. This is #31's
+/// `bucket_for` heuristic, kept for exactly one job: reading a plan file
+/// written before the field existed. It is strictly better than ignoring
+/// the limit, and it never runs at simulate time, where the field is now
+/// read directly.
+///
+/// A taxable account is `None` regardless of any stale limit — validation
+/// requires the two axes to agree there.
+fn migrated_plan_type(kind: AccountKind, contribution_limit: Option<f64>) -> PlanType {
+    let default = PlanType::default_for(kind);
+    let Some(limit) = contribution_limit else {
+        return default;
+    };
+    if default == PlanType::None {
+        return default;
+    }
+    if (limit - IRA_CONTRIBUTION_LIMIT).abs() <= (limit - ELECTIVE_DEFERRAL_LIMIT).abs() {
+        PlanType::Ira
+    } else {
+        PlanType::EmployerPlan
+    }
+}
+
+/// Hand-written rather than `#[serde(from = "AccountWire")]` only because
+/// ts-rs cannot parse that container attribute and warns on every build; the
+/// behavior is identical.
+impl<'de> Deserialize<'de> for Account {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        AccountWire::deserialize(deserializer).map(Account::from)
+    }
+}
+
+impl From<AccountWire> for Account {
+    fn from(w: AccountWire) -> Self {
+        let contribution = w
+            .contribution
+            .unwrap_or_else(|| ContributionRule::FlatAmount(w.annual_contribution.unwrap_or(0.0)));
+        Account {
+            plan_type: w
+                .plan_type
+                .unwrap_or_else(|| migrated_plan_type(w.kind, w.contribution_limit)),
+            contribution,
+            id: w.id,
+            owner: w.owner,
+            kind: w.kind,
+            name: w.name,
+            balance: w.balance,
+            cost_basis: w.cost_basis,
+            allocation: w.allocation,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A plan file written before #32 carries `annual_contribution` and
+    /// `contribution_limit` and neither new field.
+    #[test]
+    fn legacy_account_migrates_to_a_flat_amount() {
+        let json = r#"{
+            "id": "401k",
+            "owner": "p1",
+            "kind": "TraditionalPreTax",
+            "name": "401k",
+            "balance": 100000.0,
+            "cost_basis": null,
+            "allocation": "Aggressive",
+            "annual_contribution": 23000.0,
+            "contribution_limit": 23000.0
+        }"#;
+        let account: Account = serde_json::from_str(json).expect("legacy account parses");
+        assert_eq!(account.contribution, ContributionRule::FlatAmount(23_000.0));
+        assert_eq!(account.plan_type, PlanType::EmployerPlan);
+    }
+
+    /// The old schema could not name the bucket, but the limit the user
+    /// typed says which one it was — a traditional IRA is `TraditionalPreTax`
+    /// like a 401(k), and only its $7,500-ish limit tells them apart.
+    #[test]
+    fn a_legacy_ira_limit_migrates_into_the_ira_bucket() {
+        let account = |kind, limit: f64| {
+            let json = format!(
+                r#"{{"id":"a","owner":"p1","kind":"{kind}","name":"a","balance":0.0,
+                    "cost_basis":null,"allocation":"Moderate","annual_contribution":0.0,
+                    "contribution_limit":{limit}}}"#
+            );
+            serde_json::from_str::<Account>(&json).expect("legacy account parses")
+        };
+        assert_eq!(
+            account("TraditionalPreTax", IRA_CONTRIBUTION_LIMIT).plan_type,
+            PlanType::Ira,
+        );
+        assert_eq!(
+            account("TraditionalPreTax", ELECTIVE_DEFERRAL_LIMIT).plan_type,
+            PlanType::EmployerPlan,
+        );
+        // A Roth 401(k) is the mirror case: `Roth` alone would say IRA.
+        assert_eq!(
+            account("Roth", ELECTIVE_DEFERRAL_LIMIT).plan_type,
+            PlanType::EmployerPlan,
+        );
+    }
+
+    #[test]
+    fn legacy_plan_type_defaults_follow_the_account_kind() {
+        // An uncapped account carries no signal, so the kind decides. A
+        // taxable account stays `None` even if a stale limit says otherwise.
+        for (kind, expected) in [
+            (AccountKind::Taxable, PlanType::None),
+            (AccountKind::TraditionalPreTax, PlanType::EmployerPlan),
+            (AccountKind::Roth, PlanType::Ira),
+        ] {
+            assert_eq!(PlanType::default_for(kind), expected);
+            assert_eq!(migrated_plan_type(kind, None), expected);
+        }
+        assert_eq!(
+            migrated_plan_type(AccountKind::Taxable, Some(IRA_CONTRIBUTION_LIMIT)),
+            PlanType::None,
+        );
+    }
+
+    /// Round-tripping a current account leaves both new fields alone.
+    #[test]
+    fn current_account_round_trips() {
+        let account = Account {
+            id: "a".into(),
+            owner: "p1".into(),
+            kind: AccountKind::Roth,
+            name: "Roth IRA".into(),
+            balance: 1.0,
+            cost_basis: None,
+            allocation: AllocationRef::Moderate,
+            plan_type: PlanType::Ira,
+            contribution: ContributionRule::PercentOfSalary(0.08),
+        };
+        let json = serde_json::to_string(&account).unwrap();
+        let back: Account = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.contribution, ContributionRule::PercentOfSalary(0.08));
+        assert_eq!(back.plan_type, PlanType::Ira);
+    }
 }

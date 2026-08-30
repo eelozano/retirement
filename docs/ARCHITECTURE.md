@@ -118,6 +118,18 @@ pub struct Person {
 
 pub enum AccountKind { Taxable, TraditionalPreTax, Roth }
 
+// Orthogonal to AccountKind: tax treatment vs statutory bucket. A Roth 401(k)
+// and a Roth IRA are taxed the same and capped separately; a traditional IRA
+// and a Roth IRA are taxed differently and share one cap. 457(b) would be a
+// fourth variant, not a rework.
+pub enum PlanType { EmployerPlan, Ira, None }
+
+pub enum ContributionRule {
+    PercentOfSalary(f64),   // resolved against the owner's salary each period
+    FlatAmount(f64),        // nominal by design; the UI says so
+    FederalMaximum,         // intent, resolved against the indexed limit table
+}
+
 pub struct Account {
     pub id: AccountId,
     pub owner: PersonId,
@@ -126,8 +138,8 @@ pub struct Account {
     pub balance: f64,               // starting balance (nominal, as of plan start)
     pub cost_basis: Option<f64>,    // taxable only; tracked from day 1, used by V2 tax
     pub allocation: AllocationRef,  // preset id or custom weights
-    pub annual_contribution: f64,
-    pub contribution_limit: Option<f64>,  // shared per person per year, not per account
+    pub plan_type: PlanType,              // bucket; cap shared per person per year
+    pub contribution: ContributionRule,
 }
 
 // Generic dated stream — salary, retirement spending, pensions, one-offs.
@@ -215,13 +227,13 @@ pub struct Projection {
 
 Statutory limits are granted **per person per year**, shared across a bucket of that person's accounts — not per account. Clamping per account let one person defer the elective-deferral limit once for each employer plan they hold, overstating the ending balance and understating taxable income (the same figure feeds the pre-tax deduction).
 
-Two independent buckets: **employer plans** (401(k)/403(b)/457 elective deferrals) and **IRAs** (traditional and Roth share one cap with each other). `AccountKind` cannot tell a 401(k) from a traditional IRA, so the bucket is inferred from the limit the account carries — whichever statutory figure in `presets` it sits nearer. Uncapped accounts (`contribution_limit: None`) join no bucket.
+Two independent buckets, named directly by `Account::plan_type`: **employer plans** (401(k)/403(b)/TSP elective deferrals) and **IRAs** (traditional and Roth share one cap with each other). `PlanType::None` accounts — taxable brokerages — join no bucket. The bucket used to be *inferred* from whichever statutory figure the account's user-typed limit sat nearer, which mis-bucketed a 457(b) and any hand-typed figure near neither; the engine now owns the limits and reads the bucket from a field.
 
-When a person's accounts collectively ask for more than the shared cap, room is handed out **in plan account order**: the first account listed fills first. Each account is still additionally bound by its own limit, so a per-account limit below the bucket cap is respected. The split is period-invariant — every account a person owns starts and stops contributing on that person's single retirement date — so `simulate` resolves it once before the loop.
+When a person's accounts collectively ask for more than the shared cap, room is handed out **in plan account order**: the first account listed fills first. The split is resolved **per period**, not once: salaries grow, limits index, and catch-up tiers turn on with age, so what fits is a function of the year. Clamp warnings are deduplicated by account and report the first period the clamp bit.
 
-Limits are flat nominal in V1: `presets::ELECTIVE_DEFERRAL_LIMIT` and `IRA_CONTRIBUTION_LIMIT` carry the current statutory figures with their source, and indexing them forward is backlog. Catch-up tiers are entered by raising an account's limit by hand, which raises that person's whole bucket.
+`presets::CONTRIBUTION_LIMITS` carries the statutory figures for one tax year (`basis_year`, currently 2026 from IRS Notice 2025-67) and `ContributionLimits::annual_limit` indexes them forward at the plan's inflation rate, rounding down to the statutory increment ($500, or $100 for the IRA catch-up) so limits step the way the real schedule does. Catch-up is automatic from the owner's `birth`: the age-50 tier, and the SECURE 2.0 tier that replaces it for the years they turn 60 through 63. The app is local-first with no network, so the figures are only as current as the release — `basis_year` is surfaced in the UI rather than implying they are live.
 
-Frontend consumes `Projection` directly (generated types); the real-dollar toggle divides by `deflator` client-side — no engine round-trip on toggle. `SimWarning` variants carry the numbers behind them (a clamp reports `requested` and `allowed`) because the UI renders warnings as text — `src/lib/warnings.ts` — rather than a count.
+Frontend consumes `Projection` directly (generated types); the real-dollar toggle divides by `deflator` client-side — no engine round-trip on toggle. `SimWarning` variants carry the numbers behind them (a clamp reports `period`, `requested`, and `allowed`) because the UI renders warnings as text — `src/lib/warnings.ts` — rather than a count.
 
 ### Tauri commands (`src-tauri/src/commands.rs`)
 

@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{Plan, StreamBoundary, YearMonth};
+use super::{AccountKind, ContributionRule, Plan, PlanType, StreamBoundary, YearMonth};
 
 /// Bounds on any date in a plan. `YearMonth::new` asserts the month range,
 /// but serde deserialization constructs the struct field-by-field and never
@@ -127,6 +127,53 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                 &format!("accounts[{i}].balance"),
                 &format!("\"{}\" balance can't be negative.", account.name),
             ));
+        }
+        // The two axes have to agree at the one place they overlap: a
+        // taxable brokerage draws on no statutory bucket, and nothing else
+        // draws on none. Everything in between (a Roth 401(k), a traditional
+        // IRA) is a free choice, which is the point of keeping them separate.
+        let taxable = account.kind == AccountKind::Taxable;
+        if taxable != (account.plan_type == PlanType::None) {
+            errors.push(err(
+                &format!("accounts[{i}].plan_type"),
+                &if taxable {
+                    format!(
+                        "\"{}\" is a taxable brokerage, so it isn't a 401(k) or an IRA.",
+                        account.name
+                    )
+                } else {
+                    format!(
+                        "\"{}\" is a retirement account, so it needs a plan type.",
+                        account.name
+                    )
+                },
+            ));
+        }
+        match account.contribution {
+            ContributionRule::FlatAmount(amount) if amount < 0.0 => errors.push(err(
+                &format!("accounts[{i}].contribution"),
+                &format!("\"{}\" can't contribute a negative amount.", account.name),
+            )),
+            ContributionRule::PercentOfSalary(pct) if !(0.0..=1.0).contains(&pct) => {
+                errors.push(err(
+                    &format!("accounts[{i}].contribution"),
+                    &format!(
+                        "\"{}\" contributes {:.0}% of salary — it has to be between 0% and 100%.",
+                        account.name,
+                        pct * 100.0
+                    ),
+                ))
+            }
+            ContributionRule::FederalMaximum if account.plan_type == PlanType::None => {
+                errors.push(err(
+                    &format!("accounts[{i}].contribution"),
+                    &format!(
+                        "\"{}\" has no federal maximum — a taxable brokerage is uncapped.",
+                        account.name
+                    ),
+                ))
+            }
+            _ => {}
         }
     }
 
