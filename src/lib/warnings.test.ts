@@ -25,7 +25,14 @@ describe("readableWarnings", () => {
     const [w] = readableWarnings(
       plan,
       projection([
-        { ContributionClamped: { account: "acct-1", requested: 37200, allowed: 24500 } },
+        {
+          ContributionClamped: {
+            account: "acct-1",
+            period: 0,
+            requested: 37200,
+            allowed: 24500,
+          },
+        },
       ]),
     );
     expect(w.title).toContain("Enrique 403(b)");
@@ -33,11 +40,35 @@ describe("readableWarnings", () => {
     expect(w.title).toContain("$37,200");
   });
 
+  it("dates the clamp, since indexed limits mean it starts in a particular year", () => {
+    const [w] = readableWarnings(
+      plan,
+      projection([
+        {
+          ContributionClamped: {
+            account: "acct-1",
+            period: 1,
+            requested: 37200,
+            allowed: 24500,
+          },
+        },
+      ]),
+    );
+    expect(w.title).toContain("from 2027");
+  });
+
   it("explains a fully crowded-out account differently from a trimmed one", () => {
     const [crowded] = readableWarnings(
       plan,
       projection([
-        { ContributionClamped: { account: "acct-1", requested: 24500, allowed: 0 } },
+        {
+          ContributionClamped: {
+            account: "acct-1",
+            period: 0,
+            requested: 24500,
+            allowed: 0,
+          },
+        },
       ]),
     );
     expect(crowded.detail).toContain("Nothing is being contributed here");
@@ -47,7 +78,14 @@ describe("readableWarnings", () => {
     const [w] = readableWarnings(
       plan,
       projection([
-        { ContributionClamped: { account: "ghost", requested: 100, allowed: 0 } },
+        {
+          ContributionClamped: {
+            account: "ghost",
+            period: 0,
+            requested: 100,
+            allowed: 0,
+          },
+        },
       ]),
     );
     expect(w.title).toContain("ghost");
@@ -71,8 +109,12 @@ describe("readableWarnings", () => {
     const ws = readableWarnings(
       plan,
       projection([
-        { ContributionClamped: { account: "acct-1", requested: 2, allowed: 1 } },
-        { ContributionClamped: { account: "acct-1", requested: 2, allowed: 1 } },
+        {
+          ContributionClamped: { account: "acct-1", period: 0, requested: 2, allowed: 1 },
+        },
+        {
+          ContributionClamped: { account: "acct-1", period: 1, requested: 2, allowed: 1 },
+        },
       ]),
     );
     expect(new Set(ws.map((w) => w.key)).size).toBe(2);

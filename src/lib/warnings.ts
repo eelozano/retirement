@@ -45,15 +45,20 @@ export function readableWarnings(plan: Plan, projection: Projection): ReadableWa
       };
     }
     if ("ContributionClamped" in warning) {
-      const { account, requested, allowed } = warning.ContributionClamped;
+      const { account, period, requested, allowed } = warning.ContributionClamped;
       const name = accountName(plan, account);
+      const year = periodYear(projection, period);
+      // Statutory limits index and salaries grow, so a clamp starts in a
+      // particular year rather than applying flatly to every year — the
+      // engine reports the first one and the headline names it.
+      const from = year !== null ? ` from ${year}` : "";
       return {
         key,
-        title: `${name}: contributing ${currency(allowed)}/yr, not ${currency(requested)}/yr`,
+        title: `${name}: contributing ${currency(allowed)}/yr, not ${currency(requested)}/yr${from}`,
         detail:
           allowed === 0
             ? `The limit for this kind of account is shared per person per year, and ${name}'s owner already fills it from accounts listed above this one. Nothing is being contributed here.`
-            : `Contributions were held to ${currency(allowed)}/yr — this account's limit, shared per person per year with their other accounts under the same statutory cap.`,
+            : `Contributions were held to the federal maximum for this account's plan type, shared per person per year with their other accounts in the same bucket.`,
       };
     }
     if ("DepletedFunds" in warning) {
