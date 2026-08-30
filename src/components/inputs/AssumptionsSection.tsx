@@ -85,8 +85,11 @@ export function AssumptionsSection() {
 
   const assumptions = plan.assumptions;
   return (
-    <details className="input-section">
-      <summary>Assumptions</summary>
+    <div className="pane-section">
+      <div className="pane-head">
+        <h3>Assumptions</h3>
+        <p>Set once, revisited rarely.</p>
+      </div>
       <fieldset>
         <legend>Economy &amp; taxes</legend>
         <PercentField
@@ -166,6 +169,6 @@ export function AssumptionsSection() {
           />
         ))}
       </fieldset>
-    </details>
+    </div>
   );
 }
