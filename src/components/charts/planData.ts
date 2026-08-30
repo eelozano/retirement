@@ -2,6 +2,7 @@ import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
 import type { PeriodSnapshot } from "../../types/generated/PeriodSnapshot";
 import type { Plan } from "../../types/generated/Plan";
 import type { Projection } from "../../types/generated/Projection";
+import type { YearMonth } from "../../types/generated/YearMonth";
 import { MAX_SERIES, OTHER_KEY, type SeriesDef } from "./chartData";
 
 // Derivations for the Plan screen's headline, milestones, and year inspector.
@@ -38,11 +39,12 @@ export interface HeadlineMetrics {
   /** Deterministic depletion year for the plan itself, or null. */
   depletionYear: number | null;
   /**
-   * Net worth at the first retirement divided by that year's expenses.
+   * Net worth divided by expenses at the first full period after the
+   * earliest retirement.
    *
    * Basis-independent: both figures come from the same snapshot and so carry
-   * the same deflator, which cancels. Null if nobody has retired within the
-   * projection or expenses are zero.
+   * the same deflator, which cancels. Null if no full retirement period
+   * falls within the projection or expenses are zero.
    */
   coverYears: number | null;
   /** The year `coverYears` is measured at. */
@@ -54,6 +56,22 @@ function snapshotForYear(
   year: number,
 ): PeriodSnapshot | undefined {
   return projection.snapshots.find((s) => s.period_start.year === year);
+}
+
+function atOrAfter(a: YearMonth, b: YearMonth): boolean {
+  return a.year !== b.year ? a.year > b.year : a.month >= b.month;
+}
+
+/**
+ * First snapshot whose period lies entirely at or after `date` — i.e. the
+ * first period a stream starting at `date` covers in full, with no
+ * proration stub. Relies on `projection.snapshots` being chronological.
+ */
+function firstFullPeriodAtOrAfter(
+  projection: Projection,
+  date: YearMonth,
+): PeriodSnapshot | undefined {
+  return projection.snapshots.find((s) => atOrAfter(s.period_start, date));
 }
 
 export function headlineMetrics(
@@ -68,12 +86,14 @@ export function headlineMetrics(
 
   // The earliest retirement is the one that puts the portfolio under load.
   const firstRetirement = plan.people
-    .map((p) => p.retirement.year)
-    .sort((a, b) => a - b)[0];
-  const atRetirement =
-    firstRetirement === undefined
-      ? undefined
-      : snapshotForYear(projection, firstRetirement);
+    .map((p) => p.retirement)
+    .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month))[0];
+  // Measure at the first full period after retirement, not the transition
+  // year itself — that year's expenses can be a prorated stub (as little as
+  // one month), which would overstate coverage by up to 12x.
+  const atRetirement = firstRetirement
+    ? firstFullPeriodAtOrAfter(projection, firstRetirement)
+    : undefined;
   const coverYears =
     atRetirement && atRetirement.expenses > 0
       ? atRetirement.net_worth / atRetirement.expenses
