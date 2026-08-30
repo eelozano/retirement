@@ -433,6 +433,11 @@ body {
   margin: 2px 8px 0 0;
 }
 
+/* A hint sits on its own line under the control it explains. */
+.field-with-hint {
+  flex-wrap: wrap;
+}
+
 .field-hint {
   flex-basis: 100%;
   color: var(--text-secondary);

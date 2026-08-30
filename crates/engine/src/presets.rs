@@ -7,41 +7,110 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::model::{
-    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, FilingStatus,
-    GrowthRule, PeriodLength, Person, Plan, SimConfig, SocialSecurityBenefit, StateCode,
-    StateTaxProfile, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
+    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, ContributionRule,
+    FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
+    SocialSecurityBenefit, StateCode, StateTaxProfile, StreamBoundary, StreamDirection, YearMonth,
+    SCHEMA_VERSION,
 };
 use crate::state_tax_data::state_tax_profiles;
+
+/// Tax year the statutory figures in `CONTRIBUTION_LIMITS` are published
+/// for. The app is local-first with no network, so these go stale between
+/// releases rather than updating themselves — the year is surfaced in the
+/// UI so a projection never implies the numbers are live.
+pub const LIMITS_BASIS_YEAR: i32 = 2026;
 
 /// Statutory elective-deferral limit for employer plans — 401(k), 403(b),
 /// 457(b), Thrift Savings — shared across every such plan a person
 /// participates in. IRS Notice 2025-67, tax year 2026.
-///
-/// Flat nominal in V1: the engine does not index limits forward, so a long
-/// projection understates what a saver may actually defer in later years.
-/// Indexing is tracked separately, as are the age-50 and age-60..=63
-/// catch-up tiers — a user who is eligible for one raises the limit on the
-/// account by hand, which raises their whole employer-plan bucket.
 pub const ELECTIVE_DEFERRAL_LIMIT: f64 = 24_500.0;
 
 /// Statutory IRA contribution limit, shared across a person's traditional
-/// and Roth IRAs. IRS Notice 2025-67, tax year 2026. Same caveats as
-/// `ELECTIVE_DEFERRAL_LIMIT`: flat nominal, catch-up entered by hand.
+/// and Roth IRAs. IRS Notice 2025-67, tax year 2026.
 pub const IRA_CONTRIBUTION_LIMIT: f64 = 7_500.0;
 
-/// The limit a newly created account of this kind starts with, so an account
-/// added through the UI is capped the same way a seeded one is. `None` =
-/// uncapped.
+/// Statutory limits for one tax year, indexed forward by the engine.
 ///
-/// `AccountKind` does not distinguish an employer plan from an IRA, so this
-/// follows the convention the kind labels already imply: pre-tax means a
-/// 401(k)-style plan, Roth means a Roth IRA. Either can be overridden per
-/// account in the UI.
-pub fn default_contribution_limit(kind: AccountKind) -> Option<f64> {
-    match kind {
-        AccountKind::Taxable => None,
-        AccountKind::TraditionalPreTax => Some(ELECTIVE_DEFERRAL_LIMIT),
-        AccountKind::Roth => Some(IRA_CONTRIBUTION_LIMIT),
+/// Every figure is IRS Notice 2025-67 (tax year 2026), verified against the
+/// IRS COLA table. They are carried as data rather than constants so the
+/// frontend can show the basis year alongside them, and so a limit lookup is
+/// a pure function of (bucket, age, year, inflation).
+#[derive(Serialize, Deserialize, TS, Clone, Copy, Debug)]
+#[ts(export)]
+pub struct ContributionLimits {
+    /// Tax year these figures are published for.
+    pub basis_year: i32,
+    /// IRC 402(g)(1) elective deferral limit.
+    pub employer_plan: f64,
+    /// IRC 414(v) catch-up, added from the year the owner turns 50.
+    pub employer_plan_catch_up_50: f64,
+    /// SECURE 2.0 higher catch-up, which *replaces* the age-50 figure for
+    /// the years the owner turns 60 through 63.
+    pub employer_plan_catch_up_60_63: f64,
+    /// IRC 219(b)(5)(A) IRA limit.
+    pub ira: f64,
+    /// IRC 219(b)(5)(B) IRA catch-up, added from the year the owner turns 50.
+    pub ira_catch_up_50: f64,
+}
+
+pub const CONTRIBUTION_LIMITS: ContributionLimits = ContributionLimits {
+    basis_year: LIMITS_BASIS_YEAR,
+    employer_plan: ELECTIVE_DEFERRAL_LIMIT,
+    employer_plan_catch_up_50: 8_000.0,
+    employer_plan_catch_up_60_63: 11_250.0,
+    ira: IRA_CONTRIBUTION_LIMIT,
+    ira_catch_up_50: 1_100.0,
+};
+
+/// Indexed figures round down to a statutory increment: $500 for the
+/// deferral, IRA, and employer catch-up limits; $100 for the IRA catch-up.
+/// Modelling the rounding matters because it is what makes a limit sit still
+/// for a few years and then step — smooth exponential growth would drift
+/// away from the real schedule.
+fn index_to(base: f64, increment: f64, years: f64, inflation: f64) -> f64 {
+    let indexed = base * (1.0 + inflation).powf(years);
+    (indexed / increment).floor() * increment
+}
+
+impl ContributionLimits {
+    /// The annual limit for `plan_type` in calendar year `year`, for an owner
+    /// who reaches `age` during that year, with the seeded figures indexed
+    /// forward from `basis_year` at `inflation`.
+    ///
+    /// `None` means "no statutory cap" — a taxable brokerage.
+    ///
+    /// Catch-up eligibility is by the age *attained during* the calendar
+    /// year, which is the statutory rule: someone turning 50 in December is
+    /// eligible for that whole year.
+    pub fn annual_limit(
+        &self,
+        plan_type: PlanType,
+        age: i32,
+        year: i32,
+        inflation: f64,
+    ) -> Option<f64> {
+        let years = (year - self.basis_year) as f64;
+        match plan_type {
+            PlanType::None => None,
+            PlanType::EmployerPlan => {
+                let catch_up = match age {
+                    60..=63 => index_to(self.employer_plan_catch_up_60_63, 500.0, years, inflation),
+                    a if a >= 50 => {
+                        index_to(self.employer_plan_catch_up_50, 500.0, years, inflation)
+                    }
+                    _ => 0.0,
+                };
+                Some(index_to(self.employer_plan, 500.0, years, inflation) + catch_up)
+            }
+            PlanType::Ira => {
+                let catch_up = if age >= 50 {
+                    index_to(self.ira_catch_up_50, 100.0, years, inflation)
+                } else {
+                    0.0
+                };
+                Some(index_to(self.ira, 500.0, years, inflation) + catch_up)
+            }
+        }
     }
 }
 
@@ -50,10 +119,10 @@ pub fn default_contribution_limit(kind: AccountKind) -> Option<f64> {
 #[ts(export)]
 pub struct Presets {
     pub default_assumptions: Assumptions,
-    /// Contribution limit to prefill on a newly created account, per
-    /// `AccountKind`. A kind absent from the map is uncapped. Lives here so
-    /// the frontend never hardcodes a statutory figure of its own.
-    pub contribution_limits: BTreeMap<AccountKind, f64>,
+    /// Statutory contribution limits and the tax year they are published
+    /// for. Lives here so the frontend never hardcodes a statutory figure of
+    /// its own, and so it can disclose the basis year next to them.
+    pub contribution_limits: ContributionLimits,
     /// Asset-class weights for each named `AllocationRef` preset.
     pub allocations: BTreeMap<String, BTreeMap<AssetClass, f64>>,
     /// Prefill bracket schedule for each state's income tax, keyed by
@@ -123,14 +192,7 @@ pub fn asset_volatility() -> BTreeMap<AssetClass, f64> {
 pub fn presets() -> Presets {
     Presets {
         default_assumptions: default_assumptions(),
-        contribution_limits: [
-            AccountKind::Taxable,
-            AccountKind::TraditionalPreTax,
-            AccountKind::Roth,
-        ]
-        .into_iter()
-        .filter_map(|kind| default_contribution_limit(kind).map(|limit| (kind, limit)))
-        .collect(),
+        contribution_limits: CONTRIBUTION_LIMITS,
         allocations: BTreeMap::from([
             (
                 "Aggressive".to_string(),
@@ -181,8 +243,8 @@ pub fn seed_plan() -> Plan {
                 balance: 150_000.0,
                 cost_basis: Some(110_000.0),
                 allocation: AllocationRef::Aggressive,
-                annual_contribution: 40_000.0,
-                contribution_limit: None,
+                plan_type: PlanType::None,
+                contribution: ContributionRule::FlatAmount(40_000.0),
             },
             Account {
                 id: "enrique-401k".to_string(),
@@ -192,8 +254,8 @@ pub fn seed_plan() -> Plan {
                 balance: 400_000.0,
                 cost_basis: None,
                 allocation: AllocationRef::Aggressive,
-                annual_contribution: ELECTIVE_DEFERRAL_LIMIT,
-                contribution_limit: Some(ELECTIVE_DEFERRAL_LIMIT),
+                plan_type: PlanType::EmployerPlan,
+                contribution: ContributionRule::FlatAmount(ELECTIVE_DEFERRAL_LIMIT),
             },
             Account {
                 id: "claire-roth".to_string(),
@@ -203,8 +265,8 @@ pub fn seed_plan() -> Plan {
                 balance: 80_000.0,
                 cost_basis: None,
                 allocation: AllocationRef::Moderate,
-                annual_contribution: IRA_CONTRIBUTION_LIMIT,
-                contribution_limit: Some(IRA_CONTRIBUTION_LIMIT),
+                plan_type: PlanType::Ira,
+                contribution: ContributionRule::FlatAmount(IRA_CONTRIBUTION_LIMIT),
             },
         ],
         streams: vec![

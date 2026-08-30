@@ -12,14 +12,21 @@ pub enum SimWarning {
     /// The portfolio could not cover spending from this period on.
     DepletedFunds { period: usize },
     /// An account's planned contribution exceeded what its owner is allowed
-    /// to contribute this year and was clamped. `allowed` can be less than
-    /// the account's own limit when the owner's other accounts share the
-    /// same statutory bucket and were filled first — see `sim::contributions`.
+    /// to contribute and was clamped. `allowed` can be zero when the owner's
+    /// other accounts share the same statutory bucket and were filled first
+    /// — see `sim::contributions`.
+    ///
+    /// Reported once per account, for the **first** period it happens in:
+    /// with indexed limits and salary-linked contributions, whether a
+    /// contribution fits is a function of the year, so the year is part of
+    /// the finding rather than an implied "always".
     ContributionClamped {
         account: AccountId,
-        /// Planned annual contribution, as entered.
+        /// First period the clamp bit. Index into `Projection::snapshots`.
+        period: usize,
+        /// Planned contribution for that period, in nominal dollars.
         requested: f64,
-        /// Annual contribution the simulation actually made.
+        /// Contribution the simulation actually made that period.
         allowed: f64,
     },
     /// Sweep is enabled but there is no taxable account for surplus cash to

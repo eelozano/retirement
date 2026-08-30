@@ -243,11 +243,16 @@ export function SelectField<T extends string>(props: {
   value: T;
   options: readonly { value: T; label: string }[];
   onChange: (value: T) => void;
+  hint?: string;
 }) {
   return (
-    <label className="field">
+    <label className={props.hint ? "field field-with-hint" : "field"}>
       <span>{props.label}</span>
       <select
+        // Named explicitly rather than relying on the wrapping label: a
+        // hint lives inside the label too, and would otherwise become part
+        // of the control's accessible name.
+        aria-label={props.label}
         value={props.value}
         onChange={(e) => props.onChange(e.currentTarget.value as T)}
       >
@@ -257,6 +262,7 @@ export function SelectField<T extends string>(props: {
           </option>
         ))}
       </select>
+      {props.hint && <small className="field-hint">{props.hint}</small>}
     </label>
   );
 }

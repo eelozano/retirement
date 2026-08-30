@@ -13,11 +13,11 @@
 use std::collections::BTreeMap;
 
 use engine::model::{
-    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, FilingStatus,
-    GrowthRule, PeriodLength, Person, Plan, SimConfig, StateTaxProfile, StreamBoundary,
-    StreamDirection, YearMonth, SCHEMA_VERSION,
+    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, ContributionRule,
+    FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig, StateTaxProfile,
+    StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
 };
-use engine::presets::{ELECTIVE_DEFERRAL_LIMIT, IRA_CONTRIBUTION_LIMIT};
+use engine::presets::CONTRIBUTION_LIMITS;
 use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
 use engine::{simulate, Projection};
 
@@ -58,8 +58,8 @@ fn micro_plan() -> Plan {
             balance: 100_000.0,
             cost_basis: None,
             allocation: bonds_only,
-            annual_contribution: 10_000.0,
-            contribution_limit: Some(10_000.0),
+            plan_type: PlanType::EmployerPlan,
+            contribution: ContributionRule::FlatAmount(10_000.0),
         }],
         streams: vec![
             CashFlowStream {
@@ -155,8 +155,8 @@ fn micro_plan_with_taxable_account() -> Plan {
         balance: 0.0,
         cost_basis: Some(0.0),
         allocation: AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 0.0)])),
-        annual_contribution: 0.0,
-        contribution_limit: None,
+        plan_type: PlanType::None,
+        contribution: ContributionRule::FlatAmount(0.0),
     });
     for stream in &mut plan.streams {
         if stream.id == "spending" {
@@ -217,22 +217,38 @@ fn depletion_emits_warning_and_balances_stay_nonnegative() {
     }
 }
 
+/// The micro plan's person turns 60 in 2026, so their employer-plan cap
+/// includes the SECURE 2.0 age-60..=63 catch-up, and the plan has zero
+/// inflation so nothing indexes. Read from the engine's own table rather
+/// than restated here: these tests are about bucket sharing, not about
+/// whether the seeded figures are current.
+fn deferral_cap() -> f64 {
+    CONTRIBUTION_LIMITS
+        .annual_limit(PlanType::EmployerPlan, 60, 2026, 0.0)
+        .expect("employer plans are capped")
+}
+
+fn ira_cap() -> f64 {
+    CONTRIBUTION_LIMITS
+        .annual_limit(PlanType::Ira, 60, 2026, 0.0)
+        .expect("IRAs are capped")
+}
+
 #[test]
 fn contribution_above_limit_is_clamped_with_warning() {
     let mut plan = micro_plan();
-    plan.accounts[0].annual_contribution = 60_000.0; // limit stays 10k
+    plan.accounts[0].contribution = ContributionRule::FlatAmount(deferral_cap() + 10_000.0);
     let projection = run_with_flat_tax(&plan, 0.20);
-    assert!(projection
-        .warnings
-        .iter()
-        .any(|w| matches!(w, engine::SimWarning::ContributionClamped { .. })));
-    // Clamped to the 10k limit, so period 0 matches the base case exactly.
+    assert_eq!(
+        clamp_for(&projection, "401k"),
+        Some((deferral_cap() + 10_000.0, deferral_cap())),
+        "clamped to the statutory cap, reported with both numbers",
+    );
     assert_close(
         projection.snapshots[0].contributions,
-        10_000.0,
+        deferral_cap(),
         "clamped contributions",
     );
-    assert_close(projection.snapshots[0].net_worth, 121_000.0, "p0 net worth");
 }
 
 /// The clamp is reported with the numbers behind it, not just the account —
@@ -243,13 +259,19 @@ fn clamp_for(projection: &Projection, account: &str) -> Option<(f64, f64)> {
             account: id,
             requested,
             allowed,
+            ..
         } if id == account => Some((*requested, *allowed)),
         _ => None,
     })
 }
 
 /// Adds a second capped account to the micro plan's single person.
-fn with_second_account(id: &str, kind: AccountKind, contribution: f64, limit: f64) -> Plan {
+fn with_second_account(
+    id: &str,
+    kind: AccountKind,
+    plan_type: PlanType,
+    contribution: f64,
+) -> Plan {
     let mut plan = micro_plan();
     plan.accounts.push(Account {
         id: id.to_string(),
@@ -259,8 +281,8 @@ fn with_second_account(id: &str, kind: AccountKind, contribution: f64, limit: f6
         balance: 0.0,
         cost_basis: None,
         allocation: AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
-        annual_contribution: contribution,
-        contribution_limit: Some(limit),
+        plan_type,
+        contribution: ContributionRule::FlatAmount(contribution),
     });
     plan
 }
@@ -272,44 +294,34 @@ fn two_employer_plans_share_one_deferral_limit_filled_in_plan_order() {
     let mut plan = with_second_account(
         "403b",
         AccountKind::TraditionalPreTax,
-        ELECTIVE_DEFERRAL_LIMIT,
-        ELECTIVE_DEFERRAL_LIMIT,
+        PlanType::EmployerPlan,
+        deferral_cap(),
     );
-    plan.accounts[0].annual_contribution = ELECTIVE_DEFERRAL_LIMIT;
-    plan.accounts[0].contribution_limit = Some(ELECTIVE_DEFERRAL_LIMIT);
+    plan.accounts[0].contribution = ContributionRule::FlatAmount(deferral_cap());
 
     let projection = run_with_flat_tax(&plan, 0.20);
     assert_close(
         projection.snapshots[0].contributions,
-        ELECTIVE_DEFERRAL_LIMIT,
+        deferral_cap(),
         "one shared cap across both employer plans",
     );
     // Plan order decides: the first account listed fills, the second gets
     // what is left — here, nothing.
     assert_eq!(clamp_for(&projection, "401k"), None);
-    assert_eq!(
-        clamp_for(&projection, "403b"),
-        Some((ELECTIVE_DEFERRAL_LIMIT, 0.0)),
-    );
+    assert_eq!(clamp_for(&projection, "403b"), Some((deferral_cap(), 0.0)));
 }
 
 #[test]
 fn ira_and_employer_plan_are_capped_independently() {
     // Different buckets: filling the deferral limit leaves the IRA limit
     // entirely intact, and neither is clamped.
-    let mut plan = with_second_account(
-        "roth-ira",
-        AccountKind::Roth,
-        IRA_CONTRIBUTION_LIMIT,
-        IRA_CONTRIBUTION_LIMIT,
-    );
-    plan.accounts[0].annual_contribution = ELECTIVE_DEFERRAL_LIMIT;
-    plan.accounts[0].contribution_limit = Some(ELECTIVE_DEFERRAL_LIMIT);
+    let mut plan = with_second_account("roth-ira", AccountKind::Roth, PlanType::Ira, ira_cap());
+    plan.accounts[0].contribution = ContributionRule::FlatAmount(deferral_cap());
 
     let projection = run_with_flat_tax(&plan, 0.20);
     assert_close(
         projection.snapshots[0].contributions,
-        ELECTIVE_DEFERRAL_LIMIT + IRA_CONTRIBUTION_LIMIT,
+        deferral_cap() + ira_cap(),
         "employer and IRA buckets are separate",
     );
     assert!(
@@ -326,46 +338,46 @@ fn ira_and_employer_plan_are_capped_independently() {
 fn traditional_and_roth_iras_share_one_ira_limit() {
     // Same bucket even though the kinds differ — the IRA limit is one cap
     // across a person's traditional and Roth IRAs.
-    let mut plan = with_second_account(
-        "roth-ira",
-        AccountKind::Roth,
-        IRA_CONTRIBUTION_LIMIT,
-        IRA_CONTRIBUTION_LIMIT,
-    );
-    plan.accounts[0].annual_contribution = IRA_CONTRIBUTION_LIMIT;
-    plan.accounts[0].contribution_limit = Some(IRA_CONTRIBUTION_LIMIT);
+    let mut plan = with_second_account("roth-ira", AccountKind::Roth, PlanType::Ira, ira_cap());
+    plan.accounts[0].kind = AccountKind::TraditionalPreTax;
+    plan.accounts[0].plan_type = PlanType::Ira;
+    plan.accounts[0].contribution = ContributionRule::FlatAmount(ira_cap());
 
     let projection = run_with_flat_tax(&plan, 0.20);
     assert_close(
         projection.snapshots[0].contributions,
-        IRA_CONTRIBUTION_LIMIT,
+        ira_cap(),
         "one shared IRA cap",
     );
 }
 
 #[test]
-fn a_raised_catch_up_limit_lifts_the_whole_bucket_not_just_its_own_account() {
-    // Age-50 catch-up is entered by raising one account's limit. It is a
-    // property of the person, so it raises the shared cap — while the other
-    // account stays bound by the limit it declares.
-    let catch_up = ELECTIVE_DEFERRAL_LIMIT + 8_000.0;
+fn plan_type_decides_the_bucket_not_the_tax_treatment() {
+    // A traditional IRA and a 401(k) are both `TraditionalPreTax`; only
+    // `plan_type` tells them apart. Before #32 the bucket was guessed from
+    // whichever statutory figure the account's typed limit sat nearer.
     let mut plan = with_second_account(
-        "403b",
+        "traditional-ira",
         AccountKind::TraditionalPreTax,
-        catch_up,
-        ELECTIVE_DEFERRAL_LIMIT,
+        PlanType::Ira,
+        ira_cap(),
     );
-    plan.accounts[0].annual_contribution = catch_up;
-    plan.accounts[0].contribution_limit = Some(catch_up);
+    plan.accounts[0].contribution = ContributionRule::FlatAmount(deferral_cap());
 
     let projection = run_with_flat_tax(&plan, 0.20);
     assert_close(
         projection.snapshots[0].contributions,
-        catch_up,
-        "shared cap rises to the catch-up limit",
+        deferral_cap() + ira_cap(),
+        "same tax treatment, different buckets",
     );
-    assert_eq!(clamp_for(&projection, "401k"), None);
-    assert_eq!(clamp_for(&projection, "403b"), Some((catch_up, 0.0)));
+    assert!(
+        !projection
+            .warnings
+            .iter()
+            .any(|w| matches!(w, engine::SimWarning::ContributionClamped { .. })),
+        "nothing exceeded its bucket: {:?}",
+        projection.warnings
+    );
 }
 
 #[test]
@@ -373,11 +385,10 @@ fn limits_are_per_person_so_two_people_do_not_share_a_bucket() {
     let mut plan = with_second_account(
         "spouse-401k",
         AccountKind::TraditionalPreTax,
-        ELECTIVE_DEFERRAL_LIMIT,
-        ELECTIVE_DEFERRAL_LIMIT,
+        PlanType::EmployerPlan,
+        deferral_cap(),
     );
-    plan.accounts[0].annual_contribution = ELECTIVE_DEFERRAL_LIMIT;
-    plan.accounts[0].contribution_limit = Some(ELECTIVE_DEFERRAL_LIMIT);
+    plan.accounts[0].contribution = ContributionRule::FlatAmount(deferral_cap());
     plan.accounts[1].owner = "p2".to_string();
     let mut spouse = plan.people[0].clone();
     spouse.id = "p2".to_string();
@@ -387,7 +398,7 @@ fn limits_are_per_person_so_two_people_do_not_share_a_bucket() {
     let projection = run_with_flat_tax(&plan, 0.20);
     assert_close(
         projection.snapshots[0].contributions,
-        2.0 * ELECTIVE_DEFERRAL_LIMIT,
+        2.0 * deferral_cap(),
         "each person gets their own deferral limit",
     );
 }

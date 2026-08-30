@@ -1,26 +1,34 @@
-//! Statutory contribution-limit enforcement.
+//! Resolving what actually goes into each account in a period, and holding
+//! it to the statutory limits.
 //!
-//! Elective deferral limits are granted **per person per year**, shared
-//! across every employer plan that person participates in — not per account.
-//! IRA limits are a genuinely separate bucket, shared across that person's
-//! traditional and Roth IRAs. Clamping per account (as the loop used to)
-//! let one person defer the limit twice over, overstating both the ending
-//! balance and the pre-tax deduction.
+//! ### The three contribution modes
+//!
+//! `ContributionRule` says what the owner *intends*; this module turns that
+//! into dollars for a concrete period:
+//!
+//! - `PercentOfSalary` resolves against the owner's gross salary for the
+//!   period, so it rises with the salary and holds its real value.
+//! - `FlatAmount` is nominal by design — the same dollars every year, which
+//!   is what a fixed standing transfer actually does.
+//! - `FederalMaximum` resolves against the indexed limit table, including
+//!   the owner's catch-up tier. Stored as intent, so it stays correct as
+//!   limits index and the owner ages.
 //!
 //! ### Which bucket an account lands in
 //!
-//! `AccountKind` is `Taxable | TraditionalPreTax | Roth` — it does not say
-//! whether a pre-tax account is a 401(k) or a traditional IRA, and adding a
-//! plan-type field is deferred to the contribution-modes work. So the
-//! bucket is inferred from the limit the account carries: an account whose
-//! `contribution_limit` is nearer the IRA limit than the elective-deferral
-//! limit is an IRA, and everything else is an employer plan. That lands the
-//! seeded and UI-default limits where they belong, and keeps working when a
-//! user raises a limit for age-50 catch-up (a catch-up 401(k) limit is
-//! still far nearer the deferral limit than the IRA one).
+//! `Account::plan_type` says so directly. Before #32 the bucket was inferred
+//! from whichever statutory figure the account's typed limit sat nearer,
+//! which mis-bucketed a 457(b) and any hand-typed limit near neither figure.
+//! The engine now owns the limits outright and reads the bucket from a
+//! field.
 //!
-//! An account with `contribution_limit: None` is uncapped and joins no
-//! bucket — that is what a taxable brokerage is.
+//! Limits are granted **per person per year**, shared across every account
+//! in the same bucket — not per account. IRA limits are a genuinely separate
+//! bucket, shared across that person's traditional and Roth IRAs. Clamping
+//! per account would let one person defer the limit twice over, overstating
+//! both the ending balance and the pre-tax deduction. An account with
+//! `PlanType::None` is uncapped and joins no bucket — that is what a taxable
+//! brokerage is.
 //!
 //! ### Allocation order
 //!
@@ -28,76 +36,120 @@
 //! room is handed out **in plan account order**: the first account listed
 //! fills first, and later accounts get whatever is left. This is
 //! deterministic, matches the order the user sees under Inputs (so
-//! reordering accounts is the control), and is stable from period to
-//! period. Each account is still additionally held to its own
-//! `contribution_limit`, so a per-account limit below the bucket cap is
-//! respected rather than being overridden by a sibling's higher one.
+//! reordering accounts is the control), and is stable from period to period.
 //!
-//! The result is period-invariant, so `simulate` computes it once: every
-//! account a person owns starts and stops contributing on that person's
-//! single retirement date, so the same split holds in every period.
+//! ### Why this runs per period
+//!
+//! It used to be resolved once for the whole run, because a flat nominal
+//! contribution against a flat nominal limit gives the same answer every
+//! year. Neither is flat any more — salaries grow, limits index, and
+//! catch-up tiers turn on with age — so the split is genuinely a function of
+//! the period. Clamp warnings are therefore deduplicated by account: only
+//! the first period in which an account is held back is reported.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
-use crate::model::{PersonId, Plan};
-use crate::presets::{ELECTIVE_DEFERRAL_LIMIT, IRA_CONTRIBUTION_LIMIT};
+use crate::model::{AccountId, ContributionRule, PersonId, Plan, PlanType};
+use crate::presets::CONTRIBUTION_LIMITS;
 
 use super::SimWarning;
 
-/// The two independent statutory buckets a capped account can belong to.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-enum LimitBucket {
-    /// 401(k)/403(b)/457-style elective deferrals.
-    EmployerPlan,
-    /// Traditional and Roth IRAs, which share one cap with each other.
-    Ira,
+/// Everything about one period that contribution resolution depends on.
+pub(super) struct PeriodContext<'a> {
+    pub period: usize,
+    /// Calendar year the period starts in — what statutory limits are
+    /// indexed and catch-up tiers are tested against.
+    pub year: i32,
+    pub inflation: f64,
+    /// Share of a year this period covers (1.0 for annual periods).
+    pub period_fraction: f64,
+    /// Gross salary accrued this period per person: their income streams,
+    /// already grown and prorated, excluding Social Security.
+    pub salary: &'a BTreeMap<PersonId, f64>,
+    /// Share of this period each person is still working.
+    pub working: &'a BTreeMap<PersonId, f64>,
 }
 
-fn bucket_for(limit: f64) -> LimitBucket {
-    if (limit - IRA_CONTRIBUTION_LIMIT).abs() <= (limit - ELECTIVE_DEFERRAL_LIMIT).abs() {
-        LimitBucket::Ira
-    } else {
-        LimitBucket::EmployerPlan
+impl PeriodContext<'_> {
+    /// This period's share of an annual figure for `owner`, zero once they
+    /// have retired.
+    fn prorate(&self, owner: &PersonId) -> f64 {
+        self.period_fraction * self.working.get(owner).copied().unwrap_or(0.0)
     }
 }
 
-/// Planned annual contribution per account after limit enforcement, indexed
-/// parallel to `plan.accounts`. Pushes one `ContributionClamped` warning per
-/// account that had to give something up.
-pub(super) fn allowed_contributions(plan: &Plan, warnings: &mut Vec<SimWarning>) -> Vec<f64> {
-    // Bucket capacity: the highest limit any of the person's accounts in the
-    // bucket declares. Catch-up eligibility is a property of the person, so
-    // one account declaring the raised limit raises the shared cap — while
-    // each account stays individually bound by its own limit below.
-    let mut remaining: BTreeMap<(PersonId, LimitBucket), f64> = BTreeMap::new();
+/// Nominal dollars each account receives this period, indexed parallel to
+/// `plan.accounts`. Pushes one `ContributionClamped` warning per account
+/// that had to give something up, the first time it happens.
+pub(super) fn allowed_contributions(
+    plan: &Plan,
+    ctx: &PeriodContext,
+    reported: &mut BTreeSet<AccountId>,
+    warnings: &mut Vec<SimWarning>,
+) -> Vec<f64> {
+    // Bucket capacity for this period, per person. The statutory figure is
+    // annual, so it is prorated the same way the contributions are.
+    let mut remaining: BTreeMap<(PersonId, PlanType), f64> = BTreeMap::new();
+    let limit_for = |plan: &Plan, owner: &PersonId, plan_type: PlanType| -> Option<f64> {
+        let person = plan.person(owner)?;
+        CONTRIBUTION_LIMITS.annual_limit(
+            plan_type,
+            ctx.year - person.birth.year,
+            ctx.year,
+            ctx.inflation,
+        )
+    };
+
+    let mut requested = Vec::with_capacity(plan.accounts.len());
     for account in &plan.accounts {
-        let Some(limit) = account.contribution_limit else {
-            continue;
+        // Nobody contributes out of a period they spend retired, whatever
+        // the mode says — so a zero share short-circuits before any of the
+        // modes resolve, and before anything can be reported as clamped.
+        let share = ctx.prorate(&account.owner);
+        let amount = if share <= 0.0 {
+            0.0
+        } else {
+            match account.contribution {
+                ContributionRule::FlatAmount(a) => a.max(0.0) * share,
+                // The salary is already grown and prorated for the period,
+                // so it carries its own share — applying `prorate` again
+                // would double-count a partial working year.
+                ContributionRule::PercentOfSalary(p) => {
+                    p.max(0.0) * ctx.salary.get(&account.owner).copied().unwrap_or(0.0)
+                }
+                // A taxable account has no federal maximum; validation
+                // rejects that combination, so the fallback only guards a
+                // hand-edited plan file.
+                ContributionRule::FederalMaximum => {
+                    limit_for(plan, &account.owner, account.plan_type).unwrap_or(0.0) * share
+                }
+            }
         };
-        let key = (account.owner.clone(), bucket_for(limit));
-        let room = remaining.entry(key).or_insert(limit);
-        if limit > *room {
-            *room = limit;
+        requested.push(amount);
+
+        if account.plan_type != PlanType::None {
+            let key = (account.owner.clone(), account.plan_type);
+            if let std::collections::btree_map::Entry::Vacant(slot) = remaining.entry(key) {
+                let cap = limit_for(plan, &account.owner, account.plan_type).unwrap_or(0.0) * share;
+                slot.insert(cap);
+            }
         }
     }
 
     let mut allowed = Vec::with_capacity(plan.accounts.len());
-    for account in &plan.accounts {
-        let requested = account.annual_contribution.max(0.0);
-        let granted = match account.contribution_limit {
+    for (account, requested) in plan.accounts.iter().zip(requested) {
+        let granted = match remaining.get_mut(&(account.owner.clone(), account.plan_type)) {
             None => requested,
-            Some(limit) => {
-                let room = remaining
-                    .get_mut(&(account.owner.clone(), bucket_for(limit)))
-                    .expect("every capped account seeded its bucket above");
-                let granted = requested.min(limit).min(*room);
+            Some(room) => {
+                let granted = requested.min(*room);
                 *room -= granted;
                 granted
             }
         };
-        if granted < requested - 1e-6 {
+        if granted < requested - 1e-6 && reported.insert(account.id.clone()) {
             warnings.push(SimWarning::ContributionClamped {
                 account: account.id.clone(),
+                period: ctx.period,
                 requested,
                 allowed: granted,
             });

@@ -5,10 +5,14 @@
  */
 export type SimWarning = { "DepletedFunds": { period: number, } } | { "ContributionClamped": { account: string, 
 /**
- * Planned annual contribution, as entered.
+ * First period the clamp bit. Index into `Projection::snapshots`.
+ */
+period: number, 
+/**
+ * Planned contribution for that period, in nominal dollars.
  */
 requested: number, 
 /**
- * Annual contribution the simulation actually made.
+ * Contribution the simulation actually made that period.
  */
 allowed: number, } } | "SurplusUnallocated" | { "UnknownPersonRef": { stream: string, } };

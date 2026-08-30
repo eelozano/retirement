@@ -6,12 +6,20 @@ import type { Plan } from "../../types/generated/Plan";
 import type { Presets } from "../../types/generated/Presets";
 import { AccountsSection } from "./AccountsSection";
 
-// Accounts added through the UI used to be created uncapped, so an account
-// of the same kind was capped or not purely depending on whether it came
-// from the seed plan. The limits come from Rust presets, never hardcoded here.
+// An account's statutory bucket (`plan_type`) and its contribution mode are
+// two separate axes, and the UI has to keep them consistent: a taxable
+// brokerage has neither a bucket nor a federal maximum. The statutory
+// figures themselves come from Rust presets, never hardcoded here.
 
 const presets = {
-  contribution_limits: { TraditionalPreTax: 24500, Roth: 7500 },
+  contribution_limits: {
+    basis_year: 2026,
+    employer_plan: 24500,
+    employer_plan_catch_up_50: 8000,
+    employer_plan_catch_up_60_63: 11250,
+    ira: 7500,
+    ira_catch_up_50: 1100,
+  },
 } as unknown as Presets;
 
 const plan = {
@@ -38,37 +46,87 @@ function currentAccount() {
   return usePlanStore.getState().plan?.accounts[0];
 }
 
+async function addAccount() {
+  await userEvent.click(screen.getByRole("button", { name: "Add account" }));
+}
+
 describe("AccountsSection", () => {
-  it("creates a taxable account uncapped", async () => {
+  it("creates a taxable account with no statutory bucket", async () => {
     render(<AccountsSection />);
-    await userEvent.click(screen.getByRole("button", { name: "Add account" }));
-    expect(currentAccount()?.contribution_limit).toBeNull();
-    expect(screen.getByLabelText("Cap contributions")).not.toBeChecked();
+    await addAccount();
+    expect(currentAccount()?.plan_type).toBe("None");
+    expect(screen.queryByLabelText("Plan type")).toBeNull();
   });
 
-  it("prefills the statutory limit when the kind changes", async () => {
+  it("picks the bucket the account kind implies, and lets it be overridden", async () => {
     render(<AccountsSection />);
-    await userEvent.click(screen.getByRole("button", { name: "Add account" }));
+    await addAccount();
 
     await userEvent.selectOptions(screen.getByLabelText("Type"), "TraditionalPreTax");
-    expect(currentAccount()?.contribution_limit).toBe(24500);
+    expect(currentAccount()?.plan_type).toBe("EmployerPlan");
 
     await userEvent.selectOptions(screen.getByLabelText("Type"), "Roth");
-    expect(currentAccount()?.contribution_limit).toBe(7500);
+    expect(currentAccount()?.plan_type).toBe("Ira");
+
+    // A Roth 401(k) is taxed like a Roth IRA and capped like a 401(k) —
+    // which is the whole reason the two axes are separate.
+    await userEvent.selectOptions(screen.getByLabelText("Plan type"), "EmployerPlan");
+    expect(currentAccount()?.plan_type).toBe("EmployerPlan");
 
     await userEvent.selectOptions(screen.getByLabelText("Type"), "Taxable");
-    expect(currentAccount()?.contribution_limit).toBeNull();
+    expect(currentAccount()?.plan_type).toBe("None");
   });
 
-  it("exposes the limit for editing once the cap is on", async () => {
+  it("offers no federal maximum on an account that has no statutory cap", async () => {
     render(<AccountsSection />);
-    await userEvent.click(screen.getByRole("button", { name: "Add account" }));
-    expect(screen.queryByLabelText("Contribution limit / yr ($)")).toBeNull();
+    await addAccount();
+    const mode = screen.getByLabelText("Contribution");
+    expect([...mode.querySelectorAll("option")].map((o) => o.textContent)).not.toContain(
+      "Federal maximum",
+    );
+  });
 
-    await userEvent.click(screen.getByLabelText("Cap contributions"));
-    const field = screen.getByLabelText("Contribution limit / yr ($)");
-    await userEvent.clear(field);
-    await userEvent.type(field, "31000");
-    expect(currentAccount()?.contribution_limit).toBe(31000);
+  it("switches an account between the three contribution modes", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "TraditionalPreTax");
+
+    await userEvent.selectOptions(
+      screen.getByLabelText("Contribution"),
+      "PercentOfSalary",
+    );
+    const percent = screen.getByLabelText("Of salary (%)");
+    await userEvent.clear(percent);
+    await userEvent.type(percent, "8");
+    expect(currentAccount()?.contribution).toEqual({ PercentOfSalary: 0.08 });
+
+    await userEvent.selectOptions(screen.getByLabelText("Contribution"), "FlatAmount");
+    const amount = screen.getByLabelText("Amount / yr ($)");
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "12000");
+    expect(currentAccount()?.contribution).toEqual({ FlatAmount: 12000 });
+
+    await userEvent.selectOptions(
+      screen.getByLabelText("Contribution"),
+      "FederalMaximum",
+    );
+    expect(currentAccount()?.contribution).toBe("FederalMaximum");
+    // No amount field: the point of the mode is that there is no number to
+    // type, and the figure it resolves to is disclosed with its tax year.
+    expect(screen.queryByLabelText("Amount / yr ($)")).toBeNull();
+    expect(screen.getByText(/\$24,500\/yr in 2026/)).toBeTruthy();
+  });
+
+  it("drops the federal maximum when an account is retyped as taxable", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "TraditionalPreTax");
+    await userEvent.selectOptions(
+      screen.getByLabelText("Contribution"),
+      "FederalMaximum",
+    );
+
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "Taxable");
+    expect(currentAccount()?.contribution).toEqual({ FlatAmount: 0 });
   });
 });

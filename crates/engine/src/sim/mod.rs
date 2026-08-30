@@ -5,10 +5,11 @@ mod projection;
 pub use monte_carlo::{run_monte_carlo, MonteCarloConfig, MonteCarloResult, PeriodPercentiles};
 pub use projection::{PeriodSnapshot, Projection, SimWarning};
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::model::{
-    AccountKind, CashFlowStream, GrowthRule, Plan, StreamBoundary, StreamDirection, YearMonth,
+    AccountId, AccountKind, CashFlowStream, GrowthRule, PersonId, Plan, StreamBoundary,
+    StreamDirection, YearMonth,
 };
 use crate::presets::allocation_weights;
 use crate::strategies::{AccountState, DrawdownStrategy, IncomeBreakdown, ReturnModel, TaxModel};
@@ -20,8 +21,9 @@ use crate::strategies::{AccountState, DrawdownStrategy, IncomeBreakdown, ReturnM
 ///
 /// Per-period order (documented so results are explainable):
 /// 1. accrue stream income and expenses (prorated by months active)
-/// 2. contribute to accounts while their owner still works (clamped to the
-///    owner's shared per-year limits — see `contributions`)
+/// 2. contribute to accounts while their owner still works, resolving each
+///    account's contribution mode and clamping to the owner's shared
+///    statutory limits for that year — see `contributions`
 /// 3. tax ordinary income (gross income minus pre-tax deferrals)
 /// 4. sweep surplus into the taxable account (if enabled), or draw down the
 ///    shortfall (grossed up through the tax model)
@@ -103,10 +105,10 @@ pub fn simulate(
         })
         .collect();
 
-    // Contribution limits are shared per person per year across a bucket of
-    // accounts, so the split is resolved once for the whole run rather than
-    // clamped account-by-account inside the loop. See `contributions`.
-    let allowed = contributions::allowed_contributions(plan, &mut warnings);
+    // Accounts whose contribution has already been reported as clamped, so
+    // the per-period resolution below reports each one once. See
+    // `contributions`.
+    let mut clamps_reported: BTreeSet<AccountId> = BTreeSet::new();
 
     let mut snapshots = Vec::with_capacity(n_periods);
     let mut depleted = false;
@@ -116,10 +118,13 @@ pub fn simulate(
         let period_end = start.add_months((period as i64 + 1) * period_months);
         let years_elapsed = (period as f64 * period_months as f64) / 12.0;
 
-        // 1. Streams.
+        // 1. Streams. Salary is tallied per person as well as in the
+        // household total: `PercentOfSalary` contributions resolve against
+        // the owner's own earned income, which excludes Social Security.
         let mut income = 0.0;
         let mut ss_income = 0.0;
         let mut expenses = 0.0;
+        let mut salary: BTreeMap<PersonId, f64> = BTreeMap::new();
         for (stream, s, e, is_social_security) in &resolved_streams {
             let fraction = overlap_fraction(period_start, period_end, *s, *e);
             if fraction <= 0.0 {
@@ -132,25 +137,47 @@ pub fn simulate(
                     income += amount;
                     if *is_social_security {
                         ss_income += amount;
+                    } else if let Some(owner) = &stream.owner {
+                        *salary.entry(owner.clone()).or_insert(0.0) += amount;
                     }
                 }
                 StreamDirection::Expense => expenses += amount,
             }
         }
 
-        // 2. Contributions (flat nominal in V1; limit indexing is V2).
+        // 2. Contributions. Modes and statutory limits both depend on the
+        // year, so the split is resolved per period rather than once.
+        let working: BTreeMap<PersonId, f64> = plan
+            .people
+            .iter()
+            .map(|p| {
+                (
+                    p.id.clone(),
+                    overlap_fraction(period_start, period_end, start, p.retirement),
+                )
+            })
+            .collect();
+        let allowed = contributions::allowed_contributions(
+            plan,
+            &contributions::PeriodContext {
+                period,
+                year: period_start.year,
+                inflation: plan.assumptions.inflation,
+                period_fraction: period_months as f64 / 12.0,
+                salary: &salary,
+                working: &working,
+            },
+            &mut clamps_reported,
+            &mut warnings,
+        );
+
         let mut contributions = 0.0;
         let mut pretax_contributions = 0.0;
         for (idx, account) in plan.accounts.iter().enumerate() {
-            let Some(owner) = plan.person(&account.owner) else {
-                continue;
-            };
-            let working = overlap_fraction(period_start, period_end, start, owner.retirement);
-            let per_year = allowed[idx];
-            if working <= 0.0 || per_year <= 0.0 {
+            let amount = allowed[idx];
+            if amount <= 0.0 {
                 continue;
             }
-            let amount = per_year * working * (period_months as f64 / 12.0);
             accounts[idx].balance += amount;
             if account.kind == AccountKind::Taxable {
                 accounts[idx].cost_basis += amount;
