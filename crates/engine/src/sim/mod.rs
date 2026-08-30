@@ -296,10 +296,10 @@ fn resolve_boundary(
         StreamBoundary::PlanEnd => Some(end),
         StreamBoundary::Date(d) => Some(*d),
         StreamBoundary::AtRetirement(person) => Some(plan.person(person)?.retirement),
-        StreamBoundary::AtDeath(person) => Some(
-            plan.person(person)?
-                .month_at_age(plan.assumptions.plan_end_age),
-        ),
+        StreamBoundary::AtDeath(person) => {
+            let p = plan.person(person)?;
+            Some(p.month_at_age(p.life_expectancy_age))
+        }
     }
 }
 

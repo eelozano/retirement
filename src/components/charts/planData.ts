@@ -1,5 +1,6 @@
 import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
 import type { PeriodSnapshot } from "../../types/generated/PeriodSnapshot";
+import type { Person } from "../../types/generated/Person";
 import type { Plan } from "../../types/generated/Plan";
 import type { Projection } from "../../types/generated/Projection";
 import type { YearMonth } from "../../types/generated/YearMonth";
@@ -51,7 +52,10 @@ export interface HeadlineMetrics {
   coverYear: number | null;
   /** Final projected year — the last snapshot's year, or null with no snapshots. */
   planEndYear: number | null;
-  /** `assumptions.plan_end_age` — the age that determines `planEndYear`. */
+  /**
+   * The `life_expectancy_age` of whichever person's own mortality determines
+   * `planEndYear` (the max over everyone's, matching `Plan::end_month`).
+   */
   planEndAge: number;
 }
 
@@ -64,6 +68,27 @@ function snapshotForYear(
 
 function atOrAfter(a: YearMonth, b: YearMonth): boolean {
   return a.year !== b.year ? a.year > b.year : a.month >= b.month;
+}
+
+/** Mirrors the engine's `Person::month_at_age` (birth plus whole years). */
+function monthAtAge(person: Person, age: number): YearMonth {
+  return { year: person.birth.year + age, month: person.birth.month };
+}
+
+/**
+ * The `life_expectancy_age` of whichever person's own mortality determines
+ * the plan's horizon (the max over everyone's `month_at_age`, matching
+ * `Plan::end_month`) — the age the plan-end year is "age N" for.
+ */
+function planEndAge(plan: Plan): number | null {
+  return (
+    plan.people.reduce<{ date: YearMonth; age: number } | null>((max, p) => {
+      const date = monthAtAge(p, p.life_expectancy_age);
+      return !max || atOrAfter(date, max.date)
+        ? { date, age: p.life_expectancy_age }
+        : max;
+    }, null)?.age ?? null
+  );
 }
 
 /**
@@ -116,7 +141,7 @@ export function headlineMetrics(
     coverYear: atRetirement?.period_start.year ?? null,
     planEndYear:
       projection.snapshots[projection.snapshots.length - 1]?.period_start.year ?? null,
-    planEndAge: plan.assumptions.plan_end_age,
+    planEndAge: planEndAge(plan) ?? 0,
   };
 }
 
@@ -159,7 +184,7 @@ export function milestones(
       key: "__end__",
       label: "At plan end",
       value: last.net_worth / basis(last, realDollars),
-      sub: `${last.period_start.year} · age ${plan.assumptions.plan_end_age} · ${realDollars ? "today's dollars" : "nominal"}`,
+      sub: `${last.period_start.year} · age ${planEndAge(plan) ?? "?"} · ${realDollars ? "today's dollars" : "nominal"}`,
     });
   }
   return out;

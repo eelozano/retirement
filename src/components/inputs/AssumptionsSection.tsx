@@ -2,7 +2,7 @@ import { usePlanStore } from "../../store/planStore";
 import type { AssetClass } from "../../types/generated/AssetClass";
 import type { FilingStatus } from "../../types/generated/FilingStatus";
 import type { StateCode } from "../../types/generated/StateCode";
-import { CheckboxField, NumberField, PercentField, SelectField } from "./fields";
+import { CheckboxField, PercentField, SelectField } from "./fields";
 import { TaxBracketEditor } from "./TaxBracketEditor";
 
 const ASSET_LABELS: Record<AssetClass, string> = {
@@ -128,17 +128,6 @@ export function AssumptionsSection() {
           onChange={(state_tax) =>
             updatePlan((d) => {
               d.assumptions.state_tax = state_tax;
-            })
-          }
-        />
-        <NumberField
-          label="Plan to age"
-          value={assumptions.plan_end_age}
-          step={1}
-          min={50}
-          onChange={(age) =>
-            updatePlan((d) => {
-              d.assumptions.plan_end_age = Math.round(age);
             })
           }
         />

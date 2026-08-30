@@ -138,7 +138,8 @@ fn seed_plan_is_solvent_through_plan_end() {
         "seed plan should not deplete: {:?}",
         projection.warnings
     );
-    // Claire (born 1987-06) reaches 95 in 2082-06; annual periods from
-    // 2026-01 → ceil(677 / 12) = 57 snapshots.
-    assert_eq!(projection.snapshots.len(), 57);
+    // Claire (born 1987-06, life_expectancy_age 96) reaches 96 in 2083-06 —
+    // the later of the two people's own expectancies, and the plan's
+    // horizon; annual periods from 2026-01 → ceil(689 / 12) = 58 snapshots.
+    assert_eq!(projection.snapshots.len(), 58);
 }

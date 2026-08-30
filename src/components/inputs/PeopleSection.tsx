@@ -1,5 +1,5 @@
 import { usePlanStore } from "../../store/planStore";
-import { TextField, YearMonthField } from "./fields";
+import { NumberField, TextField, YearMonthField } from "./fields";
 
 export function PeopleSection() {
   const plan = usePlanStore((s) => s.plan);
@@ -36,6 +36,19 @@ export function PeopleSection() {
             onChange={(retirement) =>
               updatePlan((d) => {
                 d.people[i].retirement = retirement;
+              })
+            }
+          />
+          <NumberField
+            label="Life expectancy (age)"
+            hint="The mortality assumption for this person — it sets when their own income and expense streams end, and the later of everyone's determines the projection's end year."
+            value={person.life_expectancy_age}
+            step={1}
+            min={1}
+            max={120}
+            onChange={(age) =>
+              updatePlan((d) => {
+                d.people[i].life_expectancy_age = Math.round(age);
               })
             }
           />
