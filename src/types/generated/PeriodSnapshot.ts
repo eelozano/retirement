@@ -22,9 +22,17 @@ expenses: number,
  */
 taxes: number, 
 /**
- * Contributions deposited into accounts this period.
+ * Contributions deposited into accounts this period, out of household
+ * income. Employer match is *not* included — it never passes through
+ * the household's cash, so folding it in here would break the
+ * income = outflow + surplus identity.
  */
 contributions: number, 
+/**
+ * Employer matching contributions deposited this period. Employer
+ * money: it raises balances without reducing household cash.
+ */
+employer_match: number, 
 /**
  * Leftover household cash this period (income minus contributions,
  * taxes, and expenses). Only actually invested when

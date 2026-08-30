@@ -49,7 +49,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::model::{AccountId, ContributionRule, PersonId, Plan, PlanType};
+use crate::model::{
+    AccountId, AccountKind, ContributionRule, MatchDestination, PersonId, Plan, PlanType,
+};
 use crate::presets::CONTRIBUTION_LIMITS;
 
 use super::SimWarning;
@@ -157,4 +159,163 @@ pub(super) fn allowed_contributions(
         allowed.push(granted);
     }
     allowed
+}
+
+/// Where matched dollars land for the match declared on `source`.
+///
+/// The destination is a tax treatment, and in this model tax treatment is
+/// `AccountKind` — so the money has to end up in an account of the matching
+/// kind, not merely be labelled. Pre-tax dollars parked in a Roth account
+/// would be withdrawn untaxed, and the error compounds for decades.
+///
+/// The declared account is preferred when its kind already agrees, which is
+/// the ordinary case (a traditional 401(k) with a pre-tax match). Otherwise
+/// the owner's first other employer-plan account of the right kind receives
+/// it — plan order again, the same control the user already has over
+/// contribution priority. A Roth deferral account plus a pre-tax match
+/// account is exactly how a real statement splits the two sources.
+fn match_target(plan: &Plan, source: usize, destination: MatchDestination) -> Option<usize> {
+    let wanted = match destination {
+        MatchDestination::PreTax => AccountKind::TraditionalPreTax,
+        MatchDestination::Roth => AccountKind::Roth,
+    };
+    let account = &plan.accounts[source];
+    if account.kind == wanted {
+        return Some(source);
+    }
+    plan.accounts.iter().position(|a| {
+        a.owner == account.owner && a.plan_type == PlanType::EmployerPlan && a.kind == wanted
+    })
+}
+
+/// The fraction of salary the employer adds, given how much of their salary
+/// the employee deferred. Tiers apply in order, each consuming deferral
+/// percentage until it runs out.
+fn matched_fraction(tiers: &[crate::model::MatchTier], deferral_percent: f64) -> f64 {
+    let mut remaining = deferral_percent.max(0.0);
+    let mut matched = 0.0;
+    for tier in tiers {
+        if remaining <= 0.0 {
+            break;
+        }
+        let used = remaining.min(tier.employee_percent.max(0.0));
+        matched += used * tier.match_percent.max(0.0);
+        remaining -= used;
+    }
+    matched
+}
+
+/// Employer match per account for this period, indexed parallel to
+/// `plan.accounts` — so entry `i` is what account `i` *receives*, which is
+/// not necessarily the account the match was declared on.
+///
+/// `employee` is the post-clamp employee contribution for each account, from
+/// `allowed_contributions`. The match is gated on the employee's own deferral
+/// percentage, derived from what actually went in rather than from what the
+/// account asked for — so a `FlatAmount` or `FederalMaximum` contribution
+/// still produces an effective percentage for the tiers to bite on, and an
+/// employee whose deferral was clamped is matched on the clamped figure.
+///
+/// Matched dollars are **not** subject to the elective-deferral limit — that
+/// is the failure mode this exists to prevent. They are held to the 415(c)
+/// annual-additions cap instead, shared with the employee's own deferrals.
+pub(super) fn employer_match(
+    plan: &Plan,
+    ctx: &PeriodContext,
+    employee: &[f64],
+    reported: &mut BTreeSet<AccountId>,
+    warnings: &mut Vec<SimWarning>,
+) -> Vec<f64> {
+    let mut matched = vec![0.0; plan.accounts.len()];
+    if !plan.accounts.iter().any(|a| a.employer_match.is_some()) {
+        return matched;
+    }
+
+    // Deferral percentage is a property of the person across all their
+    // employer plans: splitting deferrals between a Roth and a traditional
+    // 401(k) at one employer still earns one match on the combined figure.
+    let mut deferrals: BTreeMap<PersonId, f64> = BTreeMap::new();
+    for (account, amount) in plan.accounts.iter().zip(employee) {
+        if account.plan_type == PlanType::EmployerPlan {
+            *deferrals.entry(account.owner.clone()).or_insert(0.0) += amount;
+        }
+    }
+
+    for (idx, account) in plan.accounts.iter().enumerate() {
+        let Some(employer) = &account.employer_match else {
+            continue;
+        };
+        let salary = ctx.salary.get(&account.owner).copied().unwrap_or(0.0);
+        if salary <= 0.0 || ctx.prorate(&account.owner) <= 0.0 {
+            continue;
+        }
+        let deferral_percent = deferrals.get(&account.owner).copied().unwrap_or(0.0) / salary;
+        let amount = matched_fraction(&employer.tiers, deferral_percent) * salary;
+        if amount <= 0.0 {
+            continue;
+        }
+        match match_target(plan, idx, employer.destination) {
+            Some(target) => matched[target] += amount,
+            None if reported.insert(format!("match:{}", account.id)) => {
+                warnings.push(SimWarning::MatchUnallocated {
+                    account: account.id.clone(),
+                });
+            }
+            None => {}
+        }
+    }
+
+    clamp_to_annual_additions(plan, ctx, employee, &mut matched, reported, warnings);
+    matched
+}
+
+/// Hold each person's total annual additions — their own deferrals plus the
+/// match — to the 415(c) cap, trimming the match in plan order. Only the
+/// match gives way: the employee's deferrals were already allowed under
+/// their own limit.
+fn clamp_to_annual_additions(
+    plan: &Plan,
+    ctx: &PeriodContext,
+    employee: &[f64],
+    matched: &mut [f64],
+    reported: &mut BTreeSet<AccountId>,
+    warnings: &mut Vec<SimWarning>,
+) {
+    let mut room: BTreeMap<PersonId, f64> = BTreeMap::new();
+    for (idx, account) in plan.accounts.iter().enumerate() {
+        if account.plan_type != PlanType::EmployerPlan {
+            continue;
+        }
+        let Some(person) = plan.person(&account.owner) else {
+            continue;
+        };
+        let entry = room.entry(account.owner.clone()).or_insert_with(|| {
+            CONTRIBUTION_LIMITS.annual_additions_limit(
+                ctx.year - person.birth.year,
+                ctx.year,
+                ctx.inflation,
+            ) * ctx.prorate(&account.owner)
+        });
+        *entry -= employee[idx];
+    }
+
+    for (idx, account) in plan.accounts.iter().enumerate() {
+        if matched[idx] <= 0.0 {
+            continue;
+        }
+        let Some(available) = room.get_mut(&account.owner) else {
+            continue;
+        };
+        let granted = matched[idx].min(available.max(0.0));
+        *available -= granted;
+        if granted < matched[idx] - 1e-6 && reported.insert(format!("415c:{}", account.id)) {
+            warnings.push(SimWarning::AnnualAdditionsClamped {
+                account: account.id.clone(),
+                period: ctx.period,
+                requested: matched[idx],
+                allowed: granted,
+            });
+        }
+        matched[idx] = granted;
+    }
 }

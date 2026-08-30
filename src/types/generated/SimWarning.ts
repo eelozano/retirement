@@ -15,4 +15,4 @@ requested: number,
 /**
  * Contribution the simulation actually made that period.
  */
-allowed: number, } } | "SurplusUnallocated" | { "UnknownPersonRef": { stream: string, } };
+allowed: number, } } | { "MatchUnallocated": { account: string, } } | { "AnnualAdditionsClamped": { account: string, period: number, requested: number, allowed: number, } } | "SurplusUnallocated" | { "UnknownPersonRef": { stream: string, } };

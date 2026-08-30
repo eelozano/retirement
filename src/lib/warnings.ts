@@ -61,6 +61,25 @@ export function readableWarnings(plan: Plan, projection: Projection): ReadableWa
             : `Contributions were held to the federal maximum for this account's plan type, shared per person per year with their other accounts in the same bucket.`,
       };
     }
+    if ("MatchUnallocated" in warning) {
+      const name = accountName(plan, warning.MatchUnallocated.account);
+      return {
+        key,
+        title: `${name}: the employer match has nowhere to go`,
+        detail:
+          "Its match is set to land pre-tax, but this owner has no pre-tax employer-plan account (or Roth, if that is the destination). Putting the money in an account with the wrong tax treatment would tax the withdrawals wrongly for the rest of the plan, so no match is being paid. Add an account of the right kind, or change the destination.",
+      };
+    }
+    if ("AnnualAdditionsClamped" in warning) {
+      const { account, period, requested, allowed } = warning.AnnualAdditionsClamped;
+      const name = accountName(plan, account);
+      const year = periodYear(projection, period);
+      return {
+        key,
+        title: `${name}: match cut to ${currency(allowed)}/yr${year !== null ? ` from ${year}` : ""}`,
+        detail: `Contributions and match together hit the federal cap on everything that can go into one employer plan in a year, so the match was trimmed from ${currency(requested)}. Your own contributions are untouched — only the match gives way.`,
+      };
+    }
     if ("DepletedFunds" in warning) {
       const year = periodYear(projection, warning.DepletedFunds.period);
       return {

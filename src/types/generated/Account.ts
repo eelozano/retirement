@@ -2,6 +2,7 @@
 import type { AccountKind } from "./AccountKind";
 import type { AllocationRef } from "./AllocationRef";
 import type { ContributionRule } from "./ContributionRule";
+import type { EmployerMatch } from "./EmployerMatch";
 import type { PlanType } from "./PlanType";
 
 export type Account = { id: string, owner: string, kind: AccountKind, name: string, 
@@ -24,4 +25,10 @@ plan_type: PlanType,
 /**
  * What the owner puts in each year while still working.
  */
-contribution: ContributionRule, };
+contribution: ContributionRule, 
+/**
+ * Employer match on this plan, if any. Matched dollars are employer
+ * money: they do not count against the employee elective-deferral
+ * limit, only against the much higher 415(c) annual-additions cap.
+ */
+employer_match: EmployerMatch | null, };

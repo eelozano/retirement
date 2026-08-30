@@ -3,9 +3,17 @@ import { usePlanStore } from "../../store/planStore";
 import type { AccountKind } from "../../types/generated/AccountKind";
 import type { AllocationRef } from "../../types/generated/AllocationRef";
 import type { ContributionRule } from "../../types/generated/ContributionRule";
+import type { EmployerMatch } from "../../types/generated/EmployerMatch";
+import type { MatchDestination } from "../../types/generated/MatchDestination";
 import type { PlanType } from "../../types/generated/PlanType";
 import type { Presets } from "../../types/generated/Presets";
-import { NumberField, PercentField, SelectField, TextField } from "./fields";
+import {
+  CheckboxField,
+  NumberField,
+  PercentField,
+  SelectField,
+  TextField,
+} from "./fields";
 
 const KIND_OPTIONS = [
   { value: "Taxable", label: "Taxable brokerage" },
@@ -22,6 +30,21 @@ const PLAN_TYPE_OPTIONS = [
   { value: "EmployerPlan", label: "401(k) / 403(b)" },
   { value: "Ira", label: "IRA" },
 ] as const;
+
+const MATCH_DESTINATIONS = [
+  { value: "PreTax", label: "Pre-tax" },
+  { value: "Roth", label: "Roth" },
+] as const;
+
+/**
+ * A new match starts as the single most common formula — 100% of the first
+ * 3% — rather than empty, so switching it on produces a working plan and the
+ * one-tier case needs no assembly. More tiers are added below it.
+ */
+const DEFAULT_MATCH: EmployerMatch = {
+  tiers: [{ employee_percent: 0.03, match_percent: 1.0 }],
+  destination: "PreTax",
+};
 
 const CONTRIBUTION_MODES = [
   { value: "PercentOfSalary", label: "Percent of salary" },
@@ -100,6 +123,7 @@ export function AccountsSection() {
         allocation: "Moderate",
         plan_type: defaultPlanType("Taxable"),
         contribution: { FlatAmount: 0 },
+        employer_match: null,
       });
     });
 
@@ -151,6 +175,9 @@ export function AccountsSection() {
                 onChange={(planType: PlanType) =>
                   updatePlan((d) => {
                     d.accounts[i].plan_type = planType;
+                    if (planType !== "EmployerPlan") {
+                      d.accounts[i].employer_match = null;
+                    }
                   })
                 }
               />
@@ -240,6 +267,99 @@ export function AccountsSection() {
                   }
                 />
               )}
+            {account.plan_type === "EmployerPlan" && (
+              <CheckboxField
+                label="Employer match"
+                checked={account.employer_match !== null}
+                hint={
+                  account.employer_match !== null
+                    ? "Employer money: it does not count against your own contribution limit, only against the much higher cap on everything going into the plan."
+                    : undefined
+                }
+                onChange={(on) =>
+                  updatePlan((d) => {
+                    d.accounts[i].employer_match = on
+                      ? structuredClone(DEFAULT_MATCH)
+                      : null;
+                  })
+                }
+              />
+            )}
+            {account.employer_match !== null && account.plan_type === "EmployerPlan" && (
+              <>
+                <SelectField
+                  label="Match goes in as"
+                  value={account.employer_match.destination}
+                  options={MATCH_DESTINATIONS}
+                  hint="A pre-tax match reduces this year's taxable income; a Roth match does not. It lands in an employer-plan account of that kind."
+                  onChange={(destination: MatchDestination) =>
+                    updatePlan((d) => {
+                      const match = d.accounts[i].employer_match;
+                      if (match) match.destination = destination;
+                    })
+                  }
+                />
+                {account.employer_match.tiers.map((tier, t) => (
+                  // Tiers are an ordered list with no identity of their own,
+                  // so position is the key. Reordering is not offered —
+                  // "the first 3%, then the next 2%" is what the order means.
+                  // biome-ignore lint/suspicious/noArrayIndexKey: tiers are positional
+                  <div className="match-tier" key={t}>
+                    <PercentField
+                      label={t === 0 ? "Matches the first" : "Then the next"}
+                      rate={tier.employee_percent}
+                      minPercent={0}
+                      maxPercent={100}
+                      onChange={(rate) =>
+                        updatePlan((d) => {
+                          const tiers = d.accounts[i].employer_match?.tiers;
+                          if (tiers) tiers[t].employee_percent = rate;
+                        })
+                      }
+                    />
+                    <PercentField
+                      label="At a rate of"
+                      rate={tier.match_percent}
+                      minPercent={0}
+                      onChange={(rate) =>
+                        updatePlan((d) => {
+                          const tiers = d.accounts[i].employer_match?.tiers;
+                          if (tiers) tiers[t].match_percent = rate;
+                        })
+                      }
+                    />
+                    {account.employer_match !== null &&
+                      account.employer_match.tiers.length > 1 && (
+                        <button
+                          type="button"
+                          className="remove"
+                          onClick={() =>
+                            updatePlan((d) => {
+                              d.accounts[i].employer_match?.tiers.splice(t, 1);
+                            })
+                          }
+                        >
+                          Remove tier
+                        </button>
+                      )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="add"
+                  onClick={() =>
+                    updatePlan((d) => {
+                      d.accounts[i].employer_match?.tiers.push({
+                        employee_percent: 0.02,
+                        match_percent: 0.5,
+                      });
+                    })
+                  }
+                >
+                  Add match tier
+                </button>
+              </>
+            )}
             <button
               type="button"
               className="remove"

@@ -231,6 +231,19 @@ export function yearDetail(
       color: "var(--series-6)",
       value: s.contributions / d,
     },
+    // Employer money, so it sits outside the income/outflow arithmetic the
+    // rows above balance — shown only when there is some, rather than a
+    // permanent $0 row for the many plans with no match.
+    ...(s.employer_match > 0
+      ? [
+          {
+            key: "employer_match",
+            label: "Employer match",
+            color: "var(--series-5)",
+            value: s.employer_match / d,
+          },
+        ]
+      : []),
     {
       key: "surplus",
       label: "Surplus",
