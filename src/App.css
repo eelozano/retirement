@@ -517,6 +517,14 @@ body {
   white-space: nowrap;
 }
 
+/* The first column has no earlier column to borrow a left gutter from —
+   every other column's spacing comes from the previous cell's right
+   padding, so this one needs its own or it sits flush on the card border. */
+.input-table th:first-child,
+.input-table td:first-child {
+  padding-left: var(--sp-2);
+}
+
 .input-table tr:last-child td {
   border-bottom: 0;
 }
@@ -527,8 +535,19 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.input-table tr[data-selected="true"] {
+/* Rows double as a master list for the editor below: the whole row is
+   clickable, not just the account name, and hover/selected get visibly
+   different tones so you can tell "about to select" from "already open". */
+.input-table tbody tr {
+  cursor: pointer;
+}
+
+.input-table tbody tr:hover {
   background: var(--surface-2);
+}
+
+.input-table tr[data-selected="true"] {
+  background: var(--surface-3);
 }
 
 .row-select {
@@ -540,10 +559,6 @@ body {
   padding: 0;
   cursor: pointer;
   text-align: left;
-}
-
-.row-select:hover {
-  text-decoration: underline;
 }
 
 .row-select[aria-current="true"] {

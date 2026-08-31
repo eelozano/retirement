@@ -108,7 +108,10 @@ export function AccountsSection() {
     <div className="pane-section">
       <div className="pane-head">
         <h3>Accounts</h3>
-        <p>The balance sheet, as a table for comparing accounts to each other.</p>
+        <p>
+          The balance sheet, as a table for comparing accounts to each other. Select a row
+          to edit it below.
+        </p>
       </div>
 
       <div className="input-card">
@@ -128,7 +131,15 @@ export function AccountsSection() {
               </thead>
               <tbody>
                 {accounts.map((account) => (
-                  <tr key={account.id} data-selected={account.id === selected?.id}>
+                  <tr
+                    key={account.id}
+                    data-selected={account.id === selected?.id}
+                    // The button in the first cell is the accessible control
+                    // (keyboard-reachable, has a clear name); this handler is
+                    // a mouse-only convenience so the *whole* row responds,
+                    // not just the account name's text.
+                    onClick={() => setSelectedId(account.id)}
+                  >
                     <td>
                       <button
                         type="button"
@@ -158,7 +169,7 @@ export function AccountsSection() {
 
       {selected && (
         <fieldset className="input-card" key={selected.id} ref={editorRef}>
-          <legend>{selected.name || "Untitled account"}</legend>
+          <legend>Editing: {selected.name || "Untitled account"}</legend>
           <TextField
             label="Name"
             value={selected.name}
