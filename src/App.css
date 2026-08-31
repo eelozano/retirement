@@ -586,10 +586,13 @@ body {
   padding: 0 4px;
 }
 
+/* flex-start (not space-between) keeps each label hugging its own control —
+   space-between stretched the gap to the panel's full width, so a label
+   read closer to the *next* row's label than to the control it named. */
 .field {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
   margin: 6px 0;
   font-size: 13px;
