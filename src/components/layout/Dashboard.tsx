@@ -1,10 +1,6 @@
 import { useState } from "react";
 import { usePlanStore } from "../../store/planStore";
-import { AccountsSection } from "../inputs/AccountsSection";
-import { AssumptionsSection } from "../inputs/AssumptionsSection";
-import { PeopleSection } from "../inputs/PeopleSection";
-import { SocialSecuritySection } from "../inputs/SocialSecuritySection";
-import { StreamsSection } from "../inputs/StreamsSection";
+import { InputsScreen, type InputsSection } from "../inputs/InputsScreen";
 import { CashFlowScreen } from "./CashFlowScreen";
 import { ComparisonView } from "./ComparisonView";
 import { PlanScreen } from "./PlanScreen";
@@ -31,6 +27,10 @@ export function Dashboard() {
   const updatePlan = usePlanStore((s) => s.updatePlan);
 
   const [destination, setDestination] = useState<Destination>("plan");
+  // Lifted above InputsScreen so the selected sub-destination survives
+  // navigating away to Plan/Cash flow and back, rather than resetting to
+  // People every time the screen remounts.
+  const [inputsSection, setInputsSection] = useState<InputsSection>("people");
   const [storageOpen, setStorageOpen] = useState(false);
   const [scenariosOpen, setScenariosOpen] = useState(false);
   const [showBand, setShowBand] = useState(false);
@@ -149,13 +149,7 @@ export function Dashboard() {
           {destination === "cashflow" ? (
             <CashFlowScreen />
           ) : destination === "inputs" ? (
-            <main className="inputs-screen">
-              <PeopleSection />
-              <AccountsSection />
-              <StreamsSection />
-              <SocialSecuritySection />
-              <AssumptionsSection />
-            </main>
+            <InputsScreen section={inputsSection} onSectionChange={setInputsSection} />
           ) : comparing ? (
             <main className="charts">
               <ComparisonView />
