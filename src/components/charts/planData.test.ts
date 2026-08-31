@@ -6,7 +6,7 @@ import type { Person } from "../../types/generated/Person";
 import type { Plan } from "../../types/generated/Plan";
 import type { Projection } from "../../types/generated/Projection";
 import { seriesDefs } from "./chartData";
-import { headlineMetrics, milestones, yearDetail } from "./planData";
+import { firstDeath, headlineMetrics, milestones, yearDetail } from "./planData";
 
 function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
   return {
@@ -60,6 +60,49 @@ function plan(people: Person[], accounts: Account[]): Plan {
 function mc(overrides: Partial<MonteCarloResult>): MonteCarloResult {
   return { n_paths: 1000, success_rate: 1, percentiles: [], ...overrides };
 }
+
+/**
+ * A two-person plan with the assumptions `yearDetail`'s survivor note reads.
+ * `plan()` above deliberately casts a bare object; the survivor derivations
+ * are the first that look past `people` and `accounts`.
+ */
+function household(people: Person[], overrides: Partial<Plan["assumptions"]> = {}): Plan {
+  return {
+    people,
+    accounts: [],
+    streams: [],
+    social_security: [],
+    assumptions: {
+      filing_status: "Single",
+      survivor_expense_factor: 1,
+      ...overrides,
+    },
+  } as unknown as Plan;
+}
+
+describe("firstDeath", () => {
+  it("is the earliest expectancy, with everyone who outlives it", () => {
+    const p = household([
+      person("elder", 1960, 2025, 1, 80), // dies 2040
+      person("younger", 1970, 2035, 1, 85), // dies 2055
+    ]);
+    const death = firstDeath(p);
+    expect(death?.decedent.id).toBe("elder");
+    expect(death?.date).toEqual({ year: 2040, month: 1 });
+    expect(death?.survivors.map((s) => s.id)).toEqual(["younger"]);
+  });
+
+  it("is null when nobody is left behind", () => {
+    // One person cannot be survived; two who die in the same month leave no
+    // survivor either, so neither household transitions.
+    expect(firstDeath(household([person("solo", 1960, 2025, 1, 80)]))).toBeNull();
+    expect(
+      firstDeath(
+        household([person("a", 1960, 2025, 1, 80), person("b", 1960, 2025, 1, 80)]),
+      ),
+    ).toBeNull();
+  });
+});
 
 describe("headlineMetrics", () => {
   it("measures expenses covered at the earliest retirement, not the latest", () => {
@@ -251,6 +294,36 @@ describe("milestones", () => {
   });
 });
 
+describe("milestones (survivor transition)", () => {
+  it("reports net worth at the first death and names who is left", () => {
+    const p = household([
+      person("elder", 1960, 2025, 1, 80), // dies 2040
+      person("younger", 1970, 2035, 1, 85),
+    ]);
+    const proj = projection([
+      snapshot({ period_start: { year: 2040, month: 1 }, net_worth: 700 }),
+      snapshot({ period_start: { year: 2054, month: 1 }, net_worth: 300 }),
+    ]);
+
+    const death = milestones(p, proj, null, false).find(
+      (m) => m.key === "__first-death__",
+    );
+    expect(death?.label).toBe("At elder's death");
+    expect(death?.value).toBe(700);
+    expect(death?.sub).toBe("2040 · younger alone");
+  });
+
+  it("has no such milestone for a one-person plan", () => {
+    const p = household([person("solo", 1960, 2025, 1, 80)]);
+    const proj = projection([
+      snapshot({ period_start: { year: 2040, month: 1 }, net_worth: 700 }),
+    ]);
+    expect(
+      milestones(p, proj, null, false).some((m) => m.key === "__first-death__"),
+    ).toBe(false);
+  });
+});
+
 describe("yearDetail", () => {
   it("totals withdrawals across accounts and flags a negative surplus", () => {
     const p = plan([person("a", 1980, 2030)], [account("x"), account("y")]);
@@ -284,6 +357,52 @@ describe("yearDetail", () => {
     expect(detail?.balances).toHaveLength(9);
     expect(detail?.balances[8].label).toBe("Other");
     expect(detail?.balances[8].value).toBe(190);
+  });
+
+  it("marks a person dead rather than showing them present past their expectancy", () => {
+    const p = household([
+      person("elder", 1960, 2025, 1, 80), // dies 2040
+      person("younger", 1970, 2035, 1, 85),
+    ]);
+    const proj = projection([
+      snapshot({ period_start: { year: 2040, month: 1 } }),
+      snapshot({ period_start: { year: 2041, month: 1 } }),
+    ]);
+
+    expect(yearDetail(p, proj, 2040, [], false)?.ages).toEqual([
+      { name: "elder", age: 80, status: "dies" },
+      { name: "younger", age: 70, status: "retired" },
+    ]);
+    expect(yearDetail(p, proj, 2041, [], false)?.ages[0].status).toBe("died");
+  });
+
+  it("explains the survivor transition with only the consequences the plan carries", () => {
+    const people = [
+      person("elder", 1960, 2025, 1, 80), // dies 2040
+      person("younger", 1970, 2035, 1, 85),
+    ];
+    const proj = projection([
+      snapshot({ period_start: { year: 2039, month: 1 } }),
+      snapshot({ period_start: { year: 2040, month: 1 } }),
+      snapshot({ period_start: { year: 2041, month: 1 } }),
+    ]);
+
+    const bare = household(people);
+    expect(yearDetail(bare, proj, 2039, [], false)?.transition).toBeNull();
+    expect(yearDetail(bare, proj, 2040, [], false)?.transition).toBe(
+      "elder dies in 2040.",
+    );
+    expect(yearDetail(bare, proj, 2041, [], false)?.transition).toBe(
+      "A household of 1 since elder's death in 2040.",
+    );
+
+    const full = household(people, {
+      filing_status: "MarriedFilingJointly",
+      survivor_expense_factor: 0.75,
+    });
+    expect(yearDetail(full, proj, 2040, [], false)?.transition).toBe(
+      "elder dies in 2040: filing status is Single from next year; household spending steps to 75%.",
+    );
   });
 
   it("returns null for a year outside the projection", () => {

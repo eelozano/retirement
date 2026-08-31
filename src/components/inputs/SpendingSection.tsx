@@ -26,6 +26,7 @@ export function SpendingSection() {
         start: "PlanStart",
         end: "PlanEnd",
         growth: "Inflation",
+        survivor_percentage: null,
       });
     });
 

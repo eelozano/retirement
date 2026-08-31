@@ -138,11 +138,12 @@ export function PercentField(props: {
   /** Display-percent bounds; default allows mild deflation, no upper cap. */
   minPercent?: number;
   maxPercent?: number;
+  hint?: string;
 }) {
   const label = `${props.label} (%)`;
   const id = useId();
   return (
-    <label className="field" htmlFor={id}>
+    <label className={props.hint ? "field field-with-hint" : "field"} htmlFor={id}>
       <span>{label}</span>
       <BufferedNumberInput
         id={id}
@@ -153,6 +154,7 @@ export function PercentField(props: {
         step={0.1}
         onCommit={(percent) => props.onChange(percentToRate(percent))}
       />
+      {props.hint && <small className="field-hint">{props.hint}</small>}
     </label>
   );
 }

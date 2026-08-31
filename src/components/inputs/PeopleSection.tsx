@@ -53,6 +53,7 @@ export function PeopleSection() {
               start: "PlanStart",
               end: { AtRetirement: person.id },
               growth: "Inflation",
+              survivor_percentage: null,
             });
           });
 

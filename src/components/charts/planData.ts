@@ -91,6 +91,42 @@ function planEndAge(plan: Plan): number | null {
   );
 }
 
+/** Mirrors the engine's `Person::month_at_age(life_expectancy_age)`. */
+function deathMonth(person: Person): YearMonth {
+  return monthAtAge(person, person.life_expectancy_age);
+}
+
+export interface FirstDeath {
+  decedent: Person;
+  date: YearMonth;
+  /** Everyone still alive after `date`. */
+  survivors: Person[];
+}
+
+/**
+ * The household's survivor transition, mirroring `Plan::first_death`: the
+ * first death that leaves someone behind. `null` for a one-person plan, or
+ * when everyone's expectancy lands in the same month — no survivor, nothing
+ * transitions.
+ */
+export function firstDeath(plan: Plan): FirstDeath | null {
+  const decedent = plan.people.reduce<Person | null>(
+    (first, p) => (!first || !atOrAfter(deathMonth(p), deathMonth(first)) ? p : first),
+    null,
+  );
+  if (!decedent) return null;
+  const date = deathMonth(decedent);
+  const survivors = plan.people.filter(
+    (p) =>
+      p !== decedent && atOrAfter(deathMonth(p), date) && !sameMonth(deathMonth(p), date),
+  );
+  return survivors.length > 0 ? { decedent, date, survivors } : null;
+}
+
+function sameMonth(a: YearMonth, b: YearMonth): boolean {
+  return a.year === b.year && a.month === b.month;
+}
+
 /**
  * First snapshot whose period lies entirely at or after `date` — i.e. the
  * first period a stream starting at `date` covers in full, with no
@@ -153,7 +189,10 @@ export interface Milestone {
   critical?: boolean;
 }
 
-/** Net worth at each person's retirement, plus the end of the plan. */
+/**
+ * Net worth at each person's retirement, at the first death if the
+ * household has one, and at the end of the plan.
+ */
 export function milestones(
   plan: Plan,
   projection: Projection,
@@ -169,6 +208,25 @@ export function milestones(
       sub: `${person.retirement.year} · age ${person.retirement.year - person.birth.year}`,
     };
   });
+
+  // The first death belongs here for the same reason a retirement does: it
+  // is a year the plan changes shape — one Social Security benefit instead
+  // of two, a single filer's brackets, a smaller household budget.
+  const death = firstDeath(plan);
+  if (death) {
+    const s = snapshotForYear(projection, death.date.year);
+    const [survivor] = death.survivors;
+    out.push({
+      key: "__first-death__",
+      label: `At ${death.decedent.name}'s death`,
+      value: s ? s.net_worth / basis(s, realDollars) : null,
+      sub: `${death.date.year} · ${
+        death.survivors.length === 1
+          ? `${survivor.name} alone`
+          : `${death.survivors.length} survive`
+      }`,
+    });
+  }
 
   const last = projection.snapshots[projection.snapshots.length - 1];
   if (depletionYear !== null) {
@@ -206,12 +264,26 @@ export interface BalanceRow {
   value: number;
 }
 
+/** How one person stands in the inspected year. */
+export interface PersonYear {
+  name: string;
+  age: number;
+  /** Retired, dead, or neither — death wins, since it ends the rest. */
+  status: "retired" | "dies" | "died" | null;
+}
+
 export interface YearDetail {
   year: number;
   netWorth: number;
-  ages: { name: string; age: number; retired: boolean }[];
+  ages: PersonYear[];
   flows: FlowRow[];
   balances: BalanceRow[];
+  /**
+   * What the survivor transition did to this year, on the years it explains
+   * — without it, the drop in income at the first death reads as a glitch.
+   * `null` on every year before it.
+   */
+  transition: string | null;
 }
 
 /**
@@ -298,12 +370,51 @@ export function yearDetail(
   return {
     year,
     netWorth: s.net_worth / d,
-    ages: plan.people.map((p) => ({
-      name: p.name,
-      age: year - p.birth.year,
-      retired: year >= p.retirement.year,
-    })),
+    ages: plan.people.map((p) => {
+      const death = deathMonth(p);
+      return {
+        name: p.name,
+        age: year - p.birth.year,
+        status:
+          year > death.year
+            ? "died"
+            : year === death.year
+              ? "dies"
+              : year >= p.retirement.year
+                ? "retired"
+                : null,
+      };
+    }),
     flows,
     balances,
+    transition: transitionNote(plan, year),
   };
+}
+
+/**
+ * The one-line explanation of the survivor transition for `year`, listing
+ * only the consequences this plan actually carries: a plan with no Social
+ * Security, no joint filing, and no step-down factor gets the bare fact.
+ */
+function transitionNote(plan: Plan, year: number): string | null {
+  const death = firstDeath(plan);
+  if (!death || year < death.date.year) return null;
+  if (year > death.date.year) {
+    return `A household of ${death.survivors.length} since ${death.decedent.name}'s death in ${death.date.year}.`;
+  }
+
+  const consequences: string[] = [];
+  if (plan.social_security.length > 0) {
+    consequences.push("Social Security drops to the larger of the two benefits");
+  }
+  if (plan.assumptions.filing_status === "MarriedFilingJointly") {
+    consequences.push("filing status is Single from next year");
+  }
+  if (plan.assumptions.survivor_expense_factor < 1) {
+    consequences.push(
+      `household spending steps to ${Math.round(plan.assumptions.survivor_expense_factor * 100)}%`,
+    );
+  }
+  const head = `${death.decedent.name} dies in ${death.date.year}`;
+  return consequences.length > 0 ? `${head}: ${consequences.join("; ")}.` : `${head}.`;
 }

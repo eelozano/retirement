@@ -53,6 +53,7 @@ fn plan_with(
             state_tax: engine::model::StateTaxProfile::none(),
             plan_end_age: claiming_age + 3,
             sweep_surplus_to_taxable: false,
+            survivor_expense_factor: 1.0,
             social_security_cola: plan_cola,
         },
         sim_config: SimConfig {

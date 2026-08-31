@@ -196,6 +196,8 @@ pub fn default_assumptions() -> Assumptions {
         state_tax: StateTaxProfile::none(),
         plan_end_age: 95,
         sweep_surplus_to_taxable: false,
+        // No step-down until the user picks one — see the field docs.
+        survivor_expense_factor: 1.0,
         social_security_cola: 0.025,
     }
 }
@@ -307,6 +309,7 @@ pub fn seed_plan() -> Plan {
                 start: StreamBoundary::PlanStart,
                 end: StreamBoundary::AtRetirement(enrique.clone()),
                 growth: GrowthRule::Inflation,
+                survivor_percentage: None,
             },
             CashFlowStream {
                 id: "claire-salary".to_string(),
@@ -317,6 +320,7 @@ pub fn seed_plan() -> Plan {
                 start: StreamBoundary::PlanStart,
                 end: StreamBoundary::AtRetirement(claire),
                 growth: GrowthRule::Inflation,
+                survivor_percentage: None,
             },
             CashFlowStream {
                 id: "household-spending".to_string(),
@@ -327,6 +331,7 @@ pub fn seed_plan() -> Plan {
                 start: StreamBoundary::PlanStart,
                 end: StreamBoundary::PlanEnd,
                 growth: GrowthRule::Inflation,
+                survivor_percentage: None,
             },
         ],
         social_security: vec![SocialSecurityBenefit {
