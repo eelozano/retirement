@@ -16,12 +16,35 @@ pub use sim::{
     PeriodPercentiles, PeriodSnapshot, Projection, SimWarning,
 };
 
-use strategies::{BracketTax, FixedReturns, ProportionalDrawdown, StochasticReturns};
+use model::FilingStatus;
+use strategies::{BracketTax, FixedReturns, ProportionalDrawdown, StochasticReturns, SurvivorTax};
 
-fn tax_model(plan: &Plan) -> BracketTax {
-    BracketTax {
+/// The plan's tax model, with the household's filing status switching to
+/// Single after the first death (#34).
+///
+/// Only a joint filer has anything to lose, so a plan already filing Single
+/// gets no transition. The state schedule carries over unchanged: a
+/// `StateTaxProfile` is a single editable bracket table with no filing-status
+/// dimension, and inventing a survivor variant of the user's own brackets
+/// would be worse than leaving them alone.
+fn tax_model(plan: &Plan) -> SurvivorTax {
+    let household = BracketTax {
         filing_status: plan.assumptions.filing_status,
         state_tax: plan.assumptions.state_tax.clone(),
+    };
+    let survivor_from = match (plan.assumptions.filing_status, plan.first_death()) {
+        (FilingStatus::MarriedFilingJointly, Some((month, _))) => {
+            Some(plan.sim_config.first_period_after(month))
+        }
+        _ => None,
+    };
+    SurvivorTax {
+        survivor: BracketTax {
+            filing_status: FilingStatus::Single,
+            state_tax: household.state_tax.clone(),
+        },
+        household,
+        survivor_from,
     }
 }
 

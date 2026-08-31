@@ -154,6 +154,28 @@ export function AssumptionsSection() {
           }
         />
       </fieldset>
+      {plan.people.length > 1 && (
+        <fieldset>
+          <legend>After the first death</legend>
+          <p className="field-hint">
+            From the first death the projection draws one Social Security benefit — the
+            larger of the two — and a joint filer becomes a single filer the following
+            year, against roughly half the brackets and half the standard deduction.
+          </p>
+          <PercentField
+            label="Surviving household's spending"
+            hint="Share of household spending (the expenses no single person owns) that continues for the survivor. Planners commonly use 70–80%: one person doesn't cost what two did, but housing, utilities, and property tax barely move. Left at 100% until you set it. Expenses owned by a person are left alone — their own end date says when they stop."
+            rate={assumptions.survivor_expense_factor}
+            minPercent={0}
+            maxPercent={100}
+            onChange={(rate) =>
+              updatePlan((d) => {
+                d.assumptions.survivor_expense_factor = rate;
+              })
+            }
+          />
+        </fieldset>
+      )}
       <fieldset>
         <legend>Nominal returns / yr</legend>
         {(Object.keys(ASSET_LABELS) as AssetClass[]).map((asset) => (

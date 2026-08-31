@@ -237,6 +237,28 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                 &format!("Duplicate stream id \"{}\".", stream.id),
             ));
         }
+        if let Some(percentage) = stream.survivor_percentage {
+            if !(0.0..=1.0).contains(&percentage) {
+                errors.push(err(
+                    &format!("streams[{i}].survivor_percentage"),
+                    &format!(
+                        "\"{}\"'s survivor percentage must be between 0% and 100%.",
+                        stream.name
+                    ),
+                ));
+            }
+            // Without an owner there is no death for the continuation to
+            // start at, so the setting would silently do nothing.
+            if stream.owner.is_none() {
+                errors.push(err(
+                    &format!("streams[{i}].survivor_percentage"),
+                    &format!(
+                        "\"{}\" has a survivor percentage but no owner — it needs one whose death the survivor share starts at.",
+                        stream.name
+                    ),
+                ));
+            }
+        }
         for (boundary, edge) in [(&stream.start, "start"), (&stream.end, "end")] {
             if let StreamBoundary::Date(date) = boundary {
                 check_date(
@@ -343,6 +365,12 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
         errors.push(err(
             "assumptions.inflation",
             "Inflation can't be -100% or lower.",
+        ));
+    }
+    if !(0.0..=1.0).contains(&plan.assumptions.survivor_expense_factor) {
+        errors.push(err(
+            "assumptions.survivor_expense_factor",
+            "Surviving-household spending must be between 0% and 100% of the household's.",
         ));
     }
     if plan.assumptions.social_security_cola <= -1.0 {
@@ -599,6 +627,42 @@ mod tests {
         assert!(errors
             .iter()
             .any(|e| e.field == "social_security[0].cola_override"));
+    }
+
+    #[test]
+    fn catches_out_of_range_survivor_expense_factor() {
+        let mut plan = seed_plan();
+        plan.assumptions.survivor_expense_factor = 1.5;
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "assumptions.survivor_expense_factor"));
+    }
+
+    #[test]
+    fn catches_out_of_range_survivor_percentage() {
+        let mut plan = seed_plan();
+        plan.streams[0].survivor_percentage = Some(1.5);
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "streams[0].survivor_percentage"));
+    }
+
+    /// A survivor share needs an owner: it starts at that person's death.
+    #[test]
+    fn catches_survivor_percentage_on_an_unowned_stream() {
+        let mut plan = seed_plan();
+        let i = plan
+            .streams
+            .iter()
+            .position(|s| s.owner.is_none())
+            .expect("seed plan has a household stream");
+        plan.streams[i].survivor_percentage = Some(0.5);
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == format!("streams[{i}].survivor_percentage")));
     }
 
     #[test]

@@ -73,6 +73,7 @@ fn micro_plan() -> Plan {
                 start: StreamBoundary::PlanStart,
                 end: StreamBoundary::AtRetirement(person),
                 growth: GrowthRule::None,
+                survivor_percentage: None,
             },
             CashFlowStream {
                 id: "spending".to_string(),
@@ -83,6 +84,7 @@ fn micro_plan() -> Plan {
                 start: StreamBoundary::PlanStart,
                 end: StreamBoundary::PlanEnd,
                 growth: GrowthRule::None,
+                survivor_percentage: None,
             },
         ],
         social_security: vec![],
@@ -95,6 +97,7 @@ fn micro_plan() -> Plan {
             // giving exactly 3 annual periods.
             plan_end_age: 63,
             sweep_surplus_to_taxable: false,
+            survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
         },
         sim_config: SimConfig {

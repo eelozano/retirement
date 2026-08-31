@@ -20,4 +20,21 @@ owner: string | null, direction: StreamDirection,
  * Annual amount in simulation-start dollars; scaled by `growth` over
  * time and prorated for partial-period activity.
  */
-annual_amount: number, start: StreamBoundary, end: StreamBoundary, growth: GrowthRule, };
+annual_amount: number, start: StreamBoundary, end: StreamBoundary, growth: GrowthRule, 
+/**
+ * Fraction of this stream that continues for the household after its
+ * **owner** dies — a pension's or annuity's survivor percentage (#34).
+ * `None` (the default, and the only sensible value for a stream with no
+ * owner) means the stream simply ends at `end`.
+ *
+ * When set, it overrides `end` at the owner's death in both directions:
+ * the full amount stops there even if `end` runs later, and
+ * `annual_amount * survivor_percentage` continues from there to the end
+ * of the plan — i.e. for as long as a survivor is alive — growing by
+ * the same `growth` rule. A stream whose owner is the last to die is
+ * unaffected, since there is no one for the continuation to run for.
+ *
+ * `#[serde(default)]` (→ `None`) so plans saved before this field
+ * existed load unchanged.
+ */
+survivor_percentage: number | null, };

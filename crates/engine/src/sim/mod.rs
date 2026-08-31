@@ -1,6 +1,7 @@
 mod contributions;
 mod monte_carlo;
 mod projection;
+mod survivor;
 
 pub use monte_carlo::{run_monte_carlo, MonteCarloConfig, MonteCarloResult, PeriodPercentiles};
 pub use projection::{PeriodSnapshot, Projection, SimWarning};
@@ -13,6 +14,16 @@ use crate::model::{
 };
 use crate::presets::allocation_weights;
 use crate::strategies::{AccountState, DrawdownStrategy, IncomeBreakdown, ReturnModel, TaxModel};
+
+/// Where a resolved stream came from. Plan streams are what the user typed;
+/// the other two are synthesized by `survivor` and are taxed (Social
+/// Security) or scaled (a survivor continuation) differently.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum StreamSource {
+    Plan,
+    SocialSecurity,
+    SurvivorContinuation,
+}
 
 /// Runs one deterministic-or-stochastic simulation path over the plan.
 ///
@@ -51,41 +62,51 @@ pub fn simulate(
         }
     };
 
-    // Materialize Social Security benefits into synthetic Income streams.
-    // Declared before `resolved_streams` — that Vec borrows `&CashFlowStream`,
-    // so these owned streams must outlive it.
-    let mut derived_streams: Vec<CashFlowStream> = Vec::new();
-    for ss in &plan.social_security {
-        match plan.person(&ss.owner) {
-            Some(person) => {
-                derived_streams.push(ss.to_stream(person, plan.assumptions.social_security_cola))
-            }
-            None => push_warning(
-                &mut warnings,
-                SimWarning::UnknownPersonRef {
-                    stream: ss.id.clone(),
-                },
-            ),
-        }
+    // Materialize Social Security benefits — including the survivor step-up
+    // at the first death — and the reduced continuations of any stream with
+    // a survivor percentage. Declared before `resolved_streams`: that Vec
+    // borrows `&CashFlowStream`, so these owned streams must outlive it.
+    let mut ss_warnings = Vec::new();
+    let ss_streams = survivor::social_security_streams(plan, &mut ss_warnings);
+    for warning in ss_warnings {
+        push_warning(&mut warnings, warning);
     }
+    let continuations = survivor::stream_continuations(plan);
 
-    // Resolve stream boundaries to concrete months once. `is_social_security`
-    // marks streams materialized from `plan.social_security` so step 1 can
-    // tally their income separately — the federal tax model applies the
-    // partial-taxability rule to Social Security instead of taxing it as
-    // plain ordinary income.
-    let mut resolved_streams: Vec<(&CashFlowStream, YearMonth, YearMonth, bool)> = Vec::new();
+    // Resolve stream boundaries to concrete months once, keeping track of
+    // where each stream came from: Social Security income is tallied
+    // separately in step 1 because the federal tax model applies the
+    // partial-taxability rule to it rather than taxing it as plain ordinary
+    // income, and a survivor continuation is exempt from the household
+    // expense step-down below (its percentage is the step-down).
+    let mut resolved_streams: Vec<(&CashFlowStream, YearMonth, YearMonth, StreamSource)> =
+        Vec::new();
     let tagged_streams = plan
         .streams
         .iter()
-        .map(|s| (s, false))
-        .chain(derived_streams.iter().map(|s| (s, true)));
-    for (stream, is_social_security) in tagged_streams {
+        .map(|s| (s, StreamSource::Plan))
+        .chain(ss_streams.iter().map(|s| (s, StreamSource::SocialSecurity)))
+        .chain(
+            continuations
+                .iter()
+                .map(|s| (s, StreamSource::SurvivorContinuation)),
+        );
+    for (stream, source) in tagged_streams {
         match (
             resolve_boundary(plan, &stream.start, start, end),
             resolve_boundary(plan, &stream.end, start, end),
         ) {
-            (Some(s), Some(e)) => resolved_streams.push((stream, s, e, is_social_security)),
+            (Some(s), Some(e)) => {
+                // A survivor percentage overrides the stream's own end for
+                // the owner's full-amount portion: it stops at their death
+                // even if `end` runs past it, and `stream_continuations`
+                // picks it up from there at the reduced rate.
+                let e = match survivor::full_amount_ends_at(plan, stream) {
+                    Some(death) => e.min(death),
+                    None => e,
+                };
+                resolved_streams.push((stream, s, e, source))
+            }
             _ => push_warning(
                 &mut warnings,
                 SimWarning::UnknownPersonRef {
@@ -94,6 +115,14 @@ pub fn simulate(
             ),
         }
     }
+
+    // Household spending steps down at the first death. Resolved once here,
+    // and `None` whenever it would be a no-op — no survivor transition, or
+    // a factor of 1.0 — so plans without one are arithmetically untouched.
+    let survivor_step_down = plan
+        .first_death()
+        .map(|(month, _)| (month, plan.assumptions.survivor_expense_factor))
+        .filter(|(_, factor)| *factor != 1.0);
 
     let mut accounts: Vec<AccountState> = plan
         .accounts
@@ -126,17 +155,33 @@ pub fn simulate(
         let mut ss_income = 0.0;
         let mut expenses = 0.0;
         let mut salary: BTreeMap<PersonId, f64> = BTreeMap::new();
-        for (stream, s, e, is_social_security) in &resolved_streams {
+        for (stream, s, e, source) in &resolved_streams {
             let fraction = overlap_fraction(period_start, period_end, *s, *e);
             if fraction <= 0.0 {
                 continue;
             }
+            // Household spending — the expense streams no one owns — drops
+            // to the survivor factor from the first death. The period's
+            // active window is split at that month rather than the whole
+            // period being scaled one way or the other, so the transition
+            // period is exact rather than all-or-nothing.
+            let active = match survivor_step_down {
+                Some((death, factor))
+                    if stream.direction == StreamDirection::Expense
+                        && stream.owner.is_none()
+                        && *source != StreamSource::SurvivorContinuation =>
+                {
+                    overlap_fraction(period_start, period_end, *s, (*e).min(death))
+                        + factor * overlap_fraction(period_start, period_end, (*s).max(death), *e)
+                }
+                _ => fraction,
+            };
             let growth = growth_factor(stream.growth, plan.assumptions.inflation, years_elapsed);
-            let amount = stream.annual_amount * growth * fraction * (period_months as f64 / 12.0);
+            let amount = stream.annual_amount * growth * active * (period_months as f64 / 12.0);
             match stream.direction {
                 StreamDirection::Income => {
                     income += amount;
-                    if *is_social_security {
+                    if *source == StreamSource::SocialSecurity {
                         ss_income += amount;
                     } else if let Some(owner) = &stream.owner {
                         *salary.entry(owner.clone()).or_insert(0.0) += amount;

@@ -69,6 +69,7 @@ impl SocialSecurityBenefit {
             start: StreamBoundary::Date(person.month_at_age(self.claiming_age)),
             end: StreamBoundary::AtDeath(self.owner.clone()),
             growth: GrowthRule::Fixed(self.cola_override.unwrap_or(plan_default_cola)),
+            survivor_percentage: None,
         }
     }
 }

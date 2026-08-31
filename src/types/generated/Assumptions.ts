@@ -54,6 +54,22 @@ plan_end_age: number,
  */
 sweep_surplus_to_taxable: boolean, 
 /**
+ * Fraction of *household* spending — the expense streams no single
+ * person owns — that continues after the first death (#34). One person
+ * does not cost what two did, but the drop is nothing like half:
+ * housing, utilities, and property tax barely move. Planning
+ * conventions cluster around 0.70–0.80, and this is deliberately not
+ * seeded with one of them: the default is 1.0 (no step-down) so the
+ * engine never quietly assumes a number the user did not choose, and
+ * the UI carries the convention as guidance instead.
+ *
+ * Expenses owned by a person are left alone — they are that person's
+ * own cost, and their own end boundary already says when they stop.
+ * `#[serde(default = "no_survivor_step_down")]` so plans saved before
+ * this field existed load with their spending unchanged.
+ */
+survivor_expense_factor: number, 
+/**
  * Plan-level default annual COLA for Social Security benefits that
  * don't set their own `cola_override`. `#[serde(default)]` — inert
  * (0.0) for plans predating this field, which is safe since they also

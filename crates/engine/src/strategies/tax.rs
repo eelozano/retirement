@@ -198,6 +198,40 @@ impl TaxModel for BracketTax {
     }
 }
 
+/// A household's filing status is a property of the *year*, not of the plan,
+/// once the household can lose a member mid-projection (#34): a survivor may
+/// file jointly through the year of the death and files Single after it —
+/// the same income against roughly half the bracket widths and half the
+/// standard deduction. This is the tax cliff a widow or widower actually
+/// hits, and a `BracketTax` built once could not express it.
+///
+/// It stays behind the `TaxModel` trait as a new impl, per the architecture
+/// invariants: two stateless `BracketTax`es and the period the household
+/// switches between them. Selecting on `period` — rather than widening
+/// `IncomeBreakdown` to carry filing status — is what keeps
+/// `DrawdownStrategy` out of it: the drawdown grosses withdrawals up through
+/// `tax()` and has no business knowing the household's mortality schedule.
+/// It is precomputable because mortality here is an assumption, not a draw
+/// (see `Plan::first_death`).
+pub struct SurvivorTax {
+    /// Applies through the period the first death falls in, inclusive.
+    pub household: BracketTax,
+    /// Applies from `survivor_from` on.
+    pub survivor: BracketTax,
+    /// First period taxed as `survivor`. `None` when nothing changes —
+    /// a one-person plan, or a household already filing Single.
+    pub survivor_from: Option<PeriodIndex>,
+}
+
+impl TaxModel for SurvivorTax {
+    fn tax(&self, income: &IncomeBreakdown, period: PeriodIndex) -> TaxResult {
+        match self.survivor_from {
+            Some(from) if period >= from => self.survivor.tax(income, period),
+            _ => self.household.tax(income, period),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -327,5 +361,76 @@ mod tests {
         );
         // State: (15,750 - 5,000) * 5% = 537.5; federal: 0.
         assert_close(result.tax, 537.5, "state-only tax");
+    }
+
+    fn survivor_tax(survivor_from: Option<usize>) -> SurvivorTax {
+        SurvivorTax {
+            household: BracketTax {
+                filing_status: FilingStatus::MarriedFilingJointly,
+                state_tax: StateTaxProfile::none(),
+            },
+            survivor: BracketTax {
+                filing_status: FilingStatus::Single,
+                state_tax: StateTaxProfile::none(),
+            },
+            survivor_from,
+        }
+    }
+
+    /// The same income, taxed on either side of the transition: identical
+    /// dollars, a materially larger bill once the brackets halve.
+    #[test]
+    fn filing_status_switches_at_the_survivor_period() {
+        let tax = survivor_tax(Some(5));
+        let income = IncomeBreakdown {
+            ordinary: 120_000.0,
+            ..Default::default()
+        };
+        let joint = tax.tax(&income, 4).tax;
+        let single = tax.tax(&income, 5).tax;
+
+        let expected_joint = BracketTax {
+            filing_status: FilingStatus::MarriedFilingJointly,
+            state_tax: StateTaxProfile::none(),
+        }
+        .tax(&income, 4)
+        .tax;
+        let expected_single = BracketTax {
+            filing_status: FilingStatus::Single,
+            state_tax: StateTaxProfile::none(),
+        }
+        .tax(&income, 5)
+        .tax;
+
+        assert_close(
+            joint,
+            expected_joint,
+            "pre-transition tax is the joint bill",
+        );
+        assert_close(
+            single,
+            expected_single,
+            "post-transition tax is the single bill",
+        );
+        assert!(
+            single > joint,
+            "the survivor's bill must rise on the same income: {joint} -> {single}"
+        );
+    }
+
+    /// `None` is the no-transition case — a one-person plan, or a household
+    /// already filing Single — and must never reach the survivor brackets.
+    #[test]
+    fn no_transition_taxes_every_period_as_the_household() {
+        let tax = survivor_tax(None);
+        let income = IncomeBreakdown {
+            ordinary: 120_000.0,
+            ..Default::default()
+        };
+        assert_close(
+            tax.tax(&income, 99).tax,
+            tax.tax(&income, 0).tax,
+            "status never changes",
+        );
     }
 }
