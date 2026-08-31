@@ -280,7 +280,7 @@ Frontend consumes `Projection` directly (generated types); the real-dollar toggl
 
 **M4 — Polish & V1 close-out.** Input validation + friendly errors, empty/depleted states, number formatting, README (privacy model, how to back up data), first release tag.
 
-**V2 backlog (architected-for, not built):** Monte Carlo (rayon over `path_id`, percentile-fan chart), historical sequence backtesting, federal/state bracket `TaxModel`, `OrderedDrawdown`, monthly periods, RMDs, employer match, multi-scenario compare UI. (Social Security/pension income streams shipped — see `SocialSecurityBenefit`.)
+**V2 backlog (architected-for, not built):** historical sequence backtesting, `OrderedDrawdown`, monthly periods, RMDs. (Shipped since: Social Security/pension income streams — see `SocialSecurityBenefit`; Monte Carlo over `path_id`; the federal/state bracket `TaxModel`; employer match; the multi-scenario compare UI; and survivor modelling — `SurvivorTax` is the time-varying filing status the blind-spot list above anticipated.)
 
 ## Branch & Delivery Strategy
 

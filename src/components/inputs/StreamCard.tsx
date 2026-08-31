@@ -16,8 +16,10 @@ import { boundaryOptions, boundaryToChoice, choiceToBoundary } from "./streamBou
  * list it lives in is entirely determined by `owner`, set by the caller when
  * the stream is created; this component never edits it.
  *
- * The survivor share is offered only where it can do anything: a stream with
- * an owner, in a household with someone to outlive them.
+ * The survivor share is offered only where it can do anything: an owned
+ * stream, in a household with someone to outlive that owner, that is still
+ * running when they die — which rules out the salaries that make up most
+ * owned streams, since they stop at retirement.
  */
 export function StreamCard(props: {
   plan: Plan;
@@ -27,6 +29,12 @@ export function StreamCard(props: {
 }) {
   const { plan, streamIndex: i, updatePlan } = props;
   const stream = plan.streams[i];
+  // A stream that has already stopped by its owner's death has no share to
+  // pass on: "ends at retirement" is the common case, and the degenerate
+  // "ends at plan start" the other.
+  const runsUntilItsOwnerDies =
+    stream.end === "PlanEnd" ||
+    (typeof stream.end === "object" && ("Date" in stream.end || "AtDeath" in stream.end));
 
   return (
     <fieldset>
@@ -121,7 +129,7 @@ export function StreamCard(props: {
           })
         }
       />
-      {stream.owner !== null && plan.people.length > 1 && (
+      {stream.owner !== null && plan.people.length > 1 && runsUntilItsOwnerDies && (
         <>
           <CheckboxField
             label="Continues for a survivor"

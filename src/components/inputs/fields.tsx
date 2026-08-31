@@ -143,7 +143,7 @@ export function PercentField(props: {
   const label = `${props.label} (%)`;
   const id = useId();
   return (
-    <label className="field" htmlFor={id}>
+    <label className={props.hint ? "field field-with-hint" : "field"} htmlFor={id}>
       <span>{label}</span>
       <BufferedNumberInput
         id={id}

@@ -208,6 +208,35 @@ fn a_survivor_steps_up_no_earlier_than_their_own_claiming_age() {
     assert_eq!(year(&projection, 2040).income, 40_000.0);
 }
 
+/// A survivor benefit goes to a spouse, and the model has no relationships
+/// in it: with two people left there is no way to tell which of them it
+/// transfers to. Such a household is left alone rather than guessed at —
+/// each person keeps their own benefit to their own death.
+#[test]
+fn a_household_with_two_survivors_keeps_every_benefit_as_it_was() {
+    let mut plan = household();
+    plan.people.push(person(
+        "third",
+        YearMonth {
+            year: 1960,
+            month: 1,
+        },
+        90,
+    ));
+    plan.social_security = vec![
+        benefit("first", 40_000.0),
+        benefit("second", 25_000.0),
+        benefit("third", 10_000.0),
+    ];
+    let projection = run_deterministic(&plan);
+
+    assert_eq!(year(&projection, 2034).income, 75_000.0);
+    // Only `first`'s own benefit stops, at their own death.
+    assert_eq!(year(&projection, 2035).income, 35_000.0);
+    // And `second`'s stops at theirs, leaving `third`'s alone.
+    assert_eq!(year(&projection, 2045).income, 10_000.0);
+}
+
 /// The tax cliff: the same income, taxed against half the brackets. The
 /// household files jointly through the year of the death — the IRS rule —
 /// and Single from the year after.

@@ -35,6 +35,12 @@ use super::SimWarning;
 ///   the death itself. Modelling nothing at all would be plainly wrong for
 ///   the common one-earner household, where the survivor is entitled to the
 ///   decedent's benefit.
+/// - A household that leaves *more than one* survivor is left alone
+///   entirely: everyone keeps their own benefit to their own death. A
+///   survivor benefit goes to a spouse, and this model has no relationships
+///   in it — with two people left there is no way to tell which of them the
+///   benefit transfers to, and handing it to each is worse than not
+///   modelling it.
 pub(super) fn social_security_streams(
     plan: &Plan,
     warnings: &mut Vec<SimWarning>,
@@ -51,7 +57,13 @@ pub(super) fn social_security_streams(
         }
     }
 
-    let Some((death, decedent)) = plan.first_death() else {
+    let survivor = plan.first_death().and_then(|(death, decedent)| {
+        match plan.survivors_after(death).count() {
+            1 => Some((death, decedent, plan.survivors_after(death).next()?)),
+            _ => None,
+        }
+    });
+    let Some((death, decedent, survivor)) = survivor else {
         return resolved
             .iter()
             .map(|(ss, person)| ss.to_stream(person, cola))
@@ -69,27 +81,24 @@ pub(super) fn social_security_streams(
         streams.push(stream);
     }
 
-    let decedent_benefit = resolved.iter().find(|(_, p)| p.id == decedent.id);
-    for person in plan.survivors_after(death) {
-        let own = resolved.iter().find(|(_, p)| p.id == person.id);
-        let larger = [own, decedent_benefit]
-            .into_iter()
-            .flatten()
-            .max_by(|(a, _), (b, _)| a.annual_benefit().total_cmp(&b.annual_benefit()));
-        let Some((benefit, _)) = larger else { continue };
-
+    let own = resolved.iter().find(|(_, p)| p.id == survivor.id);
+    let larger = [own, resolved.iter().find(|(_, p)| p.id == decedent.id)]
+        .into_iter()
+        .flatten()
+        .max_by(|(a, _), (b, _)| a.annual_benefit().total_cmp(&b.annual_benefit()));
+    if let Some((benefit, _)) = larger {
         let start = match own {
-            Some((ss, _)) => person.month_at_age(ss.claiming_age).max(death),
+            Some((ss, _)) => survivor.month_at_age(ss.claiming_age).max(death),
             None => death,
         };
         streams.push(CashFlowStream {
-            id: format!("ss-survivor-{}", person.id),
-            name: format!("{}'s survivor Social Security", person.name),
-            owner: Some(person.id.clone()),
+            id: format!("ss-survivor-{}", survivor.id),
+            name: format!("{}'s survivor Social Security", survivor.name),
+            owner: Some(survivor.id.clone()),
             direction: StreamDirection::Income,
             annual_amount: benefit.annual_benefit(),
             start: StreamBoundary::Date(start),
-            end: StreamBoundary::AtDeath(person.id.clone()),
+            end: StreamBoundary::AtDeath(survivor.id.clone()),
             growth: GrowthRule::Fixed(benefit.cola_override.unwrap_or(cola)),
             survivor_percentage: None,
         });
