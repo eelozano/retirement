@@ -506,7 +506,10 @@ body {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--muted);
-  padding: 0 var(--sp-3) var(--sp-2) 0;
+  /* Zero top padding relied entirely on the card's own top padding for
+     clearance, which wasn't enough — the header row sat visibly flush
+     against the card's top border. */
+  padding: var(--sp-1) var(--sp-3) var(--sp-2) 0;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
