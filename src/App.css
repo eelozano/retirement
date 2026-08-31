@@ -326,41 +326,256 @@ body {
   min-height: 0;
 }
 
-/* Inputs destination */
-.inputs-screen {
+/* Inputs destination — a two-pane screen: a narrow sub-list of
+   destinations, then one editor pane filling the rest. Each destination
+   (People, Accounts, Spending, Assumptions) gets a full pane instead of a
+   slice of a masonry grid, because the three main editors have genuinely
+   different shapes: a form, a table, and a growing list. */
+.inputs-shell {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+.inputs-sublist {
+  box-sizing: border-box;
+  width: 200px;
+  flex: 0 0 200px;
+  border-right: 1px solid var(--border);
+  background: var(--surface-1);
+  padding: var(--sp-4) var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.inputs-sublist-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0;
+  padding: 0 var(--sp-2) var(--sp-2);
+}
+
+.inputs-sublist hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: var(--sp-3) var(--sp-2);
+  width: auto;
+}
+
+.inputs-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-2);
+  padding: 7px var(--sp-2);
+  cursor: pointer;
+}
+
+.inputs-tab:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.inputs-tab[aria-selected="true"] {
+  background: var(--surface-3);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.inputs-tab-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.inputs-tab-quiet {
+  color: var(--muted);
+}
+
+.inputs-tab-quiet .inputs-tab-count {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.inputs-pane {
   flex: 1;
   min-width: 0;
   overflow-y: auto;
   padding: var(--sp-5) var(--sp-6) var(--sp-6);
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  align-content: start;
-  gap: var(--sp-4);
 }
 
-.input-section {
+.pane-head {
+  margin-bottom: var(--sp-4);
+}
+
+.pane-head h3 {
+  font-size: var(--t-title);
+  font-weight: 600;
+  margin: 0 0 2px;
+}
+
+.pane-head p {
+  font-size: var(--t-sm);
+  color: var(--muted);
+  margin: 0;
+}
+
+.input-card {
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--r-3);
   box-shadow: var(--shadow-1);
   padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-4);
 }
 
-.input-section > summary {
+.input-card-title {
   font-weight: 600;
   font-size: var(--t-title);
-  cursor: pointer;
-  padding: 2px 0;
+  padding-bottom: var(--sp-2);
+  margin-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--border);
 }
 
-.inputs-screen fieldset {
+/* A band groups one topic within a person's card — income, Social Security,
+   saving — each keyed by a color so the eye can tell them apart while
+   scanning top to bottom. */
+.band {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-2);
+  border-top: 1px dashed var(--border);
+}
+
+.band-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-1);
+}
+
+.band-label::before {
+  content: "";
+  width: 3px;
+  height: 11px;
+  border-radius: 2px;
+  background: var(--axis);
+  flex: none;
+}
+
+.band-income .band-label::before {
+  background: var(--series-2);
+}
+
+.band-social-security .band-label::before {
+  background: var(--series-4);
+}
+
+.band-saving .band-label::before {
+  background: var(--series-1);
+}
+
+.input-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-sm);
+}
+
+.input-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  /* Zero top padding relied entirely on the card's own top padding for
+     clearance, which wasn't enough — the header row sat visibly flush
+     against the card's top border. */
+  padding: var(--sp-1) var(--sp-3) var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.input-table td {
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+  border-bottom: 1px solid var(--grid);
+  white-space: nowrap;
+}
+
+/* The first column has no earlier column to borrow a left gutter from —
+   every other column's spacing comes from the previous cell's right
+   padding, so this one needs its own or it sits flush on the card border. */
+.input-table th:first-child,
+.input-table td:first-child {
+  padding-left: var(--sp-2);
+}
+
+.input-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.input-table td.num,
+.input-table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rows double as a master list for the editor below: the whole row is
+   clickable, not just the account name, and hover/selected get visibly
+   different tones so you can tell "about to select" from "already open". */
+.input-table tbody tr {
+  cursor: pointer;
+}
+
+.input-table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.input-table tr[data-selected="true"] {
+  background: var(--surface-3);
+}
+
+.row-select {
+  font: inherit;
+  font-size: inherit;
+  color: var(--text-primary);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.row-select[aria-current="true"] {
+  font-weight: 600;
+}
+
+.inputs-pane fieldset {
   border: 1px solid var(--border);
   border-radius: 8px;
   margin: 8px 0;
   padding: 10px 12px;
 }
 
-.inputs-screen legend {
+.inputs-pane legend {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
