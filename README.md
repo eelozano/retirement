@@ -10,23 +10,39 @@ you choose. No cloud, no accounts, no telemetry, no network calls.
 
 ## Features
 
-- **Plan inputs that drive a live re-projection.** People (staggered retirement
-  dates supported), accounts (taxable, pre-tax, Roth) with Boglehead allocation
-  presets, income/expense streams, and market/tax assumptions. Every edit
-  re-projects and autosaves.
+- **A plan you edit as a screen, not a form.** Inputs is a two-pane editor —
+  People, Accounts, Spending, plus Assumptions — and every edit re-projects
+  and autosaves.
+- **Contributions modeled the way you actually set them.** Percent of salary,
+  a flat amount, or "the federal maximum," resolved each year against an
+  inflation-indexed limit table with age-50 and SECURE 2.0 catch-up tiers.
+  Limits are enforced *per person* across all their accounts, not per account,
+  and clamps surface as readable warnings.
+- **Employer match.** Tiered formulas ("100% of the first 3%, 50% of the next
+  2%"), matched against your household deferral rate, landing in a pre-tax or
+  Roth account and held to the annual-additions cap rather than your own
+  deferral limit.
 - **Social Security modeling.** Benefits are first-class (PIA + claiming age)
   rather than a hand-computed dollar figure, so changing the claiming age
   recomputes interactively.
-- **Federal and state tax brackets.** Bracket-level modeling with filing status,
-  alongside the simpler flat-rate model.
+- **Federal and state tax brackets.** Bracket-level modeling with filing
+  status, standard deduction, and Social Security taxability thresholds.
+- **Per-person life expectancy.** Each person carries their own, so the
+  projection runs to the last survivor and streams that end at a death end at
+  *that person's*.
+- **What changes after the first death.** The household drops to the larger
+  Social Security benefit, filing status switches to Single the year after,
+  shared spending steps down by a factor you choose, and a pension can carry a
+  survivor percentage.
 - **Monte Carlo simulation.** Runs the projection across many randomized return
   paths in parallel and charts the percentile fan plus probability of success.
 - **Multi-scenario comparison.** Duplicate a plan to branch a scenario, then
   overlay net worth across up to five of them with a summary table (net worth at
   plan end, delta vs. the active scenario, depletion year, lifetime taxes).
-- **Charts and tables.** Stacked account balances and net worth, retirement and
-  fund-depletion markers, a nominal/today's-dollars toggle, and a table view of
-  every plotted value.
+- **Charts and tables.** A Plan screen with headline tiles and a year-by-year
+  inspector, a Cash flow screen, stacked account balances and net worth,
+  retirement and fund-depletion markers, a nominal/today's-dollars toggle, and
+  a table view of every plotted value.
 - **Validation before simulation.** Plans are checked before they're simulated or
   saved, with plain-language error messages.
 

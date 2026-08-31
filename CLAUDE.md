@@ -53,29 +53,15 @@ cloud/network dependencies for user data.
 - `pnpm types:generate` — regenerate `src/types/generated/`.
 - `pnpm format` — apply Biome formatting and safe fixes.
 
-Biome skips `src/types/generated/` — reformatting ts-rs output would make the
-CI drift check fail permanently. A few a11y and `noArrayIndexKey` rules are set
-to `warn` rather than `error` because fixing them needs real component changes;
-that debt is tracked in #20.
+Biome checks the frontend only — `crates/` and `src-tauri/` are Rust (handled
+by fmt and clippy), and `src/types/generated/` is skipped because reformatting
+ts-rs output would make the CI drift check fail permanently.
 
-## Roadmap status
+## Status
 
-- [x] M0 — Scaffold: Tauri app, Cargo workspace, ts-rs pipeline, CI, conventions
-- [x] M1 — Engine core: domain model, deterministic annual `simulate()`, tests
-- [x] M2 — IPC + persistence: commands, YAML storage, seed plan bootstrap
-- [x] M3 — Dashboard UI: input drawer, Recharts, nominal/real toggle
-- [x] M4 — Polish: validation, formatting, README, first release tag
+V1 shipped; the app is released and in real use (`v0.3`). Current and planned
+work lives in GitHub issues, not in this file — `gh issue list`.
 
-V2 backlog: prioritized via a BPA against actual usage (periodic "how are we
-doing" check-ins + scenario comparison). Now-tier items are tracked as GitHub
-issues, not duplicated here. All three have shipped:
-multi-scenario comparison (#6), Monte Carlo (#8), federal/state tax
-brackets (#9).
-
-Filed and open: plan snapshot history / restore / export (#19), accessibility
-and lint debt (#20).
-
-Later (architected for, not yet filed — revisit closer to retirement):
-historical sequence backtesting, ordered drawdown, RMDs, employer match,
-user-editable per-asset-class volatility (Monte Carlo currently uses the
-fixed defaults in `presets::asset_volatility`).
+Design intent for work not yet built is in `docs/ARCHITECTURE.md`: which
+extensions the traits and schema were shaped to accept, and why. That is
+rationale, and it stays accurate whether or not anything is built on it.

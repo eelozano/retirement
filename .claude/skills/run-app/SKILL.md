@@ -104,4 +104,4 @@ pkill -f "bundle/macos/Retirement Planner.app"; pkill -f "target/debug/retiremen
 - **Menu bar clicks need a Finder grant**, which is usually not worth
   requesting. Prefer in-app controls.
 - The left rail is the navigation: chart icon is Plan, arrows are Cash flow,
-  sliders are Inputs, layers are Compare, database at the bottom is Storage.
+  sliders are Inputs, layers are Scenarios (which holds the compare view), database at the bottom is Storage.

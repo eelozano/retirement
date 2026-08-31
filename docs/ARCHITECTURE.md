@@ -27,7 +27,7 @@ A local, privacy-first retirement projection tool (ProjectionLab/Boldin-inspired
 8. **`f64` for money.** This is projection math (compounding, random draws), not accounting; integer cents buy nothing and complicate Monte Carlo. Round at the display layer.
 9. **Recharts is fine for V1** (~60 annual data points, stacked areas). If V2 Monte Carlo percentile fans strain it, swap the chart layer only — chart components will consume a stable `Projection` view-model, so the charting lib is not load-bearing.
 10. **Zustand for frontend state** (small, no boilerplate). Inputs live in the store; a debounced effect calls the `run_projection` Tauri command; results are kept separate from inputs so stale results are detectable.
-11. **Blind spots flagged for the backlog** (not V1, but the schema won't fight them): employer 401(k) match, RMDs, IRMAA/ACA cliffs, catch-up contributions, contribution-limit inflation indexing, capital gains vs ordinary income, rebalancing drift/glide paths, survivor scenarios, filing status.
+11. **Blind spots named up front so the schema would not fight them:** employer 401(k) match, RMDs, IRMAA/ACA cliffs, catch-up contributions, contribution-limit inflation indexing, capital gains vs ordinary income, rebalancing drift/glide paths, survivor scenarios, filing status. Naming them early is what made match, catch-up tiers, limit indexing, survivor scenarios, and filing status additive when they were built — none needed a schema migration.
 12. **Data safety:** plans saved to a user-visible, user-configurable location (default: `~/Documents/Retirement Planner`, or `~/RetirementPlanner` if Documents can't be resolved) — outside the repo entirely; `data/` also git-ignored in case the user prefers keeping files next to the repo. Atomic writes (write temp + rename) and a `.bak` of the previous version on save. Legacy pre-#13 plans in the old `app_data_dir` are migrated forward automatically on first launch (copy, never delete).
 
 ---
@@ -37,7 +37,7 @@ A local, privacy-first retirement projection tool (ProjectionLab/Boldin-inspired
 ```
 ┌─────────────────────────────────────────────────────┐
 │  React/TS Frontend (src/)                           │
-│  InputDrawer ─► Zustand store ─► debounced invoke   │
+│  Rail ─► screens ─► Zustand store ─► debounced invoke│
 │  Dashboard charts ◄─ Projection view-model          │
 └──────────────────────┬──────────────────────────────┘
                        │ Tauri IPC (serde JSON)
@@ -65,12 +65,17 @@ retirement/
 ├── crates/
 │   └── engine/
 │       ├── src/
-│       │   ├── lib.rs
-│       │   ├── model/         # Plan, Person, Account, Stream, Assumptions, YearMonth
-│       │   ├── sim/           # simulate(), PeriodState, Projection, contribution limits
-│       │   ├── strategies/    # returns.rs, tax.rs, drawdown.rs (traits + V1 impls)
-│       │   └── presets.rs     # Boglehead allocations, default assumptions
-│       └── tests/             # golden-file + property tests
+│       │   ├── lib.rs             # simulate() entry, tax_model() assembly
+│       │   ├── model/             # plan, person, account, stream, assumptions,
+│       │   │                      # social_security, tax_profile, validation, year_month
+│       │   ├── sim/               # mod.rs (the loop), contributions, survivor,
+│       │   │                      # monte_carlo, projection
+│       │   ├── strategies/        # returns.rs, tax.rs, drawdown.rs (traits + impls)
+│       │   ├── presets.rs         # allocations, default assumptions, limit table
+│       │   └── state_tax_data.rs  # per-state bracket schedules
+│       └── tests/                 # golden-file, micro-case, property, and
+│                                  # per-feature tests (contributions,
+│                                  # employer_match, mortality, survivor, …)
 ├── src-tauri/
 │   ├── src/
 │   │   ├── main.rs / lib.rs
@@ -82,11 +87,15 @@ retirement/
 ├── src/
 │   ├── App.tsx
 │   ├── components/
-│   │   ├── layout/            # Dashboard shell, responsive drawer
-│   │   ├── inputs/            # PersonForm, AccountForm, StreamForm, AssumptionsForm
-│   │   └── charts/            # StackedBalancesChart, NetWorthChart, SummaryStats
-│   ├── store/                 # Zustand: planSlice, projectionSlice, uiSlice
-│   ├── lib/                   # invoke wrappers, real-dollar deflator, formatters
+│   │   ├── layout/            # Dashboard shell, Rail, PlanScreen, CashFlowScreen,
+│   │   │                      # ComparisonView, StatusBand, Modal, *Settings
+│   │   ├── inputs/            # InputsScreen (two-pane) + People/Accounts/
+│   │   │                      # Spending/Assumptions sections, StreamCard, fields
+│   │   └── charts/            # ProjectionChart, CashFlowChart, ComparisonChart,
+│   │                          # YearInspector, HeadlineTiles, DataTable, + the
+│   │                          # pure *Data.ts view-model builders they consume
+│   ├── store/                 # Zustand: plan, projection, and UI state
+│   ├── lib/                   # invoke wrappers, formatters, warning text
 │   └── types/generated/       # ts-rs output — never hand-edited
 └── data/                      # optional local plans dir, git-ignored
 ```
@@ -105,6 +114,7 @@ pub struct Plan {
     pub people: Vec<Person>,
     pub accounts: Vec<Account>,
     pub streams: Vec<CashFlowStream>,
+    pub social_security: Vec<SocialSecurityBenefit>,  // resolved into streams at simulate time
     pub assumptions: Assumptions,
     pub sim_config: SimConfig,
 }
@@ -114,6 +124,12 @@ pub struct Person {
     pub name: String,               // "Enrique", "Claire"
     pub birth: YearMonth,           // 1983-08, 1987-06
     pub retirement: YearMonth,      // 2038-08, 2042-08
+    // Mortality is per person, not per household: `AtDeath` resolves against
+    // this directly, and `Plan::end_month` takes the max across everyone, so
+    // the horizon runs to the last survivor. Plans written before this field
+    // fall back to `Assumptions::plan_end_age` via `PersonWire`, resolved in
+    // `Plan`'s custom `Deserialize` — the only place both are in scope.
+    pub life_expectancy_age: u8,
 }
 
 pub enum AccountKind { Taxable, TraditionalPreTax, Roth }
@@ -146,9 +162,9 @@ pub struct Account {
     pub kind: AccountKind,
     pub name: String,
     pub balance: f64,               // starting balance (nominal, as of plan start)
-    pub cost_basis: Option<f64>,    // taxable only; tracked from day 1, used by V2 tax
+    pub cost_basis: Option<f64>,    // taxable only; splits withdrawals principal vs gains
     pub allocation: AllocationRef,  // preset id or custom weights
-    pub plan_type: PlanType,              // bucket; cap shared per person per year
+    pub plan_type: PlanType,        // limit bucket; cap shared per person per year
     pub contribution: ContributionRule,
     pub employer_match: Option<EmployerMatch>,
 }
@@ -165,14 +181,47 @@ pub struct CashFlowStream {
     pub start: StreamBoundary,          // Date(YearMonth) | AtRetirement(PersonId) | PlanStart
     pub end: StreamBoundary,            //                  | AtDeath(PersonId) | PlanEnd
     pub growth: GrowthRule,             // Inflation | Fixed(rate) | None
+    // A pension's or annuity's survivor percentage. When set, it overrides
+    // `end` in both directions at the owner's death: the full amount stops
+    // there even if `end` runs later, and this fraction continues to plan end.
+    pub survivor_percentage: Option<f64>,
 }
 
 pub struct Assumptions {
     pub inflation: f64,
     pub asset_returns: BTreeMap<AssetClass, f64>,  // nominal expected returns
-    pub flat_tax_rate: f64,
-    pub plan_end_age: u8,                          // e.g. 95, per eldest person
-    pub sweep_surplus_to_taxable: bool,             // default false; see sim/mod.rs step 4
+    // Federal filing status: drives the bracket + standard-deduction table
+    // and the Social Security taxability thresholds `BracketTax` reads.
+    pub filing_status: FilingStatus,
+    // State income tax as an editable bracket schedule. The state picker
+    // prefills it, but the stored brackets — not the state selection — are
+    // what `BracketTax` evaluates, so user edits always stick. This replaced
+    // the old flat `flat_tax_rate`, which no longer exists on the model;
+    // `FlatTax` survives only as a test fixture.
+    pub state_tax: StateTaxProfile,
+    // Legacy household-wide mortality figure, superseded by
+    // `Person::life_expectancy_age`. Not read by `end_month` or `AtDeath` —
+    // kept only as the migration fallback for plans predating that field.
+    pub plan_end_age: u8,
+    pub sweep_surplus_to_taxable: bool,            // default false; see sim/mod.rs step 4
+    // Fraction of *household* spending that continues after the first death.
+    // Defaults to 1.0 — no step-down — so the engine never assumes a number
+    // the user did not choose; the UI carries the 0.70–0.80 convention as
+    // guidance instead. Person-owned expenses are left alone.
+    pub survivor_expense_factor: f64,
+    // Plan-level default COLA for benefits without their own `cola_override`.
+    pub social_security_cola: f64,
+}
+
+// PIA + claiming age, resolved into an income stream at simulate time so the
+// claiming age stays interactively recomputable.
+pub struct SocialSecurityBenefit {
+    pub id: SocialSecurityBenefitId,
+    pub owner: PersonId,
+    pub benefit_at_fra: f64,        // today's dollars, from the SSA statement
+    pub full_retirement_age: u8,    // user-supplied; varies by birth year
+    pub claiming_age: u8,           // 62..=70
+    pub cola_override: Option<f64>,
 }
 
 pub enum AssetClass { UsEquity, IntlEquity, GlobalEquity, UsBonds }
@@ -182,7 +231,13 @@ pub struct SimConfig {
     pub start: YearMonth,
     pub period: PeriodLength,        // Year (V1) | Month (V2) — engine iterates periods
     pub display_real_dollars: bool,  // UI hint; engine always outputs nominal + deflator
+    pub show_monte_carlo_band: bool, // UI hint; whether the chart opens with the fan on
 }
+
+// `first_period_after(month)` is the survivor transition point: the period a
+// death falls inside keeps the pre-death rules — the IRS lets a survivor file
+// jointly for the whole year of the death — and the next one is the first
+// that does not.
 ```
 
 ### Strategy traits (`crates/engine/src/strategies/`)
@@ -205,9 +260,18 @@ pub trait DrawdownStrategy {
                 tax: &dyn TaxModel, period: PeriodIndex) -> WithdrawalResult;
 }
 
-// V1 impls: FixedReturns, FlatTax, ProportionalDrawdown.
-// V2 impls (new files, zero engine-loop changes): MonteCarloReturns(seeded),
-// HistoricalSequence, BracketTax(federal+state tables), OrderedDrawdown(Vec<AccountKind>).
+// Impls in the crate today:
+//   ReturnModel       FixedReturns, StochasticReturns (seeded, per-path)
+//   TaxModel          BracketTax (federal + state tables), SurvivorTax
+//                     (wraps two BracketTax and switches at a period index);
+//                     FlatTax remains only as a test fixture — no plan field
+//                     selects it since `flat_tax_rate` was dropped
+//   DrawdownStrategy  ProportionalDrawdown
+//
+// Each of these landed as a new file behind an unchanged trait, with no edit
+// to the simulation loop — which is the property the traits exist to buy.
+// Anything further (a historical-sequence ReturnModel, an ordered drawdown)
+// slots in the same way.
 ```
 
 ### Simulation core (`crates/engine/src/sim/`)
@@ -252,6 +316,24 @@ Matched dollars are **not** held to the employee elective-deferral limit — app
 
 Employer money never passes through household cash, so it is `PeriodSnapshot::employer_match` rather than part of `contributions` — folding it in would break the `income = outflow + surplus` identity that `tests/properties.rs` pins.
 
+#### Plan horizon (`Plan::end_month`)
+
+The projection runs to `max` over every person's `month_at_age(life_expectancy_age)` — the last survivor, not a single household age. `StreamBoundary::AtDeath(person)` resolves against that person's own figure. The household-wide `Assumptions::plan_end_age` it replaced survives only as the deserialization fallback for plans written before per-person expectancy existed.
+
+#### The survivor transition (`sim/survivor.rs`)
+
+Mortality here is an assumption (`Person::life_expectancy_age`), not a draw, so the first death is a known month before the loop starts — which is what lets the tax model precompute when filing status changes instead of threading household state through the loop. `Plan::first_death` is the first death *that leaves someone behind*: `None` for a one-person plan, and also when everyone's expectancy lands in the same month, since nothing transitions with no survivor.
+
+Almost everything the transition does is expressed as `CashFlowStream`s the main loop already runs, so it adds **no branch to the simulation loop**. Two things cannot be: the expense step-down (a per-period factor) and the filing-status change (a `TaxModel`).
+
+**Social Security.** The household stops drawing two benefits and the survivor keeps the larger. Four simplifications, stated because they are user-visible: the larger benefit is picked in today's dollars (the same ranking as at the transition month whenever both share a COLA, which they do unless one sets `cola_override`); a survivor who has their own benefit steps up no earlier than their own claiming month, since the real "survivor benefit at 60, delay your own to 70" move needs a reduction schedule this engine does not model, and claiming later is the conservative error; a survivor with *no* benefit of their own inherits the decedent's from the death itself, because modelling nothing would be plainly wrong for a one-earner household; and a household leaving *more than one* survivor is left alone entirely — a survivor benefit goes to a spouse, this model has no relationships in it, and handing it to each of two survivors is worse than not modelling it.
+
+**Filing status.** `SurvivorTax` wraps two `BracketTax` and switches at `SimConfig::first_period_after(death)` — the period containing the death still files jointly, matching the IRS rule, and the next one does not. Only a joint filer has anything to lose, so a plan already filing Single gets no transition. The state schedule carries over unchanged: `StateTaxProfile` has no filing-status dimension, and inventing a survivor variant of the user's own brackets would be worse than leaving them alone.
+
+**Expenses.** `survivor_expense_factor` scales the expense streams *no single person owns*. Expenses owned by a person are left alone — they are that person's own cost, and their `end` boundary already says when they stop. The default is 1.0, no step-down: the convention clusters at 0.70–0.80, and the engine deliberately does not seed one, so the number is always one the user chose.
+
+**Pensions.** `CashFlowStream::survivor_percentage` overrides `end` in both directions at the owner's death: the full amount stops there even if `end` ran later, and the fraction continues to plan end under the same growth rule. A stream whose owner dies last is unaffected — there is no one for the continuation to run for.
+
 #### Contribution limits, continued
 
 `presets::CONTRIBUTION_LIMITS` carries the statutory figures for one tax year (`basis_year`, currently 2026 from IRS Notice 2025-67) and `ContributionLimits::annual_limit` indexes them forward at the plan's inflation rate, rounding down to the statutory increment ($500, or $100 for the IRA catch-up) so limits step the way the real schedule does. Catch-up is automatic from the owner's `birth`: the age-50 tier, and the SECURE 2.0 tier that replaces it for the years they turn 60 through 63. The app is local-first with no network, so the figures are only as current as the release — `basis_year` is surfaced in the UI rather than implying they are live.
@@ -263,24 +345,27 @@ Frontend consumes `Projection` directly (generated types); the real-dollar toggl
 - `run_projection(plan: Plan) -> Projection` — stateless; frontend sends full plan (small payload, ~KB). `run_projections(plans: Vec<Plan>) -> Vec<Result<Projection, String>>` does the same for N scenarios in one round-trip, for the comparison view (#6) — one entry per plan, so one invalid scenario doesn't blank the rest.
 - `save_plan(plan) / load_plan() / load_plan_named(id) / list_plans() -> Vec<PlanSummary>` — YAML in the resolved plans directory, keyed by each plan's stable `id` (not its editable `name`), atomic write + `.bak`, `schema_version` checked on load. `load_plan` loads the active scenario (see `set_active_plan`, falling back to the first stored plan or a fresh seed) and also runs the one-shot legacy-JSON migration check; plans saved before `id` existed are backfilled once from their pre-#6 filename slug.
 - `duplicate_plan(id, new_name) / delete_plan(id) / set_active_plan(id)` — scenario management: branch a new plan off an existing one (deep copy, fresh id), remove a scenario (moved aside as `.deleted`, never unlinked — refused for the last remaining scenario), and record which scenario loads on next launch.
-- `get_presets() -> Presets` — allocations + default assumptions so defaults live in one place (Rust).
+- `run_monte_carlo(plan, MonteCarloConfig { n_paths, seed }) -> MonteCarloResult` — the same `simulate` over N seeded paths in parallel (rayon), returning per-period net-worth percentiles plus probability of success. `seed` is `u32`, not `u64`, so ts-rs emits a plain `number`: a `bigint` would not survive `JSON.stringify` across the IPC boundary.
+- `get_presets() -> Presets` — allocations, default assumptions, and the contribution-limit table, so defaults live in one place (Rust).
+- `engine_version() -> String` — the engine crate version, surfaced in the UI.
 - `get_storage_info() / choose_storage_dir() / set_storage_dir(path) / reveal_storage_dir()` — the Storage settings surface: report the effective/default plans dir, open a native folder picker, persist a new location (copying existing plans forward), and reveal the folder in Finder/Explorer.
 
 ---
 
-## 3. Phased Execution Roadmap
+## 3. How V1 Was Built
 
-**M0 — Scaffold (first build session).** Tauri v2 app via `create-tauri-app` (React+TS+Vite, pnpm); Cargo workspace with `crates/engine`; ts-rs type-generation wired into build; `.gitignore` for `data/`; `cargo fmt/clippy/test` + `tsc --noEmit` clean. *Done when the empty app opens and generated types import.*
+Kept as the record of the delivered milestones. Current and planned work is
+tracked in GitHub issues (`gh issue list`), not here.
 
-**M1 — Engine core (pure Rust, no UI).** Domain model + presets; `simulate()` with FixedReturns/FlatTax/ProportionalDrawdown; seed scenario (Enrique + Claire, 3 accounts, salary/spending streams) as a fixture. Tests: golden-file projection snapshot, hand-computed 3-period micro-case, property tests (balances ≥ 0, cash conservation per period, depletion emits warning). *Done when `cargo test` proves the math.*
+**M0 — Scaffold.** Tauri v2 app via `create-tauri-app` (React+TS+Vite, pnpm); Cargo workspace with `crates/engine`; ts-rs type-generation wired into build; `.gitignore` for `data/`; `cargo fmt/clippy/test` + `tsc --noEmit` clean. *Done: the empty app opened and generated types imported.*
 
-**M2 — IPC + persistence.** Commands, storage layer, load-on-launch/save flows, seed plan bootstrap on first run. *Done when a plan round-trips through the app and a projection returns to the frontend.*
+**M1 — Engine core (pure Rust, no UI).** Domain model + presets; `simulate()` with FixedReturns/FlatTax/ProportionalDrawdown; seed scenario (Enrique + Claire, 3 accounts, salary/spending streams) as a fixture. Tests: golden-file projection snapshot, hand-computed 3-period micro-case, property tests (balances ≥ 0, cash conservation per period, depletion emits warning). *Done: `cargo test` proves the math.*
 
-**M3 — Dashboard UI.** Zustand store + debounced re-projection; input drawer (people, accounts w/ preset picker, streams, assumptions); Recharts stacked-area balances by account, net-worth line, summary stats (retirement-date net worth, depletion age if any); nominal/real toggle; responsive layout. *Done when editing any input live-updates the charts.*
+**M2 — IPC + persistence.** Commands, storage layer, load-on-launch/save flows, seed plan bootstrap on first run. *Done: a plan round-trips through the app and a projection returns to the frontend.*
+
+**M3 — Dashboard UI.** Zustand store + debounced re-projection; input drawer (people, accounts w/ preset picker, streams, assumptions); Recharts stacked-area balances by account, net-worth line, summary stats (retirement-date net worth, depletion age if any); nominal/real toggle; responsive layout. *Done: editing any input live-updates the charts.*
 
 **M4 — Polish & V1 close-out.** Input validation + friendly errors, empty/depleted states, number formatting, README (privacy model, how to back up data), first release tag.
-
-**V2 backlog (architected-for, not built):** historical sequence backtesting, `OrderedDrawdown`, monthly periods, RMDs. (Shipped since: Social Security/pension income streams — see `SocialSecurityBenefit`; Monte Carlo over `path_id`; the federal/state bracket `TaxModel`; employer match; the multi-scenario compare UI; and survivor modelling — `SurvivorTax` is the time-varying filing status the blind-spot list above anticipated.)
 
 ## Branch & Delivery Strategy
 
@@ -298,7 +383,7 @@ The branch strategy and other session-spanning rules live in a root `CLAUDE.md`,
 - **Architecture invariants:** engine crate stays Tauri-free; TS types are generated by ts-rs, never hand-edited; all dates are `YearMonth`; engine outputs nominal dollars + deflator; new behaviors go behind the `ReturnModel`/`TaxModel`/`DrawdownStrategy` traits.
 - **Privacy rule:** financial data never committed — plans live in a user-configurable location (Documents by default) or git-ignored `data/`; keep `.gitignore` covering it.
 - **Dev commands:** `pnpm tauri dev`, `pnpm app:build`, `cargo test -p engine`, and `pnpm check` to run before pushing.
-- **Roadmap pointer:** current milestone status and the V2 backlog list, updated as milestones land.
+- **Status pointer:** what has shipped, and a pointer to GitHub issues for current work — deliberately not a copy of the issue list, which decays.
 
 Repo-level `.claude/settings.json` will be added only if we later want shared hooks/permissions; CLAUDE.md covers conventions for now.
 
@@ -306,5 +391,5 @@ Repo-level `.claude/settings.json` will be added only if we later want shared ho
 
 - **Engine:** `cargo test -p engine` — golden files, micro-case with hand-checked arithmetic, property tests.
 - **Type sync:** ts-rs generation runs in build/CI; `tsc --noEmit` fails on drift.
-- **App:** `pnpm tauri dev` — edit inputs, watch charts update; save/reload plan; confirm plan file exists in app data dir and nothing sensitive lands in the repo (`git status` clean of data).
+- **App:** `pnpm tauri dev` — edit inputs, watch charts update; save/reload plan; confirm the plan file exists in the resolved plans directory and nothing sensitive lands in the repo (`git status` clean of data).
 - Each milestone lands via its own PR into `main` per the branch strategy above.
