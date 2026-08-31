@@ -96,6 +96,22 @@ export function PlanScreen(props: { showBand: boolean; onOpenCashFlow: () => voi
   const activeYear = hoverYear ?? pinnedYear ?? defaultPin;
   const detail = yearDetail(plan, projection, activeYear, series, realDollars);
 
+  const bandOn = props.showBand && monteCarlo !== null;
+  // `chartData` already carries the percentile fields when `monteCarlo` is
+  // set (via `mergeFan`), regardless of whether the band is toggled on.
+  const activeFanRow = monteCarlo
+    ? chartData.find((r) => r.year === activeYear)
+    : undefined;
+  const activeFan = activeFanRow
+    ? {
+        p10: activeFanRow.p10,
+        p25: activeFanRow.innerBase,
+        p50: activeFanRow.p50,
+        p75: activeFanRow.innerBase + activeFanRow.innerBand,
+        p90: activeFanRow.p90,
+      }
+    : null;
+
   return (
     <main className={`plan-screen ${projecting ? "refreshing" : ""}`}>
       <StatusBand metrics={metrics} warnings={warnings} />
@@ -130,6 +146,28 @@ export function PlanScreen(props: { showBand: boolean; onOpenCashFlow: () => voi
                       <span className="legend-rule" />
                       Net worth
                     </span>
+                    {bandOn && (
+                      <>
+                        <span className="legend-item">
+                          <span
+                            className="legend-swatch"
+                            style={{ background: "var(--band)" }}
+                          />
+                          10th–90th percentile
+                        </span>
+                        <span className="legend-item">
+                          <span
+                            className="legend-swatch"
+                            style={{ background: "var(--band-inner)" }}
+                          />
+                          25th–75th percentile
+                        </span>
+                        <span className="legend-item">
+                          <span className="legend-rule legend-rule-dashed" />
+                          Median (p50)
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <ProjectionChart
@@ -137,13 +175,17 @@ export function PlanScreen(props: { showBand: boolean; onOpenCashFlow: () => voi
                   series={series}
                   plan={plan}
                   depletionYear={depletionYear}
-                  showBand={props.showBand && monteCarlo !== null}
+                  showBand={bandOn}
                   pinnedYear={pinnedYear ?? defaultPin}
                   onHoverYear={setHoverYear}
                   onPinYear={setPinnedYear}
                 />
               </div>
-              <YearInspector detail={detail} hovering={hoverYear !== null} />
+              <YearInspector
+                detail={detail}
+                hovering={hoverYear !== null}
+                percentiles={bandOn ? activeFan : null}
+              />
             </section>
 
             <section className="milestones" aria-label="Milestones">

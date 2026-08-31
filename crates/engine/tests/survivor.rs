@@ -63,6 +63,7 @@ fn household() -> Plan {
             start: START,
             period: PeriodLength::Year,
             display_real_dollars: false,
+            show_monte_carlo_band: false,
         },
     }
 }
