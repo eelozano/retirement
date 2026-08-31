@@ -34,6 +34,12 @@ pub struct SimConfig {
     /// UI hint only: whether charts default to today's-dollars display. The
     /// engine always outputs nominal values plus a per-period deflator.
     pub display_real_dollars: bool,
+    /// UI hint only: whether the projection chart defaults to showing the
+    /// Monte Carlo percentile band. `#[serde(default)]` so plans saved
+    /// before this field existed load with the band off, same migration
+    /// precedent as `id` above.
+    #[serde(default)]
+    pub show_monte_carlo_band: bool,
 }
 
 impl SimConfig {

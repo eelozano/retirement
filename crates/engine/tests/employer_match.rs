@@ -104,6 +104,7 @@ fn plan_with(accounts: Vec<Account>) -> Plan {
             start: YearMonth::new(2026, 1),
             period: PeriodLength::Year,
             display_real_dollars: false,
+            show_monte_carlo_band: false,
         },
     }
 }

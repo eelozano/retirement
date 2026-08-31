@@ -45,8 +45,13 @@ export function mergeFan(rows: ChartRow[], fan: FanRow[]): ProjectionRow[] {
   if (fan.length !== rows.length) return rows;
   return rows.map((row, i) => ({
     ...row,
+    p10: fan[i].p10,
+    p50: fan[i].p50,
+    p90: fan[i].p90,
     outerBase: fan[i].outerBase,
     outerBand: fan[i].outerBand,
+    innerBase: fan[i].innerBase,
+    innerBand: fan[i].innerBand,
   }));
 }
 
@@ -142,13 +147,18 @@ export function ProjectionChart(props: {
             isAnimationActive={false}
           />
 
-          {/* Percentile band: a transparent riser to p10, then the p10-p90
-              height. Drawn first so the stack and line sit on top of it. */}
+          {/* Percentile bands: each a transparent riser to its lower bound,
+              then the band's height, on its own stack so the inner and
+              outer ranges sit at their own offsets rather than adding onto
+              each other. Drawn first so the stack and line sit on top, but
+              the stack below is thinned (fillOpacity) while a band is on so
+              the range still reads through it rather than being painted
+              over — see #26. */}
           {props.showBand && (
             <>
               <Area
                 dataKey="outerBase"
-                stackId="fan"
+                stackId="fan-outer"
                 stroke="none"
                 fill="none"
                 isAnimationActive={false}
@@ -157,9 +167,26 @@ export function ProjectionChart(props: {
               <Area
                 dataKey="outerBand"
                 name="10th–90th percentile"
-                stackId="fan"
+                stackId="fan-outer"
                 stroke="none"
                 fill="var(--band)"
+                isAnimationActive={false}
+                activeDot={false}
+              />
+              <Area
+                dataKey="innerBase"
+                stackId="fan-inner"
+                stroke="none"
+                fill="none"
+                isAnimationActive={false}
+                activeDot={false}
+              />
+              <Area
+                dataKey="innerBand"
+                name="25th–75th percentile"
+                stackId="fan-inner"
+                stroke="none"
+                fill="var(--band-inner)"
                 isAnimationActive={false}
                 activeDot={false}
               />
@@ -176,11 +203,46 @@ export function ProjectionChart(props: {
               stroke={s.color}
               strokeWidth={1}
               fill={s.color}
-              fillOpacity={0.9}
+              fillOpacity={props.showBand ? 0.55 : 0.9}
               isAnimationActive={false}
               activeDot={false}
             />
           ))}
+
+          {props.showBand && (
+            <>
+              <Line
+                type="monotone"
+                dataKey="p90"
+                name="90th percentile"
+                stroke="var(--band-edge)"
+                strokeWidth={1}
+                strokeDasharray="2 2"
+                dot={false}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="p10"
+                name="10th percentile"
+                stroke="var(--band-edge)"
+                strokeWidth={1}
+                strokeDasharray="2 2"
+                dot={false}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="p50"
+                name="Median (p50)"
+                stroke="var(--text-primary)"
+                strokeWidth={1.5}
+                strokeDasharray="5 3"
+                dot={false}
+                isAnimationActive={false}
+              />
+            </>
+          )}
 
           {props.plan.people.map((person, i) => (
             <ReferenceLine
