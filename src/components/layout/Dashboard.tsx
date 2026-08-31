@@ -22,6 +22,8 @@ export function Dashboard() {
   const error = usePlanStore((s) => s.error);
   const realDollars = usePlanStore((s) => s.realDollars);
   const setRealDollars = usePlanStore((s) => s.setRealDollars);
+  const showBand = usePlanStore((s) => s.showMonteCarloBand);
+  const setShowBand = usePlanStore((s) => s.setShowMonteCarloBand);
   const scenarios = usePlanStore((s) => s.scenarios);
   const switchScenario = usePlanStore((s) => s.switchScenario);
   const updatePlan = usePlanStore((s) => s.updatePlan);
@@ -33,7 +35,6 @@ export function Dashboard() {
   const [inputsSection, setInputsSection] = useState<InputsSection>("people");
   const [storageOpen, setStorageOpen] = useState(false);
   const [scenariosOpen, setScenariosOpen] = useState(false);
-  const [showBand, setShowBand] = useState(false);
   const [comparing, setComparing] = useState(false);
 
   // A hard failure (nothing has ever loaded) has no shell to show yet.
@@ -128,10 +129,22 @@ export function Dashboard() {
             type="button"
             className="topbar-toggle"
             aria-pressed={showBand}
-            onClick={() => setShowBand((b) => !b)}
+            title="Show the Monte Carlo percentile band on the projection chart"
+            aria-describedby="monte-carlo-toggle-hint"
+            onClick={() => setShowBand(!showBand)}
           >
             Monte Carlo
           </button>
+          <span id="monte-carlo-toggle-hint" className="visually-hidden">
+            Shades the projection chart with the 10th–90th and 25th–75th percentile ranges
+            from the Monte Carlo simulation, and adds those percentiles to the year
+            inspector.
+          </span>
+          <span className="visually-hidden" role="status">
+            {showBand
+              ? "Monte Carlo percentile band shown."
+              : "Monte Carlo percentile band hidden."}
+          </span>
         </header>
 
         <StorageSettings open={storageOpen} onClose={() => setStorageOpen(false)} />

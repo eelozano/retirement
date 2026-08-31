@@ -37,7 +37,9 @@
 
   /* focus, monte-carlo percentile band, elevation */
   --focus: #2a78d6;
-  --band: rgba(42, 120, 214, 0.14);
+  --band: rgba(42, 120, 214, 0.2);
+  --band-inner: rgba(42, 120, 214, 0.34);
+  --band-edge: rgba(42, 120, 214, 0.55);
   --shadow-1: 0 1px 2px rgba(11, 11, 11, 0.05);
   --shadow-2: 0 4px 14px rgba(11, 11, 11, 0.08);
 
@@ -98,7 +100,9 @@
     --status-critical-bg: rgba(240, 106, 106, 0.1);
 
     --focus: #7db6f5;
-    --band: rgba(93, 162, 240, 0.16);
+    --band: rgba(93, 162, 240, 0.22);
+    --band-inner: rgba(93, 162, 240, 0.38);
+    --band-edge: rgba(93, 162, 240, 0.6);
     --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-2: 0 4px 14px rgba(0, 0, 0, 0.5);
   }
@@ -1360,6 +1364,16 @@ button.remove:hover {
   height: 2px;
   background: var(--text-primary);
 }
+.legend-rule-dashed {
+  width: 12px;
+  height: 0;
+  border-top: 1.5px dashed var(--text-primary);
+}
+.legend-swatch {
+  width: 12px;
+  height: 9px;
+  border-radius: 2px;
+}
 .projection-chart {
   border-radius: var(--r-2);
 }
@@ -1412,6 +1426,20 @@ button.remove:hover {
   font-family: var(--font-num);
   letter-spacing: -0.02em;
   margin-top: 2px;
+}
+.inspector-percentiles {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-top: 4px;
+}
+.percentile-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font-num);
+  font-size: 12px;
 }
 .inspector-row {
   display: flex;

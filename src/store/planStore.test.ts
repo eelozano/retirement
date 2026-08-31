@@ -47,6 +47,7 @@ function makePlan(overrides: Partial<Plan>): Plan {
       start: { year: 2025, month: 1 },
       period: "Year",
       display_real_dollars: false,
+      show_monte_carlo_band: false,
     },
     ...overrides,
   };

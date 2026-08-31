@@ -57,11 +57,13 @@ interface PlanStore {
   projecting: boolean;
   error: string | null;
   realDollars: boolean;
+  showMonteCarloBand: boolean;
 
   init: () => Promise<void>;
   /** Apply an edit to the plan; re-project and persist, debounced. */
   updatePlan: (mutate: (draft: Plan) => void) => void;
   setRealDollars: (real: boolean) => void;
+  setShowMonteCarloBand: (show: boolean) => void;
   switchScenario: (id: string) => Promise<void>;
   /** Branches the active scenario off into a new one under `newName`, and
    * switches to it. */
@@ -95,6 +97,7 @@ async function activate(
     plan,
     projecting: true,
     realDollars: plan.sim_config.display_real_dollars,
+    showMonteCarloBand: plan.sim_config.show_monte_carlo_band,
   });
   try {
     const [projection, monteCarlo] = await Promise.all([
@@ -119,6 +122,7 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
   projecting: false,
   error: null,
   realDollars: false,
+  showMonteCarloBand: false,
 
   init: async () => {
     try {
@@ -173,6 +177,13 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
     set({ realDollars: real });
     get().updatePlan((draft) => {
       draft.sim_config.display_real_dollars = real;
+    });
+  },
+
+  setShowMonteCarloBand: (show) => {
+    set({ showMonteCarloBand: show });
+    get().updatePlan((draft) => {
+      draft.sim_config.show_monte_carlo_band = show;
     });
   },
 

@@ -70,6 +70,7 @@ fn plan_with_two_lifespans() -> Plan {
             start: START,
             period: PeriodLength::Year,
             display_real_dollars: false,
+            show_monte_carlo_band: false,
         },
     }
 }
