@@ -3,7 +3,9 @@ import type { YearDetail } from "./planData";
 
 // Right-hand readout for one year of the projection. Shows every cash-flow
 // field on PeriodSnapshot — income, withdrawals, expenses, taxes,
-// contributions, surplus — plus per-account balances.
+// contributions, surplus — plus per-account balances, and a note on the
+// years after the first death so the drop in income reads as the survivor
+// transition rather than as a glitch.
 
 export function YearInspector(props: { detail: YearDetail | null; hovering: boolean }) {
   if (!props.detail) return null;
@@ -19,9 +21,14 @@ export function YearInspector(props: { detail: YearDetail | null; hovering: bool
       </div>
       <div className="inspector-ages">
         {detail.ages
-          .map((a) => `${a.name} ${a.age}${a.retired ? " · retired" : ""}`)
+          .map((a) =>
+            a.status === "died"
+              ? `${a.name} · died`
+              : `${a.name} ${a.age}${a.status ? ` · ${a.status}` : ""}`,
+          )
           .join(" · ")}
       </div>
+      {detail.transition && <p className="inspector-note">{detail.transition}</p>}
 
       <div className="inspector-block">
         <div className="tile-label">Net worth</div>

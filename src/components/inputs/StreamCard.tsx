@@ -1,5 +1,12 @@
 import type { Plan } from "../../types/generated/Plan";
-import { NumberField, SelectField, TextField, YearMonthField } from "./fields";
+import {
+  CheckboxField,
+  NumberField,
+  PercentField,
+  SelectField,
+  TextField,
+  YearMonthField,
+} from "./fields";
 import type { UpdatePlan } from "./shared";
 import { boundaryOptions, boundaryToChoice, choiceToBoundary } from "./streamBoundary";
 
@@ -8,6 +15,9 @@ import { boundaryOptions, boundaryToChoice, choiceToBoundary } from "./streamBou
  * streams (People pane) and for household spending (Spending pane). Which
  * list it lives in is entirely determined by `owner`, set by the caller when
  * the stream is created; this component never edits it.
+ *
+ * The survivor share is offered only where it can do anything: a stream with
+ * an owner, in a household with someone to outlive them.
  */
 export function StreamCard(props: {
   plan: Plan;
@@ -111,6 +121,33 @@ export function StreamCard(props: {
           })
         }
       />
+      {stream.owner !== null && plan.people.length > 1 && (
+        <>
+          <CheckboxField
+            label="Continues for a survivor"
+            hint="For a pension or annuity with a survivor benefit. The full amount stops at this stream's owner's death — whatever its end date says — and the share below carries on for whoever outlives them."
+            checked={stream.survivor_percentage !== null}
+            onChange={(checked) =>
+              updatePlan((d) => {
+                d.streams[i].survivor_percentage = checked ? 0.5 : null;
+              })
+            }
+          />
+          {stream.survivor_percentage !== null && (
+            <PercentField
+              label="Survivor share"
+              rate={stream.survivor_percentage}
+              minPercent={0}
+              maxPercent={100}
+              onChange={(rate) =>
+                updatePlan((d) => {
+                  d.streams[i].survivor_percentage = rate;
+                })
+              }
+            />
+          )}
+        </>
+      )}
       <button
         type="button"
         className="remove"

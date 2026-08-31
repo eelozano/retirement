@@ -40,6 +40,7 @@ function makePlan(overrides: Partial<Plan>): Plan {
       },
       plan_end_age: 95,
       sweep_surplus_to_taxable: false,
+      survivor_expense_factor: 1,
       social_security_cola: 0,
     },
     sim_config: {

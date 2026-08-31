@@ -36,6 +36,23 @@ pub struct SimConfig {
     pub display_real_dollars: bool,
 }
 
+impl SimConfig {
+    /// Index of the first simulated period that begins *strictly after*
+    /// `month`, clamped to 0 for a month at or before the plan start.
+    ///
+    /// The strictness is the point for the survivor transition: the period a
+    /// death falls inside keeps the pre-death rules — the IRS lets a
+    /// survivor file jointly for the whole year of the death — and the next
+    /// one is the first that does not.
+    pub fn first_period_after(&self, month: YearMonth) -> usize {
+        let months = self.start.months_until(month);
+        if months < 0 {
+            return 0;
+        }
+        (months / self.period.months()) as usize + 1
+    }
+}
+
 pub type PlanId = String;
 
 /// The complete user plan — the single JSON document that is persisted, sent
@@ -78,6 +95,40 @@ impl Plan {
 
     pub fn person(&self, id: &str) -> Option<&Person> {
         self.people.iter().find(|p| p.id == id)
+    }
+
+    /// The first death that leaves someone behind: the month it happens and
+    /// the person it happens to.
+    ///
+    /// This is the household's survivor transition — the point at which
+    /// Social Security drops to one benefit, filing status can change, and
+    /// spending steps down (#34). `None` for a one-person plan, and also
+    /// when everyone's expectancy lands in the same month: there is no
+    /// survivor in either case, so nothing transitions.
+    ///
+    /// Deterministic, because mortality in this engine is an assumption
+    /// (`Person::life_expectancy_age`) rather than a draw — which is what
+    /// lets the tax model precompute when filing status changes instead of
+    /// tracking household state through the loop.
+    pub fn first_death(&self) -> Option<(YearMonth, &Person)> {
+        let (month, decedent) = self
+            .people
+            .iter()
+            .map(|p| (p.month_at_age(p.life_expectancy_age), p))
+            .min_by_key(|(m, _)| *m)?;
+        let outlived_by_someone = self
+            .people
+            .iter()
+            .any(|p| p.month_at_age(p.life_expectancy_age) > month);
+        outlived_by_someone.then_some((month, decedent))
+    }
+
+    /// Everyone still alive after `month` — the people a survivor benefit,
+    /// pension continuation, or stepped-down household budget is for.
+    pub fn survivors_after(&self, month: YearMonth) -> impl Iterator<Item = &Person> {
+        self.people
+            .iter()
+            .filter(move |p| p.month_at_age(p.life_expectancy_age) > month)
     }
 }
 
