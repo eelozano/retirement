@@ -1,19 +1,16 @@
 mod contributions;
 mod monte_carlo;
+mod period;
 mod projection;
 mod survivor;
 
 pub use monte_carlo::{run_monte_carlo, MonteCarloConfig, MonteCarloResult, PeriodPercentiles};
 pub use projection::{PeriodSnapshot, Projection, SimWarning};
 
-use std::collections::{BTreeMap, BTreeSet};
+use crate::model::{CashFlowStream, GrowthRule, Plan, StreamBoundary, YearMonth};
+use crate::strategies::{DrawdownStrategy, ReturnModel, TaxModel};
 
-use crate::model::{
-    AccountId, AccountKind, CashFlowStream, GrowthRule, PersonId, Plan, StreamBoundary,
-    StreamDirection, YearMonth,
-};
-use crate::presets::allocation_weights;
-use crate::strategies::{AccountState, DrawdownStrategy, IncomeBreakdown, ReturnModel, TaxModel};
+use period::{PeriodContext, RunContext, RunState};
 
 /// Where a resolved stream came from. Plan streams are what the user typed;
 /// the other two are synthesized by `survivor` and are taxed (Social
@@ -23,6 +20,16 @@ enum StreamSource {
     Plan,
     SocialSecurity,
     SurvivorContinuation,
+}
+
+/// A plan stream with its boundaries resolved to concrete months, ready for
+/// the period loop to prorate.
+struct ResolvedStream<'a> {
+    stream: &'a CashFlowStream,
+    start: YearMonth,
+    /// Exclusive.
+    end: YearMonth,
+    source: StreamSource,
 }
 
 /// Runs one deterministic-or-stochastic simulation path over the plan.
@@ -55,23 +62,18 @@ pub fn simulate(
     let total_months = start.months_until(end).max(0);
     let n_periods = (total_months as f64 / period_months as f64).ceil() as usize;
 
-    let mut warnings: Vec<SimWarning> = Vec::new();
-    let push_warning = |warnings: &mut Vec<SimWarning>, w: SimWarning| {
-        if !warnings.contains(&w) {
-            warnings.push(w);
-        }
-    };
-
     // Materialize Social Security benefits — including the survivor step-up
     // at the first death — and the reduced continuations of any stream with
     // a survivor percentage. Declared before `resolved_streams`: that Vec
     // borrows `&CashFlowStream`, so these owned streams must outlive it.
     let mut ss_warnings = Vec::new();
     let ss_streams = survivor::social_security_streams(plan, &mut ss_warnings);
-    for warning in ss_warnings {
-        push_warning(&mut warnings, warning);
-    }
     let continuations = survivor::stream_continuations(plan);
+
+    let mut state = RunState::new(plan);
+    for warning in ss_warnings {
+        state.warnings.push(warning);
+    }
 
     // Resolve stream boundaries to concrete months once, keeping track of
     // where each stream came from: Social Security income is tallied
@@ -79,8 +81,7 @@ pub fn simulate(
     // partial-taxability rule to it rather than taxing it as plain ordinary
     // income, and a survivor continuation is exempt from the household
     // expense step-down below (its percentage is the step-down).
-    let mut resolved_streams: Vec<(&CashFlowStream, YearMonth, YearMonth, StreamSource)> =
-        Vec::new();
+    let mut resolved_streams: Vec<ResolvedStream> = Vec::new();
     let tagged_streams = plan
         .streams
         .iter()
@@ -105,14 +106,16 @@ pub fn simulate(
                     Some(death) => e.min(death),
                     None => e,
                 };
-                resolved_streams.push((stream, s, e, source))
+                resolved_streams.push(ResolvedStream {
+                    stream,
+                    start: s,
+                    end: e,
+                    source,
+                })
             }
-            _ => push_warning(
-                &mut warnings,
-                SimWarning::UnknownPersonRef {
-                    stream: stream.id.clone(),
-                },
-            ),
+            _ => state.warnings.push(SimWarning::UnknownPersonRef {
+                stream: stream.id.clone(),
+            }),
         }
     }
 
@@ -124,209 +127,34 @@ pub fn simulate(
         .map(|(month, _)| (month, plan.assumptions.survivor_expense_factor))
         .filter(|(_, factor)| *factor != 1.0);
 
-    let mut accounts: Vec<AccountState> = plan
-        .accounts
-        .iter()
-        .map(|a| AccountState {
-            id: a.id.clone(),
-            kind: a.kind,
-            balance: a.balance,
-            cost_basis: a.cost_basis.unwrap_or(0.0),
-        })
-        .collect();
-
-    // Accounts whose contribution has already been reported as clamped, so
-    // the per-period resolution below reports each one once. See
-    // `contributions`.
-    let mut clamps_reported: BTreeSet<AccountId> = BTreeSet::new();
+    let run = RunContext {
+        plan,
+        streams: &resolved_streams,
+        survivor_step_down,
+        returns,
+        tax,
+        drawdown,
+        path_id,
+    };
 
     let mut snapshots = Vec::with_capacity(n_periods);
-    let mut depleted = false;
-
     for period in 0..n_periods {
         let period_start = start.add_months(period as i64 * period_months);
-        let period_end = start.add_months((period as i64 + 1) * period_months);
-        let years_elapsed = (period as f64 * period_months as f64) / 12.0;
-
-        // 1. Streams. Salary is tallied per person as well as in the
-        // household total: `PercentOfSalary` contributions resolve against
-        // the owner's own earned income, which excludes Social Security.
-        let mut income = 0.0;
-        let mut ss_income = 0.0;
-        let mut expenses = 0.0;
-        let mut salary: BTreeMap<PersonId, f64> = BTreeMap::new();
-        for (stream, s, e, source) in &resolved_streams {
-            let fraction = overlap_fraction(period_start, period_end, *s, *e);
-            if fraction <= 0.0 {
-                continue;
-            }
-            // Household spending — the expense streams no one owns — drops
-            // to the survivor factor from the first death. The period's
-            // active window is split at that month rather than the whole
-            // period being scaled one way or the other, so the transition
-            // period is exact rather than all-or-nothing.
-            let active = match survivor_step_down {
-                Some((death, factor))
-                    if stream.direction == StreamDirection::Expense
-                        && stream.owner.is_none()
-                        && *source != StreamSource::SurvivorContinuation =>
-                {
-                    overlap_fraction(period_start, period_end, *s, (*e).min(death))
-                        + factor * overlap_fraction(period_start, period_end, (*s).max(death), *e)
-                }
-                _ => fraction,
-            };
-            let growth = growth_factor(stream.growth, plan.assumptions.inflation, years_elapsed);
-            let amount = stream.annual_amount * growth * active * (period_months as f64 / 12.0);
-            match stream.direction {
-                StreamDirection::Income => {
-                    income += amount;
-                    if *source == StreamSource::SocialSecurity {
-                        ss_income += amount;
-                    } else if let Some(owner) = &stream.owner {
-                        *salary.entry(owner.clone()).or_insert(0.0) += amount;
-                    }
-                }
-                StreamDirection::Expense => expenses += amount,
-            }
-        }
-
-        // 2. Contributions. Modes and statutory limits both depend on the
-        // year, so the split is resolved per period rather than once.
-        let working: BTreeMap<PersonId, f64> = plan
-            .people
-            .iter()
-            .map(|p| {
-                (
-                    p.id.clone(),
-                    overlap_fraction(period_start, period_end, start, p.retirement),
-                )
-            })
-            .collect();
-        let period_context = contributions::PeriodContext {
+        let ctx = PeriodContext {
             period,
+            start: period_start,
+            end: start.add_months((period as i64 + 1) * period_months),
             year: period_start.year,
+            years_elapsed: (period as f64 * period_months as f64) / 12.0,
+            fraction: period_months as f64 / 12.0,
             inflation: plan.assumptions.inflation,
-            period_fraction: period_months as f64 / 12.0,
-            salary: &salary,
-            working: &working,
         };
-        let allowed = contributions::allowed_contributions(
-            plan,
-            &period_context,
-            &mut clamps_reported,
-            &mut warnings,
-        );
-        // The match is gated on what the employee actually deferred, so it
-        // is resolved from the post-clamp figures rather than alongside them.
-        let matched = contributions::employer_match(
-            plan,
-            &period_context,
-            &allowed,
-            &mut clamps_reported,
-            &mut warnings,
-        );
-
-        let mut contributions = 0.0;
-        let mut employer_match = 0.0;
-        let mut pretax_contributions = 0.0;
-        for (idx, account) in plan.accounts.iter().enumerate() {
-            // Matched dollars land in whichever account the destination
-            // routed them to, so they are deposited alongside — and taxed
-            // by — that account's own kind. A Roth match therefore never
-            // reduces ordinary income, which is the point of the choice.
-            let amount = allowed[idx] + matched[idx];
-            if amount <= 0.0 {
-                continue;
-            }
-            accounts[idx].balance += amount;
-            if account.kind == AccountKind::Taxable {
-                accounts[idx].cost_basis += amount;
-            }
-            if account.kind == AccountKind::TraditionalPreTax {
-                pretax_contributions += amount;
-            }
-            contributions += allowed[idx];
-            employer_match += matched[idx];
-        }
-
-        // 3. Tax on income (pre-tax deferrals reduce ordinary income; Social
-        // Security is carried separately since it's only partially taxable).
-        let income_tax = tax
-            .tax(
-                &IncomeBreakdown {
-                    ordinary: (income - ss_income - pretax_contributions).max(0.0),
-                    social_security: ss_income,
-                    ..Default::default()
-                },
-                period,
-            )
-            .tax;
-        let mut taxes = income_tax;
-
-        // 4. Surplus sweep (optional) or shortfall drawdown.
-        let cash = income - contributions - income_tax - expenses;
-        // Always the raw household leftover, invested or not — this keeps
-        // cash-conservation checks (income = outflow + surplus) true
-        // regardless of the sweep toggle below.
-        let surplus = cash.max(0.0);
-        let mut withdrawals = BTreeMap::new();
-        if cash >= 0.0 {
-            if surplus > 0.0 && plan.assumptions.sweep_surplus_to_taxable {
-                if let Some(taxable) = accounts.iter_mut().find(|a| a.kind == AccountKind::Taxable)
-                {
-                    taxable.balance += surplus;
-                    taxable.cost_basis += surplus;
-                } else {
-                    push_warning(&mut warnings, SimWarning::SurplusUnallocated);
-                }
-            }
-        } else {
-            let needed = -cash;
-            let result = drawdown.withdraw(needed, &mut accounts, tax, period);
-            taxes += result.tax;
-            withdrawals = result.gross_by_account;
-            // Relative epsilon: the gross-up iteration converges to within
-            // ~1e-9 of the need, so anything meaningfully short is real.
-            if !depleted && result.net < needed - needed.max(1.0) * 1e-6 {
-                depleted = true;
-                push_warning(&mut warnings, SimWarning::DepletedFunds { period });
-            }
-        }
-
-        // 5. Growth on post-flow balances.
-        let period_returns = returns.returns_for(period, path_id);
-        for (idx, account) in plan.accounts.iter().enumerate() {
-            let weights = allocation_weights(&account.allocation);
-            let rate: f64 = weights
-                .iter()
-                .map(|(class, w)| w * period_returns.get(class).copied().unwrap_or(0.0))
-                .sum();
-            accounts[idx].balance *= 1.0 + rate;
-        }
-
-        // 6. Snapshot.
-        let balances: BTreeMap<_, _> = accounts.iter().map(|a| (a.id.clone(), a.balance)).collect();
-        let net_worth = accounts.iter().map(|a| a.balance).sum();
-        snapshots.push(PeriodSnapshot {
-            period,
-            period_start,
-            balances,
-            income,
-            expenses,
-            taxes,
-            contributions,
-            employer_match,
-            surplus,
-            withdrawals,
-            net_worth,
-            deflator: (1.0 + plan.assumptions.inflation).powf(years_elapsed),
-        });
+        snapshots.push(period::run(&run, &ctx, &mut state));
     }
 
     Projection {
         snapshots,
-        warnings,
+        warnings: state.warnings.into_vec(),
     }
 }
 
