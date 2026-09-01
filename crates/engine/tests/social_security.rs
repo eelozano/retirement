@@ -52,7 +52,7 @@ fn plan_with(
             filing_status: engine::model::FilingStatus::Single,
             state_tax: engine::model::StateTaxProfile::none(),
             plan_end_age: claiming_age + 3,
-            sweep_surplus_to_taxable: false,
+            sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: plan_cola,
         },

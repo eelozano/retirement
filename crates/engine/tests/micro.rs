@@ -96,7 +96,7 @@ fn micro_plan() -> Plan {
             // Person is 60 at plan start (2026); age 63 → end month 2029-01,
             // giving exactly 3 annual periods.
             plan_end_age: 63,
-            sweep_surplus_to_taxable: false,
+            sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
         },
@@ -177,7 +177,7 @@ fn micro_plan_with_taxable_account() -> Plan {
 #[test]
 fn sweep_disabled_leaves_surplus_uninvested_but_reported() {
     let plan = micro_plan_with_taxable_account();
-    assert!(!plan.assumptions.sweep_surplus_to_taxable);
+    assert!(plan.assumptions.sweep_surplus_from.is_none());
 
     let projection = run_with_flat_tax(&plan, 0.20);
     let p0 = &projection.snapshots[0];
@@ -192,7 +192,7 @@ fn sweep_disabled_leaves_surplus_uninvested_but_reported() {
 #[test]
 fn sweep_enabled_invests_surplus_into_taxable_account() {
     let mut plan = micro_plan_with_taxable_account();
-    plan.assumptions.sweep_surplus_to_taxable = true;
+    plan.assumptions.sweep_surplus_from = Some(StreamBoundary::PlanStart);
 
     let projection = run_with_flat_tax(&plan, 0.20);
     let p0 = &projection.snapshots[0];

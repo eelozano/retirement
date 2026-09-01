@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{FilingStatus, StateTaxProfile};
+use super::{FilingStatus, StateTaxProfile, StreamBoundary};
 
 /// Broad asset classes the engine models. Portfolio presets map fund tickers
 /// (VT, VTI, VXUS, BND) onto these.
@@ -20,7 +20,7 @@ pub enum AssetClass {
 ///
 /// Returns are **nominal** — the engine simulates in nominal dollars and the
 /// UI deflates for real-dollar display.
-#[derive(Serialize, Deserialize, TS, Clone, Debug)]
+#[derive(Serialize, TS, Clone, Debug)]
 #[ts(export)]
 pub struct Assumptions {
     pub inflation: f64,
@@ -51,16 +51,42 @@ pub struct Assumptions {
     /// that stops writing it still loads.
     #[serde(default = "default_plan_end_age")]
     pub plan_end_age: u8,
-    /// When `true`, leftover household cash each period (income minus
-    /// contributions, taxes, and expenses) is swept into the first account
-    /// of kind `Taxable`. When `false` (the default), leftover cash is left
-    /// unallocated by the simulation — it is still reported via
-    /// `PeriodSnapshot::surplus`, just not invested, on the assumption the
-    /// user is directing it elsewhere (an explicit contribution, or a goal
-    /// outside this plan). `#[serde(default)]` so plans saved before this
-    /// field existed load as `false`.
+    /// When leftover household cash each period (income and required
+    /// distributions, minus contributions, taxes, and expenses) starts being
+    /// swept into the first account of kind `Taxable`. `None` — the default
+    /// — never sweeps; `Some(PlanStart)` always does.
+    ///
+    /// A boundary rather than a flag because surplus is two different
+    /// quantities either side of retirement (#50), and one answer cannot be
+    /// right for both:
+    ///
+    /// - **While working** it is *current spending*. This app takes savings
+    ///   as the input and lets spending fall out as the residual — accounts
+    ///   are contributed to from `allowed_contributions`, and nothing here
+    ///   throttles a contribution for affordability — so a plan with no
+    ///   expense streams still simulates correctly, and its surplus is the
+    ///   grocery bill rather than money looking for a home. Sweeping it
+    ///   would invent wealth out of money already spent.
+    /// - **In retirement** it is real. Income is largely fixed, spending is
+    ///   the thing being modelled, and cash left over genuinely does get
+    ///   reinvested. Not sweeping it understates the portfolio for every
+    ///   retirement year.
+    ///
+    /// `Some(AtRetirement(p))` states exactly that split, and says *whose*
+    /// retirement — which a household with staggered retirement dates has to
+    /// answer. `sim::resolve_boundary` turns any of these into a month, and
+    /// the sweep begins with the first period starting on or after it.
+    ///
+    /// The alternative — asking for a full household budget so the residual
+    /// disappears — is deliberately rejected. It demands budgeting work this
+    /// tool does not otherwise ask for, in order to recover a number the
+    /// engine already derives.
+    ///
+    /// `#[serde(default)]` so plans saved before this field existed load as
+    /// `None`; the boolean `sweep_surplus_to_taxable` it replaces is
+    /// migrated in `AssumptionsWire` below.
     #[serde(default)]
-    pub sweep_surplus_to_taxable: bool,
+    pub sweep_surplus_from: Option<StreamBoundary>,
     /// Fraction of *household* spending — the expense streams no single
     /// person owns — that continues after the first death (#34). One person
     /// does not cost what two did, but the drop is nothing like half:
@@ -93,4 +119,101 @@ fn default_plan_end_age() -> u8 {
 /// unchanged. See the field docs for why no convention is baked in here.
 fn no_survivor_step_down() -> f64 {
     1.0
+}
+
+/// Deserialization shape for `Assumptions`, carrying the pre-#50 boolean
+/// `sweep_surplus_to_taxable` alongside the boundary that replaced it. A
+/// wire struct rather than `#[serde(from = "AssumptionsWire")]` only because
+/// ts-rs cannot parse that container attribute and warns on every build —
+/// same rationale as `Plan`'s and `Account`'s hand-written `Deserialize`.
+#[derive(Deserialize)]
+struct AssumptionsWire {
+    inflation: f64,
+    asset_returns: BTreeMap<AssetClass, f64>,
+    #[serde(default)]
+    filing_status: FilingStatus,
+    #[serde(default)]
+    state_tax: StateTaxProfile,
+    #[serde(default = "default_plan_end_age")]
+    plan_end_age: u8,
+    #[serde(default)]
+    sweep_surplus_from: Option<StreamBoundary>,
+    /// Pre-#50 plans carry this instead: `true` swept from the first period,
+    /// `false` never swept. Read only when `sweep_surplus_from` is absent,
+    /// so a plan written by a current build is never reinterpreted by a
+    /// stale copy of the old key.
+    #[serde(default)]
+    sweep_surplus_to_taxable: bool,
+    #[serde(default = "no_survivor_step_down")]
+    survivor_expense_factor: f64,
+    #[serde(default)]
+    social_security_cola: f64,
+}
+
+impl<'de> Deserialize<'de> for Assumptions {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let w = AssumptionsWire::deserialize(deserializer)?;
+        Ok(Assumptions {
+            inflation: w.inflation,
+            asset_returns: w.asset_returns,
+            filing_status: w.filing_status,
+            state_tax: w.state_tax,
+            plan_end_age: w.plan_end_age,
+            sweep_surplus_from: w.sweep_surplus_from.or_else(|| {
+                w.sweep_surplus_to_taxable
+                    .then_some(StreamBoundary::PlanStart)
+            }),
+            survivor_expense_factor: w.survivor_expense_factor,
+            social_security_cola: w.social_security_cola,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::StreamBoundary;
+
+    /// A plan file written before #50 carries the boolean, not the boundary:
+    /// `true` must load as a sweep from plan start, `false` as no sweep at
+    /// all, so neither changes behaviour on upgrade.
+    #[test]
+    fn legacy_sweep_boolean_migrates_to_a_boundary() {
+        let legacy = |flag: bool| {
+            serde_json::json!({
+                "inflation": 0.025,
+                "asset_returns": {},
+                "plan_end_age": 95,
+                "sweep_surplus_to_taxable": flag,
+            })
+        };
+
+        let swept: Assumptions = serde_json::from_value(legacy(true)).expect("parses");
+        assert!(matches!(
+            swept.sweep_surplus_from,
+            Some(StreamBoundary::PlanStart)
+        ));
+
+        let unswept: Assumptions = serde_json::from_value(legacy(false)).expect("parses");
+        assert!(unswept.sweep_surplus_from.is_none());
+    }
+
+    /// The boundary wins where both keys are present — a current build's
+    /// output is never reinterpreted through the field it replaced.
+    #[test]
+    fn explicit_boundary_beats_the_legacy_boolean() {
+        let value = serde_json::json!({
+            "inflation": 0.025,
+            "asset_returns": {},
+            "sweep_surplus_from": { "AtRetirement": "p1" },
+            "sweep_surplus_to_taxable": true,
+        });
+
+        let parsed: Assumptions = serde_json::from_value(value).expect("parses");
+
+        match parsed.sweep_surplus_from {
+            Some(StreamBoundary::AtRetirement(id)) => assert_eq!(id, "p1"),
+            other => panic!("expected AtRetirement, got {other:?}"),
+        }
+    }
 }

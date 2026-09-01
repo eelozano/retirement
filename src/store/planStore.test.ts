@@ -39,7 +39,7 @@ function makePlan(overrides: Partial<Plan>): Plan {
         standard_deduction: 0,
       },
       plan_end_age: 95,
-      sweep_surplus_to_taxable: false,
+      sweep_surplus_from: null,
       survivor_expense_factor: 1,
       social_security_cola: 0,
     },

@@ -36,16 +36,24 @@ function periodYear(projection: Projection, period: number): number | null {
 export function readableWarnings(plan: Plan, projection: Projection): ReadableWarning[] {
   return projection.warnings.map((warning: SimWarning, i): ReadableWarning => {
     const key = `warning-${i}`;
-    // `SurplusUnallocated` is the one variant that carries no payload, so
-    // ts-rs emits it as a bare string rather than an object. Matched by
-    // value, not by `typeof`: a second payload-free variant would otherwise
-    // be silently rendered as this one.
+    // The payload-free variants come first: ts-rs emits them as bare
+    // strings rather than objects, and the `in` checks below need an
+    // object. Each is matched by value, not by `typeof`, so a new one is
+    // never silently rendered as an existing one.
     if (warning === "SurplusUnallocated") {
       return {
         key,
         title: "Surplus cash is not being invested",
         detail:
-          "Sweeping leftover cash into a taxable account is on, but the plan has no taxable account for it to land in. The surplus is reported but left uninvested.",
+          "Leftover cash is set to be swept into a taxable account, but the plan has no taxable account for it to land in. The surplus is reported but left uninvested.",
+      };
+    }
+    if (warning === "SweepBoundaryUnresolved") {
+      return {
+        key,
+        title: "Leftover cash is not being invested",
+        detail:
+          "The sweep is set to start at the retirement of someone who is no longer in this plan, so there is no date to start it from and nothing is being swept. Pick when the sweep should start under Assumptions.",
       };
     }
     if ("ContributionClamped" in warning) {

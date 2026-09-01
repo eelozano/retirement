@@ -22,6 +22,6 @@ id: string, schema_version: number, name: string, people: Array<Person>, account
 /**
  * `#[serde(default)]` so plans saved before this field existed load as
  * empty, same migration precedent as
- * `Assumptions::sweep_surplus_to_taxable`.
+ * `Assumptions::sweep_surplus_from`.
  */
 social_security: Array<SocialSecurityBenefit>, assumptions: Assumptions, sim_config: SimConfig, };

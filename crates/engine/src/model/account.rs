@@ -181,7 +181,7 @@ pub struct Account {
 /// neither default can be computed field-locally: `contribution` has to read
 /// the legacy `annual_contribution`, and `plan_type` has to read `kind`.
 /// Same migration intent as the `#[serde(default)]` precedent documented on
-/// `sweep_surplus_to_taxable` and `social_security`.
+/// `sweep_surplus_from` and `social_security`.
 ///
 /// The legacy per-account `contribution_limit` no longer survives as a
 /// field — the engine owns statutory limits now, indexed and with catch-up

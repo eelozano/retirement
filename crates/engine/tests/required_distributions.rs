@@ -138,7 +138,7 @@ impl Fixture {
                 state_tax: StateTaxProfile::none(),
                 plan_end_age: 90,
                 // Off — the setting the whole reinvestment rule exists for.
-                sweep_surplus_to_taxable: false,
+                sweep_surplus_from: None,
                 survivor_expense_factor: 1.0,
                 social_security_cola: 0.0,
             },
@@ -261,7 +261,7 @@ fn an_owner_past_the_rmd_age_distributes_even_with_spending_fully_covered() {
     );
 }
 
-/// **The money-destruction regression.** With `sweep_surplus_to_taxable`
+/// **The money-destruction regression.** With the surplus sweep
 /// off, the after-tax remainder still has to land somewhere: the dollars
 /// have already left the pre-tax balance, and dropping them would delete
 /// real wealth every year and report the result as a failing plan.

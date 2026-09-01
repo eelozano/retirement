@@ -48,6 +48,12 @@ pub enum SimWarning {
     /// Sweep is enabled but there is no taxable account for surplus cash to
     /// land in.
     SurplusUnallocated,
+    /// `Assumptions::sweep_surplus_from` names a person who is no longer in
+    /// the plan, so the month the sweep would start cannot be resolved. No
+    /// surplus is swept — the same behaviour as leaving it off — and this
+    /// says so, rather than quietly falling back to sweeping from plan start
+    /// and pouring working-phase spending into the portfolio.
+    SweepBoundaryUnresolved,
     /// A required minimum distribution was forced out of a pre-tax account
     /// and there is no taxable account for the after-tax remainder to land
     /// in. Louder than `SurplusUnallocated` and reported separately: surplus
@@ -93,9 +99,10 @@ pub struct PeriodSnapshot {
     /// How much of it is actually invested depends on where it came from.
     /// The `required_distributions` share is always reinvested in a taxable
     /// account — that money has already left a pre-tax balance, and dropping
-    /// it would destroy real wealth. The rest is only invested when
-    /// `assumptions.sweep_surplus_to_taxable` is set; otherwise it is
-    /// informational.
+    /// it would destroy real wealth. The rest is only invested from
+    /// `assumptions.sweep_surplus_from` onward; before that it is
+    /// informational — and while the household is still working, it is
+    /// better read as current spending than as leftovers (#50).
     pub surplus: f64,
     /// Gross withdrawals per account this period.
     pub withdrawals: BTreeMap<AccountId, f64>,
