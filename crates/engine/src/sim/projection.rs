@@ -106,6 +106,10 @@ pub struct PeriodSnapshot {
     pub surplus: f64,
     /// Gross withdrawals per account this period.
     pub withdrawals: BTreeMap<AccountId, f64>,
+    /// Market growth applied to post-flow balances this period, summed
+    /// across accounts, in nominal dollars: the dollar amount `grow()`
+    /// produced but that a balance-only snapshot would otherwise discard.
+    pub growth: f64,
     pub net_worth: f64,
     /// Cumulative inflation factor at period start: divide any nominal value
     /// in this snapshot by it to get simulation-start (today's) dollars.

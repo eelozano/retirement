@@ -23,6 +23,7 @@ function snapshot(year: number, overrides: Partial<PeriodSnapshot> = {}): Period
     required_distributions: 0,
     surplus: 0,
     withdrawals: {},
+    growth: 0,
     net_worth: 0,
     deflator: 1,
     ...overrides,

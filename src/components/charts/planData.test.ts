@@ -21,6 +21,7 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     required_distributions: 0,
     surplus: 0,
     withdrawals: {},
+    growth: 0,
     net_worth: 0,
     deflator: 1,
     ...overrides,
@@ -335,6 +336,7 @@ describe("yearDetail", () => {
         withdrawals: { x: 30, y: 12 },
         net_worth: 1000,
         surplus: -50,
+        growth: -20,
       }),
     ]);
 
@@ -342,6 +344,8 @@ describe("yearDetail", () => {
     const flows = new Map(detail?.flows.map((f) => [f.key, f]));
     expect(flows.get("withdrawals")?.value).toBe(42);
     expect(flows.get("surplus")?.critical).toBe(true);
+    expect(flows.get("growth")?.value).toBe(-20);
+    expect(flows.get("growth")?.critical).toBe(true);
     expect(detail?.balances.map((b) => b.value)).toEqual([600, 400]);
   });
 
