@@ -258,6 +258,7 @@ pub fn default_assumptions() -> Assumptions {
         survivor_expense_factor: 1.0,
         social_security_cola: 0.025,
         asset_volatility: default_asset_volatility(),
+        reinvest_into: None,
     }
 }
 

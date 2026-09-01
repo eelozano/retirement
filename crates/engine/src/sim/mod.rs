@@ -8,7 +8,7 @@ mod survivor;
 pub use monte_carlo::{run_monte_carlo, MonteCarloConfig, MonteCarloResult, PeriodPercentiles};
 pub use projection::{PeriodSnapshot, Projection, SimWarning};
 
-use crate::model::{CashFlowStream, GrowthRule, Plan, StreamBoundary, YearMonth};
+use crate::model::{AccountKind, CashFlowStream, GrowthRule, Plan, StreamBoundary, YearMonth};
 use crate::strategies::{DrawdownStrategy, ReturnModel, TaxModel};
 
 use period::{PeriodContext, RunContext, RunState};
@@ -149,10 +149,33 @@ pub fn simulate(
         .map(|(month, _)| (month, plan.assumptions.survivor_expense_factor))
         .filter(|(_, factor)| *factor != 1.0);
 
+    // Which account receives the sweep and any forced-distribution
+    // remainder. `Assumptions::reinvest_into` names one directly;
+    // `Plan::validate` rejects it unless it names a `Taxable` account, so a
+    // validated plan always resolves here when it names one at all. A plan
+    // that skips validation (a test fixture, a stale `reinvest_into`) falls
+    // back to the first `Taxable` account in plan order — today's
+    // behaviour — rather than dropping the money.
+    let reinvest_into = plan
+        .assumptions
+        .reinvest_into
+        .as_ref()
+        .and_then(|id| {
+            plan.accounts
+                .iter()
+                .position(|a| &a.id == id && a.kind == AccountKind::Taxable)
+        })
+        .or_else(|| {
+            plan.accounts
+                .iter()
+                .position(|a| a.kind == AccountKind::Taxable)
+        });
+
     let run = RunContext {
         plan,
         streams: &resolved_streams,
         sweep_from,
+        reinvest_into,
         survivor_step_down,
         returns,
         tax,

@@ -142,6 +142,7 @@ impl Fixture {
                 survivor_expense_factor: 1.0,
                 social_security_cola: 0.0,
                 asset_volatility: BTreeMap::new(),
+                reinvest_into: None,
             },
             sim_config: SimConfig {
                 start: YearMonth {
