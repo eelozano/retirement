@@ -52,6 +52,31 @@ export function isWorkingPeriod(plan: Plan, snapshot: PeriodSnapshot): boolean {
   return last !== null && !atOrAfter(snapshot.period_start, last.retirement);
 }
 
+/**
+ * Whether the plan already says something about what the household spends
+ * once everyone has retired — the question the seeded stream answers.
+ *
+ * Asked of the projection rather than of the streams, because a plan can
+ * cover its retirement years from any direction: one expense running
+ * `PlanStart` → `PlanEnd`, as the seed plan does, models them just as
+ * completely as one that starts at a retirement. Offering to add a whole
+ * household's spending on top of either would silently double it.
+ *
+ * `true` — nothing to offer — when the plan has no people, or retires
+ * everyone after the projection ends.
+ */
+export function retirementSpendingIsModelled(
+  plan: Plan,
+  projection: Projection,
+): boolean {
+  const last = lastToRetire(plan);
+  if (!last) return true;
+  const retired = projection.snapshots.find((s) =>
+    atOrAfter(s.period_start, last.retirement),
+  );
+  return !retired || retired.expenses > 0;
+}
+
 export interface CurrentSpending {
   /**
    * Annual spending in **today's** dollars — deflated, because the same

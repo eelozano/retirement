@@ -89,7 +89,10 @@ const STATE_OPTIONS = (Object.keys(STATE_LABELS) as StateCode[]).map((value) => 
 const NEVER = "Never";
 
 const SWEEP_OPTIONS = (plan: Plan) => [
-  { value: NEVER, label: "Never — leave it out of the plan" },
+  // Read as a sentence with the field label: "Invest leftover cash from
+  // never / plan start / Enrique retires". Kept short because the select is
+  // the same fixed width as every other one in this pane.
+  { value: NEVER, label: "Never" },
   ...boundaryOptions(plan, "start").map((o) =>
     o.value === "PlanStart" ? { value: o.value, label: "Plan start (always)" } : o,
   ),

@@ -3,7 +3,12 @@ import type { PeriodSnapshot } from "../types/generated/PeriodSnapshot";
 import type { Person } from "../types/generated/Person";
 import type { Plan } from "../types/generated/Plan";
 import type { Projection } from "../types/generated/Projection";
-import { currentSpendingEstimate, isWorkingPeriod, lastToRetire } from "./currentSpending";
+import {
+  currentSpendingEstimate,
+  isWorkingPeriod,
+  lastToRetire,
+  retirementSpendingIsModelled,
+} from "./currentSpending";
 
 function snapshot(year: number, overrides: Partial<PeriodSnapshot> = {}): PeriodSnapshot {
   return {
@@ -153,5 +158,36 @@ describe("currentSpendingEstimate", () => {
     expect(
       currentSpendingEstimate(household, projection([snapshot(2026), snapshot(2027)])),
     ).toBeNull();
+  });
+});
+
+describe("retirementSpendingIsModelled", () => {
+  const household = plan([person("solo", { year: 2030, month: 1 })]);
+
+  it("is true for spending that merely runs through retirement, not just at it", () => {
+    // The seed plan's household expense starts at plan start and never
+    // stops. Offering to add a whole household's spending on top of it
+    // would double the budget from retirement on.
+    const covered = projection([
+      snapshot(2029, { expenses: 96_000 }),
+      snapshot(2030, { expenses: 96_000 }),
+    ]);
+
+    expect(retirementSpendingIsModelled(household, covered)).toBe(true);
+  });
+
+  it("is false when the retirement years have no spending in them", () => {
+    const uncovered = projection([
+      snapshot(2029, { expenses: 96_000 }),
+      snapshot(2030, { expenses: 0 }),
+    ]);
+
+    expect(retirementSpendingIsModelled(household, uncovered)).toBe(false);
+  });
+
+  it("has nothing to offer when retirement falls outside the projection", () => {
+    expect(retirementSpendingIsModelled(household, projection([snapshot(2028)]))).toBe(
+      true,
+    );
   });
 });

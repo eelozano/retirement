@@ -1,4 +1,8 @@
-import { currentSpendingEstimate, lastToRetire } from "../../lib/currentSpending";
+import {
+  currentSpendingEstimate,
+  lastToRetire,
+  retirementSpendingIsModelled,
+} from "../../lib/currentSpending";
 import { currency } from "../../lib/format";
 import { usePlanStore } from "../../store/planStore";
 import { StreamCard } from "./StreamCard";
@@ -24,17 +28,12 @@ export function SpendingSection() {
   // engine has already computed that figure (#50) — so the hardest required
   // input can be offered prefilled instead of asked for cold.
   //
-  // Offered only until the plan has an expense that starts at a retirement,
-  // so it is a starting point rather than a permanent nag.
+  // Offered only while the plan says nothing about spending in retirement,
+  // so it is a cold start rather than a permanent nag — and never on top of
+  // spending already modelled, which it would double.
   const retiree = lastToRetire(plan);
-  const alreadySeeded = plan.streams.some(
-    (s) =>
-      s.direction === "Expense" &&
-      typeof s.start === "object" &&
-      "AtRetirement" in s.start,
-  );
   const estimate =
-    projection && retiree && !alreadySeeded
+    projection && retiree && !retirementSpendingIsModelled(plan, projection)
       ? currentSpendingEstimate(plan, projection)
       : null;
 

@@ -75,10 +75,7 @@ describe("readableWarnings", () => {
   });
 
   it("tells an unresolvable sweep boundary apart from a missing taxable account", () => {
-    const [unresolved] = readableWarnings(
-      plan,
-      projection(["SweepBoundaryUnresolved"]),
-    );
+    const [unresolved] = readableWarnings(plan, projection(["SweepBoundaryUnresolved"]));
     expect(unresolved.detail).toContain("no longer in this plan");
     expect(unresolved.detail).not.toContain("taxable account");
   });
