@@ -248,10 +248,23 @@ export function milestones(
 export interface FlowRow {
   key: string;
   label: string;
-  color: string;
+  /**
+   * Which side of the cash identity this row sits on. The engine pins
+   * `income + withdrawals == contributions + expenses + taxes + surplus`
+   * (`crates/engine/tests/properties.rs`), so these two groups are the whole
+   * story of the household's cash — and growth and employer match, which
+   * appear on neither side, are deliberately not flow rows at all.
+   */
+  group: "in" | "out";
   value: number;
-  /** Surplus and growth are the rows that can meaningfully go negative. */
   critical?: boolean;
+  /**
+   * An annotation on the row above rather than another addend — RMDs are
+   * already inside withdrawals, and employer match never passed through
+   * household cash. Rendered indented and muted, and excluded from the
+   * group's total.
+   */
+  subset?: boolean;
 }
 
 export interface BalanceRow {
@@ -274,6 +287,25 @@ export interface YearDetail {
   netWorth: number;
   ages: PersonYear[];
   flows: FlowRow[];
+  /**
+   * Market return for the year. Not a flow row: it never passes through
+   * household cash, so it sits with net worth — the number it explains —
+   * rather than in the middle of an equation it plays no part in.
+   */
+  growth: { value: number; critical: boolean };
+  /** Income plus gross withdrawals: everything that reached the household. */
+  moneyIn: number;
+  /**
+   * `moneyIn` less expenses, taxes, and contributions. Computed rather than
+   * read from `surplus` so the panel visibly ties out — and because the
+   * engine clamps `surplus` to zero in a depleted year, where the household
+   * genuinely could not cover its outflows. The difference tells the truth
+   * there; `surplus` would report a reassuring $0.
+   */
+  leftOver: number;
+  leftOverLabel: string;
+  /** `leftOver < 0` — the plan could not fund this year. */
+  shortfall: boolean;
   balances: BalanceRow[];
   /**
    * What the survivor transition did to this year, on the years it explains
@@ -312,11 +344,11 @@ export function yearDetail(
   const working = isWorkingPeriod(plan, s);
 
   const flows: FlowRow[] = [
-    { key: "income", label: "Income", color: "var(--series-2)", value: s.income / d },
+    { key: "income", label: "Income", group: "in", value: s.income / d },
     {
       key: "withdrawals",
       label: "Withdrawals",
-      color: "var(--series-1)",
+      group: "in",
       value: withdrawals / d,
     },
     // A subset of the row above, not another inflow — hence the label, and
@@ -328,57 +360,52 @@ export function yearDetail(
       ? [
           {
             key: "required_distributions",
-            label: "Of which required",
-            color: "var(--series-4)",
+            label: "of which RMDs",
+            group: "in" as const,
             value: s.required_distributions / d,
+            subset: true,
           },
         ]
       : []),
     {
-      key: "growth",
-      label: "Growth",
-      color: "var(--series-8)",
-      value: s.growth / d,
-      critical: s.growth < 0,
-    },
-    {
       key: "expenses",
       label: "Expenses",
-      color: "var(--series-3)",
+      group: "out",
       value: s.expenses / d,
     },
-    { key: "taxes", label: "Taxes", color: "var(--series-7)", value: s.taxes / d },
+    { key: "taxes", label: "Taxes", group: "out", value: s.taxes / d },
     {
       key: "contributions",
       label: "Contributions",
-      color: "var(--series-6)",
+      group: "out",
       value: s.contributions / d,
     },
-    // Employer money, so it sits outside the income/outflow arithmetic the
-    // rows above balance — shown only when there is some, rather than a
+    // Employer money never passes through household cash, so it is an
+    // annotation on contributions rather than an outflow of its own — it
+    // keeps the "what we saved this year" story together without joining a
+    // sum it isn't part of. Shown only when there is some, rather than a
     // permanent $0 row for the many plans with no match.
     ...(s.employer_match > 0
       ? [
           {
             key: "employer_match",
-            label: "Employer match",
-            color: "var(--series-5)",
+            label: "employer adds",
+            group: "out" as const,
             value: s.employer_match / d,
+            subset: true,
           },
         ]
       : []),
-    {
-      // While anyone is still earning, this is not money looking for a
-      // home — it is what the household lives on (#50). Savings are the
-      // input in this app and spending is the residual, so calling it
-      // "surplus" in a working year invites exactly the wrong conclusion.
-      key: "surplus",
-      label: working ? "Current spending" : "Surplus",
-      color: "var(--muted)",
-      value: s.surplus / d,
-      critical: s.surplus < 0,
-    },
   ];
+
+  // The two sides of the engine's pinned cash identity. Subset rows are
+  // annotations on the row above, so they never join a total.
+  const total = (group: "in" | "out") =>
+    flows
+      .filter((f) => f.group === group && !f.subset)
+      .reduce((sum, f) => sum + f.value, 0);
+  const moneyIn = total("in");
+  const leftOver = moneyIn - total("out");
 
   // Same bucketing as the chart stack, so the inspector and the areas can
   // never disagree about which accounts are shown.
@@ -416,6 +443,16 @@ export function yearDetail(
       };
     }),
     flows,
+    growth: { value: s.growth / d, critical: s.growth < 0 },
+    moneyIn,
+    leftOver,
+    // While anyone is still earning, this is not money looking for a home —
+    // it is what the household lives on (#50). Savings are the input in this
+    // app and spending is the residual, so calling it "left over" in a
+    // working year invites exactly the wrong conclusion.
+    leftOverLabel:
+      leftOver < 0 ? "Shortfall" : working ? "Current spending" : "Left over",
+    shortfall: leftOver < 0,
     balances,
     transition: transitionNote(plan, year),
     spendingNote: working
