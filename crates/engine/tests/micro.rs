@@ -99,6 +99,7 @@ fn micro_plan() -> Plan {
             sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
+            asset_volatility: BTreeMap::new(),
         },
         sim_config: SimConfig {
             start: YearMonth::new(2026, 1),

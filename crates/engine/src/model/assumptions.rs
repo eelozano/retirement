@@ -108,6 +108,27 @@ pub struct Assumptions {
     /// have no `social_security` entries to apply it to.
     #[serde(default)]
     pub social_security_cola: f64,
+    /// Annualized standard deviation per asset class, read by
+    /// `StochasticReturns` (Monte Carlo) — `asset_returns` sets where the fan
+    /// is centered, this sets how wide it is. `#[serde(default =
+    /// "default_asset_volatility")]` so plans saved before this field existed
+    /// load with the same historical figures Monte Carlo used to hardcode,
+    /// producing identical output on upgrade.
+    #[serde(default = "default_asset_volatility")]
+    pub asset_volatility: BTreeMap<AssetClass, f64>,
+}
+
+/// Approximate historical annualized standard deviation per asset class.
+/// Seeds `Assumptions::asset_volatility` for new plans (matching
+/// `presets::default_assumptions`) and for plans saved before that field
+/// existed.
+pub(crate) fn default_asset_volatility() -> BTreeMap<AssetClass, f64> {
+    BTreeMap::from([
+        (AssetClass::UsEquity, 0.18),
+        (AssetClass::IntlEquity, 0.20),
+        (AssetClass::GlobalEquity, 0.17),
+        (AssetClass::UsBonds, 0.06),
+    ])
 }
 
 /// Historical default for `plan_end_age`, matching `presets::default_assumptions`.
@@ -148,6 +169,8 @@ struct AssumptionsWire {
     survivor_expense_factor: f64,
     #[serde(default)]
     social_security_cola: f64,
+    #[serde(default = "default_asset_volatility")]
+    asset_volatility: BTreeMap<AssetClass, f64>,
 }
 
 impl<'de> Deserialize<'de> for Assumptions {
@@ -165,6 +188,7 @@ impl<'de> Deserialize<'de> for Assumptions {
             }),
             survivor_expense_factor: w.survivor_expense_factor,
             social_security_cola: w.social_security_cola,
+            asset_volatility: w.asset_volatility,
         })
     }
 }
@@ -196,6 +220,22 @@ mod tests {
 
         let unswept: Assumptions = serde_json::from_value(legacy(false)).expect("parses");
         assert!(unswept.sweep_surplus_from.is_none());
+    }
+
+    /// A plan file written before #52 has no `asset_volatility` key at all.
+    /// It must load with the same historical figures Monte Carlo used to
+    /// hardcode, so an upgrade never changes a saved plan's output.
+    #[test]
+    fn missing_asset_volatility_falls_back_to_historical_figures() {
+        let value = serde_json::json!({
+            "inflation": 0.025,
+            "asset_returns": {},
+            "plan_end_age": 95,
+        });
+
+        let parsed: Assumptions = serde_json::from_value(value).expect("parses");
+
+        assert_eq!(parsed.asset_volatility, default_asset_volatility());
     }
 
     /// The boundary wins where both keys are present — a current build's
