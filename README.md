@@ -83,17 +83,25 @@ next to the repo.
 ### Backups
 
 Saves are atomic (write a temp file, then rename), and the previous version of
-each plan is kept alongside it as `.yaml.bak`. Deleting a plan moves the file
-aside as `.yaml.deleted` rather than unlinking it.
+each plan is kept alongside it as `.yaml.bak`. Because every edit autosaves,
+that slot is overwritten within seconds — it's crash protection, not a
+backup, and deleting a plan moves it into `plans/.trash/` rather than
+unlinking it.
 
-**That is crash protection, not a backup.** Because every edit autosaves, the
-`.bak` slot is overwritten within seconds — there's no way to recover a plan as
-it stood yesterday, and nothing is copied off this machine. Snapshot history,
-in-app restore, and export are tracked in
-[#19](https://github.com/eelozano/retirement/issues/19) and not built yet.
+For an actual backup, the app keeps its own history: the first time you edit
+a plan in a session, it snapshots the pre-edit version into
+`plans/.history/<id>/`, capped at the last 20 snapshots per plan. **Storage**
+in the app lists a plan's snapshots by date and can restore one — restoring
+snapshots the current state first, so a restore is itself undoable.
 
-Until then: the plans directory is an ordinary folder of small text files, so
-copying it *is* the backup, and Time Machine already versions it.
+None of that leaves this machine, though. Use **Export all plans…** in
+**Storage** to write a timestamped copy of the whole plans directory to a
+folder you choose — an external drive or a synced folder — whenever you want
+an off-machine copy. The app never does this on its own.
+
+The plans directory is still an ordinary folder of small text files
+underneath all of this, so copying it by hand works too, and Time Machine
+already versions it.
 
 ## Stack
 

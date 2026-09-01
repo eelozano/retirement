@@ -62,6 +62,15 @@ export function deletePlan(id: string): Promise<void> {
   return invoke<void>("delete_plan", { id });
 }
 
+/** A plan's snapshot timestamps, newest first — see StorageSettings. */
+export function listSnapshots(id: string): Promise<string[]> {
+  return invoke<string[]>("list_snapshots", { id });
+}
+
+export function restoreSnapshot(id: string, timestamp: string): Promise<Plan> {
+  return invoke<Plan>("restore_snapshot", { id, timestamp });
+}
+
 export function getPresets(): Promise<Presets> {
   return invoke<Presets>("get_presets");
 }
@@ -93,4 +102,11 @@ export function setStorageDir(path: string): Promise<void> {
 
 export function revealStorageDir(): Promise<void> {
   return invoke<void>("reveal_storage_dir");
+}
+
+/** Opens a folder picker and writes a timestamped copy of the whole plans
+ * directory there. Resolves to the created folder's path, or null if the
+ * user cancels the picker. */
+export function exportPlans(): Promise<string | null> {
+  return invoke<string | null>("export_plans");
 }
