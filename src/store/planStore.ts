@@ -7,6 +7,7 @@ import {
   loadPlan,
   loadPlanNamed,
   type PlanSummary,
+  restoreSnapshot as restoreSnapshotApi,
   runMonteCarlo,
   runProjection,
   savePlan,
@@ -69,6 +70,8 @@ interface PlanStore {
    * switches to it. */
   duplicateActive: (newName: string) => Promise<void>;
   deleteScenario: (id: string) => Promise<void>;
+  /** Restores the active plan to a prior snapshot and re-activates it. */
+  restoreSnapshot: (timestamp: string) => Promise<void>;
 }
 
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -222,6 +225,20 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
         const plan = await loadPlanNamed(scenarios[0].id);
         await activate(set, plan);
       }
+    } catch (e) {
+      set({ error: String(e) });
+    }
+  },
+
+  restoreSnapshot: async (timestamp) => {
+    const current = get().plan;
+    if (!current) return;
+    // Flushes and cancels any pending debounced save first, so it can't
+    // fire after the restore with a stale draft and clobber it.
+    await flushPendingSave(get);
+    try {
+      const restored = await restoreSnapshotApi(current.id, timestamp);
+      await activate(set, restored);
     } catch (e) {
       set({ error: String(e) });
     }
