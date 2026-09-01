@@ -54,17 +54,13 @@ use crate::model::{
 };
 use crate::presets::CONTRIBUTION_LIMITS;
 
+use super::period::{PeriodContext, Warnings};
 use super::SimWarning;
 
-/// Everything about one period that contribution resolution depends on.
-pub(super) struct PeriodContext<'a> {
-    pub period: usize,
-    /// Calendar year the period starts in — what statutory limits are
-    /// indexed and catch-up tiers are tested against.
-    pub year: i32,
-    pub inflation: f64,
-    /// Share of a year this period covers (1.0 for annual periods).
-    pub period_fraction: f64,
+/// What contribution resolution needs beyond the period's time coordinates:
+/// who earned what, and who was still working.
+pub(super) struct Inputs<'a> {
+    pub ctx: &'a PeriodContext,
     /// Gross salary accrued this period per person: their income streams,
     /// already grown and prorated, excluding Social Security.
     pub salary: &'a BTreeMap<PersonId, f64>,
@@ -72,11 +68,11 @@ pub(super) struct PeriodContext<'a> {
     pub working: &'a BTreeMap<PersonId, f64>,
 }
 
-impl PeriodContext<'_> {
+impl Inputs<'_> {
     /// This period's share of an annual figure for `owner`, zero once they
     /// have retired.
     fn prorate(&self, owner: &PersonId) -> f64 {
-        self.period_fraction * self.working.get(owner).copied().unwrap_or(0.0)
+        self.ctx.fraction * self.working.get(owner).copied().unwrap_or(0.0)
     }
 }
 
@@ -85,9 +81,9 @@ impl PeriodContext<'_> {
 /// that had to give something up, the first time it happens.
 pub(super) fn allowed_contributions(
     plan: &Plan,
-    ctx: &PeriodContext,
+    inputs: &Inputs,
     reported: &mut BTreeSet<AccountId>,
-    warnings: &mut Vec<SimWarning>,
+    warnings: &mut Warnings,
 ) -> Vec<f64> {
     // Bucket capacity for this period, per person. The statutory figure is
     // annual, so it is prorated the same way the contributions are.
@@ -96,9 +92,9 @@ pub(super) fn allowed_contributions(
         let person = plan.person(owner)?;
         CONTRIBUTION_LIMITS.annual_limit(
             plan_type,
-            ctx.year - person.birth.year,
-            ctx.year,
-            ctx.inflation,
+            inputs.ctx.year - person.birth.year,
+            inputs.ctx.year,
+            inputs.ctx.inflation,
         )
     };
 
@@ -107,7 +103,7 @@ pub(super) fn allowed_contributions(
         // Nobody contributes out of a period they spend retired, whatever
         // the mode says — so a zero share short-circuits before any of the
         // modes resolve, and before anything can be reported as clamped.
-        let share = ctx.prorate(&account.owner);
+        let share = inputs.prorate(&account.owner);
         let amount = if share <= 0.0 {
             0.0
         } else {
@@ -117,7 +113,7 @@ pub(super) fn allowed_contributions(
                 // so it carries its own share — applying `prorate` again
                 // would double-count a partial working year.
                 ContributionRule::PercentOfSalary(p) => {
-                    p.max(0.0) * ctx.salary.get(&account.owner).copied().unwrap_or(0.0)
+                    p.max(0.0) * inputs.salary.get(&account.owner).copied().unwrap_or(0.0)
                 }
                 // A taxable account has no federal maximum; validation
                 // rejects that combination, so the fallback only guards a
@@ -151,7 +147,7 @@ pub(super) fn allowed_contributions(
         if granted < requested - 1e-6 && reported.insert(account.id.clone()) {
             warnings.push(SimWarning::ContributionClamped {
                 account: account.id.clone(),
-                period: ctx.period,
+                period: inputs.ctx.period,
                 requested,
                 allowed: granted,
             });
@@ -221,10 +217,10 @@ fn matched_fraction(tiers: &[crate::model::MatchTier], deferral_percent: f64) ->
 /// annual-additions cap instead, shared with the employee's own deferrals.
 pub(super) fn employer_match(
     plan: &Plan,
-    ctx: &PeriodContext,
+    inputs: &Inputs,
     employee: &[f64],
     reported: &mut BTreeSet<AccountId>,
-    warnings: &mut Vec<SimWarning>,
+    warnings: &mut Warnings,
 ) -> Vec<f64> {
     let mut matched = vec![0.0; plan.accounts.len()];
     if !plan.accounts.iter().any(|a| a.employer_match.is_some()) {
@@ -245,8 +241,8 @@ pub(super) fn employer_match(
         let Some(employer) = &account.employer_match else {
             continue;
         };
-        let salary = ctx.salary.get(&account.owner).copied().unwrap_or(0.0);
-        if salary <= 0.0 || ctx.prorate(&account.owner) <= 0.0 {
+        let salary = inputs.salary.get(&account.owner).copied().unwrap_or(0.0);
+        if salary <= 0.0 || inputs.prorate(&account.owner) <= 0.0 {
             continue;
         }
         let deferral_percent = deferrals.get(&account.owner).copied().unwrap_or(0.0) / salary;
@@ -265,7 +261,7 @@ pub(super) fn employer_match(
         }
     }
 
-    clamp_to_annual_additions(plan, ctx, employee, &mut matched, reported, warnings);
+    clamp_to_annual_additions(plan, inputs, employee, &mut matched, reported, warnings);
     matched
 }
 
@@ -275,11 +271,11 @@ pub(super) fn employer_match(
 /// their own limit.
 fn clamp_to_annual_additions(
     plan: &Plan,
-    ctx: &PeriodContext,
+    inputs: &Inputs,
     employee: &[f64],
     matched: &mut [f64],
     reported: &mut BTreeSet<AccountId>,
-    warnings: &mut Vec<SimWarning>,
+    warnings: &mut Warnings,
 ) {
     let mut room: BTreeMap<PersonId, f64> = BTreeMap::new();
     for (idx, account) in plan.accounts.iter().enumerate() {
@@ -291,10 +287,10 @@ fn clamp_to_annual_additions(
         };
         let entry = room.entry(account.owner.clone()).or_insert_with(|| {
             CONTRIBUTION_LIMITS.annual_additions_limit(
-                ctx.year - person.birth.year,
-                ctx.year,
-                ctx.inflation,
-            ) * ctx.prorate(&account.owner)
+                inputs.ctx.year - person.birth.year,
+                inputs.ctx.year,
+                inputs.ctx.inflation,
+            ) * inputs.prorate(&account.owner)
         });
         *entry -= employee[idx];
     }
@@ -311,7 +307,7 @@ fn clamp_to_annual_additions(
         if granted < matched[idx] - 1e-6 && reported.insert(format!("415c:{}", account.id)) {
             warnings.push(SimWarning::AnnualAdditionsClamped {
                 account: account.id.clone(),
-                period: ctx.period,
+                period: inputs.ctx.period,
                 requested: matched[idx],
                 allowed: granted,
             });

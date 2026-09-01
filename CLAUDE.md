@@ -27,7 +27,9 @@ cloud/network dependencies for user data.
 - The engine computes in **nominal dollars** and emits a cumulative `deflator`
   per period; real-dollar display is a frontend-only division.
 - New behaviors go behind the strategy traits (`ReturnModel`, `TaxModel`,
-  `DrawdownStrategy`) as new impls — do not fork the simulation loop.
+  `DrawdownStrategy`) as new impls — do not fork the simulation loop. A
+  behavior that fits none of them is a new **step**: a function over
+  `PeriodState` in `sim/period.rs`, not new statements inside `simulate`.
 - Money is `f64`; round only at the display layer.
 
 ## Branch & PR workflow
