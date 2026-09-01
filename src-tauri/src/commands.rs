@@ -1,6 +1,8 @@
 //! Tauri IPC surface — a thin adapter over the engine and storage layers.
 
+use std::collections::HashSet;
 use std::path::PathBuf;
+use std::sync::Mutex;
 
 use engine::model::Plan;
 use engine::presets::Presets;
@@ -11,6 +13,12 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 
 use crate::{migrate, settings, storage};
+
+/// Plan ids already snapshotted into history this session, so the
+/// once-per-session pre-edit snapshot (see `save_plan`) fires on the first
+/// save of a launch, not on every debounced autosave after that.
+#[derive(Default)]
+pub struct SnapshotState(pub Mutex<HashSet<String>>);
 
 /// Where settings.json lives — fixed, not user-configurable (it's what
 /// makes the plans directory itself relocatable without a bootstrapping
@@ -83,6 +91,7 @@ pub fn load_plan(app: tauri::AppHandle) -> Result<Plan, String> {
             migrate::migrate_json_dir_to_yaml(&legacy_plans, &base)?;
         }
     }
+    storage::cleanup(&base)?;
     if let Some(id) = settings::active_plan_id(&config_dir(&app)?) {
         if let Ok(plan) = storage::load_plan(&base, &id) {
             return Ok(plan);
@@ -93,10 +102,24 @@ pub fn load_plan(app: tauri::AppHandle) -> Result<Plan, String> {
     storage::load_or_bootstrap(&base)
 }
 
+/// Saves a plan, snapshotting its pre-edit state into history first — but
+/// only on the first save of a given plan id since app launch. The store
+/// autosaves on a debounce after every edit, so gating on session-once
+/// keeps each history entry meaning "how the plan looked when I sat down"
+/// rather than one entry per keystroke.
 #[tauri::command]
-pub fn save_plan(app: tauri::AppHandle, plan: Plan) -> Result<(), String> {
+pub fn save_plan(
+    app: tauri::AppHandle,
+    state: tauri::State<SnapshotState>,
+    plan: Plan,
+) -> Result<(), String> {
     require_valid(&plan)?;
-    storage::save_plan(&plans_base_dir(&app)?, &plan)
+    let base = plans_base_dir(&app)?;
+    let first_save_this_session = state.0.lock().unwrap().insert(plan.id.clone());
+    if first_save_this_session {
+        storage::snapshot_plan(&base, &plan.id)?;
+    }
+    storage::save_plan(&base, &plan)
 }
 
 #[derive(Serialize)]
@@ -145,6 +168,25 @@ pub fn delete_plan(app: tauri::AppHandle, id: String) -> Result<(), String> {
         return Err("Can't delete the only scenario.".to_string());
     }
     storage::delete_plan(&base, &id)
+}
+
+/// A plan's snapshot history, newest first, for the restore UI in Storage
+/// settings.
+#[tauri::command]
+pub fn list_snapshots(app: tauri::AppHandle, id: String) -> Result<Vec<String>, String> {
+    storage::list_snapshots(&plans_base_dir(&app)?, &id)
+}
+
+/// Restores a plan to a prior snapshot, itself snapshotting the pre-restore
+/// state first so restoring is undoable. Returns the restored plan so the
+/// caller can re-activate it without a second round-trip.
+#[tauri::command]
+pub fn restore_snapshot(
+    app: tauri::AppHandle,
+    id: String,
+    timestamp: String,
+) -> Result<Plan, String> {
+    storage::restore_snapshot(&plans_base_dir(&app)?, &id, &timestamp)
 }
 
 /// Projects several scenarios in one round-trip for the comparison view.
@@ -212,6 +254,27 @@ pub fn set_storage_dir(app: tauri::AppHandle, path: PathBuf) -> Result<(), Strin
     let old_base = plans_base_dir(&app)?;
     migrate::copy_yaml_dir(&old_base, &path)?;
     settings::set_plans_dir(&config_dir(&app)?, &path)
+}
+
+/// Opens a native folder picker and writes a timestamped copy of the whole
+/// plans directory into the chosen folder — the off-machine backup story:
+/// point it at an external drive or a sync folder, by explicit user action.
+/// Returns the created folder's path, or `None` if the user cancels.
+#[tauri::command]
+pub async fn export_plans(app: tauri::AppHandle) -> Result<Option<PathBuf>, String> {
+    let (tx, mut rx) = tauri::async_runtime::channel(1);
+    app.dialog().file().pick_folder(move |folder| {
+        let tx = tx.clone();
+        tauri::async_runtime::spawn(async move {
+            let _ = tx.send(folder).await;
+        });
+    });
+    let picked = rx.recv().await.flatten();
+    let Some(dest_parent) = picked.and_then(|fp| fp.into_path().ok()) else {
+        return Ok(None);
+    };
+    let base = plans_base_dir(&app)?;
+    storage::export_plans(&base, &dest_parent).map(Some)
 }
 
 /// Reveals the current plans folder in Finder/Explorer.

@@ -23,6 +23,37 @@ fn plan_path(base: &Path, id: &str) -> PathBuf {
     plans_dir(base).join(format!("{id}.yaml"))
 }
 
+/// Per-plan bounded snapshot history: `plans/.history/<id>/<timestamp>.yaml`.
+fn history_dir(base: &Path, id: &str) -> PathBuf {
+    plans_dir(base).join(".history").join(id)
+}
+
+/// Where deleted plans and legacy `.yaml.deleted` files are relocated to,
+/// instead of lingering in the plans directory forever.
+fn trash_dir(base: &Path) -> PathBuf {
+    plans_dir(base).join(".trash")
+}
+
+const MAX_SNAPSHOTS_PER_PLAN: usize = 20;
+
+/// Filesystem-safe, lexically sortable UTC timestamp, e.g.
+/// `2026-09-01T14-23-45-123Z`. Millisecond resolution keeps rapid, automatic
+/// calls (a pre-restore snapshot immediately followed by another) from
+/// colliding on the same filename.
+fn iso_stamp_now() -> String {
+    let now = time::OffsetDateTime::now_utc();
+    format!(
+        "{:04}-{:02}-{:02}T{:02}-{:02}-{:02}-{:03}Z",
+        now.year(),
+        now.month() as u8,
+        now.day(),
+        now.hour(),
+        now.minute(),
+        now.second(),
+        now.millisecond()
+    )
+}
+
 /// Filesystem-safe slug from a plan name ("Base plan" → "base-plan"). Used
 /// both to derive a stable `id` for pre-#6 plans that predate the `id`
 /// field, and as the human-readable starting point for a new plan's id.
@@ -175,16 +206,144 @@ pub fn duplicate_plan(base: &Path, id: &str, new_name: &str) -> Result<Plan, Str
     Ok(copy)
 }
 
-/// Removes a plan by moving its file aside rather than deleting it — the
-/// same never-actually-delete posture as the storage-relocation migration
-/// in `migrate.rs`.
+/// Removes a plan by moving its file into `.trash` rather than deleting it —
+/// the same never-actually-delete posture as the storage-relocation
+/// migration in `migrate.rs`, but landing outside the plans directory so
+/// deleted plans don't linger among the live ones.
 pub fn delete_plan(base: &Path, id: &str) -> Result<(), String> {
     let path = plan_path(base, id);
     if !path.exists() {
         return Ok(());
     }
-    let removed = path.with_extension("yaml.deleted");
-    fs::rename(&path, &removed).map_err(|e| format!("removing {}: {e}", path.display()))
+    let dir = trash_dir(base);
+    fs::create_dir_all(&dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
+    let dest = dir.join(format!("{id}-{}.yaml", iso_stamp_now()));
+    fs::rename(&path, &dest).map_err(|e| format!("removing {}: {e}", path.display()))
+}
+
+/// Copies a plan's current on-disk file into its bounded snapshot history,
+/// timestamped to now, then prunes down to `MAX_SNAPSHOTS_PER_PLAN`, oldest
+/// first. A no-op if the plan has no file yet — nothing to snapshot.
+pub fn snapshot_plan(base: &Path, id: &str) -> Result<(), String> {
+    let path = plan_path(base, id);
+    if !path.exists() {
+        return Ok(());
+    }
+    let dir = history_dir(base, id);
+    fs::create_dir_all(&dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
+    let dest = dir.join(format!("{}.yaml", iso_stamp_now()));
+    fs::copy(&path, &dest).map_err(|e| format!("snapshotting {}: {e}", path.display()))?;
+    prune_history(&dir)
+}
+
+fn prune_history(dir: &Path) -> Result<(), String> {
+    let mut entries: Vec<PathBuf> = fs::read_dir(dir)
+        .map_err(|e| format!("reading {}: {e}", dir.display()))?
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("yaml"))
+        .collect();
+    entries.sort();
+    while entries.len() > MAX_SNAPSHOTS_PER_PLAN {
+        let oldest = entries.remove(0);
+        fs::remove_file(&oldest).map_err(|e| format!("pruning {}: {e}", oldest.display()))?;
+    }
+    Ok(())
+}
+
+/// A plan's snapshot timestamps, newest first — the stem of each
+/// `<timestamp>.yaml` file in its history folder.
+pub fn list_snapshots(base: &Path, id: &str) -> Result<Vec<String>, String> {
+    let dir = history_dir(base, id);
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut stamps: Vec<String> = fs::read_dir(&dir)
+        .map_err(|e| format!("reading {}: {e}", dir.display()))?
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("yaml"))
+        .filter_map(|p| p.file_stem().map(|s| s.to_string_lossy().into_owned()))
+        .collect();
+    stamps.sort_by(|a, b| b.cmp(a));
+    Ok(stamps)
+}
+
+/// Restores a plan to how it looked at `timestamp`. Snapshots the plan's
+/// current state first — into the same bounded history — so restoring is
+/// itself undoable.
+pub fn restore_snapshot(base: &Path, id: &str, timestamp: &str) -> Result<Plan, String> {
+    let snapshot_path = history_dir(base, id).join(format!("{timestamp}.yaml"));
+    let plan = load_plan_file(&snapshot_path)?;
+    snapshot_plan(base, id)?;
+    save_plan(base, &plan)?;
+    Ok(plan)
+}
+
+fn copy_dir_recursive(from: &Path, to: &Path) -> Result<(), String> {
+    fs::create_dir_all(to).map_err(|e| format!("creating {}: {e}", to.display()))?;
+    for entry in fs::read_dir(from).map_err(|e| format!("reading {}: {e}", from.display()))? {
+        let path = entry.map_err(|e| e.to_string())?.path();
+        let dest = to.join(path.file_name().unwrap_or_default());
+        if path.is_dir() {
+            copy_dir_recursive(&path, &dest)?;
+        } else {
+            fs::copy(&path, &dest).map_err(|e| format!("copying {}: {e}", path.display()))?;
+        }
+    }
+    Ok(())
+}
+
+/// Writes a timestamped copy of the whole plans directory (snapshot history
+/// and trash included) into `dest_parent`. This is the off-machine backup
+/// story: point it at an external drive or a sync folder, by explicit user
+/// action — the app never syncs anything on its own. Returns the created
+/// folder's path.
+pub fn export_plans(base: &Path, dest_parent: &Path) -> Result<PathBuf, String> {
+    let source = plans_dir(base);
+    let dest = dest_parent.join(format!("Retirement Planner Backup {}", iso_stamp_now()));
+    copy_dir_recursive(&source, &dest)?;
+    Ok(dest)
+}
+
+/// One-shot-per-launch tidy of the plans directory: relocates any leftover
+/// `<id>.yaml.deleted` files (from the pre-#19 `delete_plan`) into `.trash`,
+/// and purges `.bak` files whose `.yaml` no longer exists. Safe to call on
+/// every startup — a no-op once the directory is already tidy.
+pub fn cleanup(base: &Path) -> Result<(), String> {
+    let dir = plans_dir(base);
+    if !dir.exists() {
+        return Ok(());
+    }
+    let entries: Vec<PathBuf> = fs::read_dir(&dir)
+        .map_err(|e| format!("reading {}: {e}", dir.display()))?
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .collect();
+
+    for path in &entries {
+        if path.extension().and_then(|e| e.to_str()) != Some("deleted") {
+            continue;
+        }
+        let dir = trash_dir(base);
+        fs::create_dir_all(&dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
+        // "<id>.yaml.deleted" -> file_stem "<id>.yaml" -> strip ".yaml" -> id.
+        let stem = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("plan.yaml");
+        let id = stem.strip_suffix(".yaml").unwrap_or(stem);
+        let dest = dir.join(format!("{id}-{}.yaml", iso_stamp_now()));
+        fs::rename(path, &dest).map_err(|e| format!("moving {}: {e}", path.display()))?;
+    }
+
+    for path in &entries {
+        if path.extension().and_then(|e| e.to_str()) != Some("bak") {
+            continue;
+        }
+        let yaml = path.with_extension("");
+        if !yaml.exists() {
+            let _ = fs::remove_file(path);
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -319,15 +478,146 @@ mod tests {
     }
 
     #[test]
-    fn delete_plan_moves_file_aside_without_removing_it() {
+    fn delete_plan_moves_file_to_trash_without_removing_it() {
         let base = TempBase::new("delete");
         load_or_bootstrap(&base.0).unwrap();
 
         delete_plan(&base.0, "base-plan").unwrap();
         assert!(list_plans(&base.0).unwrap().is_empty());
-        assert!(plans_dir(&base.0).join("base-plan.yaml.deleted").exists());
+        // No `.deleted` sibling left among the live plans...
+        assert!(!plans_dir(&base.0).join("base-plan.yaml.deleted").exists());
+        // ...it landed in .trash instead, timestamp-suffixed.
+        let trash: Vec<_> = fs::read_dir(trash_dir(&base.0)).unwrap().collect();
+        assert_eq!(trash.len(), 1);
+        let name = trash[0].as_ref().unwrap().file_name();
+        assert!(name.to_str().unwrap().starts_with("base-plan-"));
 
         // Deleting an already-gone plan is a no-op, not an error.
         delete_plan(&base.0, "base-plan").unwrap();
+    }
+
+    #[test]
+    fn snapshot_plan_is_noop_without_an_existing_file() {
+        let base = TempBase::new("snapshot-noop");
+        snapshot_plan(&base.0, "nonexistent").unwrap();
+        assert!(list_snapshots(&base.0, "nonexistent").unwrap().is_empty());
+    }
+
+    #[test]
+    fn snapshot_plan_captures_current_file_and_lists_newest_first() {
+        let base = TempBase::new("snapshot-list");
+        load_or_bootstrap(&base.0).unwrap();
+
+        snapshot_plan(&base.0, "base-plan").unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        snapshot_plan(&base.0, "base-plan").unwrap();
+
+        let stamps = list_snapshots(&base.0, "base-plan").unwrap();
+        assert_eq!(stamps.len(), 2);
+        // Newest first.
+        assert!(stamps[0] > stamps[1]);
+    }
+
+    #[test]
+    fn snapshot_plan_prunes_beyond_the_cap() {
+        let base = TempBase::new("snapshot-prune");
+        load_or_bootstrap(&base.0).unwrap();
+
+        for _ in 0..(MAX_SNAPSHOTS_PER_PLAN + 5) {
+            snapshot_plan(&base.0, "base-plan").unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+
+        assert_eq!(
+            list_snapshots(&base.0, "base-plan").unwrap().len(),
+            MAX_SNAPSHOTS_PER_PLAN
+        );
+    }
+
+    #[test]
+    fn restore_snapshot_brings_back_prior_content_and_is_itself_undoable() {
+        let base = TempBase::new("restore");
+        let original = load_or_bootstrap(&base.0).unwrap();
+
+        // Snapshot the original state, then edit and save.
+        snapshot_plan(&base.0, "base-plan").unwrap();
+        let stamps = list_snapshots(&base.0, "base-plan").unwrap();
+        assert_eq!(stamps.len(), 1);
+
+        let mut edited = original.clone();
+        edited.assumptions.inflation = 0.09;
+        save_plan(&base.0, &edited).unwrap();
+
+        let restored = restore_snapshot(&base.0, "base-plan", &stamps[0]).unwrap();
+        assert_eq!(
+            restored.assumptions.inflation,
+            original.assumptions.inflation
+        );
+
+        let reloaded = load_plan(&base.0, "base-plan").unwrap();
+        assert_eq!(
+            reloaded.assumptions.inflation,
+            original.assumptions.inflation
+        );
+
+        // Restoring snapshotted the pre-restore (edited) state first, so
+        // restoring is itself undoable.
+        let stamps_after = list_snapshots(&base.0, "base-plan").unwrap();
+        assert_eq!(stamps_after.len(), 2);
+        let undo = restore_snapshot(&base.0, "base-plan", &stamps_after[0]).unwrap();
+        assert_eq!(undo.assumptions.inflation, 0.09);
+    }
+
+    #[test]
+    fn cleanup_moves_legacy_deleted_files_into_trash() {
+        let base = TempBase::new("cleanup-deleted");
+        let dir = plans_dir(&base.0);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("old-plan.yaml.deleted"), "id: old-plan\n").unwrap();
+
+        cleanup(&base.0).unwrap();
+
+        assert!(!dir.join("old-plan.yaml.deleted").exists());
+        let trash: Vec<_> = fs::read_dir(trash_dir(&base.0)).unwrap().collect();
+        assert_eq!(trash.len(), 1);
+        let name = trash[0].as_ref().unwrap().file_name();
+        assert!(name.to_str().unwrap().starts_with("old-plan-"));
+    }
+
+    #[test]
+    fn cleanup_purges_bak_files_whose_yaml_is_gone() {
+        let base = TempBase::new("cleanup-bak");
+        let dir = plans_dir(&base.0);
+        fs::create_dir_all(&dir).unwrap();
+        // Orphan: a .bak with no corresponding .yaml.
+        fs::write(dir.join("gone.yaml.bak"), "id: gone\n").unwrap();
+        // Live: a .bak whose .yaml still exists must survive.
+        fs::write(dir.join("kept.yaml"), "id: kept\n").unwrap();
+        fs::write(dir.join("kept.yaml.bak"), "id: kept\n").unwrap();
+
+        cleanup(&base.0).unwrap();
+
+        assert!(!dir.join("gone.yaml.bak").exists());
+        assert!(dir.join("kept.yaml.bak").exists());
+    }
+
+    #[test]
+    fn export_plans_copies_the_whole_directory_timestamped() {
+        let base = TempBase::new("export-source");
+        load_or_bootstrap(&base.0).unwrap();
+        snapshot_plan(&base.0, "base-plan").unwrap();
+
+        let dest_parent = TempBase::new("export-dest");
+        let dest = export_plans(&base.0, &dest_parent.0).unwrap();
+
+        assert!(dest.starts_with(&dest_parent.0));
+        assert!(dest.join("base-plan.yaml").exists());
+        assert!(dest
+            .join(".history")
+            .join("base-plan")
+            .read_dir()
+            .unwrap()
+            .next()
+            .is_some());
     }
 }
