@@ -387,6 +387,18 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
             ));
         }
     }
+    // `StochasticReturns` feeds this straight into a normal distribution's
+    // stddev parameter, which panics if it's negative. An upper bound of
+    // 100% keeps a fat-fingered entry from producing a fan wide enough to
+    // look like a rendering bug.
+    for (class, stddev) in &plan.assumptions.asset_volatility {
+        if !(0.0..=1.0).contains(stddev) {
+            errors.push(err(
+                "assumptions.asset_volatility",
+                &format!("{class:?} volatility must be between 0% and 100%."),
+            ));
+        }
+    }
 
     errors
 }
@@ -673,6 +685,18 @@ mod tests {
         assert!(errors
             .iter()
             .any(|e| e.field == "assumptions.social_security_cola"));
+    }
+
+    #[test]
+    fn catches_out_of_range_asset_volatility() {
+        let mut plan = seed_plan();
+        for stddev in plan.assumptions.asset_volatility.values_mut() {
+            *stddev = -0.1;
+        }
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "assumptions.asset_volatility"));
     }
 
     #[test]

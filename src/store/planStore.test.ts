@@ -42,6 +42,7 @@ function makePlan(overrides: Partial<Plan>): Plan {
       sweep_surplus_from: null,
       survivor_expense_factor: 1,
       social_security_cola: 0,
+      asset_volatility: {},
     },
     sim_config: {
       start: { year: 2025, month: 1 },
