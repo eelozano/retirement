@@ -1457,11 +1457,20 @@ button.remove:hover {
   gap: var(--sp-2);
   padding: 3px 0;
 }
-.row-chip {
-  width: 3px;
-  height: 12px;
-  border-radius: 2px;
+/* Only the market-growth row carries a sign: it is the one row whose "+"
+   unambiguously means net worth grew. Cash rows take their direction from
+   their group heading instead, where a per-row sign would contradict the
+   group's own subtotal. */
+.row-sign {
+  width: 12px;
   flex: 0 0 auto;
+  text-align: center;
+  font-weight: 600;
+  font-family: var(--font-num);
+  color: var(--muted);
+}
+.row-sign-add {
+  color: var(--status-good);
 }
 .row-swatch {
   width: 9px;
@@ -1489,6 +1498,33 @@ button.remove:hover {
 }
 .row-critical {
   color: var(--status-critical);
+}
+/* A breakdown of the row above, not another addend — indent it and pull the
+   chip in so it visually nests under its parent instead of sitting level
+   with it (which read as double-counting the same dollars). */
+.inspector-row-subset {
+  margin-left: var(--sp-3);
+}
+/* Closes a group. Dashed, to read as a sum rule rather than as the solid
+   border that separates whole blocks or the dotted leader inside a row. */
+.inspector-total {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  justify-content: space-between;
+  margin-top: var(--sp-1);
+  padding-top: 5px;
+  border-top: 1px dashed var(--border);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.inspector-row-subset .row-label {
+  color: var(--muted);
+}
+.inspector-row-subset .row-value {
+  font-weight: 400;
+  color: var(--text-secondary);
 }
 .inspector-hint {
   font-size: var(--t-xs);

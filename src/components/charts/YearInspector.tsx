@@ -1,12 +1,54 @@
 import { currency, currencyCompact } from "../../lib/format";
-import type { YearDetail } from "./planData";
+import type { FlowRow, YearDetail } from "./planData";
 
-// Right-hand readout for one year of the projection. Shows every cash-flow
-// field on PeriodSnapshot — income, withdrawals, expenses, taxes,
-// contributions, surplus — plus per-account balances, a note on the years
-// after the first death so the drop in income reads as the survivor
-// transition rather than as a glitch, and one on working years, where the
-// surplus is really current spending.
+// Right-hand readout for one year of the projection. The cash-flow fields on
+// PeriodSnapshot are shown as the two sides of the identity the engine pins
+// — money in against money out, each closing on its own total — with market
+// growth lifted up beside net worth, the number it actually explains. Below
+// that: per-account balances, a note on the years after the first death so
+// the drop in income reads as the survivor transition rather than a glitch,
+// and one on working years, where what's left over is really current
+// spending.
+
+// One side of the cash identity: its rows, then its total. Subset rows are
+// annotations on the row above (RMDs inside withdrawals, the employer's share
+// beside contributions) — indented, muted, and already excluded from the
+// total by yearDetail.
+function FlowGroup(props: {
+  heading: string;
+  rows: FlowRow[];
+  totalLabel: string;
+  total: number;
+  totalCritical?: boolean;
+  note?: string | null;
+}) {
+  return (
+    <div className="inspector-block">
+      <div className="tile-label">{props.heading}</div>
+      {props.rows.map((row) => (
+        <div
+          className={`inspector-row ${row.subset ? "inspector-row-subset" : ""}`}
+          key={row.key}
+        >
+          <span className="row-label">{row.label}</span>
+          <span className="row-leader" />
+          <span className={`row-value ${row.critical ? "row-critical" : ""}`}>
+            {currency(row.value)}
+          </span>
+        </div>
+      ))}
+      <div className="inspector-total">
+        <span className={props.totalCritical ? "row-critical" : ""}>
+          {props.totalLabel}
+        </span>
+        <span className={`row-value ${props.totalCritical ? "row-critical" : ""}`}>
+          {currency(props.total)}
+        </span>
+      </div>
+      {props.note && <p className="inspector-note">{props.note}</p>}
+    </div>
+  );
+}
 
 export interface YearPercentiles {
   p10: number;
@@ -48,6 +90,23 @@ export function YearInspector(props: {
       <div className="inspector-block">
         <div className="tile-label">Net worth</div>
         <div className="inspector-networth">{currency(detail.netWorth)}</div>
+        {/* Growth belongs to the number above it, not to the cash equation
+            below — it never passes through the household's hands. This is
+            also the one row where a "+" unambiguously means net worth grew. */}
+        <div className="inspector-row">
+          <span
+            className={`row-sign ${detail.growth.critical ? "row-critical" : "row-sign-add"}`}
+          >
+            {detail.growth.critical ? "−" : "+"}
+          </span>
+          <span className="row-label">Market growth</span>
+          <span className="row-leader" />
+          {/* The glyph carries the sign, so the figure is a magnitude —
+              otherwise a losing year reads "− -$20,000". */}
+          <span className={`row-value ${detail.growth.critical ? "row-critical" : ""}`}>
+            {currency(Math.abs(detail.growth.value))}
+          </span>
+        </div>
       </div>
 
       {props.percentiles && (
@@ -78,22 +137,24 @@ export function YearInspector(props: {
         </div>
       )}
 
-      <div className="inspector-block">
-        {detail.flows.map((row) => (
-          <div className="inspector-row" key={row.key}>
-            <span className="row-chip" style={{ background: row.color }} />
-            <span className="row-label">{row.label}</span>
-            <span className="row-leader" />
-            <span className={`row-value ${row.critical ? "row-critical" : ""}`}>
-              {currency(row.value)}
-            </span>
-          </div>
-        ))}
-        {/* Why the last row is "current spending" in a working year, and the
-            one assumption that has to hold for it — the engine cannot tell
-            saving it never heard about from spending. */}
-        {detail.spendingNote && <p className="inspector-note">{detail.spendingNote}</p>}
-      </div>
+      {/* The two sides of the engine's cash identity, each closing on its own
+          total, so the panel adds up in front of the reader instead of asking
+          to be trusted. Direction lives in the group headings — no per-row
+          signs, which would contradict the subtotals. */}
+      <FlowGroup
+        heading="Money in"
+        rows={detail.flows.filter((r) => r.group === "in")}
+        totalLabel="Money in"
+        total={detail.moneyIn}
+      />
+      <FlowGroup
+        heading="Money out"
+        rows={detail.flows.filter((r) => r.group === "out")}
+        totalLabel={detail.leftOverLabel}
+        total={detail.leftOver}
+        totalCritical={detail.shortfall}
+        note={detail.spendingNote}
+      />
 
       <div className="inspector-block">
         <div className="tile-label">Balances</div>

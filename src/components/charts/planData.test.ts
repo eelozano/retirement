@@ -343,10 +343,92 @@ describe("yearDetail", () => {
     const detail = yearDetail(p, proj, 2030, seriesDefs(p), false);
     const flows = new Map(detail?.flows.map((f) => [f.key, f]));
     expect(flows.get("withdrawals")?.value).toBe(42);
-    expect(flows.get("surplus")?.critical).toBe(true);
-    expect(flows.get("growth")?.value).toBe(-20);
-    expect(flows.get("growth")?.critical).toBe(true);
+    // Growth is no longer a flow row — it explains net worth, not cash.
+    expect(flows.has("growth")).toBe(false);
+    expect(detail?.growth.value).toBe(-20);
+    expect(detail?.growth.critical).toBe(true);
     expect(detail?.balances.map((b) => b.value)).toEqual([600, 400]);
+  });
+
+  it("splits the flows into the two sides of the engine's cash identity", () => {
+    const p = plan([person("a", 1980, 2030)], [account("x")]);
+    const proj = projection([
+      snapshot({
+        period_start: { year: 2030, month: 1 },
+        income: 76_880,
+        withdrawals: { x: 106_715 },
+        required_distributions: 106_715,
+        expenses: 70_000,
+        taxes: 39_036,
+        contributions: 0,
+        surplus: 74_559,
+        growth: 184_200,
+      }),
+    ]);
+
+    const detail = yearDetail(p, proj, 2030, seriesDefs(p), false);
+    expect(detail?.moneyIn).toBe(183_595);
+    // Derived from the rows on screen, and equal to the surplus the engine
+    // reported — the panel adds up to the same answer the simulation did.
+    expect(detail?.leftOver).toBe(74_559);
+    expect(detail?.leftOver).toBe(proj.snapshots[0].surplus);
+    expect(detail?.shortfall).toBe(false);
+    expect(detail?.leftOverLabel).toBe("Left over");
+
+    const groups = Object.fromEntries(detail?.flows.map((f) => [f.key, f.group]) ?? []);
+    expect(groups).toEqual({
+      income: "in",
+      withdrawals: "in",
+      required_distributions: "in",
+      expenses: "out",
+      taxes: "out",
+      contributions: "out",
+    });
+  });
+
+  it("keeps annotation rows out of the totals they sit under", () => {
+    const p = plan([person("a", 1980, 2030)], [account("x")]);
+    const proj = projection([
+      snapshot({
+        period_start: { year: 2029, month: 1 },
+        income: 100_000,
+        withdrawals: { x: 20_000 },
+        // Already inside withdrawals; counting it again would inflate money in.
+        required_distributions: 20_000,
+        expenses: 40_000,
+        taxes: 25_000,
+        contributions: 10_000,
+        // Never passed through household cash, so not an outflow.
+        employer_match: 5_000,
+      }),
+    ]);
+
+    const detail = yearDetail(p, proj, 2029, seriesDefs(p), false);
+    const subsets = detail?.flows.filter((f) => f.subset).map((f) => f.key);
+    expect(subsets).toEqual(["required_distributions", "employer_match"]);
+    expect(detail?.moneyIn).toBe(120_000);
+    expect(detail?.leftOver).toBe(45_000);
+  });
+
+  it("reports a shortfall rather than a reassuring zero when funds run out", () => {
+    const p = plan([person("a", 1980, 2030)], [account("x")]);
+    const proj = projection([
+      snapshot({
+        period_start: { year: 2030, month: 1 },
+        income: 42_230,
+        // Depleted: the drawdown could not cover the gap, so the engine
+        // clamps surplus to zero even though the year did not fund itself.
+        withdrawals: { x: 0 },
+        expenses: 70_000,
+        taxes: 4_110,
+        surplus: 0,
+      }),
+    ]);
+
+    const detail = yearDetail(p, proj, 2030, seriesDefs(p), false);
+    expect(detail?.shortfall).toBe(true);
+    expect(detail?.leftOver).toBe(-31_880);
+    expect(detail?.leftOverLabel).toBe("Shortfall");
   });
 
   it("calls the leftover current spending while anyone is still working", () => {
@@ -357,14 +439,12 @@ describe("yearDetail", () => {
     ]);
 
     const working = yearDetail(p, proj, 2029, seriesDefs(p), false);
-    expect(working?.flows.find((f) => f.key === "surplus")?.label).toBe(
-      "Current spending",
-    );
+    expect(working?.leftOverLabel).toBe("Current spending");
     expect(working?.spendingNote).toContain("every dollar you save is in this plan");
 
     // Retired: the same arithmetic really is a leftover, and needs no caveat.
     const retired = yearDetail(p, proj, 2030, seriesDefs(p), false);
-    expect(retired?.flows.find((f) => f.key === "surplus")?.label).toBe("Surplus");
+    expect(retired?.leftOverLabel).toBe("Left over");
     expect(retired?.spendingNote).toBeNull();
   });
 
