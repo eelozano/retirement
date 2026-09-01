@@ -32,7 +32,7 @@ impl Person {
 /// place both values are in scope, so this wire struct just holds the raw
 /// optional field until `resolve` fills it in from there. Same migration
 /// intent as the `#[serde(default)]` precedent documented on
-/// `sweep_surplus_to_taxable`.
+/// `sweep_surplus_from`.
 #[derive(Deserialize)]
 pub(super) struct PersonWire {
     id: PersonId,

@@ -49,8 +49,9 @@ struct ResolvedStream<'a> {
 /// 4. tax ordinary income (gross income minus pre-tax deferrals, plus any
 ///    required distribution), in a single pass over the whole period
 /// 5. reinvest the leftover in the taxable account — always for the forced
-///    distribution, and for ordinary surplus if the sweep is enabled — or
-///    draw down the shortfall (grossed up through the tax model)
+///    distribution, and for ordinary surplus once the sweep boundary has
+///    been reached — or draw down the shortfall (grossed up through the tax
+///    model)
 /// 6. apply market growth to post-flow balances
 /// 7. snapshot
 pub fn simulate(
@@ -124,6 +125,22 @@ pub fn simulate(
         }
     }
 
+    // When ordinary surplus starts being swept into the taxable account.
+    // `None` means never — which is also what an unresolvable boundary
+    // (a person deleted after it was chosen) falls back to, loudly: the
+    // alternative is silently sweeping decades of working-phase cash the
+    // household has already spent.
+    let sweep_from = match &plan.assumptions.sweep_surplus_from {
+        None => None,
+        Some(boundary) => {
+            let resolved = resolve_boundary(plan, boundary, start, end);
+            if resolved.is_none() {
+                state.warnings.push(SimWarning::SweepBoundaryUnresolved);
+            }
+            resolved
+        }
+    };
+
     // Household spending steps down at the first death. Resolved once here,
     // and `None` whenever it would be a no-op — no survivor transition, or
     // a factor of 1.0 — so plans without one are arithmetically untouched.
@@ -135,6 +152,7 @@ pub fn simulate(
     let run = RunContext {
         plan,
         streams: &resolved_streams,
+        sweep_from,
         survivor_step_down,
         returns,
         tax,

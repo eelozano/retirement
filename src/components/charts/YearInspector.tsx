@@ -3,9 +3,10 @@ import type { YearDetail } from "./planData";
 
 // Right-hand readout for one year of the projection. Shows every cash-flow
 // field on PeriodSnapshot — income, withdrawals, expenses, taxes,
-// contributions, surplus — plus per-account balances, and a note on the
-// years after the first death so the drop in income reads as the survivor
-// transition rather than as a glitch.
+// contributions, surplus — plus per-account balances, a note on the years
+// after the first death so the drop in income reads as the survivor
+// transition rather than as a glitch, and one on working years, where the
+// surplus is really current spending.
 
 export interface YearPercentiles {
   p10: number;
@@ -88,6 +89,10 @@ export function YearInspector(props: {
             </span>
           </div>
         ))}
+        {/* Why the last row is "current spending" in a working year, and the
+            one assumption that has to hold for it — the engine cannot tell
+            saving it never heard about from spending. */}
+        {detail.spendingNote && <p className="inspector-note">{detail.spendingNote}</p>}
       </div>
 
       <div className="inspector-block">

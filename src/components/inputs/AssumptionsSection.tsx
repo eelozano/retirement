@@ -1,8 +1,10 @@
 import { usePlanStore } from "../../store/planStore";
 import type { AssetClass } from "../../types/generated/AssetClass";
 import type { FilingStatus } from "../../types/generated/FilingStatus";
+import type { Plan } from "../../types/generated/Plan";
 import type { StateCode } from "../../types/generated/StateCode";
-import { CheckboxField, PercentField, SelectField } from "./fields";
+import { PercentField, SelectField, YearMonthField } from "./fields";
+import { boundaryOptions, boundaryToChoice, choiceToBoundary } from "./streamBoundary";
 import { TaxBracketEditor } from "./TaxBracketEditor";
 
 const ASSET_LABELS: Record<AssetClass, string> = {
@@ -77,6 +79,25 @@ const STATE_OPTIONS = (Object.keys(STATE_LABELS) as StateCode[]).map((value) => 
   label: STATE_LABELS[value],
 }));
 
+/**
+ * Sweep start, offered as the same boundary vocabulary the stream editors
+ * use — plus "never", which is what `sweep_surplus_from: null` means. Plan
+ * end and the death boundaries are left out: a sweep that starts when the
+ * plan does is "always", one that starts when it ends is nothing, and a
+ * sweep beginning at a death answers a question nobody is asking.
+ */
+const NEVER = "Never";
+
+const SWEEP_OPTIONS = (plan: Plan) => [
+  // Read as a sentence with the field label: "Invest leftover cash from
+  // never / plan start / Enrique retires". Kept short because the select is
+  // the same fixed width as every other one in this pane.
+  { value: NEVER, label: "Never" },
+  ...boundaryOptions(plan, "start").map((o) =>
+    o.value === "PlanStart" ? { value: o.value, label: "Plan start (always)" } : o,
+  ),
+];
+
 export function AssumptionsSection() {
   const plan = usePlanStore((s) => s.plan);
   const presets = usePlanStore((s) => s.presets);
@@ -84,6 +105,10 @@ export function AssumptionsSection() {
   if (!plan) return null;
 
   const assumptions = plan.assumptions;
+  const sweep = assumptions.sweep_surplus_from;
+  const sweepChoice = sweep === null ? NEVER : boundaryToChoice(sweep);
+  const sweepDate =
+    sweep !== null && typeof sweep === "object" && "Date" in sweep ? sweep.Date : null;
   return (
     <div className="pane-section">
       <div className="pane-head">
@@ -134,16 +159,34 @@ export function AssumptionsSection() {
             })
           }
         />
-        <CheckboxField
-          label="Sweep leftover income into taxable brokerage"
-          hint="When off, leftover cash each year (income minus contributions, taxes, and spending) is left out of the plan — assume it's going toward other goals. When on, it's automatically invested in your first taxable account."
-          checked={assumptions.sweep_surplus_to_taxable}
-          onChange={(checked) =>
+        <SelectField
+          label="Invest leftover cash from"
+          hint="Leftover cash each year is income minus contributions, taxes, and modelled spending — and it means two different things. While you're working it's what you live on: you enter what you save, not what you spend, so sweeping it into a brokerage would invest money you've already spent. In retirement it's genuinely left over, and leaving it out understates the portfolio every year. Starting the sweep at a retirement date says both."
+          value={sweepChoice}
+          options={SWEEP_OPTIONS(plan)}
+          onChange={(choice) =>
             updatePlan((d) => {
-              d.assumptions.sweep_surplus_to_taxable = checked;
+              d.assumptions.sweep_surplus_from =
+                choice === NEVER
+                  ? null
+                  : choiceToBoundary(
+                      choice,
+                      d.assumptions.sweep_surplus_from ?? "PlanStart",
+                    );
             })
           }
         />
+        {sweepDate && (
+          <YearMonthField
+            label="Sweep starts"
+            value={sweepDate}
+            onChange={(date) =>
+              updatePlan((d) => {
+                d.assumptions.sweep_surplus_from = { Date: date };
+              })
+            }
+          />
+        )}
         <PercentField
           label="Social Security COLA"
           rate={assumptions.social_security_cola}

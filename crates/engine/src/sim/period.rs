@@ -61,6 +61,10 @@ pub(super) struct RunContext<'a> {
     /// Plan, Social Security and survivor-continuation streams, boundaries
     /// already resolved to concrete months.
     pub streams: &'a [ResolvedStream<'a>],
+    /// The month ordinary surplus starts being swept into the taxable
+    /// account, resolved from `Assumptions::sweep_surplus_from`. `None`
+    /// never sweeps.
+    pub sweep_from: Option<YearMonth>,
     /// The month household spending steps down, and by what factor. `None`
     /// whenever it would be a no-op.
     pub survivor_step_down: Option<(YearMonth, f64)>,
@@ -385,7 +389,7 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
         - period.expenses;
     // Always the raw household leftover, invested or not — this keeps
     // cash-conservation checks (income = outflow + surplus) true regardless
-    // of the sweep toggle below.
+    // of the sweep boundary below.
     period.surplus = cash.max(0.0);
     if cash >= 0.0 {
         // The surplus branch never reaches the tax model: reinvested dollars
@@ -393,7 +397,7 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
         // go on to earn is taxed when it is withdrawn. There is no second
         // pass here to collapse.
         //
-        // What gets reinvested is where the sweep toggle stops. Ordinary
+        // What gets reinvested is where the sweep boundary stops. Ordinary
         // surplus is income that never entered an account, so leaving it
         // uninvested costs the projection nothing it ever had. A required
         // distribution is the opposite case: the money is already out of the
@@ -401,18 +405,20 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
         // full distribution every year — the engine would delete real wealth
         // and report the resulting shortfall as a failed plan. So the forced
         // share is reinvested unconditionally, and only the rest answers to
-        // the toggle.
+        // the boundary.
         //
         // The forced share is capped at the surplus rather than being the
         // whole distribution: RMD dollars fund spending like any other
         // income, and a household that spent theirs has nothing left to
         // redeposit.
         let forced = period.surplus.min(period.required_distributions);
-        let reinvested = if run.plan.assumptions.sweep_surplus_to_taxable {
-            period.surplus
-        } else {
-            forced
-        };
+        // The sweep starts with the first period that *begins* on or after
+        // the boundary. A retirement falling mid-period leaves that period
+        // part working, and its surplus part current spending; waiting for
+        // the next one keeps money the household has already spent out of
+        // the portfolio, which is the whole reason the boundary exists.
+        let sweeping = run.sweep_from.is_some_and(|month| ctx.start >= month);
+        let reinvested = if sweeping { period.surplus } else { forced };
         if reinvested > 0.0 {
             match state
                 .accounts

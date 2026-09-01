@@ -345,6 +345,25 @@ describe("yearDetail", () => {
     expect(detail?.balances.map((b) => b.value)).toEqual([600, 400]);
   });
 
+  it("calls the leftover current spending while anyone is still working", () => {
+    const p = plan([person("a", 1980, 2030)], [account("x")]);
+    const proj = projection([
+      snapshot({ period_start: { year: 2029, month: 1 }, surplus: 65_000 }),
+      snapshot({ period_start: { year: 2030, month: 1 }, surplus: 5_000 }),
+    ]);
+
+    const working = yearDetail(p, proj, 2029, seriesDefs(p), false);
+    expect(working?.flows.find((f) => f.key === "surplus")?.label).toBe(
+      "Current spending",
+    );
+    expect(working?.spendingNote).toContain("every dollar you save is in this plan");
+
+    // Retired: the same arithmetic really is a leftover, and needs no caveat.
+    const retired = yearDetail(p, proj, 2030, seriesDefs(p), false);
+    expect(retired?.flows.find((f) => f.key === "surplus")?.label).toBe("Surplus");
+    expect(retired?.spendingNote).toBeNull();
+  });
+
   it("buckets accounts past the palette into Other, matching the chart stack", () => {
     const accounts = Array.from({ length: 10 }, (_, i) => account(`a${i}`));
     const p = plan([person("a", 1980, 2030)], accounts);

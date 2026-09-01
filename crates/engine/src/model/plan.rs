@@ -80,7 +80,7 @@ pub struct Plan {
     pub streams: Vec<CashFlowStream>,
     /// `#[serde(default)]` so plans saved before this field existed load as
     /// empty, same migration precedent as
-    /// `Assumptions::sweep_surplus_to_taxable`.
+    /// `Assumptions::sweep_surplus_from`.
     #[serde(default)]
     pub social_security: Vec<SocialSecurityBenefit>,
     pub assumptions: Assumptions,

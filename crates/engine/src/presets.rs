@@ -251,7 +251,9 @@ pub fn default_assumptions() -> Assumptions {
         // they choose one.
         state_tax: StateTaxProfile::none(),
         plan_end_age: 95,
-        sweep_surplus_to_taxable: false,
+        // Never, until the user says when — see the field docs for why the
+        // answer differs either side of retirement.
+        sweep_surplus_from: None,
         // No step-down until the user picks one — see the field docs.
         survivor_expense_factor: 1.0,
         social_security_cola: 0.025,

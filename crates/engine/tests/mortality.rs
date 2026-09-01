@@ -62,7 +62,7 @@ fn plan_with_two_lifespans() -> Plan {
             // Deliberately left far from either person's real expectancy —
             // proves the household horizon and `AtDeath` no longer read it.
             plan_end_age: 200,
-            sweep_surplus_to_taxable: false,
+            sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
         },

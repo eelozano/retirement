@@ -204,7 +204,11 @@ pub struct Assumptions {
     // `Person::life_expectancy_age`. Not read by `end_month` or `AtDeath` —
     // kept only as the migration fallback for plans predating that field.
     pub plan_end_age: u8,
-    pub sweep_surplus_to_taxable: bool,            // default false; see sim/mod.rs step 4
+    // When ordinary surplus starts being swept into the first Taxable
+    // account: None never, Some(PlanStart) always, Some(AtRetirement(p))
+    // from that person's retirement. See "Surplus has two regimes" below;
+    // the pre-#50 bool migrates in `AssumptionsWire`.
+    pub sweep_surplus_from: Option<StreamBoundary>,
     // Fraction of *household* spending that continues after the first death.
     // Defaults to 1.0 — no step-down — so the engine never assumes a number
     // the user did not choose; the UI carries the 0.70–0.80 convention as
@@ -324,11 +328,21 @@ Every other outflow is demand-driven — `DrawdownStrategy::withdraw` is only re
 
 The conventions, each a choice: age *attained during* the calendar year, matching the statute and the catch-up precedent; the **prior period's closing balance** as the stand-in for the prior 31 December balance, which means the first projection period takes nothing (there is no prior); `TraditionalPreTax` only, since Roth accounts have no lifetime RMD; and one figure per owner over their aggregate pre-tax balance, satisfied **pro rata** across their accounts — the model has no IRA-versus-401(k) grouping, so pro rata is the simplification that leaves the portfolio's shape undisturbed and does not depend on listing order. A deceased owner keeps distributing on their own schedule: wrong in detail, but the alternative is an inherited pre-tax balance compounding untaxed to the end of the projection. Beneficiary RMDs, the 25% excise tax, QCDs and IRMAA are deliberately out of scope.
 
-**Reinvestment does not honour `sweep_surplus_to_taxable`, and that is the point.** For ordinary surplus the toggle is harmless: un-swept surplus is income that never entered an account, so leaving it out changes no balance. A distribution is the opposite case — the money has already left the pre-tax balance, and with nothing to receive it net worth would fall by the full distribution every year and the engine would report destroyed wealth as a failing plan. So the forced share is redeposited in the first `Taxable` account unconditionally (basis *and* balance: these are after-tax dollars, and skipping the basis taxes them again as gain), capped at the period's surplus because RMD dollars fund spending like any other income. With no taxable account the money genuinely has nowhere to go, and `RequiredDistributionUnallocated` says so — a louder warning than `SurplusUnallocated` for a materially worse outcome.
+**Reinvestment does not honour `sweep_surplus_from`, and that is the point.** For ordinary surplus the boundary is harmless: un-swept surplus is income that never entered an account, so leaving it out changes no balance. A distribution is the opposite case — the money has already left the pre-tax balance, and with nothing to receive it net worth would fall by the full distribution every year and the engine would report destroyed wealth as a failing plan. So the forced share is redeposited in the first `Taxable` account unconditionally (basis *and* balance: these are after-tax dollars, and skipping the basis taxes them again as gain), capped at the period's surplus because RMD dollars fund spending like any other income. With no taxable account the money genuinely has nowhere to go, and `RequiredDistributionUnallocated` says so — a louder warning than `SurplusUnallocated` for a materially worse outcome.
 
 Because the distribution enters `base_income` before `settle` runs, it is taxed in the same single pass as everything else: it stacks on the household's real marginal rate and drags Social Security into taxability. That is the whole finding RMDs exist to surface, and it is only expressible because #54 landed first. In a shortfall year the distribution counts as cash *toward* the need rather than being taken on top of it, so the household draws `max(need, RMD)` and not their sum.
 
 Downstream, `PeriodSnapshot::required_distributions` is the forced share of `withdrawals`, not an addition to it. The Plan screen's year inspector breaks it out beneath Withdrawals, and `cashFlowSummary` subtracts it before testing for the retirement crossover — otherwise the year an owner turns 73 would read as the year they started living off their portfolio, for a household that changed nothing.
+
+#### Surplus has two regimes (`Assumptions::sweep_surplus_from`)
+
+A period's leftover cash is one arithmetic result standing for two different quantities, and the boolean this replaced (#50) could only be right about one of them at a time.
+
+**While the household is working, surplus is current spending.** This app takes savings as the input and lets spending fall out as the residual: contributions are budgeted exactly and typed in, the grocery bill is not, and nothing in the engine throttles a contribution for affordability. A plan with no expense streams is therefore not missing data — its working-phase surplus *is* the household budget, and sweeping it into a brokerage would invent wealth out of money already spent. **In retirement it is real**: income is largely fixed, spending is the thing being modelled, and leftover cash genuinely is reinvested — so not sweeping it understates the portfolio for every retirement year.
+
+`Option<StreamBoundary>` states the split with no new vocabulary: `None` never sweeps, `Some(PlanStart)` always does, `Some(AtRetirement(p))` names *whose* retirement divides them — which a household with staggered dates has to answer, and a phase flag could not. `resolve_boundary` already turns any of them into a month; the sweep begins with the first period that *starts* on or after it, so a retirement landing mid-period does not bank the part of that period the household was still earning through. An unresolvable boundary (a deleted person) falls back to never, loudly, via `SweepBoundaryUnresolved` — the alternative fallback would quietly pour decades of working-phase spending into the portfolio.
+
+The rejected alternative is asking for a full budget so the residual disappears. It demands budgeting work this tool deliberately does not ask for, in order to recover a number the engine already derives — and that number has a better use. `lib/currentSpending.ts` reads it back off the last full working period as the seed for the retirement expense stream, deflated to today's dollars, which turns the one input a projection cannot do without into a prefilled figure. It holds only if every dollar the household saves is modelled here, since the engine cannot tell unmodelled saving from spending; the UI carries that caveat wherever the number appears, and the same working/retired split renames the year inspector's surplus row.
 
 #### Contribution limits (`sim/contributions.rs`)
 

@@ -1,3 +1,4 @@
+import { atOrAfter, isWorkingPeriod } from "../../lib/currentSpending";
 import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
 import type { PeriodSnapshot } from "../../types/generated/PeriodSnapshot";
 import type { Person } from "../../types/generated/Person";
@@ -64,10 +65,6 @@ function snapshotForYear(
   year: number,
 ): PeriodSnapshot | undefined {
   return projection.snapshots.find((s) => s.period_start.year === year);
-}
-
-function atOrAfter(a: YearMonth, b: YearMonth): boolean {
-  return a.year !== b.year ? a.year > b.year : a.month >= b.month;
 }
 
 /** Mirrors the engine's `Person::month_at_age` (birth plus whole years). */
@@ -284,6 +281,12 @@ export interface YearDetail {
    * `null` on every year before it.
    */
   transition: string | null;
+  /**
+   * Why the last flow row is called current spending in a working year, and
+   * what has to be true for it to be right. `null` once everyone has
+   * retired and the row is a plain surplus again.
+   */
+  spendingNote: string | null;
 }
 
 /**
@@ -306,6 +309,7 @@ export function yearDetail(
     (sum, v) => sum + (v ?? 0),
     0,
   );
+  const working = isWorkingPeriod(plan, s);
 
   const flows: FlowRow[] = [
     { key: "income", label: "Income", color: "var(--series-2)", value: s.income / d },
@@ -357,8 +361,12 @@ export function yearDetail(
         ]
       : []),
     {
+      // While anyone is still earning, this is not money looking for a
+      // home — it is what the household lives on (#50). Savings are the
+      // input in this app and spending is the residual, so calling it
+      // "surplus" in a working year invites exactly the wrong conclusion.
       key: "surplus",
-      label: "Surplus",
+      label: working ? "Current spending" : "Surplus",
       color: "var(--muted)",
       value: s.surplus / d,
       critical: s.surplus < 0,
@@ -403,6 +411,9 @@ export function yearDetail(
     flows,
     balances,
     transition: transitionNote(plan, year),
+    spendingNote: working
+      ? "You enter what you save, not what you spend, so what's left over here is what the household lives on. It only reads right if every dollar you save is in this plan."
+      : null,
   };
 }
 

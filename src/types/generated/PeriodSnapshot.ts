@@ -46,9 +46,10 @@ required_distributions: number,
  * How much of it is actually invested depends on where it came from.
  * The `required_distributions` share is always reinvested in a taxable
  * account — that money has already left a pre-tax balance, and dropping
- * it would destroy real wealth. The rest is only invested when
- * `assumptions.sweep_surplus_to_taxable` is set; otherwise it is
- * informational.
+ * it would destroy real wealth. The rest is only invested from
+ * `assumptions.sweep_surplus_from` onward; before that it is
+ * informational — and while the household is still working, it is
+ * better read as current spending than as leftovers (#50).
  */
 surplus: number, 
 /**

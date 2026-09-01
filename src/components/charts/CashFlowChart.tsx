@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { lastToRetire } from "../../lib/currentSpending";
 import { currency, currencyCompact } from "../../lib/format";
 import type { Plan } from "../../types/generated/Plan";
 import type { CashFlowRow } from "./cashFlowData";
@@ -33,8 +34,18 @@ function CashFlowTooltip(props: {
   active?: boolean;
   label?: string | number;
   payload?: { dataKey?: string | number; value?: number; color?: string }[];
+  /** First year in which nobody in the household is earning any more. */
+  retiredFrom?: number | null;
 }) {
   if (!props.active || !props.payload?.length) return null;
+  // The dashed line means two different things either side of retirement
+  // (#50), and the tooltip is the one place on this chart that knows which
+  // year it is being read at, so it is where the name can be honest.
+  const year = Number(props.label);
+  const working =
+    props.retiredFrom !== null &&
+    props.retiredFrom !== undefined &&
+    year < props.retiredFrom;
   return (
     <div className="chart-tooltip">
       <div className="chart-tooltip-label">{props.label}</div>
@@ -43,7 +54,7 @@ function CashFlowTooltip(props: {
           <span className="line-key" style={{ background: entry.color }} />
           <span className="series-name">
             {[...INFLOWS, ...OUTFLOWS].find((s) => s.key === entry.dataKey)?.label ??
-              "Surplus"}
+              (working ? "Current spending" : "Surplus")}
           </span>
           {/* Outflows are stored negative for the stack; show magnitudes. */}
           <strong>{currency(Math.abs(entry.value ?? 0))}</strong>
@@ -54,6 +65,7 @@ function CashFlowTooltip(props: {
 }
 
 export function CashFlowChart(props: { rows: CashFlowRow[]; plan: Plan }) {
+  const retiredFrom = lastToRetire(props.plan)?.retirement.year ?? null;
   return (
     <ResponsiveContainer width="100%" height={360}>
       <ComposedChart
@@ -75,7 +87,7 @@ export function CashFlowChart(props: { rows: CashFlowRow[]; plan: Plan }) {
           width={64}
         />
         <Tooltip
-          content={<CashFlowTooltip />}
+          content={<CashFlowTooltip retiredFrom={retiredFrom} />}
           cursor={{ stroke: "var(--axis)", strokeWidth: 1 }}
         />
         <Legend
@@ -138,7 +150,10 @@ export function CashFlowChart(props: { rows: CashFlowRow[]; plan: Plan }) {
         <Line
           type="monotone"
           dataKey="surplus"
-          name="Surplus"
+          // One static legend entry for a line that is spending money on the
+          // left of the chart and leftover cash on the right; the tooltip
+          // names it per year.
+          name="Surplus / current spending"
           stroke="var(--text-primary)"
           strokeWidth={1.5}
           strokeDasharray="4 3"

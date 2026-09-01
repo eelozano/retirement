@@ -2,6 +2,7 @@
 import type { AssetClass } from "./AssetClass";
 import type { FilingStatus } from "./FilingStatus";
 import type { StateTaxProfile } from "./StateTaxProfile";
+import type { StreamBoundary } from "./StreamBoundary";
 
 /**
  * Market and tax assumptions. All rates are annual decimals (0.07 = 7%).
@@ -43,16 +44,42 @@ state_tax: StateTaxProfile,
  */
 plan_end_age: number, 
 /**
- * When `true`, leftover household cash each period (income minus
- * contributions, taxes, and expenses) is swept into the first account
- * of kind `Taxable`. When `false` (the default), leftover cash is left
- * unallocated by the simulation — it is still reported via
- * `PeriodSnapshot::surplus`, just not invested, on the assumption the
- * user is directing it elsewhere (an explicit contribution, or a goal
- * outside this plan). `#[serde(default)]` so plans saved before this
- * field existed load as `false`.
+ * When leftover household cash each period (income and required
+ * distributions, minus contributions, taxes, and expenses) starts being
+ * swept into the first account of kind `Taxable`. `None` — the default
+ * — never sweeps; `Some(PlanStart)` always does.
+ *
+ * A boundary rather than a flag because surplus is two different
+ * quantities either side of retirement (#50), and one answer cannot be
+ * right for both:
+ *
+ * - **While working** it is *current spending*. This app takes savings
+ *   as the input and lets spending fall out as the residual — accounts
+ *   are contributed to from `allowed_contributions`, and nothing here
+ *   throttles a contribution for affordability — so a plan with no
+ *   expense streams still simulates correctly, and its surplus is the
+ *   grocery bill rather than money looking for a home. Sweeping it
+ *   would invent wealth out of money already spent.
+ * - **In retirement** it is real. Income is largely fixed, spending is
+ *   the thing being modelled, and cash left over genuinely does get
+ *   reinvested. Not sweeping it understates the portfolio for every
+ *   retirement year.
+ *
+ * `Some(AtRetirement(p))` states exactly that split, and says *whose*
+ * retirement — which a household with staggered retirement dates has to
+ * answer. `sim::resolve_boundary` turns any of these into a month, and
+ * the sweep begins with the first period starting on or after it.
+ *
+ * The alternative — asking for a full household budget so the residual
+ * disappears — is deliberately rejected. It demands budgeting work this
+ * tool does not otherwise ask for, in order to recover a number the
+ * engine already derives.
+ *
+ * `#[serde(default)]` so plans saved before this field existed load as
+ * `None`; the boolean `sweep_surplus_to_taxable` it replaces is
+ * migrated in `AssumptionsWire` below.
  */
-sweep_surplus_to_taxable: boolean, 
+sweep_surplus_from: StreamBoundary | null, 
 /**
  * Fraction of *household* spending — the expense streams no single
  * person owns — that continues after the first death (#34). One person
