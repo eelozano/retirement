@@ -176,6 +176,9 @@ pub(super) struct PeriodState {
     pub taxes: f64,
     pub surplus: f64,
     pub withdrawals: BTreeMap<AccountId, f64>,
+    /// Market growth applied to post-flow balances this period, summed
+    /// across accounts. Set by `grow()`, the last step.
+    pub growth: f64,
 }
 
 impl PeriodState {
@@ -214,6 +217,7 @@ impl PeriodState {
             required_distributions: self.required_distributions,
             surplus: self.surplus,
             withdrawals: self.withdrawals,
+            growth: self.growth,
             deflator: ctx.deflator(),
         }
     }
@@ -226,7 +230,7 @@ pub(super) fn run(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) -
     contribute(run, ctx, &mut period, state);
     distribute(run, ctx, &mut period, state);
     settle(run, ctx, &mut period, state);
-    grow(run, ctx, state);
+    period.growth = grow(run, ctx, state);
     state.prior_balances = Some(state.accounts.iter().map(|a| a.balance).collect());
     period.snapshot(ctx, &state.accounts)
 }
@@ -469,15 +473,21 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
     }
 }
 
-/// Step 6 — apply market growth to post-flow balances.
-fn grow(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) {
+/// Step 6 — apply market growth to post-flow balances. Returns the total
+/// dollar growth across accounts, in nominal dollars.
+fn grow(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) -> f64 {
     let period_returns = run.returns.returns_for(ctx.period, run.path_id);
+    let mut growth = 0.0;
     for (idx, account) in run.plan.accounts.iter().enumerate() {
         let weights = allocation_weights(&account.allocation);
         let rate: f64 = weights
             .iter()
             .map(|(class, w)| w * period_returns.get(class).copied().unwrap_or(0.0))
             .sum();
-        state.accounts[idx].balance *= 1.0 + rate;
+        let balance = &mut state.accounts[idx].balance;
+        let pre = *balance;
+        *balance *= 1.0 + rate;
+        growth += *balance - pre;
     }
+    growth
 }

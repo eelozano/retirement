@@ -2,6 +2,7 @@ import { useState } from "react";
 import { usePlanStore } from "../../store/planStore";
 import { InputsScreen, type InputsSection } from "../inputs/InputsScreen";
 import { CashFlowScreen } from "./CashFlowScreen";
+import { GrowthScreen } from "./GrowthScreen";
 import { PlanScreen } from "./PlanScreen";
 import { type Destination, Rail } from "./Rail";
 import { ScenariosScreen } from "./ScenariosScreen";
@@ -146,6 +147,8 @@ export function Dashboard() {
         <div className="content">
           {destination === "cashflow" ? (
             <CashFlowScreen />
+          ) : destination === "growth" ? (
+            <GrowthScreen />
           ) : destination === "inputs" ? (
             <InputsScreen section={inputsSection} onSectionChange={setInputsSection} />
           ) : destination === "scenarios" ? (

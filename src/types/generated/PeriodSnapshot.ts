@@ -55,7 +55,13 @@ surplus: number,
 /**
  * Gross withdrawals per account this period.
  */
-withdrawals: { [key in string]?: number }, net_worth: number, 
+withdrawals: { [key in string]?: number }, 
+/**
+ * Market growth applied to post-flow balances this period, summed
+ * across accounts, in nominal dollars: the dollar amount `grow()`
+ * produced but that a balance-only snapshot would otherwise discard.
+ */
+growth: number, net_worth: number, 
 /**
  * Cumulative inflation factor at period start: divide any nominal value
  * in this snapshot by it to get simulation-start (today's) dollars.
