@@ -315,6 +315,21 @@ export function yearDetail(
       color: "var(--series-1)",
       value: withdrawals / d,
     },
+    // A subset of the row above, not another inflow — hence the label, and
+    // hence its place directly beneath it. Broken out because it is the part
+    // the household did not choose, and it is what explains a tax bill
+    // jumping in the year an owner reaches 73 or 75. Shown only in the years
+    // there is one.
+    ...(s.required_distributions > 0
+      ? [
+          {
+            key: "required_distributions",
+            label: "Of which required",
+            color: "var(--series-4)",
+            value: s.required_distributions / d,
+          },
+        ]
+      : []),
     {
       key: "expenses",
       label: "Expenses",

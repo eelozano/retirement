@@ -48,6 +48,15 @@ pub enum SimWarning {
     /// Sweep is enabled but there is no taxable account for surplus cash to
     /// land in.
     SurplusUnallocated,
+    /// A required minimum distribution was forced out of a pre-tax account
+    /// and there is no taxable account for the after-tax remainder to land
+    /// in. Louder than `SurplusUnallocated` and reported separately: surplus
+    /// that goes uninvested is income that never entered an account, but
+    /// these dollars have already left one, so nothing receiving them means
+    /// household net worth falls by the remainder every year.
+    ///
+    /// Reported once, for the first period it happens in.
+    RequiredDistributionUnallocated { period: usize },
     /// A stream references a person id that does not exist; it was skipped.
     UnknownPersonRef { stream: StreamId },
 }
@@ -74,10 +83,19 @@ pub struct PeriodSnapshot {
     /// Employer matching contributions deposited this period. Employer
     /// money: it raises balances without reducing household cash.
     pub employer_match: f64,
-    /// Leftover household cash this period (income minus contributions,
-    /// taxes, and expenses). Only actually invested when
-    /// `assumptions.sweep_surplus_to_taxable` is set — otherwise this is
-    /// informational only.
+    /// Gross required minimum distributions forced out of pre-tax accounts
+    /// this period (#49). Part of `withdrawals`, not an addition to them:
+    /// the forced share of the period's gross draw.
+    pub required_distributions: f64,
+    /// Leftover household cash this period (income and required
+    /// distributions, minus contributions, taxes, and expenses).
+    ///
+    /// How much of it is actually invested depends on where it came from.
+    /// The `required_distributions` share is always reinvested in a taxable
+    /// account — that money has already left a pre-tax balance, and dropping
+    /// it would destroy real wealth. The rest is only invested when
+    /// `assumptions.sweep_surplus_to_taxable` is set; otherwise it is
+    /// informational.
     pub surplus: f64,
     /// Gross withdrawals per account this period.
     pub withdrawals: BTreeMap<AccountId, f64>,

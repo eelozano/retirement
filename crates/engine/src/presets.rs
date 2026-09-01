@@ -137,6 +137,62 @@ impl ContributionLimits {
     }
 }
 
+/// Age at which required minimum distributions begin, for someone born in
+/// `birth_year`. SECURE 2.0 (IRC 401(a)(9)(C)(v)): 73 for people born 1951
+/// through 1959, 75 for 1960 and later.
+///
+/// Anyone born 1950 or earlier reached their required beginning date under
+/// the older rules — 70½ or 72 depending on the year — and is already
+/// distributing before any projection this app can start. 72 is returned for
+/// them because the only question a projection starting today can ask is
+/// "are they past it", and for that cohort the answer is yes either way.
+///
+/// **Not inflation-indexed**, and neither is [`uniform_lifetime_divisor`].
+/// Everything else statutory in this module is a dollar amount that runs
+/// through `index_to`; these two are an age and a mortality divisor, fixed
+/// until Congress or the IRS changes them.
+pub fn rmd_age(birth_year: i32) -> i32 {
+    match birth_year {
+        ..=1950 => 72,
+        1951..=1959 => 73,
+        _ => 75,
+    }
+}
+
+/// First age in [`UNIFORM_LIFETIME_DIVISORS`].
+pub const UNIFORM_LIFETIME_FIRST_AGE: i32 = 72;
+
+/// IRS Uniform Lifetime Table, Treas. Reg. 1.401(a)(9)-9(c), as reissued
+/// effective 2022 — divisors for ages 72 through 120, in order. Age 120 is
+/// the table's "120 and older" row.
+///
+/// The table starts at 72 because that is the earliest required beginning
+/// age any living cohort has (see [`rmd_age`]); the published table's
+/// younger rows only apply to beneficiaries, which this engine does not
+/// model.
+pub const UNIFORM_LIFETIME_DIVISORS: [f64; 49] = [
+    27.4, 26.5, 25.5, 24.6, 23.7, 22.9, 22.0, 21.1, 20.2, 19.4, // 72-81
+    18.5, 17.7, 16.8, 16.0, 15.2, 14.4, 13.7, 12.9, 12.2, 11.5, // 82-91
+    10.8, 10.1, 9.5, 8.9, 8.4, 7.8, 7.3, 6.8, 6.4, 6.0, // 92-101
+    5.6, 5.2, 4.9, 4.6, 4.3, 4.1, 3.9, 3.7, 3.5, 3.4, // 102-111
+    3.3, 3.1, 3.0, 2.9, 2.8, 2.7, 2.5, 2.3, 2.0, // 112-120
+];
+
+/// Uniform Lifetime divisor for someone attaining `age` during the
+/// distribution year: divide the prior year-end balance by it to get that
+/// year's required minimum.
+///
+/// `None` below the table's first age — the caller has no distribution to
+/// compute there. Ages past the last row take the "120 and older" divisor,
+/// which is what the table itself says to do.
+pub fn uniform_lifetime_divisor(age: i32) -> Option<f64> {
+    if age < UNIFORM_LIFETIME_FIRST_AGE {
+        return None;
+    }
+    let idx = (age - UNIFORM_LIFETIME_FIRST_AGE) as usize;
+    Some(UNIFORM_LIFETIME_DIVISORS[idx.min(UNIFORM_LIFETIME_DIVISORS.len() - 1)])
+}
+
 /// Bundle the frontend fetches once at startup.
 #[derive(Serialize, Deserialize, TS, Clone, Debug)]
 #[ts(export)]
