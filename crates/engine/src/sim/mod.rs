@@ -8,7 +8,9 @@ mod survivor;
 pub use monte_carlo::{run_monte_carlo, MonteCarloConfig, MonteCarloResult, PeriodPercentiles};
 pub use projection::{PeriodSnapshot, Projection, SimWarning};
 
-use crate::model::{AccountKind, CashFlowStream, GrowthRule, Plan, StreamBoundary, YearMonth};
+use crate::model::{
+    Account, AccountKind, CashFlowStream, GrowthRule, Plan, StreamBoundary, YearMonth,
+};
 use crate::strategies::{DrawdownStrategy, ReturnModel, TaxModel};
 
 use period::{PeriodContext, RunContext, RunState};
@@ -151,11 +153,15 @@ pub fn simulate(
 
     // Which account receives the sweep and any forced-distribution
     // remainder. `Assumptions::reinvest_into` names one directly;
-    // `Plan::validate` rejects it unless it names a `Taxable` account, so a
-    // validated plan always resolves here when it names one at all. A plan
-    // that skips validation (a test fixture, a stale `reinvest_into`) falls
-    // back to the first `Taxable` account in plan order — today's
-    // behaviour — rather than dropping the money.
+    // `Plan::validate` rejects it unless it names a `Taxable` or `Savings`
+    // account — both carry after-tax cost-basis semantics, so either is a
+    // valid destination — meaning a validated plan always resolves here
+    // when it names one at all. A plan that skips validation (a test
+    // fixture, a stale `reinvest_into`) falls back to the first such
+    // account in plan order — today's behaviour — rather than dropping the
+    // money.
+    let is_reinvest_target =
+        |a: &Account| matches!(a.kind, AccountKind::Taxable | AccountKind::Savings);
     let reinvest_into = plan
         .assumptions
         .reinvest_into
@@ -163,13 +169,9 @@ pub fn simulate(
         .and_then(|id| {
             plan.accounts
                 .iter()
-                .position(|a| &a.id == id && a.kind == AccountKind::Taxable)
+                .position(|a| &a.id == id && is_reinvest_target(a))
         })
-        .or_else(|| {
-            plan.accounts
-                .iter()
-                .position(|a| a.kind == AccountKind::Taxable)
-        });
+        .or_else(|| plan.accounts.iter().position(is_reinvest_target));
 
     let run = RunContext {
         plan,

@@ -95,7 +95,13 @@ impl DrawdownStrategy for ProportionalDrawdown {
                         income.capital_gains += gains;
                         income.untaxed += amount - gains;
                     }
-                    AccountKind::Roth => income.untaxed += amount,
+                    // A savings account's interest is already taxed as it
+                    // accrues (`sim::period::accrue_interest`), not deferred
+                    // to withdrawal — see `AccountKind::Savings`. Assumes
+                    // qualified medical spending for HSA — see `AccountKind::Hsa`.
+                    AccountKind::Roth | AccountKind::Hsa | AccountKind::Savings => {
+                        income.untaxed += amount
+                    }
                 }
             }
             income
@@ -312,6 +318,48 @@ mod tests {
             )
             .tax,
             "no base income, no difference",
+        );
+    }
+
+    /// An HSA behaves like a Roth at withdrawal time (untaxed), even though
+    /// its contributions were pre-tax — the one combination neither `Roth`
+    /// nor `TraditionalPreTax` alone captures.
+    #[test]
+    fn an_hsa_withdrawal_is_untaxed_like_a_roth() {
+        let tax = joint();
+        let mut hsa = vec![account("hsa", AccountKind::Hsa, 100_000.0, 0.0)];
+        let mut roth = vec![account("roth", AccountKind::Roth, 100_000.0, 0.0)];
+        let base = IncomeBreakdown::default();
+
+        let hsa_result = ProportionalDrawdown.withdraw(50_000.0, &mut hsa, &tax, &base, 0);
+        let roth_result = ProportionalDrawdown.withdraw(50_000.0, &mut roth, &tax, &base, 0);
+
+        assert_close(hsa_result.tax, 0.0, "no tax on the HSA withdrawal");
+        assert_close(
+            hsa_result.net,
+            roth_result.net,
+            "same net as an equivalent Roth",
+        );
+    }
+
+    /// A savings account's interest is already taxed as it accrues
+    /// (`sim::period::accrue_interest`), so a withdrawal is a movement of
+    /// already-taxed dollars — untaxed here, same as a Roth or an HSA.
+    #[test]
+    fn a_savings_withdrawal_is_untaxed_its_interest_was_taxed_when_earned() {
+        let tax = joint();
+        let mut savings = vec![account("savings", AccountKind::Savings, 100_000.0, 0.0)];
+        let mut roth = vec![account("roth", AccountKind::Roth, 100_000.0, 0.0)];
+        let base = IncomeBreakdown::default();
+
+        let savings_result = ProportionalDrawdown.withdraw(50_000.0, &mut savings, &tax, &base, 0);
+        let roth_result = ProportionalDrawdown.withdraw(50_000.0, &mut roth, &tax, &base, 0);
+
+        assert_close(savings_result.tax, 0.0, "no tax on the savings withdrawal");
+        assert_close(
+            savings_result.net,
+            roth_result.net,
+            "same net as an equivalent Roth",
         );
     }
 

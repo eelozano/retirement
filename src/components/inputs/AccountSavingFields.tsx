@@ -30,7 +30,7 @@ export function AccountSavingFields(props: {
     <fieldset>
       <legend>Into {account.name || "this account"}</legend>
       <SelectField
-        label="Contribution"
+        label={account.kind === "Savings" ? "Savings rate" : "Contribution"}
         value={mode}
         options={
           account.plan_type === "None"

@@ -6,11 +6,14 @@
  * Deliberately orthogonal to `AccountKind`, which is the *tax treatment*
  * axis: a Roth 401(k) and a Roth IRA are taxed identically and capped
  * separately, while a traditional IRA and a Roth IRA are taxed differently
- * and share one cap. Two axes, each with one job — exploding `AccountKind`
- * into five variants would force every `match` in the tax and drawdown
- * paths to grow for a distinction those paths do not care about.
+ * and share one cap. Two axes, each with one job — folding a statutory
+ * bucket distinction into `AccountKind` instead would force every `match`
+ * in the tax and drawdown paths to grow for a distinction those paths do
+ * not care about.
  *
- * 457(b) has a statutorily separate limit from 401(k)/403(b) and would be a
- * fourth variant here, not a rework.
+ * 457(b) has a statutorily separate limit from 401(k)/403(b), so it is a
+ * variant here rather than folded into `EmployerPlan`; HSA, SEP-IRA, and
+ * SIMPLE IRA each carry their own statutorily distinct limit for the same
+ * reason.
  */
-export type PlanType = "EmployerPlan" | "Ira" | "None";
+export type PlanType = "EmployerPlan" | "Ira" | "Plan457b" | "Hsa" | "SepIra" | "SimpleIra" | "None";
