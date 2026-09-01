@@ -162,10 +162,15 @@ pub(super) struct PeriodState {
 }
 
 impl PeriodState {
-    /// The period's income as the tax model sees it. Pre-tax deferrals
-    /// reduce ordinary income; Social Security is carried separately since
-    /// it is only partially taxable.
-    fn income_breakdown(&self) -> IncomeBreakdown {
+    /// The period's income as the tax model sees it, before any
+    /// discretionary drawdown. Pre-tax deferrals reduce ordinary income;
+    /// Social Security is carried separately since it is only partially
+    /// taxable.
+    ///
+    /// This is the *single* definition of the period's income. Step 4's
+    /// gross-up stacks on top of it rather than re-entering the brackets at
+    /// $0 (#54).
+    fn base_income(&self) -> IncomeBreakdown {
         IncomeBreakdown {
             ordinary: (self.income - self.ss_income - self.pretax_contributions).max(0.0),
             social_security: self.ss_income,
@@ -309,8 +314,13 @@ fn contribute(
 /// Steps 3 and 4 — tax the period's income, then sweep the surplus into the
 /// taxable account (if enabled) or draw down the shortfall (grossed up
 /// through the tax model).
+///
+/// One tax pass, not two. The drawdown grosses itself up against the same
+/// `base_income` taxed here and reports only what it *adds*, so a period's
+/// dollars meet the progressive schedule once, in one stack.
 fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state: &mut RunState) {
-    let income_tax = run.tax.tax(&period.income_breakdown(), ctx.period).tax;
+    let base = period.base_income();
+    let income_tax = run.tax.tax(&base, ctx.period).tax;
     period.taxes = income_tax;
 
     let cash = period.income - period.contributions - income_tax - period.expenses;
@@ -319,6 +329,10 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
     // of the sweep toggle below.
     period.surplus = cash.max(0.0);
     if cash >= 0.0 {
+        // The surplus branch never reaches the tax model: swept dollars are
+        // after-tax cash landing in a taxable account, and the gain they go
+        // on to earn is taxed when it is withdrawn. There is no second pass
+        // here to collapse.
         if period.surplus > 0.0 && run.plan.assumptions.sweep_surplus_to_taxable {
             match state
                 .accounts
@@ -338,7 +352,9 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
     let needed = -cash;
     let result = run
         .drawdown
-        .withdraw(needed, &mut state.accounts, run.tax, ctx.period);
+        .withdraw(needed, &mut state.accounts, run.tax, &base, ctx.period);
+    // `result.tax` is the *marginal* cost of the withdrawal over `base`, so
+    // this addition is the period's whole bill, counted once.
     period.taxes += result.tax;
     period.withdrawals = result.gross_by_account;
     // Relative epsilon: the gross-up iteration converges to within ~1e-9 of
