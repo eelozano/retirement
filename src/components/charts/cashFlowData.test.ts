@@ -13,6 +13,7 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     taxes: 0,
     contributions: 0,
     employer_match: 0,
+    required_distributions: 0,
     surplus: 0,
     withdrawals: {},
     net_worth: 0,
@@ -47,6 +48,7 @@ describe("cashFlowRows", () => {
       year: 2030,
       income: 100,
       withdrawals: 8,
+      requiredDistributions: 0,
       expenses: -60,
       taxes: -20,
       contributions: -10,
@@ -91,6 +93,54 @@ describe("cashFlowSummary", () => {
     expect(s.crossoverYear).toBe(2039);
     expect(s.peakWithdrawalYear).toBe(2040);
     expect(s.peakWithdrawal).toBe(90);
+  });
+
+  it("does not let a forced withdrawal move the crossover", () => {
+    // The household's behaviour is identical in both years — a pension that
+    // covers everything. All that changed in 2059 is that an owner reached
+    // their RMD age, and that must not read as the year they started living
+    // off the portfolio.
+    const rows = cashFlowRows(
+      projection([
+        snapshot({
+          period_start: { year: 2058, month: 1 },
+          income: 100,
+          withdrawals: {},
+        }),
+        snapshot({
+          period_start: { year: 2059, month: 1 },
+          income: 100,
+          withdrawals: { a: 150 },
+          required_distributions: 150,
+        }),
+        snapshot({
+          period_start: { year: 2060, month: 1 },
+          income: 100,
+          withdrawals: { a: 240 },
+          required_distributions: 150,
+        }),
+      ]),
+      false,
+    );
+    // 2059 is entirely forced; 2060 adds $90 of chosen withdrawals, still
+    // under the $100 of income. Neither year is a crossover, though the raw
+    // withdrawal total clears income in both.
+    expect(cashFlowSummary(rows).crossoverYear).toBeNull();
+  });
+
+  it("still crosses over on the household's own withdrawals", () => {
+    const rows = cashFlowRows(
+      projection([
+        snapshot({
+          period_start: { year: 2061, month: 1 },
+          income: 100,
+          withdrawals: { a: 260 },
+          required_distributions: 150,
+        }),
+      ]),
+      false,
+    );
+    expect(cashFlowSummary(rows).crossoverYear).toBe(2061);
   });
 
   it("reports no crossover when earnings always cover the household", () => {

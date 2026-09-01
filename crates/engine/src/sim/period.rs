@@ -30,8 +30,8 @@ use crate::strategies::{
 };
 
 use super::{
-    contributions, growth_factor, overlap_fraction, PeriodSnapshot, ResolvedStream, SimWarning,
-    StreamSource,
+    contributions, growth_factor, overlap_fraction, required_distributions, PeriodSnapshot,
+    ResolvedStream, SimWarning, StreamSource,
 };
 
 /// The warnings collected over a run, deduplicated on push.
@@ -79,6 +79,13 @@ pub(super) struct RunState {
     /// Whether the portfolio has already run dry — only the first period it
     /// happens in is reported.
     pub depleted: bool,
+    /// Whether a forced distribution has already been reported as having
+    /// nowhere to land. Same once-per-run shape as `depleted`.
+    pub distribution_unallocated_reported: bool,
+    /// Closing balances of the previous period, indexed parallel to
+    /// `plan.accounts`. `None` in the first period, which is why no required
+    /// distribution is taken there — see `required_distributions`.
+    pub prior_balances: Option<Vec<f64>>,
     pub warnings: Warnings,
 }
 
@@ -97,6 +104,8 @@ impl RunState {
                 .collect(),
             clamps_reported: BTreeSet::new(),
             depleted: false,
+            distribution_unallocated_reported: false,
+            prior_balances: None,
             warnings: Warnings::default(),
         }
     }
@@ -155,6 +164,10 @@ pub(super) struct PeriodState {
     /// Pre-tax dollars deposited this period, employee and match alike:
     /// what reduces the period's ordinary income.
     pub pretax_contributions: f64,
+    /// Gross required minimum distributions forced out of pre-tax accounts
+    /// this period. Already counted inside `withdrawals` — this is the
+    /// forced share of them, not an addition to them.
+    pub required_distributions: f64,
     /// Total tax for the period.
     pub taxes: f64,
     pub surplus: f64,
@@ -172,7 +185,12 @@ impl PeriodState {
     /// $0 (#54).
     fn base_income(&self) -> IncomeBreakdown {
         IncomeBreakdown {
-            ordinary: (self.income - self.ss_income - self.pretax_contributions).max(0.0),
+            // A required distribution is ordinary income and is added after
+            // the clamp, not inside it: pre-tax deferrals offset earned
+            // income, and a household deferring more than it earns must not
+            // shelter a forced distribution as a side effect.
+            ordinary: (self.income - self.ss_income - self.pretax_contributions).max(0.0)
+                + self.required_distributions,
             social_security: self.ss_income,
             ..Default::default()
         }
@@ -189,6 +207,7 @@ impl PeriodState {
             taxes: self.taxes,
             contributions: self.contributions,
             employer_match: self.employer_match,
+            required_distributions: self.required_distributions,
             surplus: self.surplus,
             withdrawals: self.withdrawals,
             deflator: ctx.deflator(),
@@ -201,8 +220,10 @@ pub(super) fn run(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) -
     let mut period = PeriodState::default();
     accrue_streams(run, ctx, &mut period);
     contribute(run, ctx, &mut period, state);
+    distribute(run, ctx, &mut period, state);
     settle(run, ctx, &mut period, state);
     grow(run, ctx, state);
+    state.prior_balances = Some(state.accounts.iter().map(|a| a.balance).collect());
     period.snapshot(ctx, &state.accounts)
 }
 
@@ -311,9 +332,41 @@ fn contribute(
     }
 }
 
-/// Steps 3 and 4 — tax the period's income, then sweep the surplus into the
-/// taxable account (if enabled) or draw down the shortfall (grossed up
-/// through the tax model).
+/// Step 3 — force out each owner's required minimum distribution. See
+/// `required_distributions` for the conventions; the gross lands in
+/// `withdrawals` alongside discretionary draws and in `base_income` as
+/// ordinary income, so `settle` taxes it with everything else in one pass.
+fn distribute(
+    run: &RunContext,
+    ctx: &PeriodContext,
+    period: &mut PeriodState,
+    state: &mut RunState,
+) {
+    // No prior period, no prior year-end balance to divide.
+    let Some(prior) = state.prior_balances.as_deref() else {
+        return;
+    };
+    for (idx, required) in required_distributions::required(run.plan, ctx, prior)
+        .into_iter()
+        .enumerate()
+    {
+        // The requirement is computed on last period's closing balance; this
+        // period's own flows may have left less than that in the account.
+        let amount = required.min(state.accounts[idx].balance);
+        if amount <= 0.0 {
+            continue;
+        }
+        state.accounts[idx].balance -= amount;
+        period.required_distributions += amount;
+        *period
+            .withdrawals
+            .entry(state.accounts[idx].id.clone())
+            .or_insert(0.0) += amount;
+    }
+}
+
+/// Steps 4 and 5 — tax the period's income, then invest what is left over
+/// or draw down the shortfall (grossed up through the tax model).
 ///
 /// One tax pass, not two. The drawdown grosses itself up against the same
 /// `base_income` taxed here and reports only what it *adds*, so a period's
@@ -323,25 +376,64 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
     let income_tax = run.tax.tax(&base, ctx.period).tax;
     period.taxes = income_tax;
 
-    let cash = period.income - period.contributions - income_tax - period.expenses;
+    // A required distribution is cash in hand: it has already left the
+    // pre-tax account, so it funds this period's spending before anything
+    // else has to be sold.
+    let cash = period.income + period.required_distributions
+        - period.contributions
+        - income_tax
+        - period.expenses;
     // Always the raw household leftover, invested or not — this keeps
     // cash-conservation checks (income = outflow + surplus) true regardless
     // of the sweep toggle below.
     period.surplus = cash.max(0.0);
     if cash >= 0.0 {
-        // The surplus branch never reaches the tax model: swept dollars are
-        // after-tax cash landing in a taxable account, and the gain they go
-        // on to earn is taxed when it is withdrawn. There is no second pass
-        // here to collapse.
-        if period.surplus > 0.0 && run.plan.assumptions.sweep_surplus_to_taxable {
+        // The surplus branch never reaches the tax model: reinvested dollars
+        // are after-tax cash landing in a taxable account, and the gain they
+        // go on to earn is taxed when it is withdrawn. There is no second
+        // pass here to collapse.
+        //
+        // What gets reinvested is where the sweep toggle stops. Ordinary
+        // surplus is income that never entered an account, so leaving it
+        // uninvested costs the projection nothing it ever had. A required
+        // distribution is the opposite case: the money is already out of the
+        // pre-tax balance, and if nothing receives it net worth falls by the
+        // full distribution every year — the engine would delete real wealth
+        // and report the resulting shortfall as a failed plan. So the forced
+        // share is reinvested unconditionally, and only the rest answers to
+        // the toggle.
+        //
+        // The forced share is capped at the surplus rather than being the
+        // whole distribution: RMD dollars fund spending like any other
+        // income, and a household that spent theirs has nothing left to
+        // redeposit.
+        let forced = period.surplus.min(period.required_distributions);
+        let reinvested = if run.plan.assumptions.sweep_surplus_to_taxable {
+            period.surplus
+        } else {
+            forced
+        };
+        if reinvested > 0.0 {
             match state
                 .accounts
                 .iter_mut()
                 .find(|a| a.kind == AccountKind::Taxable)
             {
                 Some(taxable) => {
-                    taxable.balance += period.surplus;
-                    taxable.cost_basis += period.surplus;
+                    taxable.balance += reinvested;
+                    // After-tax dollars: without the basis they would be
+                    // taxed a second time as gain when they are withdrawn.
+                    taxable.cost_basis += reinvested;
+                }
+                None if forced > 0.0 => {
+                    if !state.distribution_unallocated_reported {
+                        state.distribution_unallocated_reported = true;
+                        state
+                            .warnings
+                            .push(SimWarning::RequiredDistributionUnallocated {
+                                period: ctx.period,
+                            });
+                    }
                 }
                 None => state.warnings.push(SimWarning::SurplusUnallocated),
             }
@@ -356,7 +448,11 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
     // `result.tax` is the *marginal* cost of the withdrawal over `base`, so
     // this addition is the period's whole bill, counted once.
     period.taxes += result.tax;
-    period.withdrawals = result.gross_by_account;
+    // Merged, not assigned: a forced distribution may already have taken
+    // something from these same accounts this period.
+    for (id, amount) in result.gross_by_account {
+        *period.withdrawals.entry(id).or_insert(0.0) += amount;
+    }
     // Relative epsilon: the gross-up iteration converges to within ~1e-9 of
     // the need, so anything meaningfully short is real.
     if !state.depleted && result.net < needed - needed.max(1.0) * 1e-6 {
@@ -367,7 +463,7 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
     }
 }
 
-/// Step 5 — apply market growth to post-flow balances.
+/// Step 6 — apply market growth to post-flow balances.
 fn grow(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) {
     let period_returns = run.returns.returns_for(ctx.period, run.path_id);
     for (idx, account) in run.plan.accounts.iter().enumerate() {

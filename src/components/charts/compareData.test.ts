@@ -13,6 +13,7 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     taxes: 0,
     contributions: 0,
     employer_match: 0,
+    required_distributions: 0,
     surplus: 0,
     withdrawals: {},
     net_worth: 0,

@@ -27,7 +27,7 @@ A local, privacy-first retirement projection tool (ProjectionLab/Boldin-inspired
 8. **`f64` for money.** This is projection math (compounding, random draws), not accounting; integer cents buy nothing and complicate Monte Carlo. Round at the display layer.
 9. **Recharts is fine for V1** (~60 annual data points, stacked areas). If V2 Monte Carlo percentile fans strain it, swap the chart layer only — chart components will consume a stable `Projection` view-model, so the charting lib is not load-bearing.
 10. **Zustand for frontend state** (small, no boilerplate). Inputs live in the store; a debounced effect calls the `run_projection` Tauri command; results are kept separate from inputs so stale results are detectable.
-11. **Blind spots named up front so the schema would not fight them:** employer 401(k) match, RMDs, IRMAA/ACA cliffs, catch-up contributions, contribution-limit inflation indexing, capital gains vs ordinary income, rebalancing drift/glide paths, survivor scenarios, filing status. Naming them early is what made match, catch-up tiers, limit indexing, survivor scenarios, and filing status additive when they were built — none needed a schema migration.
+11. **Blind spots named up front so the schema would not fight them:** employer 401(k) match, RMDs (built in #49 — `Account::owner` plus `Person::birth` was all the age lookup needed), IRMAA/ACA cliffs, catch-up contributions, contribution-limit inflation indexing, capital gains vs ordinary income, rebalancing drift/glide paths, survivor scenarios, filing status. Naming them early is what made match, catch-up tiers, limit indexing, survivor scenarios, and filing status additive when they were built — none needed a schema migration.
 12. **Data safety:** plans saved to a user-visible, user-configurable location (default: `~/Documents/Retirement Planner`, or `~/RetirementPlanner` if Documents can't be resolved) — outside the repo entirely; `data/` also git-ignored in case the user prefers keeping files next to the repo. Atomic writes (write temp + rename) and a `.bak` of the previous version on save. Legacy pre-#13 plans in the old `app_data_dir` are migrated forward automatically on first launch (copy, never delete).
 
 ---
@@ -286,14 +286,17 @@ pub fn simulate(plan: &Plan, returns: &dyn ReturnModel, tax: &dyn TaxModel,
                 drawdown: &dyn DrawdownStrategy, path_id: u64) -> Projection;
 
 // Per-period loop, one function per step over PeriodState (sim/period.rs):
-//   accrue stream income → contributions (respect limits) → settle (tax the
-//   period's income, then sweep the surplus or gross up a drawdown against
-//   that same income) → apply growth → snapshot.
+//   accrue stream income → contributions (respect limits) → required
+//   minimum distributions (forced, once an owner is past their RMD age) →
+//   settle (tax the period's whole income in one pass, then reinvest the
+//   leftover or gross up a drawdown against that same income) → apply
+//   growth → snapshot.
 
 pub struct PeriodSnapshot {
     pub period_start: YearMonth,
     pub balances: BTreeMap<AccountId, f64>,   // nominal
     pub income: f64, pub expenses: f64, pub taxes: f64,
+    pub required_distributions: f64,          // forced share of `withdrawals`
     pub withdrawals: BTreeMap<AccountId, f64>,
     pub net_worth: f64,
     pub deflator: f64,                        // cumulative inflation → real-dollar toggle
@@ -312,6 +315,20 @@ The loop was one 290-line body carrying ~10 mutable locals across six inlined st
 Four contexts now carry the loop, split by lifetime: `RunContext` (plan, resolved streams, strategies — fixed for the run), `RunState` (balances, warning-dedup sets, warnings — carried period to period), `PeriodContext` (one period's time coordinates) and `PeriodState` (what one period accumulates). `PeriodState::base_income` is the **single** definition of a period's income as the tax model sees it; `settle` taxes it and hands the same value to `withdraw`, which reports what the withdrawal *adds*.
 
 This is what makes a **step** a real place to put a behavior, alongside the two the strategy traits already offer.
+
+#### Required minimum distributions (`sim/required_distributions.rs`)
+
+Every other outflow is demand-driven — `DrawdownStrategy::withdraw` is only reached when a period's cash is negative. A retiree whose Social Security and pension cover their spending would therefore never touch a seven-figure 401(k), and the plan would show a tax bill that never arrives. RMDs are the one step that moves money because the calendar says so, which is why they are a **step** rather than a strategy impl.
+
+`presets::rmd_age` is the SECURE 2.0 birth-year lookup (73 for 1951–1959, 75 for 1960 and later; 72 for cohorts already distributing) and `presets::uniform_lifetime_divisor` is the IRS Uniform Lifetime Table. Neither goes through `index_to` — one is an age and the other a mortality divisor, and indexing them with inflation would be a quiet, plausible-looking error next to the dollar figures that *do* index.
+
+The conventions, each a choice: age *attained during* the calendar year, matching the statute and the catch-up precedent; the **prior period's closing balance** as the stand-in for the prior 31 December balance, which means the first projection period takes nothing (there is no prior); `TraditionalPreTax` only, since Roth accounts have no lifetime RMD; and one figure per owner over their aggregate pre-tax balance, satisfied **pro rata** across their accounts — the model has no IRA-versus-401(k) grouping, so pro rata is the simplification that leaves the portfolio's shape undisturbed and does not depend on listing order. A deceased owner keeps distributing on their own schedule: wrong in detail, but the alternative is an inherited pre-tax balance compounding untaxed to the end of the projection. Beneficiary RMDs, the 25% excise tax, QCDs and IRMAA are deliberately out of scope.
+
+**Reinvestment does not honour `sweep_surplus_to_taxable`, and that is the point.** For ordinary surplus the toggle is harmless: un-swept surplus is income that never entered an account, so leaving it out changes no balance. A distribution is the opposite case — the money has already left the pre-tax balance, and with nothing to receive it net worth would fall by the full distribution every year and the engine would report destroyed wealth as a failing plan. So the forced share is redeposited in the first `Taxable` account unconditionally (basis *and* balance: these are after-tax dollars, and skipping the basis taxes them again as gain), capped at the period's surplus because RMD dollars fund spending like any other income. With no taxable account the money genuinely has nowhere to go, and `RequiredDistributionUnallocated` says so — a louder warning than `SurplusUnallocated` for a materially worse outcome.
+
+Because the distribution enters `base_income` before `settle` runs, it is taxed in the same single pass as everything else: it stacks on the household's real marginal rate and drags Social Security into taxability. That is the whole finding RMDs exist to surface, and it is only expressible because #54 landed first. In a shortfall year the distribution counts as cash *toward* the need rather than being taken on top of it, so the household draws `max(need, RMD)` and not their sum.
+
+Downstream, `PeriodSnapshot::required_distributions` is the forced share of `withdrawals`, not an addition to it. The Plan screen's year inspector breaks it out beneath Withdrawals, and `cashFlowSummary` subtracts it before testing for the retirement crossover — otherwise the year an owner turns 73 would read as the year they started living off their portfolio, for a household that changed nothing.
 
 #### Contribution limits (`sim/contributions.rs`)
 
