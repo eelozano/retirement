@@ -79,7 +79,7 @@ fn plan_with(contribution: ContributionRule, kind: AccountKind, plan_type: PlanT
             filing_status: FilingStatus::Single,
             state_tax: StateTaxProfile::none(),
             plan_end_age: 71,
-            sweep_surplus_to_taxable: false,
+            sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
         },

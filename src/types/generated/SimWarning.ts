@@ -15,4 +15,4 @@ requested: number,
 /**
  * Contribution the simulation actually made that period.
  */
-allowed: number, } } | { "MatchUnallocated": { account: string, } } | { "AnnualAdditionsClamped": { account: string, period: number, requested: number, allowed: number, } } | "SurplusUnallocated" | { "RequiredDistributionUnallocated": { period: number, } } | { "UnknownPersonRef": { stream: string, } };
+allowed: number, } } | { "MatchUnallocated": { account: string, } } | { "AnnualAdditionsClamped": { account: string, period: number, requested: number, allowed: number, } } | "SurplusUnallocated" | "SweepBoundaryUnresolved" | { "RequiredDistributionUnallocated": { period: number, } } | { "UnknownPersonRef": { stream: string, } };

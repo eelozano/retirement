@@ -74,6 +74,15 @@ describe("readableWarnings", () => {
     expect(surplus.detail).not.toContain("net worth");
   });
 
+  it("tells an unresolvable sweep boundary apart from a missing taxable account", () => {
+    const [unresolved] = readableWarnings(
+      plan,
+      projection(["SweepBoundaryUnresolved"]),
+    );
+    expect(unresolved.detail).toContain("no longer in this plan");
+    expect(unresolved.detail).not.toContain("taxable account");
+  });
+
   it("explains a fully crowded-out account differently from a trimmed one", () => {
     const [crowded] = readableWarnings(
       plan,
