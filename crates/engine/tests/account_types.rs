@@ -96,7 +96,7 @@ fn account(
         kind,
         name: id.to_string(),
         balance: 0.0,
-        cost_basis: matches!(kind, AccountKind::Taxable | AccountKind::Savings).then_some(0.0),
+        cost_basis: (kind == AccountKind::Taxable).then_some(0.0),
         allocation,
         plan_type,
         contribution,
@@ -105,17 +105,15 @@ fn account(
 }
 
 fn run(plan: &Plan) -> Projection {
+    run_taxed(plan, 0.2)
+}
+
+fn run_taxed(plan: &Plan, rate: f64) -> Projection {
     let returns = FixedReturns::new(
         &plan.assumptions.asset_returns,
         plan.sim_config.period.months(),
     );
-    simulate(
-        plan,
-        &returns,
-        &FlatTax { rate: 0.2 },
-        &ProportionalDrawdown,
-        0,
-    )
+    simulate(plan, &returns, &FlatTax { rate }, &ProportionalDrawdown, 0)
 }
 
 fn assert_close(actual: f64, expected: f64, label: &str) {
@@ -243,7 +241,9 @@ fn an_hsa_contribution_reduces_taxable_income() {
 
 /// `AllocationRef::Cash` bypasses the asset-class return model entirely —
 /// the account grows at exactly its configured rate regardless of what the
-/// plan's market assumptions say.
+/// plan's market assumptions say. Run at 0% tax so the interest's own tax
+/// bill — proven separately below — doesn't force a withdrawal that would
+/// muddy this test's balance assertion.
 #[test]
 fn a_savings_account_grows_at_its_own_cash_rate_not_market_returns() {
     let mut plan = base_plan(vec![account(
@@ -254,16 +254,49 @@ fn a_savings_account_grows_at_its_own_cash_rate_not_market_returns() {
         AllocationRef::Cash(0.045),
     )]);
     plan.accounts[0].balance = 10_000.0;
-    plan.accounts[0].cost_basis = Some(10_000.0);
     // No income/expense flows so the balance only moves from growth.
     plan.streams.clear();
 
-    let projection = run(&plan);
+    let projection = run_taxed(&plan, 0.0);
     let balances = &projection.snapshots[0].balances;
     assert_close(
         balances["savings"],
         10_000.0 * 1.045,
         "grows at the configured 4.5% rate, not the plan's 5%/8% asset returns",
+    );
+}
+
+/// A savings account has no cost basis: every dollar in it is already
+/// taxed, so unlike a taxable brokerage there's nothing left to protect
+/// from double taxation. Its interest is ordinary income in the period it
+/// accrues, not deferred to withdrawal.
+#[test]
+fn a_savings_account_has_no_cost_basis_its_interest_is_taxed_as_it_accrues() {
+    let mut plan = base_plan(vec![account(
+        "savings",
+        AccountKind::Savings,
+        PlanType::None,
+        ContributionRule::FlatAmount(0.0),
+        AllocationRef::Cash(0.045),
+    )]);
+    plan.accounts[0].balance = 10_000.0;
+    plan.streams.clear();
+    assert_eq!(
+        plan.accounts[0].cost_basis, None,
+        "a fresh Savings account carries no cost basis"
+    );
+
+    // FlatTax at 20%: $450 of interest costs $90, which nothing in this
+    // no-income plan can fund except the account itself — proving the
+    // interest was taxed as ordinary income the period it accrued, not
+    // left untouched until some future withdrawal.
+    let projection = run_taxed(&plan, 0.2);
+    let first = &projection.snapshots[0];
+    assert_close(first.taxes, 90.0, "20% of the $450 interest");
+    assert_close(
+        first.balances["savings"],
+        10_000.0 * 1.045 - 90.0,
+        "the tax on interest is funded by drawing on the account that earned it",
     );
 }
 

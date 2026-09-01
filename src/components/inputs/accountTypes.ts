@@ -25,7 +25,7 @@ export const ACCOUNT_TYPES = [
     kind: "Savings",
     planType: "None",
     description:
-      "Cash savings — a bank savings or money-market account. Grows at its own configured interest rate instead of a market allocation; interest is taxed as ordinary income.",
+      "Cash savings — a bank savings or money-market account. Grows at its own configured interest rate instead of a market allocation; the interest is taxed as ordinary income in the year it's earned, not deferred to withdrawal, so it carries no cost basis.",
   },
   {
     value: "traditional_ira",

@@ -168,7 +168,7 @@ export function AccountsSection() {
                 const wasSavings = account.kind === "Savings";
                 account.kind = type.kind;
                 account.plan_type = type.planType;
-                if (type.kind === "Taxable" || type.kind === "Savings") {
+                if (type.kind === "Taxable") {
                   account.cost_basis ??= account.balance;
                 } else {
                   account.cost_basis = null;
@@ -243,7 +243,7 @@ export function AccountsSection() {
               })
             }
           />
-          {(selected.kind === "Taxable" || selected.kind === "Savings") && (
+          {selected.kind === "Taxable" && (
             <NumberField
               label="Cost basis ($)"
               value={selected.cost_basis ?? 0}

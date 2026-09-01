@@ -419,10 +419,10 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                 "assumptions.reinvest_into",
                 "The reinvestment destination doesn't match any account on this plan.",
             )),
-            // `cost_basis` only means anything on a Taxable or Savings
-            // account — parking after-tax dollars anywhere else would tax
-            // them a second time (or never) when they're eventually
-            // withdrawn.
+            // Taxable and Savings are the two kinds with no statutory cap
+            // and no pre-tax character to protect: reinvesting into any
+            // other kind would either violate its contribution limit or
+            // quietly convert already-taxed cash into pre-tax dollars.
             Some(account)
                 if !matches!(account.kind, AccountKind::Taxable | AccountKind::Savings) =>
             {

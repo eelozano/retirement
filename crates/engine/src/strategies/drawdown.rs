@@ -95,15 +95,13 @@ impl DrawdownStrategy for ProportionalDrawdown {
                         income.capital_gains += gains;
                         income.untaxed += amount - gains;
                     }
-                    // A savings account's growth is interest, not a capital
-                    // gain — the share above cost basis is ordinary income.
-                    AccountKind::Savings => {
-                        let interest = amount * account.gains_fraction();
-                        income.ordinary += interest;
-                        income.untaxed += amount - interest;
+                    // A savings account's interest is already taxed as it
+                    // accrues (`sim::period::accrue_interest`), not deferred
+                    // to withdrawal — see `AccountKind::Savings`. Assumes
+                    // qualified medical spending for HSA — see `AccountKind::Hsa`.
+                    AccountKind::Roth | AccountKind::Hsa | AccountKind::Savings => {
+                        income.untaxed += amount
                     }
-                    // Assumes qualified medical spending — see `AccountKind::Hsa`.
-                    AccountKind::Roth | AccountKind::Hsa => income.untaxed += amount,
                 }
             }
             income
@@ -344,39 +342,24 @@ mod tests {
         );
     }
 
-    /// A savings account's growth is interest, not a capital gain — the
-    /// share above cost basis has to land in `ordinary`, not
-    /// `capital_gains`, unlike an otherwise-identical `Taxable` account.
+    /// A savings account's interest is already taxed as it accrues
+    /// (`sim::period::accrue_interest`), so a withdrawal is a movement of
+    /// already-taxed dollars — untaxed here, same as a Roth or an HSA.
     #[test]
-    fn savings_growth_is_taxed_as_ordinary_income_not_capital_gains() {
+    fn a_savings_withdrawal_is_untaxed_its_interest_was_taxed_when_earned() {
         let tax = joint();
+        let mut savings = vec![account("savings", AccountKind::Savings, 100_000.0, 0.0)];
+        let mut roth = vec![account("roth", AccountKind::Roth, 100_000.0, 0.0)];
         let base = IncomeBreakdown::default();
-        // Half gains, large enough that the gain clears the standard
-        // deduction and both schedules' 0% bands.
-        let mut savings = vec![account(
-            "savings",
-            AccountKind::Savings,
-            400_000.0,
-            200_000.0,
-        )];
-        let mut taxable = vec![account(
-            "brokerage",
-            AccountKind::Taxable,
-            400_000.0,
-            200_000.0,
-        )];
 
-        let savings_result = ProportionalDrawdown.withdraw(150_000.0, &mut savings, &tax, &base, 0);
-        let taxable_result = ProportionalDrawdown.withdraw(150_000.0, &mut taxable, &tax, &base, 0);
+        let savings_result = ProportionalDrawdown.withdraw(50_000.0, &mut savings, &tax, &base, 0);
+        let roth_result = ProportionalDrawdown.withdraw(50_000.0, &mut roth, &tax, &base, 0);
 
-        // Ordinary rates apply to the whole bracket from $0; capital gains
-        // get the preferential 0%/15%/20% schedule — so the same $5,000 of
-        // "gain" taxed as ordinary income costs strictly more here.
-        assert!(
-            savings_result.tax > taxable_result.tax,
-            "ordinary income on the gain must cost more than capital gains: {} vs {}",
-            savings_result.tax,
-            taxable_result.tax
+        assert_close(savings_result.tax, 0.0, "no tax on the savings withdrawal");
+        assert_close(
+            savings_result.net,
+            roth_result.net,
+            "same net as an equivalent Roth",
         );
     }
 

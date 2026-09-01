@@ -103,13 +103,14 @@ describe("AccountsSection", () => {
     expect(screen.getByRole("cell", { name: "$5,000" })).toBeTruthy();
   });
 
-  it("offers cost basis on a taxable or savings account, not elsewhere", async () => {
+  it("only offers cost basis on a taxable account — not savings, which has none", async () => {
     render(<AccountsSection />);
     await addAccount();
     expect(screen.getByLabelText("Cost basis ($)")).toBeTruthy();
 
     await userEvent.selectOptions(screen.getByLabelText("Type"), "savings");
-    expect(screen.getByLabelText("Cost basis ($)")).toBeTruthy();
+    expect(screen.queryByLabelText("Cost basis ($)")).toBeNull();
+    expect(currentAccount()?.cost_basis).toBeNull();
 
     await userEvent.selectOptions(screen.getByLabelText("Type"), "roth_ira");
     expect(screen.queryByLabelText("Cost basis ($)")).toBeNull();

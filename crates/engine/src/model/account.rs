@@ -18,9 +18,12 @@ pub enum AccountKind {
     TraditionalPreTax,
     /// Roth IRA/401(k): qualified withdrawals are untaxed.
     Roth,
-    /// Cash savings: contributions form cost basis like `Taxable`, but the
-    /// growth a savings account pays out is interest, not a capital gain —
-    /// the withdrawn share above cost basis is taxed as ordinary income.
+    /// Cash savings: no cost basis, unlike `Taxable` — a savings account has
+    /// no unrealized gain to realize. Its interest is taxed as ordinary
+    /// income in the period it accrues (see `sim::period::accrue_interest`),
+    /// not deferred to withdrawal, so withdrawals themselves are untaxed:
+    /// every dollar in the account has already been taxed, either as the
+    /// salary it was contributed from or as the interest it earned.
     Savings,
     /// Health Savings Account: pre-tax in like `TraditionalPreTax`, untaxed
     /// out like `Roth` — the one combination neither existing variant

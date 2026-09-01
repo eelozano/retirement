@@ -180,6 +180,11 @@ pub(super) struct PeriodState {
     /// this period. Already counted inside `withdrawals` — this is the
     /// forced share of them, not an addition to them.
     pub required_distributions: f64,
+    /// Interest accrued this period on Savings accounts — already added to
+    /// their balances by `accrue_interest`, and taxed as ordinary income in
+    /// this same period rather than deferred to withdrawal. Unlike other
+    /// accounts' growth, a savings account's interest never sits unrealized.
+    pub taxable_interest: f64,
     /// Total tax for the period.
     pub taxes: f64,
     pub surplus: f64,
@@ -200,12 +205,14 @@ impl PeriodState {
     /// $0 (#54).
     fn base_income(&self) -> IncomeBreakdown {
         IncomeBreakdown {
-            // A required distribution is ordinary income and is added after
-            // the clamp, not inside it: pre-tax deferrals offset earned
-            // income, and a household deferring more than it earns must not
-            // shelter a forced distribution as a side effect.
+            // A required distribution — and a savings account's interest —
+            // is ordinary income added after the clamp, not inside it:
+            // pre-tax deferrals offset earned income, and a household
+            // deferring more than it earns must not shelter unrelated
+            // income as a side effect.
             ordinary: (self.income - self.ss_income - self.pretax_contributions).max(0.0)
-                + self.required_distributions,
+                + self.required_distributions
+                + self.taxable_interest,
             social_security: self.ss_income,
             ..Default::default()
         }
@@ -237,8 +244,9 @@ pub(super) fn run(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) -
     accrue_streams(run, ctx, &mut period);
     contribute(run, ctx, &mut period, state);
     distribute(run, ctx, &mut period, state);
+    accrue_interest(run, &mut period, state);
     settle(run, ctx, &mut period, state);
-    period.growth = grow(run, ctx, state);
+    period.growth += grow(run, ctx, state);
     state.prior_balances = Some(state.accounts.iter().map(|a| a.balance).collect());
     period.snapshot(ctx, &state.accounts)
 }
@@ -337,7 +345,7 @@ fn contribute(
             continue;
         }
         state.accounts[idx].balance += amount;
-        if matches!(account.kind, AccountKind::Taxable | AccountKind::Savings) {
+        if account.kind == AccountKind::Taxable {
             state.accounts[idx].cost_basis += amount;
         }
         if matches!(
@@ -384,7 +392,33 @@ fn distribute(
     }
 }
 
-/// Steps 4 and 5 — tax the period's income, then invest what is left over
+/// Step 4 — accrue interest on Savings accounts and tax it this same
+/// period, unlike every other account's growth, which stays unrealized
+/// until it is withdrawn. Runs before `settle` so the interest is in
+/// `base_income` for the period's one tax pass, not a second one; runs
+/// after `distribute` so a forced distribution redeposited into this same
+/// account this period does not itself earn interest before it has arrived.
+fn accrue_interest(run: &RunContext, period: &mut PeriodState, state: &mut RunState) {
+    for (idx, account) in run.plan.accounts.iter().enumerate() {
+        if account.kind != AccountKind::Savings {
+            continue;
+        }
+        let AllocationRef::Cash(rate) = &account.allocation else {
+            continue;
+        };
+        let rate = *rate;
+        let balance = &mut state.accounts[idx].balance;
+        if *balance <= 0.0 || rate <= 0.0 {
+            continue;
+        }
+        let interest = *balance * rate;
+        *balance += interest;
+        period.taxable_interest += interest;
+        period.growth += interest;
+    }
+}
+
+/// Steps 5 and 6 — tax the period's income, then invest what is left over
 /// or draw down the shortfall (grossed up through the tax model).
 ///
 /// One tax pass, not two. The drawdown grosses itself up against the same
@@ -436,11 +470,16 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
         let reinvested = if sweeping { period.surplus } else { forced };
         if reinvested > 0.0 {
             match run.reinvest_into.map(|idx| &mut state.accounts[idx]) {
-                Some(taxable) => {
-                    taxable.balance += reinvested;
-                    // After-tax dollars: without the basis they would be
-                    // taxed a second time as gain when they are withdrawn.
-                    taxable.cost_basis += reinvested;
+                Some(destination) => {
+                    destination.balance += reinvested;
+                    // Only a Taxable account tracks cost basis — without it
+                    // these after-tax dollars would be taxed a second time
+                    // as gain when they are withdrawn. A Savings account
+                    // needs no basis: every dollar in it is already taxed,
+                    // and stays untaxed on withdrawal regardless.
+                    if destination.kind == AccountKind::Taxable {
+                        destination.cost_basis += reinvested;
+                    }
                 }
                 None if forced > 0.0 => {
                     if !state.distribution_unallocated_reported {
@@ -480,14 +519,21 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
     }
 }
 
-/// Step 6 — apply market growth to post-flow balances. Returns the total
+/// Step 7 — apply market growth to post-flow balances. Returns the total
 /// dollar growth across accounts, in nominal dollars.
+///
+/// Savings accounts are skipped: `accrue_interest` already grew and taxed
+/// them earlier this same period, so growing them again here would both
+/// double the balance's growth and never tax the second helping.
 fn grow(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) -> f64 {
     let period_returns = run.returns.returns_for(ctx.period, run.path_id);
     let mut growth = 0.0;
     for (idx, account) in run.plan.accounts.iter().enumerate() {
+        if account.kind == AccountKind::Savings {
+            continue;
+        }
         // A fixed cash rate bypasses the asset-class return model entirely —
-        // a savings account's rate, not a market return.
+        // used by an account with no market allocation of its own.
         let rate: f64 = match &account.allocation {
             AllocationRef::Cash(rate) => *rate,
             allocation => {
