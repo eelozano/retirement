@@ -16,6 +16,7 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     required_distributions: 0,
     surplus: 0,
     withdrawals: {},
+    growth: 0,
     net_worth: 0,
     deflator: 1,
     ...overrides,

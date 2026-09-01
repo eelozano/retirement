@@ -250,7 +250,7 @@ export interface FlowRow {
   label: string;
   color: string;
   value: number;
-  /** Surplus is the only row that can meaningfully go negative. */
+  /** Surplus and growth are the rows that can meaningfully go negative. */
   critical?: boolean;
 }
 
@@ -334,6 +334,13 @@ export function yearDetail(
           },
         ]
       : []),
+    {
+      key: "growth",
+      label: "Growth",
+      color: "var(--series-8)",
+      value: s.growth / d,
+      critical: s.growth < 0,
+    },
     {
       key: "expenses",
       label: "Expenses",
