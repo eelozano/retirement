@@ -98,6 +98,25 @@ const SWEEP_OPTIONS = (plan: Plan) => [
   ),
 ];
 
+/**
+ * Where the sweep and any RMD remainder land, offered as the plan's taxable
+ * accounts plus a sentinel for "unset" — `reinvest_into: null`, which means
+ * the first taxable account in plan order (#58). All taxable accounts are
+ * offered, not just the account owner's: today, receiving reinvested cash
+ * has no owner-specific consequence the way RMD age or contribution limits
+ * do.
+ */
+const DEFAULT_DESTINATION = "Default";
+
+const REINVEST_OPTIONS = (plan: Plan) => {
+  const taxable = plan.accounts.filter((a) => a.kind === "Taxable");
+  const firstName = taxable[0]?.name || "the first taxable account";
+  return [
+    { value: DEFAULT_DESTINATION, label: `First taxable account (${firstName})` },
+    ...taxable.map((a) => ({ value: a.id, label: a.name || "Untitled account" })),
+  ];
+};
+
 export function AssumptionsSection() {
   const plan = usePlanStore((s) => s.plan);
   const presets = usePlanStore((s) => s.presets);
@@ -109,6 +128,7 @@ export function AssumptionsSection() {
   const sweepChoice = sweep === null ? NEVER : boundaryToChoice(sweep);
   const sweepDate =
     sweep !== null && typeof sweep === "object" && "Date" in sweep ? sweep.Date : null;
+  const reinvestChoice = assumptions.reinvest_into ?? DEFAULT_DESTINATION;
   return (
     <div className="pane-section">
       <div className="pane-head">
@@ -187,6 +207,18 @@ export function AssumptionsSection() {
             }
           />
         )}
+        <SelectField
+          label="Reinvest leftover cash into"
+          hint="Where swept surplus and the after-tax remainder of a required minimum distribution land. Left at the default, it's the first taxable account in plan order — whichever happens to be listed first. With more than one taxable account, naming one directly keeps that from being an accident: which account it is changes how the money grows and what later withdrawals cost in tax."
+          value={reinvestChoice}
+          options={REINVEST_OPTIONS(plan)}
+          onChange={(choice) =>
+            updatePlan((d) => {
+              d.assumptions.reinvest_into =
+                choice === DEFAULT_DESTINATION ? null : choice;
+            })
+          }
+        />
         <PercentField
           label="Social Security COLA"
           rate={assumptions.social_security_cola}
