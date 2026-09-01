@@ -7,10 +7,10 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::model::{
-    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, ContributionRule,
-    FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
-    SocialSecurityBenefit, StateCode, StateTaxProfile, StreamBoundary, StreamDirection, YearMonth,
-    SCHEMA_VERSION,
+    default_asset_volatility, Account, AccountKind, AllocationRef, AssetClass, Assumptions,
+    CashFlowStream, ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan,
+    PlanType, SimConfig, SocialSecurityBenefit, StateCode, StateTaxProfile, StreamBoundary,
+    StreamDirection, YearMonth, SCHEMA_VERSION,
 };
 use crate::state_tax_data::state_tax_profiles;
 
@@ -257,19 +257,16 @@ pub fn default_assumptions() -> Assumptions {
         // No step-down until the user picks one — see the field docs.
         survivor_expense_factor: 1.0,
         social_security_cola: 0.025,
+        asset_volatility: default_asset_volatility(),
     }
 }
 
-/// Fixed annualized standard deviation per asset class, used by
-/// `StochasticReturns` (Monte Carlo). Approximate historical figures, not
-/// user-editable in V1 — unlike `asset_returns`, which the plan owns.
+/// Fixed annualized standard deviation per asset class, used to seed
+/// `Assumptions::asset_volatility` for new plans. Approximate historical
+/// figures; the plan owns an editable copy from here on, same as
+/// `asset_returns`.
 pub fn asset_volatility() -> BTreeMap<AssetClass, f64> {
-    BTreeMap::from([
-        (AssetClass::UsEquity, 0.18),
-        (AssetClass::IntlEquity, 0.20),
-        (AssetClass::GlobalEquity, 0.17),
-        (AssetClass::UsBonds, 0.06),
-    ])
+    default_asset_volatility()
 }
 
 pub fn presets() -> Presets {

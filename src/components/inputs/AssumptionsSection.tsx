@@ -234,6 +234,28 @@ export function AssumptionsSection() {
           />
         ))}
       </fieldset>
+      <fieldset>
+        <legend>Volatility (annualized std. dev.)</legend>
+        <p className="field-hint">
+          The return above sets where the Monte Carlo fan is centered; this sets how wide
+          it is — and therefore how much of it lands below zero. Approximate historical
+          figures, prefilled but yours to change.
+        </p>
+        {(Object.keys(ASSET_LABELS) as AssetClass[]).map((asset) => (
+          <PercentField
+            key={asset}
+            label={ASSET_LABELS[asset]}
+            rate={assumptions.asset_volatility[asset] ?? 0}
+            minPercent={0}
+            maxPercent={100}
+            onChange={(rate) =>
+              updatePlan((d) => {
+                d.assumptions.asset_volatility[asset] = rate;
+              })
+            }
+          />
+        ))}
+      </fieldset>
     </div>
   );
 }

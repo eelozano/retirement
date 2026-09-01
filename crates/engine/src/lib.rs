@@ -59,13 +59,13 @@ pub fn run_deterministic(plan: &Plan) -> Projection {
     simulate(plan, &returns, &tax_model(plan), &ProportionalDrawdown, 0)
 }
 
-/// V2: Monte Carlo over `StochasticReturns` (fixed volatility defaults, see
-/// `presets::asset_volatility`), same tax/drawdown strategies as
-/// `run_deterministic`.
+/// V2: Monte Carlo over `StochasticReturns`, reading both the mean
+/// (`asset_returns`) and the spread (`asset_volatility`) from the plan — same
+/// tax/drawdown strategies as `run_deterministic`.
 pub fn run_monte_carlo(plan: &Plan, config: &MonteCarloConfig) -> MonteCarloResult {
     let returns = StochasticReturns::new(
         &plan.assumptions.asset_returns,
-        &presets::asset_volatility(),
+        &plan.assumptions.asset_volatility,
         plan.sim_config.period.months(),
         config.seed as u64,
     );

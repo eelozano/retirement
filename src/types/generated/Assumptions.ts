@@ -102,4 +102,13 @@ survivor_expense_factor: number,
  * (0.0) for plans predating this field, which is safe since they also
  * have no `social_security` entries to apply it to.
  */
-social_security_cola: number, };
+social_security_cola: number, 
+/**
+ * Annualized standard deviation per asset class, read by
+ * `StochasticReturns` (Monte Carlo) — `asset_returns` sets where the fan
+ * is centered, this sets how wide it is. `#[serde(default =
+ * "default_asset_volatility")]` so plans saved before this field existed
+ * load with the same historical figures Monte Carlo used to hardcode,
+ * producing identical output on upgrade.
+ */
+asset_volatility: { [key in AssetClass]?: number }, };

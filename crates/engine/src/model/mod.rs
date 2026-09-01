@@ -12,6 +12,7 @@ pub use account::{
     Account, AccountId, AccountKind, AllocationRef, ContributionRule, EmployerMatch,
     MatchDestination, MatchTier, PlanType,
 };
+pub(crate) use assumptions::default_asset_volatility;
 pub use assumptions::{AssetClass, Assumptions};
 pub use person::{Person, PersonId};
 pub use plan::{PeriodLength, Plan, PlanId, SimConfig, SCHEMA_VERSION};

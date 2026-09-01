@@ -55,6 +55,7 @@ fn plan_with(
             sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: plan_cola,
+            asset_volatility: Default::default(),
         },
         sim_config: SimConfig {
             start,
