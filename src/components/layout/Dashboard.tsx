@@ -2,18 +2,17 @@ import { useState } from "react";
 import { usePlanStore } from "../../store/planStore";
 import { InputsScreen, type InputsSection } from "../inputs/InputsScreen";
 import { CashFlowScreen } from "./CashFlowScreen";
-import { ComparisonView } from "./ComparisonView";
 import { PlanScreen } from "./PlanScreen";
 import { type Destination, Rail } from "./Rail";
-import { ScenariosSettings } from "./ScenariosSettings";
+import { ScenariosScreen } from "./ScenariosScreen";
 import { StorageSettings } from "./StorageSettings";
 
 // Application shell: rail on the left, then a header and one destination.
 //
 // Monte Carlo is no longer a mode. It is an additive overlay that paints the
 // percentile band onto the same chart, so the fan is read against the plan
-// rather than replacing it. Compare is still a separate view; whether it
-// becomes an overlay too is R3's call, once the band has proven the pattern.
+// rather than replacing it. Comparison lives inside the Scenarios
+// destination, below the scenario list, rather than as a separate toggle.
 
 export function Dashboard() {
   const plan = usePlanStore((s) => s.plan);
@@ -34,8 +33,6 @@ export function Dashboard() {
   // People every time the screen remounts.
   const [inputsSection, setInputsSection] = useState<InputsSection>("people");
   const [storageOpen, setStorageOpen] = useState(false);
-  const [scenariosOpen, setScenariosOpen] = useState(false);
-  const [comparing, setComparing] = useState(false);
 
   // A hard failure (nothing has ever loaded) has no shell to show yet.
   if (!plan || !projection) {
@@ -57,7 +54,6 @@ export function Dashboard() {
       <Rail
         active={destination}
         onNavigate={setDestination}
-        onOpenScenarios={() => setScenariosOpen(true)}
         onOpenStorage={() => setStorageOpen(true)}
       />
 
@@ -115,16 +111,6 @@ export function Dashboard() {
 
           <div className="topbar-divider" />
 
-          {scenarios.length > 1 && (
-            <button
-              type="button"
-              className="topbar-toggle"
-              aria-pressed={comparing}
-              onClick={() => setComparing((c) => !c)}
-            >
-              Compare
-            </button>
-          )}
           <button
             type="button"
             className="topbar-toggle"
@@ -148,7 +134,6 @@ export function Dashboard() {
         </header>
 
         <StorageSettings open={storageOpen} onClose={() => setStorageOpen(false)} />
-        <ScenariosSettings open={scenariosOpen} onClose={() => setScenariosOpen(false)} />
 
         {error && (
           <p role="alert" className="banner critical">
@@ -163,10 +148,8 @@ export function Dashboard() {
             <CashFlowScreen />
           ) : destination === "inputs" ? (
             <InputsScreen section={inputsSection} onSectionChange={setInputsSection} />
-          ) : comparing ? (
-            <main className="charts">
-              <ComparisonView />
-            </main>
+          ) : destination === "scenarios" ? (
+            <ScenariosScreen />
           ) : (
             <PlanScreen
               showBand={showBand}

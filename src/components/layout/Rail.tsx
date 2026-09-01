@@ -5,12 +5,11 @@
 // decides placement: destinations live here, settings sit at the bottom, and
 // display options stayed in the header as a segmented control.
 
-export type Destination = "plan" | "cashflow" | "inputs";
+export type Destination = "plan" | "cashflow" | "inputs" | "scenarios";
 
 interface RailProps {
   active: Destination;
   onNavigate: (to: Destination) => void;
-  onOpenScenarios: () => void;
   onOpenStorage: () => void;
 }
 
@@ -112,7 +111,8 @@ export function Rail(props: RailProps) {
       <RailButton
         label="Scenarios"
         icon={ICON.scenarios}
-        onClick={props.onOpenScenarios}
+        current={props.active === "scenarios"}
+        onClick={() => props.onNavigate("scenarios")}
       />
       <div className="rail-spacer" />
       <RailButton label="Storage" icon={ICON.storage} onClick={props.onOpenStorage} />
