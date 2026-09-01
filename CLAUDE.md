@@ -67,3 +67,8 @@ work lives in GitHub issues, not in this file — `gh issue list`.
 Design intent for work not yet built is in `docs/ARCHITECTURE.md`: which
 extensions the traits and schema were shaped to accept, and why. That is
 rationale, and it stays accurate whether or not anything is built on it.
+
+`docs/BACKLOG.md` is the third place, and the loosest: feature ideas worked up
+far enough to be judged but not committed to. Nothing there is scheduled. An
+entry becomes a GitHub issue when it is actually going to be built, and is
+deleted from the backlog at that point rather than left as a stale copy.
