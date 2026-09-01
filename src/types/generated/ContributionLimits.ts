@@ -40,4 +40,35 @@ ira_catch_up_50: number,
  * employer match. Far higher than the deferral limit, which is the
  * whole point: matched dollars are not held to the employee's cap.
  */
-annual_additions: number, };
+annual_additions: number, 
+/**
+ * IRC 457(b) elective deferral limit. Same dollar figure as
+ * `employer_plan` today, but a statutorily separate cap — see
+ * [`PLAN_457B_LIMIT`]. Shares `employer_plan`'s catch-up tiers.
+ */
+plan_457b: number, 
+/**
+ * HSA self-only coverage limit — see [`HSA_CONTRIBUTION_LIMIT`].
+ */
+hsa: number, 
+/**
+ * HSA catch-up for owners 55+ — see [`HSA_CATCH_UP_55`]. Not indexed.
+ */
+hsa_catch_up_55: number, 
+/**
+ * SEP-IRA limit — see [`SEP_IRA_LIMIT`]. No catch-up.
+ */
+sep_ira: number, 
+/**
+ * SIMPLE IRA elective-deferral limit — see [`SIMPLE_IRA_LIMIT`].
+ */
+simple_ira: number, 
+/**
+ * SIMPLE IRA catch-up, added from the year the owner turns 50.
+ */
+simple_ira_catch_up_50: number, 
+/**
+ * SECURE 2.0 higher SIMPLE catch-up, replacing the age-50 figure for
+ * the years the owner turns 60 through 63.
+ */
+simple_ira_catch_up_60_63: number, };
