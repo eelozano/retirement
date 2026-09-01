@@ -399,6 +399,25 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
             ));
         }
     }
+    if let Some(id) = &plan.assumptions.reinvest_into {
+        match plan.accounts.iter().find(|a| &a.id == id) {
+            None => errors.push(err(
+                "assumptions.reinvest_into",
+                "The reinvestment destination doesn't match any account on this plan.",
+            )),
+            // `cost_basis` only means anything on a taxable account — parking
+            // after-tax dollars anywhere else would tax them a second time
+            // (or never) when they're eventually withdrawn.
+            Some(account) if account.kind != AccountKind::Taxable => errors.push(err(
+                "assumptions.reinvest_into",
+                &format!(
+                    "\"{}\" isn't a taxable account, so it can't receive reinvested cash.",
+                    account.name
+                ),
+            )),
+            Some(_) => {}
+        }
+    }
 
     errors
 }
@@ -711,5 +730,34 @@ mod tests {
         assert!(errors
             .iter()
             .any(|e| e.field == "assumptions.asset_returns"));
+    }
+
+    #[test]
+    fn catches_a_dangling_reinvest_destination() {
+        let mut plan = seed_plan();
+        plan.assumptions.reinvest_into = Some("nonexistent-account".to_string());
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "assumptions.reinvest_into"));
+    }
+
+    #[test]
+    fn catches_a_non_taxable_reinvest_destination() {
+        let mut plan = seed_plan();
+        // "enrique-401k" is `TraditionalPreTax` — `cost_basis` only means
+        // anything on a taxable account.
+        plan.assumptions.reinvest_into = Some("enrique-401k".to_string());
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "assumptions.reinvest_into"));
+    }
+
+    #[test]
+    fn accepts_a_taxable_reinvest_destination() {
+        let mut plan = seed_plan();
+        plan.assumptions.reinvest_into = Some("taxable-brokerage".to_string());
+        assert!(plan.validate().is_empty());
     }
 }

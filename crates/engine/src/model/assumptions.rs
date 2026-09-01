@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{FilingStatus, StateTaxProfile, StreamBoundary};
+use super::{AccountId, FilingStatus, StateTaxProfile, StreamBoundary};
 
 /// Broad asset classes the engine models. Portfolio presets map fund tickers
 /// (VT, VTI, VXUS, BND) onto these.
@@ -116,6 +116,24 @@ pub struct Assumptions {
     /// producing identical output on upgrade.
     #[serde(default = "default_asset_volatility")]
     pub asset_volatility: BTreeMap<AssetClass, f64>,
+    /// Which account receives reinvested cash: swept surplus (above), and
+    /// the after-tax remainder of a required minimum distribution,
+    /// unconditionally (#49). `None` — the default — is today's behaviour:
+    /// the first account of kind `Taxable` in plan order. Existing plans
+    /// must be unaffected, which rules out any other default for a plan
+    /// with more than one taxable account (#58).
+    ///
+    /// `Plan::validate` rejects a destination that does not exist or is not
+    /// `AccountKind::Taxable` — `cost_basis` only means anything on a
+    /// taxable account, so a wrong-kind destination must never reach
+    /// `simulate`. The engine still falls back to the first `Taxable`
+    /// account for a plan that skips validation (e.g. a test fixture),
+    /// rather than panicking or silently dropping the money.
+    ///
+    /// `#[serde(default)]` so plans saved before this field existed load as
+    /// `None`, projecting identically to today.
+    #[serde(default)]
+    pub reinvest_into: Option<AccountId>,
 }
 
 /// Approximate historical annualized standard deviation per asset class.
@@ -171,6 +189,8 @@ struct AssumptionsWire {
     social_security_cola: f64,
     #[serde(default = "default_asset_volatility")]
     asset_volatility: BTreeMap<AssetClass, f64>,
+    #[serde(default)]
+    reinvest_into: Option<AccountId>,
 }
 
 impl<'de> Deserialize<'de> for Assumptions {
@@ -189,6 +209,7 @@ impl<'de> Deserialize<'de> for Assumptions {
             survivor_expense_factor: w.survivor_expense_factor,
             social_security_cola: w.social_security_cola,
             asset_volatility: w.asset_volatility,
+            reinvest_into: w.reinvest_into,
         })
     }
 }

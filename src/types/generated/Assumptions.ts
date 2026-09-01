@@ -111,4 +111,23 @@ social_security_cola: number,
  * load with the same historical figures Monte Carlo used to hardcode,
  * producing identical output on upgrade.
  */
-asset_volatility: { [key in AssetClass]?: number }, };
+asset_volatility: { [key in AssetClass]?: number }, 
+/**
+ * Which account receives reinvested cash: swept surplus (above), and
+ * the after-tax remainder of a required minimum distribution,
+ * unconditionally (#49). `None` — the default — is today's behaviour:
+ * the first account of kind `Taxable` in plan order. Existing plans
+ * must be unaffected, which rules out any other default for a plan
+ * with more than one taxable account (#58).
+ *
+ * `Plan::validate` rejects a destination that does not exist or is not
+ * `AccountKind::Taxable` — `cost_basis` only means anything on a
+ * taxable account, so a wrong-kind destination must never reach
+ * `simulate`. The engine still falls back to the first `Taxable`
+ * account for a plan that skips validation (e.g. a test fixture),
+ * rather than panicking or silently dropping the money.
+ *
+ * `#[serde(default)]` so plans saved before this field existed load as
+ * `None`, projecting identically to today.
+ */
+reinvest_into: string | null, };

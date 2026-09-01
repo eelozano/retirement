@@ -56,6 +56,7 @@ fn plan_with(
             survivor_expense_factor: 1.0,
             social_security_cola: plan_cola,
             asset_volatility: Default::default(),
+            reinvest_into: None,
         },
         sim_config: SimConfig {
             start,

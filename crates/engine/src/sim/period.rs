@@ -65,6 +65,12 @@ pub(super) struct RunContext<'a> {
     /// account, resolved from `Assumptions::sweep_surplus_from`. `None`
     /// never sweeps.
     pub sweep_from: Option<YearMonth>,
+    /// Index into `plan.accounts` (and `RunState::accounts`, built parallel
+    /// to it) of the account that receives the sweep and any forced
+    /// distribution remainder — resolved once from
+    /// `Assumptions::reinvest_into`, falling back to the first `Taxable`
+    /// account. `None` only when the plan has no `Taxable` account at all.
+    pub reinvest_into: Option<usize>,
     /// The month household spending steps down, and by what factor. `None`
     /// whenever it would be a no-op.
     pub survivor_step_down: Option<(YearMonth, f64)>,
@@ -424,11 +430,7 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
         let sweeping = run.sweep_from.is_some_and(|month| ctx.start >= month);
         let reinvested = if sweeping { period.surplus } else { forced };
         if reinvested > 0.0 {
-            match state
-                .accounts
-                .iter_mut()
-                .find(|a| a.kind == AccountKind::Taxable)
-            {
+            match run.reinvest_into.map(|idx| &mut state.accounts[idx]) {
                 Some(taxable) => {
                     taxable.balance += reinvested;
                     // After-tax dollars: without the basis they would be
