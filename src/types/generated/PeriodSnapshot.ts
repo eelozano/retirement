@@ -34,10 +34,21 @@ contributions: number,
  */
 employer_match: number, 
 /**
- * Leftover household cash this period (income minus contributions,
- * taxes, and expenses). Only actually invested when
- * `assumptions.sweep_surplus_to_taxable` is set — otherwise this is
- * informational only.
+ * Gross required minimum distributions forced out of pre-tax accounts
+ * this period (#49). Part of `withdrawals`, not an addition to them:
+ * the forced share of the period's gross draw.
+ */
+required_distributions: number, 
+/**
+ * Leftover household cash this period (income and required
+ * distributions, minus contributions, taxes, and expenses).
+ *
+ * How much of it is actually invested depends on where it came from.
+ * The `required_distributions` share is always reinvested in a taxable
+ * account — that money has already left a pre-tax balance, and dropping
+ * it would destroy real wealth. The rest is only invested when
+ * `assumptions.sweep_surplus_to_taxable` is set; otherwise it is
+ * informational.
  */
 surplus: number, 
 /**

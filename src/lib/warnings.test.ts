@@ -57,6 +57,23 @@ describe("readableWarnings", () => {
     expect(w.title).toContain("from 2027");
   });
 
+  it("keeps the two payload-free-looking unallocated warnings apart", () => {
+    const [surplus, forced] = readableWarnings(
+      plan,
+      projection([
+        "SurplusUnallocated",
+        { RequiredDistributionUnallocated: { period: 1 } },
+      ]),
+    );
+    expect(surplus.title).toContain("Surplus cash");
+    expect(forced.title).toContain("Required withdrawals");
+    expect(forced.title).toContain("2027");
+    // The one that destroys money has to say so; the one that merely leaves
+    // cash uninvested must not.
+    expect(forced.detail).toContain("net worth");
+    expect(surplus.detail).not.toContain("net worth");
+  });
+
   it("explains a fully crowded-out account differently from a trimmed one", () => {
     const [crowded] = readableWarnings(
       plan,

@@ -36,7 +36,11 @@ function periodYear(projection: Projection, period: number): number | null {
 export function readableWarnings(plan: Plan, projection: Projection): ReadableWarning[] {
   return projection.warnings.map((warning: SimWarning, i): ReadableWarning => {
     const key = `warning-${i}`;
-    if (typeof warning === "string") {
+    // `SurplusUnallocated` is the one variant that carries no payload, so
+    // ts-rs emits it as a bare string rather than an object. Matched by
+    // value, not by `typeof`: a second payload-free variant would otherwise
+    // be silently rendered as this one.
+    if (warning === "SurplusUnallocated") {
       return {
         key,
         title: "Surplus cash is not being invested",
@@ -78,6 +82,15 @@ export function readableWarnings(plan: Plan, projection: Projection): ReadableWa
         key,
         title: `${name}: match cut to ${currency(allowed)}/yr${year !== null ? ` from ${year}` : ""}`,
         detail: `Contributions and match together hit the federal cap on everything that can go into one employer plan in a year, so the match was trimmed from ${currency(requested)}. Your own contributions are untouched — only the match gives way.`,
+      };
+    }
+    if ("RequiredDistributionUnallocated" in warning) {
+      const year = periodYear(projection, warning.RequiredDistributionUnallocated.period);
+      return {
+        key,
+        title: `Required withdrawals have nowhere to go${year !== null ? ` from ${year}` : ""}`,
+        detail:
+          "From this year the IRS forces a minimum withdrawal out of a pre-tax account, but the plan has no taxable account to hold what is left after tax. That money leaves the pre-tax balance and lands nowhere, so net worth drops by it every year and the projection understates the plan. Add a taxable brokerage account to hold it.",
       };
     }
     if ("DepletedFunds" in warning) {

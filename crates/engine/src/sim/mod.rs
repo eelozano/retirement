@@ -2,6 +2,7 @@ mod contributions;
 mod monte_carlo;
 mod period;
 mod projection;
+mod required_distributions;
 mod survivor;
 
 pub use monte_carlo::{run_monte_carlo, MonteCarloConfig, MonteCarloResult, PeriodPercentiles};
@@ -43,11 +44,15 @@ struct ResolvedStream<'a> {
 ///    account's contribution mode and clamping to the owner's shared
 ///    statutory limits for that year, then add the employer match those
 ///    deferrals earn — see `contributions`
-/// 3. tax ordinary income (gross income minus pre-tax deferrals)
-/// 4. sweep surplus into the taxable account (if enabled), or draw down the
-///    shortfall (grossed up through the tax model)
-/// 5. apply market growth to post-flow balances
-/// 6. snapshot
+/// 3. force out each pre-tax account owner's required minimum distribution,
+///    once they are past their RMD age — see `required_distributions`
+/// 4. tax ordinary income (gross income minus pre-tax deferrals, plus any
+///    required distribution), in a single pass over the whole period
+/// 5. reinvest the leftover in the taxable account — always for the forced
+///    distribution, and for ordinary surplus if the sweep is enabled — or
+///    draw down the shortfall (grossed up through the tax model)
+/// 6. apply market growth to post-flow balances
+/// 7. snapshot
 pub fn simulate(
     plan: &Plan,
     returns: &dyn ReturnModel,
