@@ -29,6 +29,34 @@ pub const ELECTIVE_DEFERRAL_LIMIT: f64 = 24_500.0;
 /// and Roth IRAs. IRS Notice 2025-67, tax year 2026.
 pub const IRA_CONTRIBUTION_LIMIT: f64 = 7_500.0;
 
+/// Statutory 457(b) elective-deferral limit — the same dollar figure as
+/// [`ELECTIVE_DEFERRAL_LIMIT`] today, but a *separate* statutory cap: a
+/// person can defer the full amount into a 401(k)/403(b) and the full
+/// amount into a 457(b) in the same year. IRS Notice 2025-67, tax year 2026.
+pub const PLAN_457B_LIMIT: f64 = 24_500.0;
+
+/// HSA self-only coverage contribution limit. Family coverage is higher
+/// ($8,750 for 2026) but this app has no concept of HSA coverage type, so
+/// the more conservative self-only figure is used for everyone. IRS Rev.
+/// Proc. 2025-19, tax year 2026.
+pub const HSA_CONTRIBUTION_LIMIT: f64 = 4_400.0;
+
+/// HSA catch-up for owners 55 and older. Statutorily fixed at $1,000 since
+/// 2009 — unlike every other catch-up figure in this module, it is **not**
+/// indexed for inflation.
+pub const HSA_CATCH_UP_55: f64 = 1_000.0;
+
+/// SEP-IRA limit: employer contributions only, capped at the lesser of 25%
+/// of compensation or the IRC 415(c) annual-additions figure — the same
+/// number as [`ContributionLimits::annual_additions`] today. No employee
+/// catch-up. IRS Notice 2025-67, tax year 2026.
+pub const SEP_IRA_LIMIT: f64 = 72_000.0;
+
+/// SIMPLE IRA elective-deferral limit — its own figure, separate from
+/// [`ELECTIVE_DEFERRAL_LIMIT`] and [`IRA_CONTRIBUTION_LIMIT`] alike. IRS
+/// Notice 2025-67, tax year 2026.
+pub const SIMPLE_IRA_LIMIT: f64 = 17_000.0;
+
 /// Statutory limits for one tax year, indexed forward by the engine.
 ///
 /// Every figure is IRS Notice 2025-67 (tax year 2026), verified against the
@@ -56,6 +84,23 @@ pub struct ContributionLimits {
     /// employer match. Far higher than the deferral limit, which is the
     /// whole point: matched dollars are not held to the employee's cap.
     pub annual_additions: f64,
+    /// IRC 457(b) elective deferral limit. Same dollar figure as
+    /// `employer_plan` today, but a statutorily separate cap — see
+    /// [`PLAN_457B_LIMIT`]. Shares `employer_plan`'s catch-up tiers.
+    pub plan_457b: f64,
+    /// HSA self-only coverage limit — see [`HSA_CONTRIBUTION_LIMIT`].
+    pub hsa: f64,
+    /// HSA catch-up for owners 55+ — see [`HSA_CATCH_UP_55`]. Not indexed.
+    pub hsa_catch_up_55: f64,
+    /// SEP-IRA limit — see [`SEP_IRA_LIMIT`]. No catch-up.
+    pub sep_ira: f64,
+    /// SIMPLE IRA elective-deferral limit — see [`SIMPLE_IRA_LIMIT`].
+    pub simple_ira: f64,
+    /// SIMPLE IRA catch-up, added from the year the owner turns 50.
+    pub simple_ira_catch_up_50: f64,
+    /// SECURE 2.0 higher SIMPLE catch-up, replacing the age-50 figure for
+    /// the years the owner turns 60 through 63.
+    pub simple_ira_catch_up_60_63: f64,
 }
 
 pub const CONTRIBUTION_LIMITS: ContributionLimits = ContributionLimits {
@@ -66,6 +111,13 @@ pub const CONTRIBUTION_LIMITS: ContributionLimits = ContributionLimits {
     ira: IRA_CONTRIBUTION_LIMIT,
     ira_catch_up_50: 1_100.0,
     annual_additions: 72_000.0,
+    plan_457b: PLAN_457B_LIMIT,
+    hsa: HSA_CONTRIBUTION_LIMIT,
+    hsa_catch_up_55: HSA_CATCH_UP_55,
+    sep_ira: SEP_IRA_LIMIT,
+    simple_ira: SIMPLE_IRA_LIMIT,
+    simple_ira_catch_up_50: 4_000.0,
+    simple_ira_catch_up_60_63: 5_250.0,
 };
 
 /// Indexed figures round down to a statutory increment: $500 for the
@@ -132,6 +184,33 @@ impl ContributionLimits {
                     0.0
                 };
                 Some(index_to(self.ira, 500.0, years, inflation) + catch_up)
+            }
+            // Statutorily separate from `EmployerPlan`, but governed by the
+            // same 414(v) catch-up figures.
+            PlanType::Plan457b => {
+                let catch_up = match age {
+                    60..=63 => index_to(self.employer_plan_catch_up_60_63, 500.0, years, inflation),
+                    a if a >= 50 => {
+                        index_to(self.employer_plan_catch_up_50, 500.0, years, inflation)
+                    }
+                    _ => 0.0,
+                };
+                Some(index_to(self.plan_457b, 500.0, years, inflation) + catch_up)
+            }
+            // The $1,000 HSA catch-up is statutorily fixed, not indexed.
+            PlanType::Hsa => {
+                let catch_up = if age >= 55 { self.hsa_catch_up_55 } else { 0.0 };
+                Some(index_to(self.hsa, 50.0, years, inflation) + catch_up)
+            }
+            // Employer-only contributions: no employee catch-up.
+            PlanType::SepIra => Some(index_to(self.sep_ira, 1_000.0, years, inflation)),
+            PlanType::SimpleIra => {
+                let catch_up = match age {
+                    60..=63 => index_to(self.simple_ira_catch_up_60_63, 250.0, years, inflation),
+                    a if a >= 50 => index_to(self.simple_ira_catch_up_50, 250.0, years, inflation),
+                    _ => 0.0,
+                };
+                Some(index_to(self.simple_ira, 500.0, years, inflation) + catch_up)
             }
         }
     }
@@ -233,6 +312,11 @@ pub fn allocation_weights(alloc: &AllocationRef) -> BTreeMap<AssetClass, f64> {
             (AssetClass::UsBonds, 0.50),
         ]),
         AllocationRef::Custom(weights) => weights.clone(),
+        // A fixed cash rate has no asset-class weights — `grow()` special-
+        // cases `Cash` before reaching here; this arm exists for
+        // exhaustiveness and any other caller that wants "no market
+        // exposure" for a cash allocation.
+        AllocationRef::Cash(_) => BTreeMap::new(),
     }
 }
 

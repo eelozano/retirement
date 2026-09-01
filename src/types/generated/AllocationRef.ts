@@ -2,6 +2,7 @@
 import type { AssetClass } from "./AssetClass";
 
 /**
- * Portfolio allocation: a named preset or explicit weights summing to 1.
+ * Portfolio allocation: a named preset, explicit weights summing to 1, or a
+ * fixed cash rate.
  */
-export type AllocationRef = "Aggressive" | "Moderate" | "Conservative" | { "Custom": { [key in AssetClass]?: number } };
+export type AllocationRef = "Aggressive" | "Moderate" | "Conservative" | { "Custom": { [key in AssetClass]?: number } } | { "Cash": number };

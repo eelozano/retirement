@@ -95,7 +95,15 @@ impl DrawdownStrategy for ProportionalDrawdown {
                         income.capital_gains += gains;
                         income.untaxed += amount - gains;
                     }
-                    AccountKind::Roth => income.untaxed += amount,
+                    // A savings account's growth is interest, not a capital
+                    // gain — the share above cost basis is ordinary income.
+                    AccountKind::Savings => {
+                        let interest = amount * account.gains_fraction();
+                        income.ordinary += interest;
+                        income.untaxed += amount - interest;
+                    }
+                    // Assumes qualified medical spending — see `AccountKind::Hsa`.
+                    AccountKind::Roth | AccountKind::Hsa => income.untaxed += amount,
                 }
             }
             income
@@ -312,6 +320,63 @@ mod tests {
             )
             .tax,
             "no base income, no difference",
+        );
+    }
+
+    /// An HSA behaves like a Roth at withdrawal time (untaxed), even though
+    /// its contributions were pre-tax — the one combination neither `Roth`
+    /// nor `TraditionalPreTax` alone captures.
+    #[test]
+    fn an_hsa_withdrawal_is_untaxed_like_a_roth() {
+        let tax = joint();
+        let mut hsa = vec![account("hsa", AccountKind::Hsa, 100_000.0, 0.0)];
+        let mut roth = vec![account("roth", AccountKind::Roth, 100_000.0, 0.0)];
+        let base = IncomeBreakdown::default();
+
+        let hsa_result = ProportionalDrawdown.withdraw(50_000.0, &mut hsa, &tax, &base, 0);
+        let roth_result = ProportionalDrawdown.withdraw(50_000.0, &mut roth, &tax, &base, 0);
+
+        assert_close(hsa_result.tax, 0.0, "no tax on the HSA withdrawal");
+        assert_close(
+            hsa_result.net,
+            roth_result.net,
+            "same net as an equivalent Roth",
+        );
+    }
+
+    /// A savings account's growth is interest, not a capital gain — the
+    /// share above cost basis has to land in `ordinary`, not
+    /// `capital_gains`, unlike an otherwise-identical `Taxable` account.
+    #[test]
+    fn savings_growth_is_taxed_as_ordinary_income_not_capital_gains() {
+        let tax = joint();
+        let base = IncomeBreakdown::default();
+        // Half gains, large enough that the gain clears the standard
+        // deduction and both schedules' 0% bands.
+        let mut savings = vec![account(
+            "savings",
+            AccountKind::Savings,
+            400_000.0,
+            200_000.0,
+        )];
+        let mut taxable = vec![account(
+            "brokerage",
+            AccountKind::Taxable,
+            400_000.0,
+            200_000.0,
+        )];
+
+        let savings_result = ProportionalDrawdown.withdraw(150_000.0, &mut savings, &tax, &base, 0);
+        let taxable_result = ProportionalDrawdown.withdraw(150_000.0, &mut taxable, &tax, &base, 0);
+
+        // Ordinary rates apply to the whole bracket from $0; capital gains
+        // get the preferential 0%/15%/20% schedule — so the same $5,000 of
+        // "gain" taxed as ordinary income costs strictly more here.
+        assert!(
+            savings_result.tax > taxable_result.tax,
+            "ordinary income on the gain must cost more than capital gains: {} vs {}",
+            savings_result.tax,
+            taxable_result.tax
         );
     }
 

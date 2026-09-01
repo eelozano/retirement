@@ -57,6 +57,18 @@ export function ruleForMode(mode: ContributionMode): ContributionRule {
 export function federalMaximumHint(presets: Presets | null, planType: PlanType): string {
   const limits = presets?.contribution_limits;
   if (!limits || planType === "None") return "";
-  const base = planType === "Ira" ? limits.ira : limits.employer_plan;
-  return `${currency(base)}/yr in ${limits.basis_year}, indexed for inflation and stepped up from age 50.`;
+  switch (planType) {
+    case "Ira":
+      return `${currency(limits.ira)}/yr in ${limits.basis_year}, indexed for inflation and stepped up from age 50.`;
+    case "Plan457b":
+      return `${currency(limits.plan_457b)}/yr in ${limits.basis_year}, indexed for inflation and stepped up from age 50 — separate from a 401(k)/403(b)'s limit.`;
+    case "Hsa":
+      return `${currency(limits.hsa)}/yr in ${limits.basis_year} (self-only coverage), indexed for inflation and stepped up from age 55.`;
+    case "SepIra":
+      return `${currency(limits.sep_ira)}/yr in ${limits.basis_year}, indexed for inflation. Employer contributions only — no catch-up.`;
+    case "SimpleIra":
+      return `${currency(limits.simple_ira)}/yr in ${limits.basis_year}, indexed for inflation and stepped up from age 50.`;
+    default:
+      return `${currency(limits.employer_plan)}/yr in ${limits.basis_year}, indexed for inflation and stepped up from age 50.`;
+  }
 }

@@ -1,32 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { currency } from "../../lib/format";
 import { usePlanStore } from "../../store/planStore";
-import type { AccountKind } from "../../types/generated/AccountKind";
 import type { AllocationRef } from "../../types/generated/AllocationRef";
-import type { PlanType } from "../../types/generated/PlanType";
-import { NumberField, SelectField, TextField } from "./fields";
+import { ACCOUNT_TYPE_OPTIONS, accountTypeByValue, accountTypeFor } from "./accountTypes";
+import { NumberField, PercentField, SelectField, TextField } from "./fields";
 
-const KIND_OPTIONS = [
-  { value: "Taxable", label: "Taxable brokerage" },
-  { value: "TraditionalPreTax", label: "Pre-tax (401k / Trad IRA)" },
-  { value: "Roth", label: "Roth" },
-] as const;
-
-const KIND_LABELS: Record<AccountKind, string> = {
-  Taxable: "Taxable",
-  TraditionalPreTax: "Pre-tax",
-  Roth: "Roth",
-};
-
-// Only the two capped buckets are offered: `None` is not a choice a user
-// makes, it is what a taxable brokerage is, so the control is hidden there
-// entirely rather than offering an option that validation would reject.
-const PLAN_TYPE_OPTIONS = [
-  // Kept short: the select is 150px, and "Employer plan (401k / 403b)"
-  // truncated mid-word to "Employer plan (401".
-  { value: "EmployerPlan", label: "401(k) / 403(b)" },
-  { value: "Ira", label: "IRA" },
-] as const;
+/** A sensible starting rate for a newly-typed Savings account. */
+const DEFAULT_SAVINGS_RATE = 0.02;
 
 const ALLOCATION_OPTIONS = [
   { value: "Aggressive", label: "Aggressive (90/10)" },
@@ -41,18 +21,11 @@ function allocationName(allocation: AllocationRef): PresetName {
 }
 
 function allocationLabel(allocation: AllocationRef): string {
+  if (typeof allocation === "object" && "Cash" in allocation) {
+    return `Cash (${(allocation.Cash * 100).toFixed(1)}%)`;
+  }
   const name = allocationName(allocation);
   return ALLOCATION_OPTIONS.find((o) => o.value === name)?.label ?? name;
-}
-
-/**
- * Statutory bucket a new (or retyped) account starts in. Mirrors
- * `PlanType::default_for` in Rust — a UI default, not a statutory figure,
- * so it is safe to state here; the limits themselves are never hardcoded.
- */
-function defaultPlanType(kind: AccountKind): PlanType {
-  if (kind === "Taxable") return "None";
-  return kind === "Roth" ? "Ira" : "EmployerPlan";
 }
 
 /**
@@ -96,7 +69,7 @@ export function AccountsSection() {
         balance: 0,
         cost_basis: 0,
         allocation: "Moderate",
-        plan_type: defaultPlanType("Taxable"),
+        plan_type: "None",
         contribution: { FlatAmount: 0 },
         employer_match: null,
       });
@@ -150,7 +123,10 @@ export function AccountsSection() {
                         {account.name || "Untitled account"}
                       </button>
                     </td>
-                    <td>{KIND_LABELS[account.kind]}</td>
+                    <td>
+                      {accountTypeFor(account.kind, account.plan_type)?.label ??
+                        account.kind}
+                    </td>
                     <td>
                       {plan.people.find((p) => p.id === account.owner)?.name ?? "—"}
                     </td>
@@ -181,44 +157,48 @@ export function AccountsSection() {
           />
           <SelectField
             label="Type"
-            value={selected.kind}
-            options={KIND_OPTIONS}
-            onChange={(kind: AccountKind) =>
+            value={accountTypeFor(selected.kind, selected.plan_type)?.value ?? "taxable"}
+            options={ACCOUNT_TYPE_OPTIONS}
+            hint={accountTypeFor(selected.kind, selected.plan_type)?.description}
+            onChange={(value) =>
               updatePlan((d) => {
-                d.accounts[selectedIndex].kind = kind;
-                if (kind !== "Taxable") d.accounts[selectedIndex].cost_basis = null;
-                else
-                  d.accounts[selectedIndex].cost_basis ??=
-                    d.accounts[selectedIndex].balance;
-                // Retyping an account re-picks its statutory bucket: the old
-                // kind's bucket is meaningless under the new one, and a
-                // taxable brokerage has no federal maximum to resolve.
-                d.accounts[selectedIndex].plan_type = defaultPlanType(kind);
-                if (
-                  kind === "Taxable" &&
-                  d.accounts[selectedIndex].contribution === "FederalMaximum"
+                const type = accountTypeByValue(value);
+                if (!type) return;
+                const account = d.accounts[selectedIndex];
+                const wasSavings = account.kind === "Savings";
+                account.kind = type.kind;
+                account.plan_type = type.planType;
+                if (type.kind === "Taxable" || type.kind === "Savings") {
+                  account.cost_basis ??= account.balance;
+                } else {
+                  account.cost_basis = null;
+                }
+                // A Savings account grows at its own rate instead of a
+                // market allocation; leaving a Savings type returns it to a
+                // market preset, since "Cash" is otherwise not offered.
+                if (type.kind === "Savings" && !wasSavings) {
+                  account.allocation = { Cash: DEFAULT_SAVINGS_RATE };
+                } else if (
+                  type.kind !== "Savings" &&
+                  typeof account.allocation === "object"
                 ) {
-                  d.accounts[selectedIndex].contribution = { FlatAmount: 0 };
+                  account.allocation = "Moderate";
+                }
+                // Retyping an account re-picks its statutory bucket: the old
+                // bucket may be meaningless under the new one, and an
+                // uncapped account has no federal maximum to resolve.
+                if (type.planType !== "EmployerPlan") {
+                  account.employer_match = null;
+                }
+                if (
+                  type.planType === "None" &&
+                  account.contribution === "FederalMaximum"
+                ) {
+                  account.contribution = { FlatAmount: 0 };
                 }
               })
             }
           />
-          {selected.plan_type !== "None" && (
-            <SelectField
-              label="Plan type"
-              value={selected.plan_type}
-              options={PLAN_TYPE_OPTIONS}
-              hint="Which statutory limit this account shares. A 401(k) and an IRA are capped separately even when they are taxed the same way."
-              onChange={(planType: PlanType) =>
-                updatePlan((d) => {
-                  d.accounts[selectedIndex].plan_type = planType;
-                  if (planType !== "EmployerPlan") {
-                    d.accounts[selectedIndex].employer_match = null;
-                  }
-                })
-              }
-            />
-          )}
           <SelectField
             label="Owner"
             value={selected.owner}
@@ -229,16 +209,31 @@ export function AccountsSection() {
               })
             }
           />
-          <SelectField
-            label="Allocation"
-            value={allocationName(selected.allocation)}
-            options={ALLOCATION_OPTIONS}
-            onChange={(preset) =>
-              updatePlan((d) => {
-                d.accounts[selectedIndex].allocation = preset;
-              })
-            }
-          />
+          {typeof selected.allocation === "object" && "Cash" in selected.allocation ? (
+            <PercentField
+              label="Interest rate"
+              rate={selected.allocation.Cash}
+              minPercent={0}
+              maxPercent={20}
+              hint="A fixed rate this account grows at every year, instead of a market-return allocation — a bank savings or money-market rate."
+              onChange={(rate) =>
+                updatePlan((d) => {
+                  d.accounts[selectedIndex].allocation = { Cash: rate };
+                })
+              }
+            />
+          ) : (
+            <SelectField
+              label="Allocation"
+              value={allocationName(selected.allocation)}
+              options={ALLOCATION_OPTIONS}
+              onChange={(preset) =>
+                updatePlan((d) => {
+                  d.accounts[selectedIndex].allocation = preset;
+                })
+              }
+            />
+          )}
           <NumberField
             label="Balance today ($)"
             value={selected.balance}
@@ -248,7 +243,7 @@ export function AccountsSection() {
               })
             }
           />
-          {selected.kind === "Taxable" && (
+          {(selected.kind === "Taxable" || selected.kind === "Savings") && (
             <NumberField
               label="Cost basis ($)"
               value={selected.cost_basis ?? 0}

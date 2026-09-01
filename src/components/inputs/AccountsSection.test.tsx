@@ -51,18 +51,38 @@ describe("AccountsSection", () => {
     );
   });
 
-  it("picks the bucket the account kind implies, and lets it be overridden", async () => {
+  it("sets both kind and plan type together from one account-type selection", async () => {
     render(<AccountsSection />);
     await addAccount();
 
-    await userEvent.selectOptions(screen.getByLabelText("Type"), "TraditionalPreTax");
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "employer_pretax");
+    expect(currentAccount()?.kind).toBe("TraditionalPreTax");
     expect(currentAccount()?.plan_type).toBe("EmployerPlan");
 
-    await userEvent.selectOptions(screen.getByLabelText("Type"), "Roth");
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "roth_ira");
+    expect(currentAccount()?.kind).toBe("Roth");
     expect(currentAccount()?.plan_type).toBe("Ira");
 
-    await userEvent.selectOptions(screen.getByLabelText("Plan type"), "EmployerPlan");
-    expect(currentAccount()?.plan_type).toBe("EmployerPlan");
+    // 457(b) and 401(k)/403(b) are statutorily separate buckets even though
+    // both are TraditionalPreTax — the picker has to tell them apart.
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "plan_457b");
+    expect(currentAccount()?.kind).toBe("TraditionalPreTax");
+    expect(currentAccount()?.plan_type).toBe("Plan457b");
+  });
+
+  it("switches a savings account to a fixed cash rate instead of a market allocation", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "savings");
+    expect(currentAccount()?.kind).toBe("Savings");
+    expect(currentAccount()?.allocation).toEqual({ Cash: expect.any(Number) });
+    expect(screen.queryByLabelText("Allocation")).toBeNull();
+    expect(screen.getByLabelText("Interest rate (%)")).toBeTruthy();
+
+    // Leaving Savings returns to a market preset — "Cash" isn't otherwise offered.
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "taxable");
+    expect(currentAccount()?.allocation).toBe("Moderate");
   });
 
   it("edits owner, allocation, and balance on the selected account", async () => {
@@ -83,12 +103,15 @@ describe("AccountsSection", () => {
     expect(screen.getByRole("cell", { name: "$5,000" })).toBeTruthy();
   });
 
-  it("only offers cost basis on a taxable account", async () => {
+  it("offers cost basis on a taxable or savings account, not elsewhere", async () => {
     render(<AccountsSection />);
     await addAccount();
     expect(screen.getByLabelText("Cost basis ($)")).toBeTruthy();
 
-    await userEvent.selectOptions(screen.getByLabelText("Type"), "Roth");
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "savings");
+    expect(screen.getByLabelText("Cost basis ($)")).toBeTruthy();
+
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "roth_ira");
     expect(screen.queryByLabelText("Cost basis ($)")).toBeNull();
     expect(currentAccount()?.cost_basis).toBeNull();
   });

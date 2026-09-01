@@ -128,22 +128,36 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                 &format!("\"{}\" balance can't be negative.", account.name),
             ));
         }
-        // The two axes have to agree at the one place they overlap: a
-        // taxable brokerage draws on no statutory bucket, and nothing else
-        // draws on none. Everything in between (a Roth 401(k), a traditional
-        // IRA) is a free choice, which is the point of keeping them separate.
-        let taxable = account.kind == AccountKind::Taxable;
-        if taxable != (account.plan_type == PlanType::None) {
+        // The two axes have to agree on which statutory buckets are even
+        // meaningful for a given tax treatment: an uncapped account (taxable
+        // brokerage, savings) draws on no bucket, an HSA only ever draws on
+        // its own bucket, and a pre-tax or Roth retirement account is a free
+        // choice among the buckets built for it. Everything within a kind's
+        // set (a Roth 401(k), a traditional IRA) stays a free choice, which
+        // is the point of keeping the two axes separate.
+        let allowed: &[PlanType] = match account.kind {
+            AccountKind::Taxable | AccountKind::Savings => &[PlanType::None],
+            AccountKind::TraditionalPreTax => &[
+                PlanType::EmployerPlan,
+                PlanType::Ira,
+                PlanType::Plan457b,
+                PlanType::SepIra,
+                PlanType::SimpleIra,
+            ],
+            AccountKind::Roth => &[PlanType::EmployerPlan, PlanType::Ira, PlanType::Plan457b],
+            AccountKind::Hsa => &[PlanType::Hsa],
+        };
+        if !allowed.contains(&account.plan_type) {
             errors.push(err(
                 &format!("accounts[{i}].plan_type"),
-                &if taxable {
+                &if account.plan_type == PlanType::None {
                     format!(
-                        "\"{}\" is a taxable brokerage, so it isn't a 401(k) or an IRA.",
+                        "\"{}\" is a retirement account, so it needs a plan type.",
                         account.name
                     )
                 } else {
                     format!(
-                        "\"{}\" is a retirement account, so it needs a plan type.",
+                        "\"{}\"'s plan type doesn't match its account type.",
                         account.name
                     )
                 },
@@ -405,16 +419,21 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                 "assumptions.reinvest_into",
                 "The reinvestment destination doesn't match any account on this plan.",
             )),
-            // `cost_basis` only means anything on a taxable account — parking
-            // after-tax dollars anywhere else would tax them a second time
-            // (or never) when they're eventually withdrawn.
-            Some(account) if account.kind != AccountKind::Taxable => errors.push(err(
-                "assumptions.reinvest_into",
-                &format!(
-                    "\"{}\" isn't a taxable account, so it can't receive reinvested cash.",
-                    account.name
-                ),
-            )),
+            // `cost_basis` only means anything on a Taxable or Savings
+            // account — parking after-tax dollars anywhere else would tax
+            // them a second time (or never) when they're eventually
+            // withdrawn.
+            Some(account)
+                if !matches!(account.kind, AccountKind::Taxable | AccountKind::Savings) =>
+            {
+                errors.push(err(
+                    "assumptions.reinvest_into",
+                    &format!(
+                        "\"{}\" isn't a taxable or savings account, so it can't receive reinvested cash.",
+                        account.name
+                    ),
+                ))
+            }
             Some(_) => {}
         }
     }

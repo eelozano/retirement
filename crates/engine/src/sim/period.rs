@@ -23,7 +23,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::model::{AccountId, AccountKind, PersonId, Plan, StreamDirection, YearMonth};
+use crate::model::{
+    AccountId, AccountKind, AllocationRef, PersonId, Plan, StreamDirection, YearMonth,
+};
 use crate::presets::allocation_weights;
 use crate::strategies::{
     AccountState, DrawdownStrategy, IncomeBreakdown, PeriodIndex, ReturnModel, TaxModel,
@@ -335,10 +337,13 @@ fn contribute(
             continue;
         }
         state.accounts[idx].balance += amount;
-        if account.kind == AccountKind::Taxable {
+        if matches!(account.kind, AccountKind::Taxable | AccountKind::Savings) {
             state.accounts[idx].cost_basis += amount;
         }
-        if account.kind == AccountKind::TraditionalPreTax {
+        if matches!(
+            account.kind,
+            AccountKind::TraditionalPreTax | AccountKind::Hsa
+        ) {
             period.pretax_contributions += amount;
         }
         period.contributions += allowed[idx];
@@ -481,11 +486,18 @@ fn grow(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) -> f64 {
     let period_returns = run.returns.returns_for(ctx.period, run.path_id);
     let mut growth = 0.0;
     for (idx, account) in run.plan.accounts.iter().enumerate() {
-        let weights = allocation_weights(&account.allocation);
-        let rate: f64 = weights
-            .iter()
-            .map(|(class, w)| w * period_returns.get(class).copied().unwrap_or(0.0))
-            .sum();
+        // A fixed cash rate bypasses the asset-class return model entirely —
+        // a savings account's rate, not a market return.
+        let rate: f64 = match &account.allocation {
+            AllocationRef::Cash(rate) => *rate,
+            allocation => {
+                let weights = allocation_weights(allocation);
+                weights
+                    .iter()
+                    .map(|(class, w)| w * period_returns.get(class).copied().unwrap_or(0.0))
+                    .sum()
+            }
+        };
         let balance = &mut state.accounts[idx].balance;
         let pre = *balance;
         *balance *= 1.0 + rate;

@@ -12,12 +12,22 @@ pub type AccountId = String;
 #[ts(export)]
 pub enum AccountKind {
     /// Brokerage: contributions form cost basis; withdrawals realize gains
-    /// proportionally.
+    /// proportionally, taxed as capital gains.
     Taxable,
     /// 401(k)/Traditional IRA: withdrawals are ordinary income.
     TraditionalPreTax,
     /// Roth IRA/401(k): qualified withdrawals are untaxed.
     Roth,
+    /// Cash savings: contributions form cost basis like `Taxable`, but the
+    /// growth a savings account pays out is interest, not a capital gain —
+    /// the withdrawn share above cost basis is taxed as ordinary income.
+    Savings,
+    /// Health Savings Account: pre-tax in like `TraditionalPreTax`, untaxed
+    /// out like `Roth` — the one combination neither existing variant
+    /// covers. Assumes withdrawals are qualified medical spending, the
+    /// standard simplification; this app does not model the ordinary-income
+    /// treatment (plus penalty pre-65) of a non-qualified withdrawal.
+    Hsa,
 }
 
 /// Which statutory contribution bucket an account draws on.
@@ -25,20 +35,38 @@ pub enum AccountKind {
 /// Deliberately orthogonal to `AccountKind`, which is the *tax treatment*
 /// axis: a Roth 401(k) and a Roth IRA are taxed identically and capped
 /// separately, while a traditional IRA and a Roth IRA are taxed differently
-/// and share one cap. Two axes, each with one job — exploding `AccountKind`
-/// into five variants would force every `match` in the tax and drawdown
-/// paths to grow for a distinction those paths do not care about.
+/// and share one cap. Two axes, each with one job — folding a statutory
+/// bucket distinction into `AccountKind` instead would force every `match`
+/// in the tax and drawdown paths to grow for a distinction those paths do
+/// not care about.
 ///
-/// 457(b) has a statutorily separate limit from 401(k)/403(b) and would be a
-/// fourth variant here, not a rework.
+/// 457(b) has a statutorily separate limit from 401(k)/403(b), so it is a
+/// variant here rather than folded into `EmployerPlan`; HSA, SEP-IRA, and
+/// SIMPLE IRA each carry their own statutorily distinct limit for the same
+/// reason.
 #[derive(Serialize, Deserialize, TS, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[ts(export)]
 pub enum PlanType {
-    /// 401(k)/403(b)/TSP elective deferrals, sharing one limit per person.
+    /// 401(k)/403(b)/401(a)/TSP elective deferrals, sharing one limit per
+    /// person. 401(a) plans vary by employer and are not always subject to
+    /// this cap in reality — approximated here rather than modeled exactly.
     EmployerPlan,
     /// Traditional and Roth IRAs, sharing one (much smaller) limit.
     Ira,
-    /// No statutory cap — a taxable brokerage.
+    /// 457(b) governmental deferred-compensation plans: statutorily separate
+    /// from `EmployerPlan`, so a person can max out both in the same year.
+    Plan457b,
+    /// Health Savings Account contribution limit. One figure (the self-only
+    /// coverage limit) rather than modeling the family-coverage limit
+    /// separately — this app has no concept of HSA coverage type.
+    Hsa,
+    /// SEP-IRA: employer-only contributions, capped at the much higher
+    /// 415(c) annual-additions figure. No employee catch-up.
+    SepIra,
+    /// SIMPLE IRA: its own elective-deferral limit, separate from a regular
+    /// IRA, with its own SECURE 2.0 catch-up tiers.
+    SimpleIra,
+    /// No statutory cap — a taxable brokerage or a savings account.
     None,
 }
 
@@ -48,9 +76,10 @@ impl PlanType {
     /// 401(k)-style plan, Roth means a Roth IRA. Overridable per account.
     pub fn default_for(kind: AccountKind) -> Self {
         match kind {
-            AccountKind::Taxable => PlanType::None,
+            AccountKind::Taxable | AccountKind::Savings => PlanType::None,
             AccountKind::TraditionalPreTax => PlanType::EmployerPlan,
             AccountKind::Roth => PlanType::Ira,
+            AccountKind::Hsa => PlanType::Hsa,
         }
     }
 }
@@ -138,7 +167,8 @@ pub struct EmployerMatch {
     pub destination: MatchDestination,
 }
 
-/// Portfolio allocation: a named preset or explicit weights summing to 1.
+/// Portfolio allocation: a named preset, explicit weights summing to 1, or a
+/// fixed cash rate.
 #[derive(Serialize, Deserialize, TS, Clone, Debug)]
 #[ts(export)]
 pub enum AllocationRef {
@@ -146,6 +176,12 @@ pub enum AllocationRef {
     Moderate,
     Conservative,
     Custom(BTreeMap<AssetClass, f64>),
+    /// A fixed nominal annual rate (0.045 = 4.5%) applied directly to the
+    /// balance each period, bypassing `Assumptions::asset_returns` entirely
+    /// — a savings/money-market account's rate, not a market return. Like
+    /// `ContributionRule::FlatAmount`, this is nominal by design: it does
+    /// not track inflation on its own.
+    Cash(f64),
 }
 
 #[derive(Serialize, TS, Clone, Debug)]
@@ -334,6 +370,8 @@ mod tests {
             (AccountKind::Taxable, PlanType::None),
             (AccountKind::TraditionalPreTax, PlanType::EmployerPlan),
             (AccountKind::Roth, PlanType::Ira),
+            (AccountKind::Savings, PlanType::None),
+            (AccountKind::Hsa, PlanType::Hsa),
         ] {
             assert_eq!(PlanType::default_for(kind), expected);
             assert_eq!(migrated_plan_type(kind, None), expected);
