@@ -120,3 +120,10 @@ export function exportTextFile(
 ): Promise<string | null> {
   return invoke<string | null>("export_text_file", { suggestedName, contents });
 }
+
+/** Opens the native print dialog for this window. Not `window.print()` —
+ * that JS call is a no-op on the macOS webview (see `print_window` on the
+ * Rust side); this drives the native print operation directly instead. */
+export function printWindow(): Promise<void> {
+  return invoke<void>("print_window");
+}

@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { printWindow } from "../../lib/api";
 import { rateToPercent } from "../../lib/format";
 import { depletionYear as computeDepletionYear } from "../../lib/projection";
 import { readableWarnings } from "../../lib/warnings";
@@ -30,6 +31,12 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
   const projection = usePlanStore((s) => s.projection);
   const monteCarlo = usePlanStore((s) => s.monteCarlo);
   const realDollars = usePlanStore((s) => s.realDollars);
+
+  const [printError, setPrintError] = useState<string | null>(null);
+  const handlePrint = () => {
+    setPrintError(null);
+    printWindow().catch((e) => setPrintError(String(e)));
+  };
 
   const series = useMemo(() => (plan ? seriesDefs(plan) : []), [plan]);
   const rows = useMemo(
@@ -73,11 +80,17 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
               </p>
             </div>
             <div className="report-actions">
-              <button type="button" onClick={() => window.print()}>
+              <button type="button" onClick={handlePrint}>
                 Print…
               </button>
             </div>
           </header>
+
+          {printError && (
+            <p role="alert" className="banner critical">
+              {printError}
+            </p>
+          )}
 
           <section className="report-section" aria-label="Warnings">
             <h2>Warnings</h2>

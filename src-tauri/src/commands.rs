@@ -308,6 +308,16 @@ pub async fn export_text_file(
     Ok(Some(path))
 }
 
+/// Opens the native print dialog for the calling window's contents — the
+/// printable report's "Print…" button. JS `window.print()` is a no-op on
+/// wry's macOS backend (WKWebView has no built-in print handler — only
+/// Chromium-based WebView2 on Windows does); `WebviewWindow::print()` drives
+/// the native `NSPrintOperation` directly instead.
+#[tauri::command]
+pub fn print_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.print().map_err(|e| e.to_string())
+}
+
 /// Reveals the current plans folder in Finder/Explorer.
 #[tauri::command]
 pub fn reveal_storage_dir(app: tauri::AppHandle) -> Result<(), String> {
