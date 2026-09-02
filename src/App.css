@@ -1326,31 +1326,63 @@ button.remove:hover {
 .card-spacer {
   flex: 1;
 }
-/* The chart's own overlay toggle. Active state is announced by aria-pressed
-   and shown by fill — never by color alone. */
-.chart-toggle {
-  border: 1px solid var(--border);
+/* The chart's own overlay switch. On/off is carried by the knob's position —
+   a shape that moves, readable without color — and the fill only reinforces
+   it. A filled-vs-outlined button read as ambiguous here. */
+.chart-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
   background: transparent;
   color: var(--text-secondary);
-  border-radius: var(--r-2);
-  padding: 5px 10px;
+  padding: 4px 2px;
   font: inherit;
   font-size: var(--t-sm);
   font-weight: 500;
   cursor: pointer;
 }
-.chart-toggle:hover:not(:disabled) {
-  border-color: var(--border-strong);
+.chart-switch:hover:not(:disabled) {
   color: var(--text-primary);
 }
-.chart-toggle[aria-pressed="true"] {
-  background: var(--series-1);
-  border-color: var(--series-1);
-  color: var(--page);
+.chart-switch[aria-checked="true"] {
+  color: var(--text-primary);
 }
-.chart-toggle:disabled {
+.chart-switch:disabled {
   opacity: 0.5;
   cursor: default;
+}
+.chart-switch-track {
+  position: relative;
+  width: 30px;
+  height: 18px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  transition:
+    background 140ms ease,
+    border-color 140ms ease;
+}
+.chart-switch[aria-checked="true"] .chart-switch-track {
+  background: var(--series-1);
+  border-color: var(--series-1);
+}
+.chart-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition:
+    transform 140ms ease,
+    background 140ms ease;
+}
+.chart-switch[aria-checked="true"] .chart-switch-knob {
+  transform: translateX(12px);
+  background: var(--page);
 }
 
 /* Head and legend are two rows here — the toggle sits with the title, and the

@@ -142,8 +142,9 @@ export function PlanScreen(props: { onOpenCashFlow: () => void }) {
                   <span className="card-spacer" />
                   <button
                     type="button"
-                    className="chart-toggle"
-                    aria-pressed={bandOn}
+                    role="switch"
+                    className="chart-switch"
+                    aria-checked={bandOn}
                     disabled={monteCarlo === null}
                     title={
                       monteCarlo === null
@@ -154,6 +155,9 @@ export function PlanScreen(props: { onOpenCashFlow: () => void }) {
                     onClick={() => setShowBand(!showBand)}
                   >
                     Monte Carlo
+                    <span className="chart-switch-track" aria-hidden="true">
+                      <span className="chart-switch-knob" />
+                    </span>
                   </button>
                   <span id="monte-carlo-toggle-hint" className="visually-hidden">
                     Shades the projection chart with the 10th–90th and 25th–75th
