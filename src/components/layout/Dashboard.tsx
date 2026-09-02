@@ -12,8 +12,13 @@ import { StorageSettings } from "./StorageSettings";
 //
 // Monte Carlo is no longer a mode. It is an additive overlay that paints the
 // percentile band onto the same chart, so the fan is read against the plan
-// rather than replacing it. Comparison lives inside the Scenarios
-// destination, below the scenario list, rather than as a separate toggle.
+// rather than replacing it — and it is toggled from that chart's own card
+// header, not from here, because it changes nothing anywhere else. Comparison
+// lives inside the Scenarios destination, below the scenario list, rather than
+// as a separate toggle.
+//
+// What stays in this header is what is genuinely global: the scenario
+// identity, and the dollar basis every screen reads.
 
 export function Dashboard() {
   const plan = usePlanStore((s) => s.plan);
@@ -22,8 +27,6 @@ export function Dashboard() {
   const error = usePlanStore((s) => s.error);
   const realDollars = usePlanStore((s) => s.realDollars);
   const setRealDollars = usePlanStore((s) => s.setRealDollars);
-  const showBand = usePlanStore((s) => s.showMonteCarloBand);
-  const setShowBand = usePlanStore((s) => s.setShowMonteCarloBand);
   const scenarios = usePlanStore((s) => s.scenarios);
   const switchScenario = usePlanStore((s) => s.switchScenario);
   const updatePlan = usePlanStore((s) => s.updatePlan);
@@ -109,29 +112,6 @@ export function Dashboard() {
               Nominal
             </button>
           </fieldset>
-
-          <div className="topbar-divider" />
-
-          <button
-            type="button"
-            className="topbar-toggle"
-            aria-pressed={showBand}
-            title="Show the Monte Carlo percentile band on the projection chart"
-            aria-describedby="monte-carlo-toggle-hint"
-            onClick={() => setShowBand(!showBand)}
-          >
-            Monte Carlo
-          </button>
-          <span id="monte-carlo-toggle-hint" className="visually-hidden">
-            Shades the projection chart with the 10th–90th and 25th–75th percentile ranges
-            from the Monte Carlo simulation, and adds those percentiles to the year
-            inspector.
-          </span>
-          <span className="visually-hidden" role="status">
-            {showBand
-              ? "Monte Carlo percentile band shown."
-              : "Monte Carlo percentile band hidden."}
-          </span>
         </header>
 
         <StorageSettings open={storageOpen} onClose={() => setStorageOpen(false)} />
@@ -154,10 +134,7 @@ export function Dashboard() {
           ) : destination === "scenarios" ? (
             <ScenariosScreen />
           ) : (
-            <PlanScreen
-              showBand={showBand}
-              onOpenCashFlow={() => setDestination("cashflow")}
-            />
+            <PlanScreen onOpenCashFlow={() => setDestination("cashflow")} />
           )}
         </div>
       </div>
