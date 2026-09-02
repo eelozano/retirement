@@ -1,5 +1,6 @@
 import type { Plan } from "../types/generated/Plan";
 import type { Projection } from "../types/generated/Projection";
+import { dateStamp, sanitizedPlanName } from "./exportFilename";
 
 // The CSV twin of the year table, minus the account-count cap the chart
 // applies for legibility (`MAX_SERIES` in chartData.ts) — a spreadsheet has
@@ -88,12 +89,6 @@ export function buildProjectionCsv(
  * basis lives in the filename too, since a header row alone is easy to lose
  * once a file is opened elsewhere. */
 export function projectionCsvFilename(plan: Plan, realDollars: boolean): string {
-  const safeName =
-    plan.name
-      .trim()
-      .replace(/[^a-zA-Z0-9 _-]/g, "")
-      .replace(/\s+/g, "-") || "plan";
-  const date = new Date().toISOString().slice(0, 10);
   const basis = realDollars ? "real" : "nominal";
-  return `${safeName}-projection-${basis}-${date}.csv`;
+  return `${sanitizedPlanName(plan)}-projection-${basis}-${dateStamp()}.csv`;
 }

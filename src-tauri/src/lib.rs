@@ -1,5 +1,7 @@
 mod commands;
 mod migrate;
+#[cfg(target_os = "macos")]
+mod pdf;
 mod settings;
 mod storage;
 
@@ -31,6 +33,7 @@ pub fn run() {
             commands::export_plans,
             commands::export_text_file,
             commands::print_window,
+            commands::export_report_pdf,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

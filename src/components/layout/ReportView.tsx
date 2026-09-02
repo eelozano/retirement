@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
-import { printWindow } from "../../lib/api";
+import { useMemo, useRef, useState } from "react";
+import { exportReportPdf, printWindow } from "../../lib/api";
+import { dateStamp, sanitizedPlanName } from "../../lib/exportFilename";
 import { rateToPercent } from "../../lib/format";
 import { depletionYear as computeDepletionYear } from "../../lib/projection";
 import { readableWarnings } from "../../lib/warnings";
@@ -32,10 +33,43 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
   const monteCarlo = usePlanStore((s) => s.monteCarlo);
   const realDollars = usePlanStore((s) => s.realDollars);
 
-  const [printError, setPrintError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [savingPdf, setSavingPdf] = useState(false);
+
   const handlePrint = () => {
-    setPrintError(null);
-    printWindow().catch((e) => setPrintError(String(e)));
+    setActionError(null);
+    printWindow().catch((e) => setActionError(String(e)));
+  };
+
+  const handleSavePdf = async () => {
+    if (!plan) return;
+    setActionError(null);
+    setSavingPdf(true);
+    // createPDF has no print-media concept of its own: it captures the page
+    // exactly as displayed, and only the rect it's told to. `.pdf-capturing`
+    // (App.css) hides the app chrome and lets the report grow to its true,
+    // unclipped height so there's an exact rect to measure and capture —
+    // the same problem `@media print` solves for the interactive dialog,
+    // solved by hand since createPDF never enters that mode.
+    document.body.classList.add("pdf-capturing");
+    try {
+      window.scrollTo(0, 0);
+      // One frame for the unclipped layout to settle before measuring it.
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const rect = dialogRef.current?.getBoundingClientRect();
+      if (!rect || rect.width === 0 || rect.height === 0) {
+        throw new Error("Could not measure the report for export.");
+      }
+      const basis = realDollars ? "real" : "nominal";
+      const name = `${sanitizedPlanName(plan)}-report-${basis}-${dateStamp()}.pdf`;
+      await exportReportPdf(name, rect.width, rect.height);
+    } catch (e) {
+      setActionError(String(e));
+    } finally {
+      document.body.classList.remove("pdf-capturing");
+      setSavingPdf(false);
+    }
   };
 
   const series = useMemo(() => (plan ? seriesDefs(plan) : []), [plan]);
@@ -67,7 +101,13 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
   const firstYear = projection?.snapshots[0]?.period_start.year ?? null;
 
   return (
-    <Modal open={props.open} onClose={props.onClose} title="Printable report" size="lg">
+    <Modal
+      ref={dialogRef}
+      open={props.open}
+      onClose={props.onClose}
+      title="Printable report"
+      size="lg"
+    >
       {!plan || !projection || !metrics ? (
         <p className="empty-state">Nothing to report yet.</p>
       ) : (
@@ -80,15 +120,18 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
               </p>
             </div>
             <div className="report-actions">
+              <button type="button" onClick={handleSavePdf} disabled={savingPdf}>
+                {savingPdf ? "Saving…" : "Save as PDF…"}
+              </button>
               <button type="button" onClick={handlePrint}>
                 Print…
               </button>
             </div>
           </header>
 
-          {printError && (
+          {actionError && (
             <p role="alert" className="banner critical">
-              {printError}
+              {actionError}
             </p>
           )}
 

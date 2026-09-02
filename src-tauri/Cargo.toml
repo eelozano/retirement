@@ -24,3 +24,26 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml_ng = "0.10"
 time = "0.3"
+
+# PDF export drives WKWebView's native createPDF API directly (see pdf.rs) —
+# there is no cross-platform Tauri/wry API for it. Versions pinned to match
+# what wry itself already resolves to, so this adds no new versions to the
+# dependency graph, only additional features on crates already present.
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = "0.6.2"
+objc2 = "0.6.4"
+objc2-core-foundation = { version = "0.3.2", default-features = false, features = [
+    "std",
+] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "NSData",
+    "NSError",
+] }
+objc2-web-kit = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "block2",
+    "objc2-core-foundation",
+    "WKWebView",
+    "WKPDFConfiguration",
+] }

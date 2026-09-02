@@ -127,3 +127,21 @@ export function exportTextFile(
 export function printWindow(): Promise<void> {
   return invoke<void>("print_window");
 }
+
+/** Renders this window straight to a PDF file at a user-chosen path — no
+ * print dialog involved. macOS only today; call `printWindow()` on other
+ * platforms, whose dialog already offers "Save as PDF" itself.
+ *
+ * `width`/`height` (CSS pixels) name the exact page-coordinate rect to
+ * capture — WKWebView's `createPDF` otherwise only captures whatever is
+ * currently scrolled into the window's viewport, not the full element, so
+ * the caller must measure its own content after switching into whatever
+ * chrome-free, unclipped layout it wants captured. Resolves to the written
+ * path, or null if the user cancels the picker. */
+export function exportReportPdf(
+  suggestedName: string,
+  width: number,
+  height: number,
+): Promise<string | null> {
+  return invoke<string | null>("export_report_pdf", { suggestedName, width, height });
+}

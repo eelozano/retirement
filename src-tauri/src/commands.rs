@@ -318,6 +318,56 @@ pub fn print_window(window: tauri::WebviewWindow) -> Result<(), String> {
     window.print().map_err(|e| e.to_string())
 }
 
+/// Renders the calling window's contents to PDF bytes and writes them to a
+/// user-chosen path — a dialog-free alternative to `print_window` for
+/// generating a file the user can distribute on their own terms. macOS
+/// only: it drives WKWebView's native `createPDF` API directly (see
+/// `pdf.rs`), and there is no cross-platform equivalent; other platforms
+/// fall back to `print_window`, whose dialog already offers "Save as PDF".
+///
+/// `width`/`height` (CSS pixels) name the exact page-coordinate rect to
+/// capture. `createPDF`'s default behavior only captures whatever is
+/// currently scrolled into the window's viewport — not the full page, and
+/// not with `@media print` applied — so the frontend is responsible for
+/// switching into a chrome-free, unclipped layout and measuring its own
+/// full extent before calling this; `pdf::render` then captures exactly
+/// that rect regardless of the window's actual on-screen size.
+#[tauri::command]
+pub async fn export_report_pdf(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    suggested_name: String,
+    width: f64,
+    height: f64,
+) -> Result<Option<PathBuf>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let bytes = crate::pdf::render(window, width, height).await?;
+        let (tx, mut rx) = tauri::async_runtime::channel(1);
+        app.dialog()
+            .file()
+            .set_file_name(&suggested_name)
+            .add_filter("PDF", &["pdf"])
+            .save_file(move |path| {
+                let tx = tx.clone();
+                tauri::async_runtime::spawn(async move {
+                    let _ = tx.send(path).await;
+                });
+            });
+        let picked = rx.recv().await.flatten();
+        let Some(path) = picked.and_then(|fp| fp.into_path().ok()) else {
+            return Ok(None);
+        };
+        std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
+        Ok(Some(path))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (app, window, suggested_name, width, height);
+        Err("PDF export is only available on macOS today — use Print… instead.".to_string())
+    }
+}
+
 /// Reveals the current plans folder in Finder/Explorer.
 #[tauri::command]
 pub fn reveal_storage_dir(app: tauri::AppHandle) -> Result<(), String> {
