@@ -277,6 +277,37 @@ pub async fn export_plans(app: tauri::AppHandle) -> Result<Option<PathBuf>, Stri
     storage::export_plans(&base, &dest_parent).map(Some)
 }
 
+/// Opens a native save-file dialog and writes `contents` to wherever the
+/// user picks — the projection CSV export's write side. Generic rather than
+/// CSV-specific since "write this text to a user-chosen path" has no
+/// export-specific logic in it; the basis-aware formatting lives entirely on
+/// the frontend, which is what already knows the display basis and the
+/// projection shape. Returns the written path, or `None` if the user cancels.
+#[tauri::command]
+pub async fn export_text_file(
+    app: tauri::AppHandle,
+    suggested_name: String,
+    contents: String,
+) -> Result<Option<PathBuf>, String> {
+    let (tx, mut rx) = tauri::async_runtime::channel(1);
+    app.dialog()
+        .file()
+        .set_file_name(&suggested_name)
+        .add_filter("CSV", &["csv"])
+        .save_file(move |path| {
+            let tx = tx.clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = tx.send(path).await;
+            });
+        });
+    let picked = rx.recv().await.flatten();
+    let Some(path) = picked.and_then(|fp| fp.into_path().ok()) else {
+        return Ok(None);
+    };
+    std::fs::write(&path, contents).map_err(|e| e.to_string())?;
+    Ok(Some(path))
+}
+
 /// Reveals the current plans folder in Finder/Explorer.
 #[tauri::command]
 pub fn reveal_storage_dir(app: tauri::AppHandle) -> Result<(), String> {

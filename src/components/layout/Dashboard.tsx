@@ -5,6 +5,8 @@ import { CashFlowScreen } from "./CashFlowScreen";
 import { GrowthScreen } from "./GrowthScreen";
 import { PlanScreen } from "./PlanScreen";
 import { type Destination, Rail } from "./Rail";
+import { ReportMenu } from "./ReportMenu";
+import { ReportView } from "./ReportView";
 import { ScenariosScreen } from "./ScenariosScreen";
 import { StorageSettings } from "./StorageSettings";
 
@@ -37,6 +39,8 @@ export function Dashboard() {
   // People every time the screen remounts.
   const [inputsSection, setInputsSection] = useState<InputsSection>("people");
   const [storageOpen, setStorageOpen] = useState(false);
+  const [reportMenuOpen, setReportMenuOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   // A hard failure (nothing has ever loaded) has no shell to show yet.
   if (!plan || !projection) {
@@ -59,6 +63,7 @@ export function Dashboard() {
         active={destination}
         onNavigate={setDestination}
         onOpenStorage={() => setStorageOpen(true)}
+        onOpenReport={() => setReportMenuOpen(true)}
       />
 
       <div className="shell-main">
@@ -115,6 +120,15 @@ export function Dashboard() {
         </header>
 
         <StorageSettings open={storageOpen} onClose={() => setStorageOpen(false)} />
+        <ReportMenu
+          open={reportMenuOpen}
+          onClose={() => setReportMenuOpen(false)}
+          onOpenReport={() => {
+            setReportMenuOpen(false);
+            setReportOpen(true);
+          }}
+        />
+        <ReportView open={reportOpen} onClose={() => setReportOpen(false)} />
 
         {error && (
           <p role="alert" className="banner critical">

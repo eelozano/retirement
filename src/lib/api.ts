@@ -110,3 +110,13 @@ export function revealStorageDir(): Promise<void> {
 export function exportPlans(): Promise<string | null> {
   return invoke<string | null>("export_plans");
 }
+
+/** Opens a save-file dialog pre-filled with `suggestedName` and writes
+ * `contents` there. Resolves to the written path, or null if the user
+ * cancels the picker. */
+export function exportTextFile(
+  suggestedName: string,
+  contents: string,
+): Promise<string | null> {
+  return invoke<string | null>("export_text_file", { suggestedName, contents });
+}

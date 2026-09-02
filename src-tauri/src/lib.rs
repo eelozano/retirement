@@ -29,6 +29,7 @@ pub fn run() {
             commands::set_storage_dir,
             commands::reveal_storage_dir,
             commands::export_plans,
+            commands::export_text_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

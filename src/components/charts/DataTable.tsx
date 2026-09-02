@@ -4,9 +4,13 @@ import type { ChartRow, SeriesDef } from "./chartData";
 // The WCAG-clean twin of both charts: every plotted value, readable without
 // hover or color.
 
-export function DataTable(props: { rows: ChartRow[]; series: SeriesDef[] }) {
+export function DataTable(props: {
+  rows: ChartRow[];
+  series: SeriesDef[];
+  open?: boolean;
+}) {
   return (
-    <details className="data-table">
+    <details className="data-table" open={props.open}>
       <summary>View data as table</summary>
       <div className="table-scroll">
         <table>
