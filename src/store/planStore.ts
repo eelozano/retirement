@@ -100,7 +100,9 @@ async function activate(
     plan,
     projecting: true,
     realDollars: plan.sim_config.display_real_dollars,
-    showMonteCarloBand: plan.sim_config.show_monte_carlo_band,
+    // Session-only: always starts off, regardless of the persisted plan
+    // value, so it never surprises with stale state from a prior session.
+    showMonteCarloBand: false,
   });
   try {
     const [projection, monteCarlo] = await Promise.all([
@@ -184,10 +186,9 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
   },
 
   setShowMonteCarloBand: (show) => {
+    // Not persisted to the plan — this is a session-only display
+    // preference that always resets to off on next launch.
     set({ showMonteCarloBand: show });
-    get().updatePlan((draft) => {
-      draft.sim_config.show_monte_carlo_band = show;
-    });
   },
 
   switchScenario: async (id) => {
