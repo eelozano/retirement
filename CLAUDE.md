@@ -23,10 +23,12 @@ fixtures. **Keep it invented.** The same rule covers `engine::presets::seed_plan
 which every new install bootstraps: both are public, and neither may be
 seeded from a real plan.
 
-Set `RETIREMENT_DATA_DIR` to point a run at a throwaway copy of the fixtures
-instead of the real plans directory — it relocates settings and plans both.
-Anything that leaves the machine (screenshots, recordings, bug reports) must
-be produced that way; see `.claude/skills/run-app/SKILL.md`.
+`pnpm demo` runs the app against a throwaway copy of those fixtures instead of
+the real plans directory — it sets `RETIREMENT_DATA_DIR`, which relocates
+settings and plans both. Anything that leaves the machine (screenshots,
+recordings, bug reports) must be produced that way. Because the root is
+disposable, adding, editing and deleting plans during a demo run needs no
+caution at all; see `.claude/skills/run-app/SKILL.md`.
 
 ## Architecture invariants
 
@@ -58,7 +60,14 @@ be produced that way; see `.claude/skills/run-app/SKILL.md`.
 
 ## Dev commands
 
-- `pnpm tauri dev` — run the app (needs webkit2gtk/gtk3 on Linux). On macOS,
+- `pnpm demo` — **the default way to run the app.** Seeds
+  `/tmp/retirement-demo` from `fixtures/demo/` and runs against that invented
+  household, so no real financial data is ever on screen and you can add,
+  edit and delete plans freely while testing. `pnpm demo:reset` returns it to
+  the four committed scenarios; `pnpm demo:seed` seeds without running.
+- `pnpm tauri dev` — run against your *real* plans (needs webkit2gtk/gtk3 on
+  Linux). Only when you specifically need them — a bug that reproduces on no
+  other data — and treat the app as read-only when you do. On macOS,
   launching it so it is *visible to screenshots* has two non-obvious traps —
   see `.claude/skills/run-app/SKILL.md` before driving the app by hand.
 - `pnpm app:build` — build the installable `.dmg` for real use.
@@ -66,9 +75,6 @@ be produced that way; see `.claude/skills/run-app/SKILL.md`.
   the same order: fmt, clippy, cargo test, type regeneration + drift check,
   Biome lint, tsc, vitest. Green here means green in CI.
 - `cargo test -p engine` — engine tests alone (also exports ts-rs bindings).
-- `RETIREMENT_DATA_DIR=/tmp/retirement-demo pnpm tauri dev` — run against a
-  throwaway copy of `fixtures/demo/` instead of your real plans. Seed it first
-  with `mkdir -p /tmp/retirement-demo/plans && cp fixtures/demo/*.yaml /tmp/retirement-demo/plans/`.
 - `UPDATE_FIXTURES=1 cargo test -p retirement --test demo_fixtures` —
   regenerate the demo YAML after an intentional schema change.
 - `pnpm types:generate` — regenerate `src/types/generated/`.

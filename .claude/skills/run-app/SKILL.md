@@ -1,6 +1,6 @@
 ---
 name: run-app
-description: Launch and visually verify the Retirement Planner desktop app on macOS. Use whenever you need to run the app, screenshot it, or confirm a UI change works in the real app rather than in tests. Covers the two traps that cost several past sessions - `open_application` resolving to a stale bundle, and the dev binary being invisible to screenshots.
+description: Launch and visually verify the Retirement Planner desktop app on macOS. Use whenever you need to run the app, screenshot it, or confirm a UI change works in the real app rather than in tests. Runs against the committed demo household by default, so screenshots never show the user's real finances and you can add, edit and delete plans freely. Covers the two traps that cost several past sessions - `open_application` resolving to a stale bundle, and the dev binary being invisible to screenshots.
 ---
 
 # Running the Retirement Planner app
@@ -37,6 +37,10 @@ Run the dev server, then launch that same fresh binary from inside the bundle
 so it inherits a bundle id. It still points at the Vite dev server, so the
 frontend is current and HMR works.
 
+This runs against the **demo household**, not the user's finances — that is
+the default here, and you should stay on it unless you have a specific reason
+not to. See below for what that buys you and how to opt out.
+
 Tear down anything already running *first*, every time — not just when a
 port conflict shows up. A previous session that got interrupted (see the
 wait-for-binary note below) leaves its dev server, Vite, and bundled app
@@ -49,10 +53,11 @@ pkill -f "bundle/macos/Retirement Planner.app"; pkill -f "target/debug/retiremen
 ```
 
 ```bash
-pnpm tauri dev > dev.log 2>&1
+pnpm demo > dev.log 2>&1
 ```
 
-Run that in the background. Then wait for the *binary* to start, not just for
+Run that in the background. (`pnpm demo` seeds `/tmp/retirement-demo` from the
+committed fixtures if it is empty, then starts the dev server pointed at it.) Then wait for the *binary* to start, not just for
 Vite — Vite is ready in ~100ms while the Rust build can take minutes on a cold
 target dir.
 
@@ -77,8 +82,12 @@ ended background waits paired with a second task have not.
 Then swap the fresh binary into the bundle and open the bundle:
 
 ```bash
-APP="target/debug/bundle/macos/Retirement Planner.app"; cp target/debug/retirement "$APP/Contents/MacOS/retirement"; open "$APP"
+APP="target/debug/bundle/macos/Retirement Planner.app"; cp target/debug/retirement "$APP/Contents/MacOS/retirement"; open --env "RETIREMENT_DATA_DIR=/tmp/retirement-demo" "$APP"
 ```
+
+The `--env` is not optional: `open` does not pass the calling shell's
+environment, so without it the bundled copy reads the *real* plans directory
+even though the dev server is on demo data.
 
 No `codesign` step. An ad-hoc re-sign was tried and is **not** required — it
 also emits a "resource fork ... detritus not allowed" error that looks like a
@@ -103,10 +112,49 @@ Edits hot-reload; take another screenshot rather than relaunching.
 If `target/debug/bundle/` does not exist on a fresh clone, create it once with
 `pnpm tauri build --debug`, then use the copy step above from then on.
 
+## Demo data, and when you actually need real data
+
+`pnpm demo` — what the recipe above runs — seeds `/tmp/retirement-demo` from
+the committed fixtures and launches against it, so the app opens Alex and
+Jordan's invented household rather than the user's finances.
+
+It works by setting `RETIREMENT_DATA_DIR`, which relocates *all* app state,
+settings and plans both, under that one root. It has to cover settings too:
+settings.json is where a chosen plans location is recorded, so redirecting
+only the plans dir would let the real settings.json point the run straight
+back at real data.
+
+Seeding is conditional, so a restart keeps whatever you changed last time:
+
+- `pnpm demo` — seed if the root is empty, then run.
+- `pnpm demo:seed` — seed without running.
+- `pnpm demo:reset` — throw the root away and re-seed the four committed
+  scenarios.
+
+**Change whatever you like in demo mode.** Edit inputs, add scenarios, delete
+them, rename them, restore snapshots, let autosave fire as often as it likes.
+The root is a throwaway copy in `/tmp`, the fixtures it came from are committed,
+and `pnpm demo:reset` is one command back to a clean household. Adding and
+removing plans is frequently the fastest way to test something — do it, and
+don't ask first.
+
+**Confirm before you screenshot.** The demo household is Alex and Jordan; the
+real one is not. If the plan picker shows anything other than the four demo
+scenarios — Base plan, Retire two years early, Claim Social Security at 62,
+Leaner retirement spending — the var did not take, and you are looking at real
+data. Stop and fix it rather than cropping around it.
+
+### When you do need real data
+
+Reproducing a bug that only the user's own plan triggers is the usual reason.
+Run `pnpm tauri dev` instead of `pnpm demo`, and open the bundle *without*
+`--env`. Then treat the app as read-only — see the first bullet under Driving
+the UI. Never screenshot that session.
+
 ## Cleanup
 
 Killing the `tauri.js` CLI does **not** kill Vite — it is spawned as the
-`beforeDevCommand` and survives, holding port 1420. The next `pnpm tauri dev`
+`beforeDevCommand` and survives, holding port 1420. The next `pnpm demo`
 then dies with `Port 1420 is already in use`, which reads like a broken
 project. Always tear down all three once you're done looking at the app:
 
@@ -121,53 +169,14 @@ a future session's — from inheriting a mess. If the user interrupts you
 mid-task, run this the moment you're back, before doing anything else — it's
 cheap, and skipping it is exactly how processes accumulate across sessions.
 
-## Running against demo data, not the user's finances
-
-The app opens the user's real plans by default. For anything that leaves the
-machine — screenshots for the README, a bug report, a recording — run it
-against the committed demo household instead.
-
-`RETIREMENT_DATA_DIR` relocates *all* app state, settings and plans both, under
-one throwaway root. It has to cover settings too: settings.json is where a
-chosen plans location is recorded, so redirecting only the plans dir would let
-the real settings.json point the run straight back at real data.
-
-Seed a scratch root from the committed fixtures first:
-
-```bash
-DEMO=/tmp/retirement-demo; rm -rf "$DEMO"; mkdir -p "$DEMO/plans"; cp fixtures/demo/*.yaml "$DEMO/plans/"
-```
-
-Then run the dev server with the var set:
-
-```bash
-RETIREMENT_DATA_DIR=/tmp/retirement-demo pnpm tauri dev > dev.log 2>&1
-```
-
-The bundle step needs it too — `open` does not pass the calling shell's
-environment, so set it explicitly with `--env`:
-
-```bash
-APP="target/debug/bundle/macos/Retirement Planner.app"; cp target/debug/retirement "$APP/Contents/MacOS/retirement"; open --env "RETIREMENT_DATA_DIR=/tmp/retirement-demo" "$APP"
-```
-
-**Confirm before you screenshot.** The demo household is Alex and Jordan; the
-real one is not. If the plan picker shows anything other than the four demo
-scenarios — Base plan, Retire two years early, Claim Social Security at 62,
-Leaner retirement spending — the var did not take, and you are looking at real
-data. Stop and fix it rather than cropping around it.
-
-If you skip an env var on either command the app silently uses the real
-directory, because that is the correct default for every non-screenshot run.
-
 ## Driving the UI
 
-- **Do not edit the plan when running against real data.** Every edit
-  debounces into a real save. Reading, scrolling, clicking, and opening
-  disclosures are all safe. If you need to change inputs to test something,
-  either run against demo data (above) — where editing is free, the root is
-  disposable, and you should feel no caution at all — or duplicate into a
-  scenario first via the Scenarios button.
+- **Editing is free on demo data, off-limits on real data.** On the demo root
+  (the default) change anything you want. In a deliberate real-data session
+  every edit debounces into a real save of the user's finances: reading,
+  scrolling, clicking, and opening disclosures are safe, but if you need to
+  change an input, restart on demo data instead — or, if it genuinely must be
+  their numbers, duplicate into a scenario first via the Scenarios button.
 - **Coordinate gate errors naming another app.** Clicks and scrolls sometimes
   fail with `would land on "Wispr Flow", which is not in the allowed
   applications` — an overlay occupying part of the screen. It is not about the

@@ -301,9 +301,13 @@ throwaway copy. It relocates settings *and* plans, so nothing reaches the real
 directory:
 
 ```bash
-mkdir -p /tmp/retirement-demo/plans && cp fixtures/demo/*.yaml /tmp/retirement-demo/plans/
-RETIREMENT_DATA_DIR=/tmp/retirement-demo pnpm tauri dev
+pnpm demo
 ```
+
+That seeds `/tmp/retirement-demo` from the fixtures and runs against it. Seeding
+is conditional, so a restart keeps whatever you changed; `pnpm demo:reset` puts
+the four committed scenarios back. Add, edit and delete plans in there as freely
+as you like — it's a throwaway copy, and reset is one command.
 
 The fixtures under `fixtures/demo/` are generated from
 `src-tauri/tests/demo_fixtures.rs`, which also asserts they still parse,
