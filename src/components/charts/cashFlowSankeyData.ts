@@ -69,7 +69,7 @@ export const INCOME_TAX_KEY = "__tax_on_income__";
 export const WITHDRAWAL_TAX_KEY = "__tax_on_withdrawals__";
 export const RESIDUAL_KEY = "__residual__";
 
-const LABEL_MAX = 22;
+const LABEL_MAX = 28;
 /** Below this the link would be invisible anyway, and a $0.00 node is noise. */
 const MIN_VALUE = 0.005;
 

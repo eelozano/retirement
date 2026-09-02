@@ -299,7 +299,11 @@ pub fn simulate(plan: &Plan, returns: &dyn ReturnModel, tax: &dyn TaxModel,
 pub struct PeriodSnapshot {
     pub period_start: YearMonth,
     pub balances: BTreeMap<AccountId, f64>,   // nominal
-    pub income: f64, pub expenses: f64, pub taxes: f64,
+    pub income: f64, pub expenses: f64, pub taxes: f64, pub contributions: f64,
+    pub income_by_stream: BTreeMap<StreamId, f64>,        // sums to `income`
+    pub expenses_by_stream: BTreeMap<StreamId, f64>,      // sums to `expenses`
+    pub contributions_by_account: BTreeMap<AccountId, f64>, // sums to `contributions`
+    pub withdrawal_taxes: f64,                // the gross-up's share of `taxes`
     pub required_distributions: f64,          // forced share of `withdrawals`
     pub withdrawals: BTreeMap<AccountId, f64>,
     pub net_worth: f64,
@@ -309,8 +313,15 @@ pub struct PeriodSnapshot {
 pub struct Projection {
     pub snapshots: Vec<PeriodSnapshot>,
     pub warnings: Vec<SimWarning>,   // e.g. DepletedFunds { period }, ContributionClamped
+    pub streams: Vec<StreamInfo>,    // every stream the run accrued, synthesized ones included
 }
 ```
+
+#### Attribution (#67)
+
+The scalar totals are enough to show *how much* moved each year and nothing about *which* stream or account. The per-stream and per-account maps are decompositions of the scalars beside them — `tests/properties.rs` pins that each sums to its total — recorded in the one step that still knows the answer: `accrue_streams` is the only place a dollar of income knows its stream, and `contribute` the only place a contribution knows its account. Keys are the ids of the streams *as the engine ran them*, so a Social Security benefit or survivor continuation synthesized in `sim/survivor.rs` appears under its own id; `Projection::streams` lists every one with a readable name, which is what lets a view label them without mirroring the engine's id formats.
+
+`withdrawal_taxes` is the one split of `taxes` the snapshot can honestly claim. The period's dollars meet the progressive schedule as a single stack (#54), and the drawdown reports what its gross-up *added* over the bill on base income; that addition is recorded, and nothing further is allocated. The engine never decides that "salary paid the tax", and the cash-flow composition diagram built on these fields is a hub for that reason — every inflow pools in the household and flows out from there. Employer match is deliberately outside the `income = outflow + surplus` identity, so it is not a flow in that diagram either.
 
 #### The period pipeline (`sim/period.rs`)
 

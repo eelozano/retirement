@@ -13,7 +13,7 @@ const NODE_WIDTH = 12;
 const NODE_PADDING = 14;
 const LABEL_GAP = 8;
 // Room for a label and its amount beside each outer column.
-const SIDE_MARGIN = 190;
+const SIDE_MARGIN = 225;
 const ROW_HEIGHT = 30;
 
 function SankeyNodeShape(props: {
