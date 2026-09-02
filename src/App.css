@@ -1423,6 +1423,21 @@ button.remove:hover {
   border-radius: var(--r-2);
 }
 
+/* Balances read across, under the bands they belong to — two or three
+   columns wide rather than one tall list, so they fit the space a
+   fixed-height chart leaves and stay above the fold. */
+.chart-balances {
+  border-top: 1px solid var(--border);
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-2);
+}
+.chart-balances-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+  column-gap: var(--sp-3);
+  margin-top: 2px;
+}
+
 .inspector {
   background: var(--surface-1);
   border: 1px solid var(--border);

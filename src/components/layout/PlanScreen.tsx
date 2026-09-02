@@ -10,6 +10,7 @@ import { HeadlineTiles } from "../charts/HeadlineTiles";
 import { fanRows } from "../charts/monteCarloData";
 import { mergeFan, ProjectionChart } from "../charts/ProjectionChart";
 import { headlineMetrics, milestones, yearDetail } from "../charts/planData";
+import { YearBalances } from "../charts/YearBalances";
 import { YearInspector } from "../charts/YearInspector";
 import { StatusBand } from "./StatusBand";
 
@@ -214,6 +215,7 @@ export function PlanScreen(props: { onOpenCashFlow: () => void }) {
                   onHoverYear={setHoverYear}
                   onPinYear={setPinnedYear}
                 />
+                <YearBalances detail={detail} />
               </div>
               <YearInspector
                 detail={detail}
