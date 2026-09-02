@@ -6,7 +6,7 @@ mod required_distributions;
 mod survivor;
 
 pub use monte_carlo::{run_monte_carlo, MonteCarloConfig, MonteCarloResult, PeriodPercentiles};
-pub use projection::{PeriodSnapshot, Projection, SimWarning};
+pub use projection::{PeriodSnapshot, Projection, SimWarning, StreamInfo};
 
 use crate::model::{
     Account, AccountKind, CashFlowStream, GrowthRule, Plan, StreamBoundary, YearMonth,
@@ -203,6 +203,14 @@ pub fn simulate(
     Projection {
         snapshots,
         warnings: state.warnings.into_vec(),
+        streams: resolved_streams
+            .iter()
+            .map(|r| StreamInfo {
+                id: r.stream.id.clone(),
+                name: r.stream.name.clone(),
+                direction: r.stream.direction,
+            })
+            .collect(),
     }
 }
 

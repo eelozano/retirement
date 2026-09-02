@@ -136,12 +136,26 @@ fn three_periods_match_hand_computation() {
     assert!(p0.withdrawals.is_empty(), "p0 should have no withdrawals");
     assert_close(p0.net_worth, 121_000.0, "p0 net worth");
     assert_close(p0.deflator, 1.0, "p0 deflator");
+    // Attribution (#67): the scalars above, broken out by who earned,
+    // spent, or received them. Nothing was withdrawn, so no gross-up tax.
+    assert_close(p0.income_by_stream["salary"], 50_000.0, "p0 salary");
+    assert_close(p0.expenses_by_stream["spending"], 32_000.0, "p0 spending");
+    assert_close(p0.contributions_by_account["401k"], 10_000.0, "p0 401k contribution");
+    assert_close(p0.withdrawal_taxes, 0.0, "p0 withdrawal taxes");
 
     let p1 = &projection.snapshots[1];
     assert_close(p1.income, 0.0, "p1 income");
     assert_close(p1.taxes, 8_000.0, "p1 taxes");
     assert_close(p1.withdrawals["401k"], 40_000.0, "p1 gross withdrawal");
     assert_close(p1.net_worth, 89_100.0, "p1 net worth");
+    // No income, so the whole bill is what the withdrawal gross-up added.
+    assert!(p1.income_by_stream.is_empty(), "p1 should attribute no income");
+    assert!(p1.contributions_by_account.is_empty(), "p1 should contribute nothing");
+    assert_close(p1.withdrawal_taxes, 8_000.0, "p1 withdrawal taxes");
+    assert_eq!(
+        projection.streams.iter().map(|s| s.id.as_str()).collect::<Vec<_>>(),
+        ["salary", "spending"]
+    );
 
     let p2 = &projection.snapshots[2];
     assert_close(p2.withdrawals["401k"], 40_000.0, "p2 gross withdrawal");
