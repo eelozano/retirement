@@ -12,9 +12,22 @@
         "taxable-brokerage": 204155.0
       },
       "income": 250000.0,
+      "income_by_stream": {
+        "claire-salary": 110000.0,
+        "enrique-salary": 140000.0
+      },
       "expenses": 96000.0,
+      "expenses_by_stream": {
+        "household-spending": 96000.0
+      },
       "taxes": 44183.0,
+      "withdrawal_taxes": 0.0,
       "contributions": 72000.0,
+      "contributions_by_account": {
+        "claire-roth": 7500.0,
+        "enrique-401k": 24500.0,
+        "taxable-brokerage": 40000.0
+      },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 37817.0,
@@ -35,9 +48,22 @@
         "taxable-brokerage": 262344.5475
       },
       "income": 256250.0,
+      "income_by_stream": {
+        "claire-salary": 112749.99999999999,
+        "enrique-salary": 143500.0
+      },
       "expenses": 98399.99999999999,
+      "expenses_by_stream": {
+        "household-spending": 98399.99999999999
+      },
       "taxes": 46183.0,
+      "withdrawal_taxes": 0.0,
       "contributions": 72000.0,
+      "contributions_by_account": {
+        "claire-roth": 7500.0,
+        "enrique-401k": 24500.0,
+        "taxable-brokerage": 40000.0
+      },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 39667.000000000015,
@@ -58,9 +84,22 @@
         "taxable-brokerage": 324869.21628875
       },
       "income": 262656.25,
+      "income_by_stream": {
+        "claire-salary": 115568.74999999999,
+        "enrique-salary": 147087.5
+      },
       "expenses": 100859.99999999999,
+      "expenses_by_stream": {
+        "household-spending": 100859.99999999999
+      },
       "taxes": 48233.0,
+      "withdrawal_taxes": 0.0,
       "contributions": 72000.0,
+      "contributions_by_account": {
+        "claire-roth": 7500.0,
+        "enrique-401k": 24500.0,
+        "taxable-brokerage": 40000.0
+      },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 41563.250000000015,
@@ -81,9 +120,22 @@
         "taxable-brokerage": 392051.9729022619
       },
       "income": 269222.6562499999,
+      "income_by_stream": {
+        "claire-salary": 118457.96874999996,
+        "enrique-salary": 150764.68749999994
+      },
       "expenses": 103381.49999999997,
+      "expenses_by_stream": {
+        "household-spending": 103381.49999999997
+      },
       "taxes": 50334.24999999996,
+      "withdrawal_taxes": 0.0,
       "contributions": 72000.0,
+      "contributions_by_account": {
+        "claire-roth": 7500.0,
+        "enrique-401k": 24500.0,
+        "taxable-brokerage": 40000.0
+      },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 43506.90624999994,
@@ -104,9 +156,22 @@
         "taxable-brokerage": 464239.8448834804
       },
       "income": 275953.2226562499,
+      "income_by_stream": {
+        "claire-salary": 121419.41796874996,
+        "enrique-salary": 154533.80468749994
+      },
       "expenses": 105966.03749999996,
+      "expenses_by_stream": {
+        "household-spending": 105966.03749999996
+      },
       "taxes": 52488.03124999996,
+      "withdrawal_taxes": 0.0,
       "contributions": 72000.0,
+      "contributions_by_account": {
+        "claire-roth": 7500.0,
+        "enrique-401k": 24500.0,
+        "taxable-brokerage": 40000.0
+      },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 45499.15390624995,
@@ -127,9 +192,22 @@
         "taxable-brokerage": 541805.7133272997
       },
       "income": 282852.05322265613,
+      "income_by_stream": {
+        "claire-salary": 124454.90341796869,
+        "enrique-salary": 158397.14980468742
+      },
       "expenses": 108615.18843749995,
+      "expenses_by_stream": {
+        "household-spending": 108615.18843749995
+      },
       "taxes": 54695.65703124996,
+      "withdrawal_taxes": 0.0,
       "contributions": 72000.0,
+      "contributions_by_account": {
+        "claire-roth": 7500.0,
+        "enrique-401k": 24500.0,
+        "taxable-brokerage": 40000.0
+      },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 47541.20775390623,
@@ -150,9 +228,22 @@
         "taxable-brokerage": 625150.2389701835
       },
       "income": 289923.3545532225,
+      "income_by_stream": {
+        "claire-salary": 127566.2760034179,
+        "enrique-salary": 162357.0785498046
+      },
       "expenses": 111330.56814843744,
+      "expenses_by_stream": {
+        "household-spending": 111330.56814843744
+      },
       "taxes": 56958.4734570312,
+      "withdrawal_taxes": 0.0,
       "contributions": 72000.0,
+      "contributions_by_account": {
+        "claire-roth": 7500.0,
+        "enrique-401k": 24500.0,
+        "taxable-brokerage": 40000.0
+      },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 49634.31294775386,
@@ -173,9 +264,22 @@
         "taxable-brokerage": 714703.9317734622
       },
       "income": 297171.4384170531,
+      "income_by_stream": {
+        "claire-salary": 130755.43290350334,
+        "enrique-salary": 166416.00551354972
+      },
       "expenses": 114113.83235214838,
+      "expenses_by_stream": {
+        "household-spending": 114113.83235214838
+      },
       "taxes": 59469.75344596858,
+      "withdrawal_taxes": 0.0,
       "contributions": 72000.0,
+      "contributions_by_account": {
+        "claire-roth": 7500.0,
+        "enrique-401k": 24500.0,
+        "taxable-brokerage": 40000.0
+      },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 51587.852618936115,
@@ -196,9 +300,22 @@
         "taxable-brokerage": 810929.3746905852
       },
       "income": 304600.7243774793,
+      "income_by_stream": {
+        "claire-salary": 134024.3187260909,
+        "enrique-salary": 170576.40565138843
+      },
       "expenses": 116966.67816095205,
+      "expenses_by_stream": {
+        "household-spending": 116966.67816095205
+      },
       "taxes": 62070.00353211775,
+      "withdrawal_taxes": 0.0,
       "contributions": 72000.0,
+      "contributions_by_account": {
+        "claire-roth": 7500.0,
+        "enrique-401k": 24500.0,
+        "taxable-brokerage": 40000.0
+      },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 53564.042684409476,
@@ -219,9 +336,22 @@
         "taxable-brokerage": 914323.6131050338
       },
       "income": 312215.7424869163,
+      "income_by_stream": {
+        "claire-salary": 137374.9266942432,
+        "enrique-salary": 174840.81579267312
+      },
       "expenses": 119890.84511497586,
+      "expenses_by_stream": {
+        "household-spending": 119890.84511497586
+      },
       "taxes": 64735.259870420705,
+      "withdrawal_taxes": 0.0,
       "contributions": 72000.0,
+      "contributions_by_account": {
+        "claire-roth": 7500.0,
+        "enrique-401k": 24500.0,
+        "taxable-brokerage": 40000.0
+      },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 55589.63750151974,
@@ -242,9 +372,22 @@
         "taxable-brokerage": 1025420.7222813588
       },
       "income": 320021.13604908914,
+      "income_by_stream": {
+        "claire-salary": 140809.29986159923,
+        "enrique-salary": 179211.83618748994
+      },
       "expenses": 122888.11624285024,
+      "expenses_by_stream": {
+        "household-spending": 122888.11624285024
+      },
       "taxes": 67467.1476171812,
+      "withdrawal_taxes": 0.0,
       "contributions": 72000.0,
+      "contributions_by_account": {
+        "claire-roth": 7500.0,
+        "enrique-401k": 24500.0,
+        "taxable-brokerage": 40000.0
+      },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 57665.872189057714,
@@ -265,9 +408,22 @@
         "taxable-brokerage": 1144794.56609132
       },
       "income": 328021.66445031634,
+      "income_by_stream": {
+        "claire-salary": 144329.5323581392,
+        "enrique-salary": 183692.13209217717
+      },
       "expenses": 125960.3191489215,
+      "expenses_by_stream": {
+        "household-spending": 125960.3191489215
+      },
       "taxes": 70267.33255761072,
+      "withdrawal_taxes": 0.0,
       "contributions": 72000.0,
+      "contributions_by_account": {
+        "claire-roth": 7500.0,
+        "enrique-401k": 24500.0,
+        "taxable-brokerage": 40000.0
+      },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 59794.012743784144,
@@ -288,9 +444,22 @@
         "taxable-brokerage": 1255153.42793179
       },
       "income": 257770.35798054026,
+      "income_by_stream": {
+        "claire-salary": 147937.77066709267,
+        "enrique-salary": 109832.5873134476
+      },
       "expenses": 129109.32712764452,
+      "expenses_by_stream": {
+        "household-spending": 129109.32712764452
+      },
       "taxes": 49936.181220439554,
+      "withdrawal_taxes": 0.0,
       "contributions": 45125.0,
+      "contributions_by_account": {
+        "claire-roth": 7500.0,
+        "enrique-401k": 14291.666666666668,
+        "taxable-brokerage": 23333.333333333336
+      },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 33599.849632456186,
@@ -311,9 +480,19 @@
         "taxable-brokerage": 1341812.7780670144
       },
       "income": 151636.21493376995,
+      "income_by_stream": {
+        "claire-salary": 151636.21493376995
+      },
       "expenses": 132337.06030583562,
+      "expenses_by_stream": {
+        "household-spending": 132337.06030583562
+      },
       "taxes": 27841.552397522435,
+      "withdrawal_taxes": 2381.8608134176466,
       "contributions": 7500.0,
+      "contributions_by_account": {
+        "claire-roth": 7500.0
+      },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -338,9 +517,19 @@
         "taxable-brokerage": 1434709.004397952
       },
       "income": 155427.12030711424,
+      "income_by_stream": {
+        "claire-salary": 155427.12030711424
+      },
       "expenses": 135645.48681348152,
+      "expenses_by_stream": {
+        "household-spending": 135645.48681348152
+      },
       "taxes": 28861.04317761481,
+      "withdrawal_taxes": 2491.5343039073923,
       "contributions": 7500.0,
+      "contributions_by_account": {
+        "claire-roth": 7500.0
+      },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -365,9 +554,19 @@
         "taxable-brokerage": 1534300.960531746
       },
       "income": 159312.79831479205,
+      "income_by_stream": {
+        "claire-salary": 159312.79831479205
+      },
       "expenses": 139036.6239838185,
+      "expenses_by_stream": {
+        "household-spending": 139036.6239838185
+      },
       "taxes": 29905.03091446944,
+      "withdrawal_taxes": 2602.9593189193474,
       "contributions": 7500.0,
+      "contributions_by_account": {
+        "claire-roth": 7500.0
+      },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -392,9 +591,19 @@
         "taxable-brokerage": 1616637.0414551876
       },
       "income": 95255.77732571942,
+      "income_by_stream": {
+        "claire-salary": 95255.77732571942
+      },
       "expenses": 142512.53958341398,
+      "expenses_by_stream": {
+        "household-spending": 142512.53958341398
+      },
       "taxes": 23468.240631495028,
+      "withdrawal_taxes": 11062.969619836756,
       "contributions": 4375.0,
+      "contributions_by_account": {
+        "claire-roth": 4375.0
+      },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -419,9 +628,15 @@
         "taxable-brokerage": 1668501.2199752687
       },
       "income": 0.0,
+      "income_by_stream": {},
       "expenses": 146075.3530729993,
+      "expenses_by_stream": {
+        "household-spending": 146075.3530729993
+      },
       "taxes": 14884.555568786664,
+      "withdrawal_taxes": 14884.555568786664,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -446,9 +661,15 @@
         "taxable-brokerage": 1722216.1186097336
       },
       "income": 0.0,
+      "income_by_stream": {},
       "expenses": 149727.2368998243,
+      "expenses_by_stream": {
+        "household-spending": 149727.2368998243
+      },
       "taxes": 15823.01433080963,
+      "withdrawal_taxes": 15823.01433080963,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -473,9 +694,15 @@
         "taxable-brokerage": 1777872.2833741058
       },
       "income": 0.0,
+      "income_by_stream": {},
       "expenses": 153470.41782231987,
+      "expenses_by_stream": {
+        "household-spending": 153470.41782231987
+      },
       "taxes": 16774.39849311764,
+      "withdrawal_taxes": 16774.39849311764,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -500,9 +727,15 @@
         "taxable-brokerage": 1835565.6503421466
       },
       "income": 0.0,
+      "income_by_stream": {},
       "expenses": 157307.17826787784,
+      "expenses_by_stream": {
+        "household-spending": 157307.17826787784
+      },
       "taxes": 17739.40811135083,
+      "withdrawal_taxes": 17739.40811135083,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -527,9 +760,15 @@
         "taxable-brokerage": 1895397.9140497348
       },
       "income": 0.0,
+      "income_by_stream": {},
       "expenses": 161239.8577245748,
+      "expenses_by_stream": {
+        "household-spending": 161239.8577245748
+      },
       "taxes": 18718.756722082802,
+      "withdrawal_taxes": 18718.756722082802,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -554,9 +793,15 @@
         "taxable-brokerage": 1957476.9228999966
       },
       "income": 0.0,
+      "income_by_stream": {},
       "expenses": 165270.85416768913,
+      "expenses_by_stream": {
+        "household-spending": 165270.85416768913
+      },
       "taxes": 19713.17079167647,
+      "withdrawal_taxes": 19713.17079167647,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -581,9 +826,15 @@
         "taxable-brokerage": 2021917.1035163258
       },
       "income": 0.0,
+      "income_by_stream": {},
       "expenses": 169402.62552188136,
+      "expenses_by_stream": {
+        "household-spending": 169402.62552188136
+      },
       "taxes": 20723.389280752916,
+      "withdrawal_taxes": 20723.389280752916,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -608,9 +859,15 @@
         "taxable-brokerage": 2088839.9161380967
       },
       "income": 0.0,
+      "income_by_stream": {},
       "expenses": 173637.69115992836,
+      "expenses_by_stream": {
+        "household-spending": 173637.69115992836
+      },
       "taxes": 21750.163315260525,
+      "withdrawal_taxes": 21750.163315260525,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -635,9 +892,15 @@
         "taxable-brokerage": 2158374.3433128847
       },
       "income": 0.0,
+      "income_by_stream": {},
       "expenses": 177978.63343892657,
+      "expenses_by_stream": {
+        "household-spending": 177978.63343892657
+      },
       "taxes": 22794.255955619985,
+      "withdrawal_taxes": 22794.255955619985,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -662,9 +925,15 @@
         "taxable-brokerage": 2230657.414309671
       },
       "income": 0.0,
+      "income_by_stream": {},
       "expenses": 182428.0992748997,
+      "expenses_by_stream": {
+        "household-spending": 182428.0992748997
+      },
       "taxes": 23856.44205593294,
+      "withdrawal_taxes": 23856.44205593294,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -689,9 +958,17 @@
         "taxable-brokerage": 2319187.84849909
       },
       "income": 32203.626969221878,
+      "income_by_stream": {
+        "ss-enrique-social-security": 32203.626969221878
+      },
       "expenses": 186988.80175677218,
+      "expenses_by_stream": {
+        "household-spending": 186988.80175677218
+      },
       "taxes": 26045.93586198645,
+      "withdrawal_taxes": 26045.93586198645,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -716,9 +993,17 @@
         "taxable-brokerage": 2431129.6856680517
       },
       "income": 79220.92234428582,
+      "income_by_stream": {
+        "ss-enrique-social-security": 79220.92234428582
+      },
       "expenses": 191663.5218006915,
+      "expenses_by_stream": {
+        "household-spending": 191663.5218006915
+      },
       "taxes": 29121.322458678434,
+      "withdrawal_taxes": 29121.322458678434,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -743,9 +1028,17 @@
         "taxable-brokerage": 2549639.681966077
       },
       "income": 81201.44540289296,
+      "income_by_stream": {
+        "ss-enrique-social-security": 81201.44540289296
+      },
       "expenses": 196455.10984570876,
+      "expenses_by_stream": {
+        "household-spending": 196455.10984570876
+      },
       "taxes": 30321.86780090759,
+      "withdrawal_taxes": 30321.86780090759,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -770,9 +1063,17 @@
         "taxable-brokerage": 2675163.4152034987
       },
       "income": 83231.48153796526,
+      "income_by_stream": {
+        "ss-enrique-social-security": 83231.48153796526
+      },
       "expenses": 201366.48759185144,
+      "expenses_by_stream": {
+        "household-spending": 201366.48759185144
+      },
       "taxes": 31548.34990148888,
+      "withdrawal_taxes": 31548.34990148888,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -797,9 +1098,17 @@
         "taxable-brokerage": 2808178.4750152132
       },
       "income": 85312.2685764144,
+      "income_by_stream": {
+        "ss-enrique-social-security": 85312.2685764144
+      },
       "expenses": 206400.64978164775,
+      "expenses_by_stream": {
+        "household-spending": 206400.64978164775
+      },
       "taxes": 32801.5932508495,
+      "withdrawal_taxes": 32801.5932508495,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
@@ -824,9 +1133,17 @@
         "taxable-brokerage": 3004101.118857417
       },
       "income": 87445.07529082474,
+      "income_by_stream": {
+        "ss-enrique-social-security": 87445.07529082474
+      },
       "expenses": 211560.6660261889,
+      "expenses_by_stream": {
+        "household-spending": 211560.6660261889
+      },
       "taxes": 47324.29026210225,
+      "withdrawal_taxes": 6320.15354410938,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 141237.7382465267,
       "surplus": 0.0,
@@ -851,9 +1168,17 @@
         "taxable-brokerage": 3215816.777281501
       },
       "income": 89631.20217309536,
+      "income_by_stream": {
+        "ss-enrique-social-security": 89631.20217309536
+      },
       "expenses": 216849.6826768436,
+      "expenses_by_stream": {
+        "household-spending": 216849.6826768436
+      },
       "taxes": 50133.17276332914,
+      "withdrawal_taxes": 5585.148827739096,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 150454.17795158783,
       "surplus": 0.0,
@@ -878,9 +1203,17 @@
         "taxable-brokerage": 3444491.0827784906
       },
       "income": 91871.98222742273,
+      "income_by_stream": {
+        "ss-enrique-social-security": 91871.98222742273
+      },
       "expenses": 222270.92474376466,
+      "expenses_by_stream": {
+        "household-spending": 222270.92474376466
+      },
       "taxes": 52988.83685003412,
+      "withdrawal_taxes": 4888.369042573948,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 159650.90200500368,
       "surplus": 0.0,
@@ -905,9 +1238,17 @@
         "taxable-brokerage": 3691934.0302256057
       },
       "income": 94168.7817831083,
+      "income_by_stream": {
+        "ss-enrique-social-security": 94168.7817831083
+      },
       "expenses": 227827.69786235876,
+      "expenses_by_stream": {
+        "household-spending": 227827.69786235876
+      },
       "taxes": 56095.638018366786,
+      "withdrawal_taxes": 3986.3235067674905,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 170226.26833310578,
       "surplus": 0.0,
@@ -932,9 +1273,17 @@
         "taxable-brokerage": 3959808.7136052116
       },
       "income": 96523.00132768598,
+      "income_by_stream": {
+        "ss-enrique-social-security": 96523.00132768598
+      },
       "expenses": 233523.3903089177,
+      "expenses_by_stream": {
+        "household-spending": 233523.3903089177
+      },
       "taxes": 59525.07185362615,
+      "withdrawal_taxes": 3138.967733334641,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 181590.1492473779,
       "surplus": 0.0,
@@ -959,9 +1308,17 @@
         "taxable-brokerage": 4249865.93945281
       },
       "income": 98936.07636087813,
+      "income_by_stream": {
+        "ss-enrique-social-security": 98936.07636087813
+      },
       "expenses": 239361.47506664065,
+      "expenses_by_stream": {
+        "household-spending": 239361.47506664065
+      },
       "taxes": 63444.09705130576,
+      "withdrawal_taxes": 2145.321492276358,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 193801.55097619476,
       "surplus": 0.0,
@@ -986,9 +1343,17 @@
         "taxable-brokerage": 4563718.108944217
       },
       "income": 101409.47826990008,
+      "income_by_stream": {
+        "ss-enrique-social-security": 101409.47826990008
+      },
       "expenses": 245345.51194330666,
+      "expenses_by_stream": {
+        "household-spending": 245345.51194330666
+      },
       "taxes": 67409.22110463679,
+      "withdrawal_taxes": 1156.5067296266207,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 205853.2702563283,
       "surplus": 0.0,
@@ -1013,9 +1378,17 @@
         "taxable-brokerage": 4904162.8144962825
       },
       "income": 103944.71522664756,
+      "income_by_stream": {
+        "ss-enrique-social-security": 103944.71522664756
+      },
       "expenses": 251479.14974188927,
+      "expenses_by_stream": {
+        "household-spending": 251479.14974188927
+      },
       "taxes": 71909.51934689366,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 219860.61876276004,
       "surplus": 416.6649006247171,
@@ -1038,9 +1411,17 @@
         "taxable-brokerage": 5274752.393747345
       },
       "income": 106543.33310731374,
+      "income_by_stream": {
+        "ss-enrique-social-security": 106543.33310731374
+      },
       "expenses": 257766.12848543646,
+      "expenses_by_stream": {
+        "household-spending": 257766.12848543646
+      },
       "taxes": 77481.19038592794,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 233570.8536757203,
       "surplus": 4866.867911669629,
@@ -1063,9 +1444,17 @@
         "taxable-brokerage": 5679147.1733612
       },
       "income": 109206.91643499659,
+      "income_by_stream": {
+        "ss-enrique-social-security": 109206.91643499659
+      },
       "expenses": 264210.2816975724,
+      "expenses_by_stream": {
+        "household-spending": 264210.2816975724
+      },
       "taxes": 83841.10834743599,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 249478.00202292716,
       "surplus": 10633.528412915359,
@@ -1088,9 +1477,17 @@
         "taxable-brokerage": 6119273.570048474
       },
       "income": 111937.08934587149,
+      "income_by_stream": {
+        "ss-enrique-social-security": 111937.08934587149
+      },
       "expenses": 270815.53874001163,
+      "expenses_by_stream": {
+        "household-spending": 270815.53874001163
+      },
       "taxes": 89985.69319603444,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 264713.3117589648,
       "surplus": 15849.16916879022,
@@ -1113,9 +1510,17 @@
         "taxable-brokerage": 6598186.797119354
       },
       "income": 114735.51657951825,
+      "income_by_stream": {
+        "ss-enrique-social-security": 114735.51657951825
+      },
       "expenses": 277585.9272085119,
+      "expenses_by_stream": {
+        "household-spending": 277585.9272085119
+      },
       "taxes": 96410.72939268893,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 280691.8948865207,
       "surplus": 21430.75486483815,
@@ -1138,9 +1543,17 @@
         "taxable-brokerage": 7119167.059345753
       },
       "income": 117603.90449400622,
+      "income_by_stream": {
+        "ss-enrique-social-security": 117603.90449400622
+      },
       "expenses": 284525.5753887247,
+      "expenses_by_stream": {
+        "household-spending": 284525.5753887247
+      },
       "taxes": 103116.98811795056,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 297414.5043742392,
       "surplus": 27375.845361570187,
@@ -1163,9 +1576,18 @@
         "taxable-brokerage": 7684124.318213686
       },
       "income": 120544.00210635638,
+      "income_by_stream": {
+        "ss-enrique-social-security": 70317.33456204121,
+        "ss-survivor-claire": 50226.667544315154
+      },
       "expenses": 291638.7147734428,
+      "expenses_by_stream": {
+        "household-spending": 291638.7147734428
+      },
       "taxes": 109297.47678839746,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 312573.9604621613,
       "surplus": 32181.771006677358,
@@ -1188,9 +1610,17 @@
         "taxable-brokerage": 8298238.779027975
       },
       "income": 123557.60215901525,
+      "income_by_stream": {
+        "ss-survivor-claire": 123557.60215901525
+      },
       "expenses": 298929.68264277885,
+      "expenses_by_stream": {
+        "household-spending": 298929.68264277885
+      },
       "taxes": 116521.88878930335,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 330653.57756284665,
       "surplus": 38759.60828977969,
@@ -1213,9 +1643,17 @@
         "taxable-brokerage": 8963509.358073162
       },
       "income": 126646.54221299062,
+      "income_by_stream": {
+        "ss-survivor-claire": 126646.54221299062
+      },
       "expenses": 306402.9247088483,
+      "expenses_by_stream": {
+        "household-spending": 306402.9247088483
+      },
       "taxes": 123004.84022354307,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 346550.6969005096,
       "surplus": 43789.474181108875,
@@ -1238,9 +1676,17 @@
         "taxable-brokerage": 9683749.259969905
       },
       "income": 129812.70576831538,
+      "income_by_stream": {
+        "ss-survivor-claire": 129812.70576831538
+      },
       "expenses": 314062.9978265695,
+      "expenses_by_stream": {
+        "household-spending": 314062.9978265695
+      },
       "taxes": 129583.19495501486,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 362654.75711126014,
       "surplus": 48821.27009799122,
@@ -1263,9 +1709,17 @@
         "taxable-brokerage": 10462970.175445901
       },
       "income": 133058.02341252327,
+      "income_by_stream": {
+        "ss-survivor-claire": 133058.02341252327
+      },
       "expenses": 321914.5727722337,
+      "expenses_by_stream": {
+        "household-spending": 321914.5727722337
+      },
       "taxes": 136216.41675193678,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 378848.2993906032,
       "surplus": 53775.33327895601,
@@ -1288,9 +1742,17 @@
         "taxable-brokerage": 11305374.190222973
       },
       "income": 136384.47399783632,
+      "income_by_stream": {
+        "ss-survivor-claire": 136384.47399783632
+      },
       "expenses": 329962.4370915395,
+      "expenses_by_stream": {
+        "household-spending": 329962.4370915395
+      },
       "taxes": 142852.563399955,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 394981.2353874248,
       "surplus": 58550.708893766685,
@@ -1313,9 +1775,17 @@
         "taxable-brokerage": 12212318.609139862
       },
       "income": 139794.08584778223,
+      "income_by_stream": {
+        "ss-survivor-claire": 139794.08584778223
+      },
       "expenses": 338211.49801882793,
+      "expenses_by_stream": {
+        "household-spending": 338211.49801882793
+      },
       "taxes": 147911.63471811148,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 406537.55479541793,
       "surplus": 60208.507906260726,
@@ -1338,9 +1808,17 @@
         "taxable-brokerage": 13187824.578176044
       },
       "income": 143288.93799397675,
+      "income_by_stream": {
+        "ss-survivor-claire": 143288.93799397675
+      },
       "expenses": 346666.7854692986,
+      "expenses_by_stream": {
+        "household-spending": 346666.7854692986
+      },
       "taxes": 152680.42172931344,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 417192.03621744394,
       "surplus": 61133.76701280859,
@@ -1363,9 +1841,17 @@
         "taxable-brokerage": 14232469.000372028
       },
       "income": 146871.16144382616,
+      "income_by_stream": {
+        "ss-survivor-claire": 146871.16144382616
+      },
       "expenses": 355333.4551060311,
+      "expenses_by_stream": {
+        "household-spending": 355333.4551060311
+      },
       "taxes": 155285.39798927092,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 421589.9355992361,
       "surplus": 57842.24394776032,
@@ -1388,9 +1874,17 @@
         "taxable-brokerage": 15353877.433649907
       },
       "income": 150542.94047992182,
+      "income_by_stream": {
+        "ss-survivor-claire": 150542.94047992182
+      },
       "expenses": 364216.79148368177,
+      "expenses_by_stream": {
+        "household-spending": 364216.79148368177
+      },
       "taxes": 159239.969565286,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 429767.69935002644,
       "surplus": 56853.878780980536,
@@ -1413,9 +1907,17 @@
         "taxable-brokerage": 16552159.281353354
       },
       "income": 154306.51399191984,
+      "income_by_stream": {
+        "ss-survivor-claire": 154306.51399191984
+      },
       "expenses": 373322.21127077384,
+      "expenses_by_stream": {
+        "household-spending": 373322.21127077384
+      },
       "taxes": 160495.62766942027,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 430156.2564480689,
       "surplus": 50644.93149979459,
@@ -1438,9 +1940,17 @@
         "taxable-brokerage": 17831242.510036442
       },
       "income": 158164.17684171782,
+      "income_by_stream": {
+        "ss-survivor-claire": 158164.17684171782
+      },
       "expenses": 382655.26655254315,
+      "expenses_by_stream": {
+        "household-spending": 382655.26655254315
+      },
       "taxes": 160964.67924355183,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 428217.39038040227,
       "surplus": 42761.62142602517,
@@ -1463,9 +1973,17 @@
         "taxable-brokerage": 19364934.099388108
       },
       "income": 67549.28385948365,
+      "income_by_stream": {
+        "ss-survivor-claire": 67549.28385948365
+      },
       "expenses": 163425.68675681527,
+      "expenses_by_stream": {
+        "household-spending": 163425.68675681527
+      },
       "taxes": 130074.84312107085,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
+      "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 416983.37477964134,
       "surplus": 191032.1287612389,
@@ -1477,5 +1995,32 @@
       "deflator": 4.085642168920382
     }
   ],
-  "warnings": []
+  "warnings": [],
+  "streams": [
+    {
+      "id": "enrique-salary",
+      "name": "Enrique salary",
+      "direction": "Income"
+    },
+    {
+      "id": "claire-salary",
+      "name": "Claire salary",
+      "direction": "Income"
+    },
+    {
+      "id": "household-spending",
+      "name": "Household spending",
+      "direction": "Expense"
+    },
+    {
+      "id": "ss-enrique-social-security",
+      "name": "Enrique's Social Security",
+      "direction": "Income"
+    },
+    {
+      "id": "ss-survivor-claire",
+      "name": "Claire's survivor Social Security",
+      "direction": "Income"
+    }
+  ]
 }

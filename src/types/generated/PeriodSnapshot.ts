@@ -14,13 +14,36 @@ balances: { [key in string]?: number },
  */
 income: number, 
 /**
+ * `income` attributed per stream (#67): the values sum to `income`.
+ * Keyed by the id of the stream as the engine ran it, so Social
+ * Security and survivor streams synthesized at simulate time appear
+ * under their own ids — `Projection::streams` names them. A stream
+ * absent here accrued nothing this period, as with `withdrawals`.
+ */
+income_by_stream: { [key in string]?: number }, 
+/**
  * Stream expenses this period.
  */
 expenses: number, 
 /**
+ * `expenses` attributed per stream; the values sum to `expenses`.
+ */
+expenses_by_stream: { [key in string]?: number }, 
+/**
  * Total tax paid this period (on income and on withdrawals).
  */
 taxes: number, 
+/**
+ * The part of `taxes` the withdrawal gross-up added — the drawdown's
+ * marginal cost over the bill on the period's base income (stream
+ * income, required distributions, savings interest). Always within
+ * `[0, taxes]`; `taxes - withdrawal_taxes` is the tax on income.
+ *
+ * This is a figure the engine computes separately, not an allocation
+ * of a pooled bill: the two halves meet the progressive schedule as one
+ * stack (#54), and this records what the second half added.
+ */
+withdrawal_taxes: number, 
 /**
  * Contributions deposited into accounts this period, out of household
  * income. Employer match is *not* included — it never passes through
@@ -28,6 +51,11 @@ taxes: number,
  * income = outflow + surplus identity.
  */
 contributions: number, 
+/**
+ * `contributions` per receiving account; the values sum to
+ * `contributions`. Employer match is excluded, as above.
+ */
+contributions_by_account: { [key in string]?: number }, 
 /**
  * Employer matching contributions deposited this period. Employer
  * money: it raises balances without reducing household cash.

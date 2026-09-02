@@ -18,6 +18,10 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     withdrawals: {},
     growth: 0,
     net_worth: 0,
+    income_by_stream: {},
+    expenses_by_stream: {},
+    withdrawal_taxes: 0,
+    contributions_by_account: {},
     deflator: 1,
     ...overrides,
   };
@@ -26,6 +30,7 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
 const projection = (snapshots: PeriodSnapshot[]): Projection => ({
   snapshots,
   warnings: [],
+  streams: [],
 });
 
 describe("growthRows", () => {
