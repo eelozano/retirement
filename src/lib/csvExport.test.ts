@@ -6,8 +6,8 @@ import { buildProjectionCsv, projectionCsvFilename } from "./csvExport";
 const plan = {
   name: "Retirement plan",
   accounts: [
-    { id: "acct-1", name: "Enrique 403(b)" },
-    { id: "acct-2", name: "Taxable, Enrique" },
+    { id: "acct-1", name: "Alex 403(b)" },
+    { id: "acct-2", name: "Taxable, Alex" },
   ],
 } as unknown as Plan;
 
@@ -38,7 +38,7 @@ const projection: Projection = {
   streams: [
     { id: "salary", name: "Salary", direction: "Income" },
     { id: "spending", name: "Household spending", direction: "Expense" },
-    { id: "ss-1", name: "Enrique's Social Security", direction: "Income" },
+    { id: "ss-1", name: "Alex's Social Security", direction: "Income" },
   ],
 } as unknown as Projection;
 
@@ -53,9 +53,9 @@ describe("buildProjectionCsv", () => {
 
   it("names every account as its own balance and withdrawal column", () => {
     const header = headerLine(buildProjectionCsv(plan, projection, false));
-    expect(header).toContain("Enrique 403(b) balance");
-    expect(header).toContain('"Taxable, Enrique balance"');
-    expect(header).toContain("Enrique 403(b) withdrawal");
+    expect(header).toContain("Alex 403(b) balance");
+    expect(header).toContain('"Taxable, Alex balance"');
+    expect(header).toContain("Alex 403(b) withdrawal");
   });
 
   /** Splits one CSV line, honouring quoted fields — the plan above has an
@@ -93,25 +93,23 @@ describe("buildProjectionCsv", () => {
     expect(header.slice(income, income + 3)).toEqual([
       "Income",
       "Salary income",
-      "Enrique's Social Security income",
+      "Alex's Social Security income",
     ]);
     expect(at("Salary income")).toBe("70000");
-    expect(at("Enrique's Social Security income")).toBe("10000");
+    expect(at("Alex's Social Security income")).toBe("10000");
     expect(header[header.indexOf("Expenses") + 1]).toBe("Household spending expense");
     expect(at("Household spending expense")).toBe("40000");
     expect(header[header.indexOf("Taxes") + 1]).toBe("Tax on withdrawals");
     expect(at("Tax on withdrawals")).toBe("300");
-    expect(header[header.indexOf("Contributions") + 1]).toBe(
-      "Enrique 403(b) contribution",
-    );
-    expect(at("Enrique 403(b) contribution")).toBe("20000");
+    expect(header[header.indexOf("Contributions") + 1]).toBe("Alex 403(b) contribution");
+    expect(at("Alex 403(b) contribution")).toBe("20000");
     // An account that received nothing still gets its column, as 0.
-    expect(at("Taxable, Enrique contribution")).toBe("0");
+    expect(at("Taxable, Alex contribution")).toBe("0");
   });
 
   it("quotes an account name that contains a comma", () => {
     const csv = buildProjectionCsv(plan, projection, false);
-    expect(csv).toContain('"Taxable, Enrique balance"');
+    expect(csv).toContain('"Taxable, Alex balance"');
   });
 
   it("keeps nominal figures as-is and always carries the raw deflator", () => {
@@ -148,9 +146,9 @@ describe("buildProjectionCsv", () => {
 
 describe("projectionCsvFilename", () => {
   it("encodes the basis and sanitizes the plan name", () => {
-    const messy = { name: "Enrique's Plan / v2" } as unknown as Plan;
+    const messy = { name: "Alex's Plan / v2" } as unknown as Plan;
     expect(projectionCsvFilename(messy, true)).toMatch(
-      /^Enriques-Plan-v2-projection-real-\d{4}-\d{2}-\d{2}\.csv$/,
+      /^Alexs-Plan-v2-projection-real-\d{4}-\d{2}-\d{2}\.csv$/,
     );
     expect(projectionCsvFilename(messy, false)).toContain("-projection-nominal-");
   });

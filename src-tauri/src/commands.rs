@@ -24,6 +24,9 @@ pub struct SnapshotState(pub Mutex<HashSet<String>>);
 /// makes the plans directory itself relocatable without a bootstrapping
 /// chicken-and-egg problem).
 fn config_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    if let Some(root) = settings::data_root_override() {
+        return Ok(root.join("config"));
+    }
     app.path()
         .app_config_dir()
         .map_err(|e| format!("resolving app config dir: {e}"))
@@ -32,6 +35,9 @@ fn config_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 /// The computed default plans dir (Documents/Retirement Planner, or the
 /// Linux home-dir fallback), independent of any user override.
 fn default_plans_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    if let Some(root) = settings::data_root_override() {
+        return Ok(root);
+    }
     settings::default_plans_dir(app.path().document_dir().ok(), app.path().home_dir().ok())
 }
 
@@ -46,6 +52,11 @@ fn plans_base_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 /// The pre-#13 storage location, used only to detect and migrate old plans
 /// on first launch after this feature ships.
 fn legacy_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    // Under an override, point at a path inside the root that will not
+    // exist, so a demo run never migrates the real legacy plans into itself.
+    if let Some(root) = settings::data_root_override() {
+        return Ok(root.join("legacy"));
+    }
     app.path()
         .app_data_dir()
         .map_err(|e| format!("resolving legacy app data dir: {e}"))

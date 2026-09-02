@@ -8,11 +8,27 @@ points) lives in `docs/ARCHITECTURE.md`. Read it before changing the engine.
 
 ## Privacy rule (non-negotiable)
 
-Financial data is NEVER committed to git. Plans are YAML files stored in a
-user-configurable location (Documents/Retirement Planner by default,
+Real financial data is NEVER committed to git. Plans are YAML files stored in
+a user-configurable location (Documents/Retirement Planner by default,
 changeable in-app under Storage); `data/` is the optional next-to-repo
 location and is git-ignored. Keep `.gitignore` covering both. Never add
 cloud/network dependencies for user data.
+
+The single deliberate exception is `fixtures/demo/` — an invented household
+and three scenarios, committed so the app can be run, screenshotted, and
+reported against without anyone's real finances. It is generated from
+`src-tauri/tests/demo_fixtures.rs`, which also asserts it still parses,
+validates, and simulates, so a schema change fails CI rather than rotting the
+fixtures. **Keep it invented.** The same rule covers `engine::presets::seed_plan`,
+which every new install bootstraps: both are public, and neither may be
+seeded from a real plan.
+
+`pnpm demo` runs the app against a throwaway copy of those fixtures instead of
+the real plans directory — it sets `RETIREMENT_DATA_DIR`, which relocates
+settings and plans both. Anything that leaves the machine (screenshots,
+recordings, bug reports) must be produced that way. Because the root is
+disposable, adding, editing and deleting plans during a demo run needs no
+caution at all; see `.claude/skills/run-app/SKILL.md`.
 
 ## Architecture invariants
 
@@ -44,7 +60,14 @@ cloud/network dependencies for user data.
 
 ## Dev commands
 
-- `pnpm tauri dev` — run the app (needs webkit2gtk/gtk3 on Linux). On macOS,
+- `pnpm demo` — **the default way to run the app.** Seeds
+  `/tmp/retirement-demo` from `fixtures/demo/` and runs against that invented
+  household, so no real financial data is ever on screen and you can add,
+  edit and delete plans freely while testing. `pnpm demo:reset` returns it to
+  the four committed scenarios; `pnpm demo:seed` seeds without running.
+- `pnpm tauri dev` — run against your *real* plans (needs webkit2gtk/gtk3 on
+  Linux). Only when you specifically need them — a bug that reproduces on no
+  other data — and treat the app as read-only when you do. On macOS,
   launching it so it is *visible to screenshots* has two non-obvious traps —
   see `.claude/skills/run-app/SKILL.md` before driving the app by hand.
 - `pnpm app:build` — build the installable `.dmg` for real use.
@@ -52,6 +75,8 @@ cloud/network dependencies for user data.
   the same order: fmt, clippy, cargo test, type regeneration + drift check,
   Biome lint, tsc, vitest. Green here means green in CI.
 - `cargo test -p engine` — engine tests alone (also exports ts-rs bindings).
+- `UPDATE_FIXTURES=1 cargo test -p retirement --test demo_fixtures` —
+  regenerate the demo YAML after an intentional schema change.
 - `pnpm types:generate` — regenerate `src/types/generated/`.
 - `pnpm format` — apply Biome formatting and safe fixes.
 
@@ -61,7 +86,7 @@ ts-rs output would make the CI drift check fail permanently.
 
 ## Status
 
-V1 shipped; the app is released and in real use (`v0.3`). Current and planned
+V1 shipped; the app is released and in real use (`v0.4`). Current and planned
 work lives in GitHub issues, not in this file — `gh issue list`.
 
 Design intent for work not yet built is in `docs/ARCHITECTURE.md`: which

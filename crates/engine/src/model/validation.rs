@@ -44,7 +44,7 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
     };
 
     /// Month in 1..=12 and year within [MIN_YEAR, MAX_YEAR]. `label` names the
-    /// date the way the user sees it, e.g. "Enrique's birth date".
+    /// date the way the user sees it, e.g. "Alex's birth date".
     fn check_date(errors: &mut Vec<ValidationError>, field: &str, label: &str, date: YearMonth) {
         if !(1..=12).contains(&date.month) {
             errors.push(ValidationError {
@@ -764,9 +764,9 @@ mod tests {
     #[test]
     fn catches_a_non_taxable_reinvest_destination() {
         let mut plan = seed_plan();
-        // "enrique-401k" is `TraditionalPreTax` — `cost_basis` only means
+        // "alex-401k" is `TraditionalPreTax` — `cost_basis` only means
         // anything on a taxable account.
-        plan.assumptions.reinvest_into = Some("enrique-401k".to_string());
+        plan.assumptions.reinvest_into = Some("alex-401k".to_string());
         let errors = plan.validate();
         assert!(errors
             .iter()

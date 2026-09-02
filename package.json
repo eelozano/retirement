@@ -1,7 +1,7 @@
 {
   "name": "retirement",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "packageManager": "pnpm@11.24.0",
   "scripts": {
@@ -10,6 +10,9 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "app:build": "tauri build",
+    "demo": "pnpm demo:seed && RETIREMENT_DATA_DIR=/tmp/retirement-demo pnpm tauri dev",
+    "demo:seed": "test -d /tmp/retirement-demo/plans || (mkdir -p /tmp/retirement-demo/plans && cp fixtures/demo/*.yaml /tmp/retirement-demo/plans/)",
+    "demo:reset": "rm -rf /tmp/retirement-demo && mkdir -p /tmp/retirement-demo/plans && cp fixtures/demo/*.yaml /tmp/retirement-demo/plans/",
     "types:generate": "cargo test -p engine export_bindings",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",

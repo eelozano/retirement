@@ -12,6 +12,29 @@ use serde::{Deserialize, Serialize};
 
 const SETTINGS_FILE: &str = "settings.json";
 
+/// Environment variable that relocates *all* app state — settings and plans
+/// alike — under one throwaway root. Set it and the app never reads or
+/// writes the real plans directory, which is what makes it safe to run
+/// against demo data for screenshots, or to try the app without touching
+/// your own finances.
+///
+/// It has to cover the config dir too, not just the plans dir: settings.json
+/// is where a user's chosen plans location is recorded, so redirecting only
+/// the plans dir would let a real settings.json point the run straight back
+/// at real data.
+pub const DATA_ROOT_ENV: &str = "RETIREMENT_DATA_DIR";
+
+/// The data-root override in effect, if any.
+pub fn data_root_override() -> Option<PathBuf> {
+    data_root_from(std::env::var_os(DATA_ROOT_ENV))
+}
+
+/// Split from `data_root_override` so the parsing is testable without
+/// mutating process environment, which races under a parallel test runner.
+fn data_root_from(raw: Option<std::ffi::OsString>) -> Option<PathBuf> {
+    raw.filter(|v| !v.is_empty()).map(PathBuf::from)
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct SettingsFile {
     /// Absolute path to the user-chosen plans directory. `None` means "use
@@ -107,6 +130,25 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[test]
+    fn data_root_unset_is_none() {
+        assert_eq!(data_root_from(None), None);
+    }
+
+    #[test]
+    fn data_root_empty_is_none() {
+        // An exported-but-empty var means "not set", not "use the cwd".
+        assert_eq!(data_root_from(Some(std::ffi::OsString::from(""))), None);
+    }
+
+    #[test]
+    fn data_root_set_is_used() {
+        assert_eq!(
+            data_root_from(Some(std::ffi::OsString::from("/tmp/demo"))),
+            Some(PathBuf::from("/tmp/demo"))
+        );
     }
 
     #[test]
