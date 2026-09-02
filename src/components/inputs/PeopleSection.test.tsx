@@ -25,7 +25,7 @@ const plan = {
   people: [
     {
       id: "p1",
-      name: "Enrique",
+      name: "Alex",
       birth: { year: 1983, month: 8 },
       retirement: { year: 2038, month: 12 },
       life_expectancy_age: 90,
@@ -152,6 +152,6 @@ describe("PeopleSection", () => {
       .getByText("Into 403(b)", { selector: "legend" })
       .closest(".person-card");
     expect(card).not.toBeNull();
-    expect(within(card as HTMLElement).getByText("Enrique")).toBeTruthy();
+    expect(within(card as HTMLElement).getByText("Alex")).toBeTruthy();
   });
 });

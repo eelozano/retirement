@@ -1,0 +1,193 @@
+id: retire-two-years-early
+schema_version: 1
+name: Retire two years early
+people:
+- id: alex
+  name: Alex
+  birth:
+    year: 1979
+    month: 4
+  retirement:
+    year: 2040
+    month: 4
+  life_expectancy_age: 88
+- id: jordan
+  name: Jordan
+  birth:
+    year: 1981
+    month: 9
+  retirement:
+    year: 2042
+    month: 9
+  life_expectancy_age: 91
+accounts:
+- id: joint-brokerage
+  owner: alex
+  kind: Taxable
+  name: Joint brokerage
+  balance: 120000.0
+  cost_basis: 88000.0
+  allocation: Aggressive
+  plan_type: None
+  contribution: !FlatAmount 6000.0
+  employer_match: null
+- id: alex-401k
+  owner: alex
+  kind: TraditionalPreTax
+  name: Alex 401(k)
+  balance: 340000.0
+  cost_basis: null
+  allocation: Aggressive
+  plan_type: EmployerPlan
+  contribution: !PercentOfSalary 0.1
+  employer_match:
+    tiers:
+    - employee_percent: 0.03
+      match_percent: 1.0
+    - employee_percent: 0.02
+      match_percent: 0.5
+    destination: PreTax
+- id: jordan-403b
+  owner: jordan
+  kind: TraditionalPreTax
+  name: Jordan 403(b)
+  balance: 210000.0
+  cost_basis: null
+  allocation: Moderate
+  plan_type: EmployerPlan
+  contribution: !PercentOfSalary 0.08
+  employer_match:
+    tiers:
+    - employee_percent: 0.04
+      match_percent: 0.5
+    destination: PreTax
+- id: jordan-roth-ira
+  owner: jordan
+  kind: Roth
+  name: Jordan Roth IRA
+  balance: 65000.0
+  cost_basis: null
+  allocation: Aggressive
+  plan_type: Ira
+  contribution: FederalMaximum
+  employer_match: null
+- id: alex-hsa
+  owner: alex
+  kind: Hsa
+  name: Alex HSA
+  balance: 18000.0
+  cost_basis: null
+  allocation: Moderate
+  plan_type: Hsa
+  contribution: FederalMaximum
+  employer_match: null
+- id: emergency-savings
+  owner: jordan
+  kind: Savings
+  name: Emergency savings
+  balance: 35000.0
+  cost_basis: null
+  allocation: Conservative
+  plan_type: None
+  contribution: !FlatAmount 0.0
+  employer_match: null
+streams:
+- id: alex-salary
+  name: Alex salary
+  owner: alex
+  direction: Income
+  annual_amount: 145000.0
+  start: PlanStart
+  end: !AtRetirement alex
+  growth: Inflation
+  survivor_percentage: null
+- id: jordan-salary
+  name: Jordan salary
+  owner: jordan
+  direction: Income
+  annual_amount: 105000.0
+  start: PlanStart
+  end: !AtRetirement jordan
+  growth: Inflation
+  survivor_percentage: null
+- id: spending-working
+  name: Household spending (working)
+  owner: null
+  direction: Expense
+  annual_amount: 150000.0
+  start: PlanStart
+  end: !AtRetirement alex
+  growth: Inflation
+  survivor_percentage: null
+- id: spending-retired
+  name: Household spending (retired)
+  owner: null
+  direction: Expense
+  annual_amount: 145000.0
+  start: !AtRetirement alex
+  end: PlanEnd
+  growth: Inflation
+  survivor_percentage: null
+- id: healthcare-bridge
+  name: Pre-Medicare health insurance
+  owner: null
+  direction: Expense
+  annual_amount: 26000.0
+  start: !AtRetirement alex
+  end: !Date
+    year: 2044
+    month: 4
+  growth: Inflation
+  survivor_percentage: null
+- id: jordan-pension
+  name: Jordan pension
+  owner: jordan
+  direction: Income
+  annual_amount: 18000.0
+  start: !AtRetirement jordan
+  end: PlanEnd
+  growth: None
+  survivor_percentage: 0.5
+social_security:
+- id: alex-social-security
+  owner: alex
+  benefit_at_fra: 42000.0
+  full_retirement_age: 67
+  claiming_age: 70
+  cola_override: null
+- id: jordan-social-security
+  owner: jordan
+  benefit_at_fra: 34000.0
+  full_retirement_age: 67
+  claiming_age: 67
+  cola_override: null
+assumptions:
+  inflation: 0.025
+  asset_returns:
+    UsEquity: 0.08
+    IntlEquity: 0.075
+    GlobalEquity: 0.078
+    UsBonds: 0.04
+  filing_status: MarriedFilingJointly
+  state_tax:
+    state: Colorado
+    brackets:
+    - up_to: null
+      rate: 0.044
+    standard_deduction: 0.0
+  plan_end_age: 95
+  sweep_surplus_from: !AtRetirement alex
+  survivor_expense_factor: 0.75
+  social_security_cola: 0.025
+  asset_volatility:
+    UsEquity: 0.18
+    IntlEquity: 0.2
+    GlobalEquity: 0.17
+    UsBonds: 0.06
+  reinvest_into: joint-brokerage
+sim_config:
+  start:
+    year: 2026
+    month: 1
+  period: Year
+  display_real_dollars: false

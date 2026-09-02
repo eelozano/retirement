@@ -122,7 +122,7 @@ pub struct Plan {
 
 pub struct Person {
     pub id: PersonId,
-    pub name: String,               // "Enrique", "Claire"
+    pub name: String,               // "Alex", "Jordan"
     pub birth: YearMonth,           // 1983-08, 1987-06
     pub retirement: YearMonth,      // 2038-08, 2042-08
     // Mortality is per person, not per household: `AtDeath` resolves against
@@ -416,7 +416,7 @@ tracked in GitHub issues (`gh issue list`), not here.
 
 **M0 — Scaffold.** Tauri v2 app via `create-tauri-app` (React+TS+Vite, pnpm); Cargo workspace with `crates/engine`; ts-rs type-generation wired into build; `.gitignore` for `data/`; `cargo fmt/clippy/test` + `tsc --noEmit` clean. *Done: the empty app opened and generated types imported.*
 
-**M1 — Engine core (pure Rust, no UI).** Domain model + presets; `simulate()` with FixedReturns/FlatTax/ProportionalDrawdown; seed scenario (Enrique + Claire, 3 accounts, salary/spending streams) as a fixture. Tests: golden-file projection snapshot, hand-computed 3-period micro-case, property tests (balances ≥ 0, cash conservation per period, depletion emits warning). *Done: `cargo test` proves the math.*
+**M1 — Engine core (pure Rust, no UI).** Domain model + presets; `simulate()` with FixedReturns/FlatTax/ProportionalDrawdown; seed scenario (Alex + Jordan, 3 accounts, salary/spending streams) as a fixture. Tests: golden-file projection snapshot, hand-computed 3-period micro-case, property tests (balances ≥ 0, cash conservation per period, depletion emits warning). *Done: `cargo test` proves the math.*
 
 **M2 — IPC + persistence.** Commands, storage layer, load-on-launch/save flows, seed plan bootstrap on first run. *Done: a plan round-trips through the app and a projection returns to the frontend.*
 
