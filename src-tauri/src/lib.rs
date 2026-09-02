@@ -32,7 +32,6 @@ pub fn run() {
             commands::reveal_storage_dir,
             commands::export_plans,
             commands::export_text_file,
-            commands::print_window,
             commands::export_report_pdf,
         ])
         .run(tauri::generate_context!())

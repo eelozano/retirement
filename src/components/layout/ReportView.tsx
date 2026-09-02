@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { exportReportPdf, printWindow } from "../../lib/api";
+import { exportReportPdf } from "../../lib/api";
 import { dateStamp, sanitizedPlanName } from "../../lib/exportFilename";
 import { rateToPercent } from "../../lib/format";
 import { depletionYear as computeDepletionYear } from "../../lib/projection";
@@ -37,11 +37,6 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [savingPdf, setSavingPdf] = useState(false);
 
-  const handlePrint = () => {
-    setActionError(null);
-    printWindow().catch((e) => setActionError(String(e)));
-  };
-
   const handleSavePdf = async () => {
     if (!plan) return;
     setActionError(null);
@@ -49,9 +44,7 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
     // createPDF has no print-media concept of its own: it captures the page
     // exactly as displayed, and only the rect it's told to. `.pdf-capturing`
     // (App.css) hides the app chrome and lets the report grow to its true,
-    // unclipped height so there's an exact rect to measure and capture —
-    // the same problem `@media print` solves for the interactive dialog,
-    // solved by hand since createPDF never enters that mode.
+    // unclipped height so there's an exact rect to measure and capture.
     document.body.classList.add("pdf-capturing");
     try {
       window.scrollTo(0, 0);
@@ -122,9 +115,6 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
             <div className="report-actions">
               <button type="button" onClick={handleSavePdf} disabled={savingPdf}>
                 {savingPdf ? "Saving…" : "Save as PDF…"}
-              </button>
-              <button type="button" onClick={handlePrint}>
-                Print…
               </button>
             </div>
           </header>

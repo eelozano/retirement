@@ -121,16 +121,8 @@ export function exportTextFile(
   return invoke<string | null>("export_text_file", { suggestedName, contents });
 }
 
-/** Opens the native print dialog for this window. Not `window.print()` —
- * that JS call is a no-op on the macOS webview (see `print_window` on the
- * Rust side); this drives the native print operation directly instead. */
-export function printWindow(): Promise<void> {
-  return invoke<void>("print_window");
-}
-
 /** Renders this window straight to a PDF file at a user-chosen path — no
- * print dialog involved. macOS only today; call `printWindow()` on other
- * platforms, whose dialog already offers "Save as PDF" itself.
+ * print dialog involved. macOS only today.
  *
  * `width`/`height` (CSS pixels) name the exact page-coordinate rect to
  * capture — WKWebView's `createPDF` otherwise only captures whatever is

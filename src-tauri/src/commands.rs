@@ -308,22 +308,10 @@ pub async fn export_text_file(
     Ok(Some(path))
 }
 
-/// Opens the native print dialog for the calling window's contents — the
-/// printable report's "Print…" button. JS `window.print()` is a no-op on
-/// wry's macOS backend (WKWebView has no built-in print handler — only
-/// Chromium-based WebView2 on Windows does); `WebviewWindow::print()` drives
-/// the native `NSPrintOperation` directly instead.
-#[tauri::command]
-pub fn print_window(window: tauri::WebviewWindow) -> Result<(), String> {
-    window.print().map_err(|e| e.to_string())
-}
-
 /// Renders the calling window's contents to PDF bytes and writes them to a
-/// user-chosen path — a dialog-free alternative to `print_window` for
-/// generating a file the user can distribute on their own terms. macOS
+/// user-chosen path — the printable report's "Save as PDF…" button. macOS
 /// only: it drives WKWebView's native `createPDF` API directly (see
-/// `pdf.rs`), and there is no cross-platform equivalent; other platforms
-/// fall back to `print_window`, whose dialog already offers "Save as PDF".
+/// `pdf.rs`), and there is no cross-platform equivalent.
 ///
 /// `width`/`height` (CSS pixels) name the exact page-coordinate rect to
 /// capture. `createPDF`'s default behavior only captures whatever is
@@ -364,7 +352,7 @@ pub async fn export_report_pdf(
     #[cfg(not(target_os = "macos"))]
     {
         let _ = (app, window, suggested_name, width, height);
-        Err("PDF export is only available on macOS today — use Print… instead.".to_string())
+        Err("PDF export is only available on macOS today.".to_string())
     }
 }
 

@@ -1752,42 +1752,13 @@ button.remove:hover {
   margin: 0;
 }
 
-/* Print — the report modal is on screen (not hidden-until-print), so the
-   charts have already measured a real size before this ever applies. This
-   just isolates the report from the rest of the app chrome and keeps a
-   chart or table from splitting across a page break. */
-@media print {
-  body * {
-    visibility: hidden;
-  }
-  .modal-lg,
-  .modal-lg * {
-    visibility: visible;
-  }
-  .modal-lg {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    max-height: none;
-    overflow: visible;
-    border: none;
-    box-shadow: none;
-  }
-  .modal-lg .modal-close,
-  .modal-lg .report-actions {
-    display: none;
-  }
-  .report-section,
-  .card {
-    break-inside: avoid;
-  }
-}
-
-/* PDF capture — a manual analog of the @media print block above. WKWebView's
-   createPDF has no concept of print media: it renders the page exactly as
-   currently displayed, and only within whatever rect it's told to capture.
-   ReportView toggles this class just long enough to measure the resulting
-   unclipped layout and hand its exact pixel size to the capture call. */
+/* PDF capture — the report modal is on screen (not hidden-until-captured),
+   so the charts have already measured a real size before this ever applies.
+   WKWebView's createPDF has no concept of print media: it renders the page
+   exactly as currently displayed, and only within whatever rect it's told
+   to capture. ReportView toggles this class just long enough to hide the
+   rest of the app chrome, let the report grow to its true unclipped height,
+   measure the result, and hand that exact pixel size to the capture call. */
 .pdf-capturing * {
   visibility: hidden;
 }
