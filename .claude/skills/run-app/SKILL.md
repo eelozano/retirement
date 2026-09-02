@@ -121,12 +121,53 @@ a future session's — from inheriting a mess. If the user interrupts you
 mid-task, run this the moment you're back, before doing anything else — it's
 cheap, and skipping it is exactly how processes accumulate across sessions.
 
+## Running against demo data, not the user's finances
+
+The app opens the user's real plans by default. For anything that leaves the
+machine — screenshots for the README, a bug report, a recording — run it
+against the committed demo household instead.
+
+`RETIREMENT_DATA_DIR` relocates *all* app state, settings and plans both, under
+one throwaway root. It has to cover settings too: settings.json is where a
+chosen plans location is recorded, so redirecting only the plans dir would let
+the real settings.json point the run straight back at real data.
+
+Seed a scratch root from the committed fixtures first:
+
+```bash
+DEMO=/tmp/retirement-demo; rm -rf "$DEMO"; mkdir -p "$DEMO/plans"; cp fixtures/demo/*.yaml "$DEMO/plans/"
+```
+
+Then run the dev server with the var set:
+
+```bash
+RETIREMENT_DATA_DIR=/tmp/retirement-demo pnpm tauri dev > dev.log 2>&1
+```
+
+The bundle step needs it too — `open` does not pass the calling shell's
+environment, so set it explicitly with `--env`:
+
+```bash
+APP="target/debug/bundle/macos/Retirement Planner.app"; cp target/debug/retirement "$APP/Contents/MacOS/retirement"; open --env "RETIREMENT_DATA_DIR=/tmp/retirement-demo" "$APP"
+```
+
+**Confirm before you screenshot.** The demo household is Alex and Jordan; the
+real one is not. If the plan picker shows anything other than the four demo
+scenarios — Base plan, Retire two years early, Claim Social Security at 62,
+Leaner retirement spending — the var did not take, and you are looking at real
+data. Stop and fix it rather than cropping around it.
+
+If you skip an env var on either command the app silently uses the real
+directory, because that is the correct default for every non-screenshot run.
+
 ## Driving the UI
 
-- **Do not edit the plan.** The app opens the user's real financial data, and
-  every edit debounces into a real save. Reading, scrolling, clicking, and
-  opening disclosures are all safe. If you need to change inputs to test
-  something, duplicate into a scenario first via the Scenarios button.
+- **Do not edit the plan when running against real data.** Every edit
+  debounces into a real save. Reading, scrolling, clicking, and opening
+  disclosures are all safe. If you need to change inputs to test something,
+  either run against demo data (above) — where editing is free, the root is
+  disposable, and you should feel no caution at all — or duplicate into a
+  scenario first via the Scenarios button.
 - **Coordinate gate errors naming another app.** Clicks and scrolls sometimes
   fail with `would land on "Wispr Flow", which is not in the allowed
   applications` — an overlay occupying part of the screen. It is not about the

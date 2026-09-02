@@ -8,11 +8,25 @@ points) lives in `docs/ARCHITECTURE.md`. Read it before changing the engine.
 
 ## Privacy rule (non-negotiable)
 
-Financial data is NEVER committed to git. Plans are YAML files stored in a
-user-configurable location (Documents/Retirement Planner by default,
+Real financial data is NEVER committed to git. Plans are YAML files stored in
+a user-configurable location (Documents/Retirement Planner by default,
 changeable in-app under Storage); `data/` is the optional next-to-repo
 location and is git-ignored. Keep `.gitignore` covering both. Never add
 cloud/network dependencies for user data.
+
+The single deliberate exception is `fixtures/demo/` — an invented household
+and three scenarios, committed so the app can be run, screenshotted, and
+reported against without anyone's real finances. It is generated from
+`src-tauri/tests/demo_fixtures.rs`, which also asserts it still parses,
+validates, and simulates, so a schema change fails CI rather than rotting the
+fixtures. **Keep it invented.** The same rule covers `engine::presets::seed_plan`,
+which every new install bootstraps: both are public, and neither may be
+seeded from a real plan.
+
+Set `RETIREMENT_DATA_DIR` to point a run at a throwaway copy of the fixtures
+instead of the real plans directory — it relocates settings and plans both.
+Anything that leaves the machine (screenshots, recordings, bug reports) must
+be produced that way; see `.claude/skills/run-app/SKILL.md`.
 
 ## Architecture invariants
 
@@ -52,6 +66,11 @@ cloud/network dependencies for user data.
   the same order: fmt, clippy, cargo test, type regeneration + drift check,
   Biome lint, tsc, vitest. Green here means green in CI.
 - `cargo test -p engine` — engine tests alone (also exports ts-rs bindings).
+- `RETIREMENT_DATA_DIR=/tmp/retirement-demo pnpm tauri dev` — run against a
+  throwaway copy of `fixtures/demo/` instead of your real plans. Seed it first
+  with `mkdir -p /tmp/retirement-demo/plans && cp fixtures/demo/*.yaml /tmp/retirement-demo/plans/`.
+- `UPDATE_FIXTURES=1 cargo test -p retirement --test demo_fixtures` —
+  regenerate the demo YAML after an intentional schema change.
 - `pnpm types:generate` — regenerate `src/types/generated/`.
 - `pnpm format` — apply Biome formatting and safe fixes.
 
