@@ -1752,34 +1752,73 @@ button.remove:hover {
   margin: 0;
 }
 
-/* PDF capture — the report modal is on screen (not hidden-until-captured),
-   so the charts have already measured a real size before this ever applies.
-   WKWebView's createPDF has no concept of print media: it renders the page
-   exactly as currently displayed, and only within whatever rect it's told
-   to capture. ReportView toggles this class just long enough to hide the
-   rest of the app chrome, let the report grow to its true unclipped height,
-   measure the result, and hand that exact pixel size to the capture call. */
-.pdf-capturing * {
-  visibility: hidden;
-}
-.pdf-capturing .modal-lg,
-.pdf-capturing .modal-lg * {
-  visibility: visible;
-}
-.pdf-capturing .modal-lg {
-  position: fixed;
-  top: 0;
-  left: 0;
-  margin: 0;
-  max-height: none;
-  overflow: visible;
-  border: none;
-  box-shadow: none;
-}
-.pdf-capturing .modal-lg::backdrop {
-  background: none;
-}
-.pdf-capturing .modal-lg .modal-close,
-.pdf-capturing .modal-lg .report-actions {
-  display: none;
+/* Print / Save as PDF — "Save as PDF…" drives WKWebView's real print
+   pipeline (src-tauri/src/pdf.rs), which applies this exactly as an
+   interactive print would: standard Letter pages, real pagination, no
+   scrolling. Only the report modal should end up on the page — everything
+   else in the app is still in the DOM behind it. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .modal-lg,
+  .modal-lg * {
+    visibility: visible;
+  }
+  /* `position: static`, not `absolute; inset: 0` — a statically positioned
+     box's height is just its content's height, which is what pagination
+     needs to slice into pages; an absolutely positioned one pinned to
+     `inset: 0` reports a fixed one-page height no matter how much content
+     actually overflows it. `max-width: none` clears the base `.modal`
+     rule's `calc(100vw - 40px)`, which has no reason to apply to a printed
+     page's own width. */
+  .modal-lg {
+    position: static;
+    margin: 0;
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+    border: none;
+    box-shadow: none;
+  }
+  .modal-lg::backdrop {
+    background: none;
+  }
+  .modal-lg .modal-close,
+  .modal-lg .report-actions {
+    display: none;
+  }
+
+  /* Keep each section (and each chart within one) on a single page rather
+     than letting the page boundary land in the middle of a figure — a
+     table is the one exception, since it's meant to run for however many
+     pages it takes. A plain class rather than `.report-section:has(.report-table)`,
+     since there's no reason to lean on a relational selector here. */
+  .report-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .report-section--table {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  /* `.table-scroll`'s `overflow-x: auto` (App.css, table view twin) is
+     what makes a wide year-by-year table scrollable on screen — in print
+     there's no scrollbar to reveal that, so it silently clips every
+     column past the page edge instead. A smaller, tighter table is the
+     print-only trade: this table can have a column per account, and
+     the alternative is losing data off the side of the page. */
+  .table-scroll {
+    overflow: visible;
+    border: none;
+  }
+  .data-table table {
+    font-size: 7px;
+  }
+  .data-table th,
+  .data-table td {
+    padding: 2px 4px;
+  }
 }
