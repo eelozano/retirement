@@ -1427,8 +1427,28 @@ button.remove:hover {
   height: 9px;
   border-radius: 2px;
 }
-.projection-chart {
+.projection-chart,
+.cash-flow-chart {
   border-radius: var(--r-2);
+}
+
+/* Composition diagram (#67): the notes under it are the things the diagram
+   cannot say for itself — what is deliberately not a flow, and what the
+   residual means this year. */
+.composition-notes {
+  margin: var(--sp-2) 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.composition-notes li {
+  margin: 2px 0;
+}
+.composition-empty {
+  margin: var(--sp-3) 0;
+  font-size: 13px;
+  color: var(--muted);
 }
 
 /* Balances read across, under the bands they belong to — two or three

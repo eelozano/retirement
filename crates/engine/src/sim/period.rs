@@ -24,7 +24,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::model::{
-    AccountId, AccountKind, AllocationRef, PersonId, Plan, StreamDirection, YearMonth,
+    AccountId, AccountKind, AllocationRef, PersonId, Plan, StreamDirection, StreamId, YearMonth,
 };
 use crate::presets::allocation_weights;
 use crate::strategies::{
@@ -160,17 +160,27 @@ impl PeriodContext {
 pub(super) struct PeriodState {
     /// Gross stream income, Social Security included.
     pub income: f64,
+    /// `income`, attributed to the resolved stream that accrued it (#67).
+    /// Recorded here because `accrue_streams` is the only place a dollar
+    /// still knows which stream it came from.
+    pub income_by_stream: BTreeMap<StreamId, f64>,
     /// The Social Security part of `income`, carried separately because the
     /// federal model taxes it under the provisional-income rule rather than
     /// as plain ordinary income.
     pub ss_income: f64,
     pub expenses: f64,
+    /// `expenses`, attributed per stream — the expense side of
+    /// `income_by_stream`.
+    pub expenses_by_stream: BTreeMap<StreamId, f64>,
     /// Gross salary per person: their income streams, grown and prorated,
     /// excluding Social Security. `PercentOfSalary` contributions resolve
     /// against the owner's own earned income.
     pub salary: BTreeMap<PersonId, f64>,
     /// Employee contributions, out of household cash.
     pub contributions: f64,
+    /// `contributions`, per receiving account. Employer match is excluded
+    /// here for the same reason it is excluded from `contributions`.
+    pub contributions_by_account: BTreeMap<AccountId, f64>,
     /// Employer match — never passes through household cash.
     pub employer_match: f64,
     /// Pre-tax dollars deposited this period, employee and match alike:
@@ -187,6 +197,11 @@ pub(super) struct PeriodState {
     pub taxable_interest: f64,
     /// Total tax for the period.
     pub taxes: f64,
+    /// The part of `taxes` the withdrawal gross-up added on top of the bill
+    /// on `base_income` — what the drawdown reports as its marginal cost.
+    /// Not an allocation: it is the only tax figure the engine actually
+    /// computes separately, so it is the only split the snapshot can claim.
+    pub withdrawal_taxes: f64,
     pub surplus: f64,
     pub withdrawals: BTreeMap<AccountId, f64>,
     /// Market growth applied to post-flow balances this period, summed
@@ -225,9 +240,13 @@ impl PeriodState {
             balances: accounts.iter().map(|a| (a.id.clone(), a.balance)).collect(),
             net_worth: accounts.iter().map(|a| a.balance).sum(),
             income: self.income,
+            income_by_stream: self.income_by_stream,
             expenses: self.expenses,
+            expenses_by_stream: self.expenses_by_stream,
             taxes: self.taxes,
+            withdrawal_taxes: self.withdrawal_taxes,
             contributions: self.contributions,
+            contributions_by_account: self.contributions_by_account,
             employer_match: self.employer_match,
             required_distributions: self.required_distributions,
             surplus: self.surplus,
@@ -280,13 +299,23 @@ fn accrue_streams(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodStat
         match stream.direction {
             StreamDirection::Income => {
                 period.income += amount;
+                *period
+                    .income_by_stream
+                    .entry(stream.id.clone())
+                    .or_insert(0.0) += amount;
                 if resolved.source == StreamSource::SocialSecurity {
                     period.ss_income += amount;
                 } else if let Some(owner) = &stream.owner {
                     *period.salary.entry(owner.clone()).or_insert(0.0) += amount;
                 }
             }
-            StreamDirection::Expense => period.expenses += amount,
+            StreamDirection::Expense => {
+                period.expenses += amount;
+                *period
+                    .expenses_by_stream
+                    .entry(stream.id.clone())
+                    .or_insert(0.0) += amount;
+            }
         }
     }
 }
@@ -355,6 +384,11 @@ fn contribute(
             period.pretax_contributions += amount;
         }
         period.contributions += allowed[idx];
+        if allowed[idx] > 0.0 {
+            period
+                .contributions_by_account
+                .insert(account.id.clone(), allowed[idx]);
+        }
         period.employer_match += matched[idx];
     }
 }
@@ -504,6 +538,7 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
     // `result.tax` is the *marginal* cost of the withdrawal over `base`, so
     // this addition is the period's whole bill, counted once.
     period.taxes += result.tax;
+    period.withdrawal_taxes = result.tax;
     // Merged, not assigned: a forced distribution may already have taken
     // something from these same accounts this period.
     for (id, amount) in result.gross_by_account {

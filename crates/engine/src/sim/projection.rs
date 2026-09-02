@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::model::{AccountId, StreamId, YearMonth};
+use crate::model::{AccountId, StreamDirection, StreamId, YearMonth};
 
 /// Non-fatal issues surfaced by a simulation run.
 #[derive(Serialize, Deserialize, TS, Clone, Debug, PartialEq)]
@@ -77,15 +77,35 @@ pub struct PeriodSnapshot {
     pub balances: BTreeMap<AccountId, f64>,
     /// Gross stream income accrued this period.
     pub income: f64,
+    /// `income` attributed per stream (#67): the values sum to `income`.
+    /// Keyed by the id of the stream as the engine ran it, so Social
+    /// Security and survivor streams synthesized at simulate time appear
+    /// under their own ids — `Projection::streams` names them. A stream
+    /// absent here accrued nothing this period, as with `withdrawals`.
+    pub income_by_stream: BTreeMap<StreamId, f64>,
     /// Stream expenses this period.
     pub expenses: f64,
+    /// `expenses` attributed per stream; the values sum to `expenses`.
+    pub expenses_by_stream: BTreeMap<StreamId, f64>,
     /// Total tax paid this period (on income and on withdrawals).
     pub taxes: f64,
+    /// The part of `taxes` the withdrawal gross-up added — the drawdown's
+    /// marginal cost over the bill on the period's base income (stream
+    /// income, required distributions, savings interest). Always within
+    /// `[0, taxes]`; `taxes - withdrawal_taxes` is the tax on income.
+    ///
+    /// This is a figure the engine computes separately, not an allocation
+    /// of a pooled bill: the two halves meet the progressive schedule as one
+    /// stack (#54), and this records what the second half added.
+    pub withdrawal_taxes: f64,
     /// Contributions deposited into accounts this period, out of household
     /// income. Employer match is *not* included — it never passes through
     /// the household's cash, so folding it in here would break the
     /// income = outflow + surplus identity.
     pub contributions: f64,
+    /// `contributions` per receiving account; the values sum to
+    /// `contributions`. Employer match is excluded, as above.
+    pub contributions_by_account: BTreeMap<AccountId, f64>,
     /// Employer matching contributions deposited this period. Employer
     /// money: it raises balances without reducing household cash.
     pub employer_match: f64,
@@ -116,10 +136,27 @@ pub struct PeriodSnapshot {
     pub deflator: f64,
 }
 
+/// A stream as the engine actually ran it — what the per-stream maps on
+/// `PeriodSnapshot` are keyed by. Plan streams appear under their own ids;
+/// Social Security benefits and survivor continuations are synthesized at
+/// simulate time with ids and names the plan never sees, and this is what
+/// lets a view label them without mirroring the engine's id formats.
+#[derive(Serialize, Deserialize, TS, Clone, Debug, PartialEq)]
+#[ts(export)]
+pub struct StreamInfo {
+    pub id: StreamId,
+    pub name: String,
+    pub direction: StreamDirection,
+}
+
 /// Full result of one simulation path.
 #[derive(Serialize, Deserialize, TS, Clone, Debug)]
 #[ts(export)]
 pub struct Projection {
     pub snapshots: Vec<PeriodSnapshot>,
     pub warnings: Vec<SimWarning>,
+    /// Every stream the run accrued, in run order: the plan's own, then
+    /// Social Security, then survivor continuations. A stream skipped with
+    /// `UnknownPersonRef` is not listed, since it never accrued.
+    pub streams: Vec<StreamInfo>,
 }

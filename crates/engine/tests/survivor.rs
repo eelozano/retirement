@@ -183,6 +183,23 @@ fn a_survivor_with_no_benefit_of_their_own_inherits_the_decedents() {
     assert_eq!(year(&projection, 2034).income, 40_000.0);
     assert_eq!(year(&projection, 2035).income, 40_000.0);
     assert_eq!(year(&projection, 2044).income, 40_000.0);
+
+    // The inherited benefit is a stream the plan never wrote, so its income
+    // is attributed under a synthesized id — and the projection lists that
+    // id with a readable name, which is what lets a view label it (#67).
+    let survivor = projection
+        .streams
+        .iter()
+        .find(|s| s.id == "ss-survivor-second")
+        .expect("the survivor benefit is listed among the run's streams");
+    assert!(
+        survivor.name.contains("survivor Social Security"),
+        "{}",
+        survivor.name
+    );
+    let after = year(&projection, 2044);
+    assert_eq!(after.income_by_stream.len(), 1);
+    assert_eq!(after.income_by_stream["ss-survivor-second"], 40_000.0);
 }
 
 /// A survivor who has not reached their own claiming age when the first

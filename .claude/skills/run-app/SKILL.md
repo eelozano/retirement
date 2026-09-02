@@ -84,6 +84,15 @@ No `codesign` step. An ad-hoc re-sign was tried and is **not** required — it
 also emits a "resource fork ... detritus not allowed" error that looks like a
 failure and isn't. Skip it.
 
+**Leave the unbundled dev binary running while you do this.** It is tempting
+to `pkill -f target/debug/retirement` first, since that process is the one
+you can't screenshot and you're about to run a second copy. Don't: `pnpm
+tauri dev` treats its child exiting as the session ending, and takes Vite
+down with it — so the bundled copy you open next points at a dead port 1420
+and shows a blank window. Two copies of the app running is harmless; recover
+from the mistake, if made, with `pnpm exec vite --port 1420 --strictPort` in
+the background and reopen the bundle.
+
 Screenshot now and you will see the current UI. Give it a couple of seconds
 first: the window paints white before the frontend loads, and a screenshot
 taken the instant `open` returns shows an empty window that reads like a

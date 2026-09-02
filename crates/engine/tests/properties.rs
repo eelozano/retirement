@@ -86,6 +86,49 @@ fn invariants_hold_across_plan_grid() {
                 );
             }
 
+            // Attribution (#67): the per-stream and per-account maps are
+            // decompositions of the scalars beside them, never additions
+            // to them, and every key names a stream the run reports.
+            let sums = |m: &std::collections::BTreeMap<String, f64>| m.values().sum::<f64>();
+            let close = |a: f64, b: f64| (a - b).abs() <= 1e-6 * a.abs().max(1.0);
+            assert!(
+                close(snapshot.income, sums(&snapshot.income_by_stream)),
+                "plan {i} period {}: income_by_stream does not sum to income",
+                snapshot.period
+            );
+            assert!(
+                close(snapshot.expenses, sums(&snapshot.expenses_by_stream)),
+                "plan {i} period {}: expenses_by_stream does not sum to expenses",
+                snapshot.period
+            );
+            assert!(
+                close(
+                    snapshot.contributions,
+                    sums(&snapshot.contributions_by_account)
+                ),
+                "plan {i} period {}: contributions_by_account does not sum to contributions",
+                snapshot.period
+            );
+            assert!(
+                snapshot.withdrawal_taxes >= -1e-9
+                    && snapshot.withdrawal_taxes <= snapshot.taxes + tolerance,
+                "plan {i} period {}: withdrawal_taxes {} outside [0, taxes {}]",
+                snapshot.period,
+                snapshot.withdrawal_taxes,
+                snapshot.taxes
+            );
+            for id in snapshot
+                .income_by_stream
+                .keys()
+                .chain(snapshot.expenses_by_stream.keys())
+            {
+                assert!(
+                    projection.streams.iter().any(|s| &s.id == id),
+                    "plan {i} period {}: stream {id} attributed but not listed",
+                    snapshot.period
+                );
+            }
+
             // Deflator grows monotonically; periods advance uniformly.
             assert!(
                 snapshot.deflator > prev_deflator,

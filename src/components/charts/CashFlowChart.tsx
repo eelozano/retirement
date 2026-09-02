@@ -14,10 +14,22 @@ import { lastToRetire } from "../../lib/currentSpending";
 import { currency, currencyCompact } from "../../lib/format";
 import type { Plan } from "../../types/generated/Plan";
 import type { CashFlowRow } from "./cashFlowData";
+import { PinnableYears } from "./PinnableYears";
 
 // Diverging stack: money in above the axis, money out below it, with the
 // surplus line running through. The crossover — salary giving way to
 // withdrawals — is the shape this chart exists to show.
+//
+// Optionally pinnable: given a pinned year and a handler, clicking the chart
+// (or stepping with the arrow keys) chooses the year the composition diagram
+// below it decomposes (#67). The report renders it without either and gets
+// the plain chart.
+
+// Must match the <ComposedChart margin> and <YAxis width> below — the pin's
+// pointer math and the chart have to agree on where the plotting area starts.
+const MARGIN_LEFT = 8;
+const MARGIN_RIGHT = 16;
+const Y_AXIS_WIDTH = 64;
 
 const INFLOWS = [
   { key: "income", label: "Income", color: "var(--series-2)" },
@@ -64,13 +76,18 @@ function CashFlowTooltip(props: {
   );
 }
 
-export function CashFlowChart(props: { rows: CashFlowRow[]; plan: Plan }) {
+export function CashFlowChart(props: {
+  rows: CashFlowRow[];
+  plan: Plan;
+  pinnedYear?: number;
+  onPinYear?: (year: number) => void;
+}) {
   const retiredFrom = lastToRetire(props.plan)?.retirement.year ?? null;
-  return (
+  const chart = (
     <ResponsiveContainer width="100%" height={360}>
       <ComposedChart
         data={props.rows}
-        margin={{ top: 28, right: 16, bottom: 0, left: 8 }}
+        margin={{ top: 28, right: MARGIN_RIGHT, bottom: 0, left: MARGIN_LEFT }}
       >
         <CartesianGrid stroke="var(--grid)" vertical={false} />
         <XAxis
@@ -84,7 +101,7 @@ export function CashFlowChart(props: { rows: CashFlowRow[]; plan: Plan }) {
           tick={{ fill: "var(--muted)", fontSize: 11 }}
           tickLine={false}
           axisLine={false}
-          width={64}
+          width={Y_AXIS_WIDTH}
         />
         <Tooltip
           content={<CashFlowTooltip retiredFrom={retiredFrom} />}
@@ -146,6 +163,13 @@ export function CashFlowChart(props: { rows: CashFlowRow[]; plan: Plan }) {
 
         {/* The axis itself carries meaning here: above is in, below is out. */}
         <ReferenceLine y={0} stroke="var(--text-primary)" strokeWidth={1} />
+        {props.pinnedYear !== undefined && (
+          <ReferenceLine
+            x={props.pinnedYear}
+            stroke="var(--text-primary)"
+            strokeWidth={1}
+          />
+        )}
 
         <Line
           type="monotone"
@@ -162,5 +186,20 @@ export function CashFlowChart(props: { rows: CashFlowRow[]; plan: Plan }) {
         />
       </ComposedChart>
     </ResponsiveContainer>
+  );
+
+  if (props.pinnedYear === undefined || !props.onPinYear) return chart;
+  return (
+    <PinnableYears
+      className="cash-flow-chart"
+      years={props.rows.map((r) => r.year)}
+      pinnedYear={props.pinnedYear}
+      plotLeft={MARGIN_LEFT + Y_AXIS_WIDTH}
+      plotRight={MARGIN_RIGHT}
+      ariaLabel="Cash flow — pinned year"
+      onPinYear={props.onPinYear}
+    >
+      {chart}
+    </PinnableYears>
   );
 }

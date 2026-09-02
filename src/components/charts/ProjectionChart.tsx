@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import {
   Area,
   CartesianGrid,
@@ -14,18 +13,13 @@ import { currencyCompact } from "../../lib/format";
 import type { Plan } from "../../types/generated/Plan";
 import type { ChartRow, SeriesDef } from "./chartData";
 import type { FanRow } from "./monteCarloData";
+import { PinnableYears } from "./PinnableYears";
 
 // One canvas: stacked account balances, the net-worth line on top, and the
 // Monte Carlo percentile band as an additive overlay rather than a separate
-// screen. Hovering reads a year into the inspector; clicking pins it.
-//
-// The hovered year is derived from pointer position, not from Recharts.
-//
-// In Recharts 3 the chart's own `onMouseMove` never fires, `onClick` arrives
-// with `activeIndex: null` and `activeLabel` undefined, and the tooltip's
-// `label` lags a click by a render. Reading the pointer against the plotting
-// area is deterministic and needs none of that. The <Tooltip> is kept purely
-// for its crosshair cursor and renders nothing.
+// screen. Hovering reads a year into the inspector; clicking pins it — the
+// interaction itself lives in PinnableYears, shared with the cash-flow chart.
+// The <Tooltip> is kept purely for its crosshair cursor and renders nothing.
 
 // Must match the <ComposedChart margin> and <YAxis width> below — the pointer
 // math and the chart have to agree on where the plotting area starts.
@@ -65,62 +59,16 @@ export function ProjectionChart(props: {
   onHoverYear: (year: number | null) => void;
   onPinYear: (year: number) => void;
 }) {
-  const years = props.rows.map((r) => r.year);
-  const first = years[0];
-  const last = years[years.length - 1];
-
-  const box = useRef<HTMLDivElement>(null);
-  /** Year under the pointer, or null when it is outside the plotting area. */
-  const yearAtPointer = (clientX: number): number | null => {
-    const el = box.current;
-    if (!el || last === first) return null;
-    const rect = el.getBoundingClientRect();
-    const plotWidth = rect.width - PLOT_LEFT - MARGIN_RIGHT;
-    if (plotWidth <= 0) return null;
-    const t = (clientX - rect.left - PLOT_LEFT) / plotWidth;
-    if (t < 0 || t > 1) return null;
-    return Math.round(first + t * (last - first));
-  };
-
-  const movePin = (delta: number) => {
-    const next = Math.min(last, Math.max(first, props.pinnedYear + delta));
-    props.onPinYear(next);
-  };
-
   return (
-    // Focusable so the pinned year is reachable without a mouse; arrow keys
-    // step it, which is the keyboard equivalent of clicking the chart.
-    <div
+    <PinnableYears
       className="projection-chart"
-      role="slider"
-      tabIndex={0}
-      aria-label="Projection — pinned year"
-      aria-valuemin={first}
-      aria-valuemax={last}
-      aria-valuenow={props.pinnedYear}
-      aria-valuetext={String(props.pinnedYear)}
-      ref={box}
-      onMouseMove={(e) => props.onHoverYear(yearAtPointer(e.clientX))}
-      onMouseLeave={() => props.onHoverYear(null)}
-      onClick={(e) => {
-        const year = yearAtPointer(e.clientX);
-        if (year !== null) props.onPinYear(year);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "ArrowLeft") {
-          e.preventDefault();
-          movePin(-1);
-        } else if (e.key === "ArrowRight") {
-          e.preventDefault();
-          movePin(1);
-        } else if (e.key === "Home") {
-          e.preventDefault();
-          props.onPinYear(first);
-        } else if (e.key === "End") {
-          e.preventDefault();
-          props.onPinYear(last);
-        }
-      }}
+      years={props.rows.map((r) => r.year)}
+      pinnedYear={props.pinnedYear}
+      plotLeft={PLOT_LEFT}
+      plotRight={MARGIN_RIGHT}
+      ariaLabel="Projection — pinned year"
+      onHoverYear={props.onHoverYear}
+      onPinYear={props.onPinYear}
     >
       <ResponsiveContainer width="100%" height={320}>
         <ComposedChart
@@ -290,6 +238,6 @@ export function ProjectionChart(props: {
           />
         </ComposedChart>
       </ResponsiveContainer>
-    </div>
+    </PinnableYears>
   );
 }

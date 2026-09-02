@@ -16,6 +16,27 @@ function basis(s: { deflator: number }, realDollars: boolean): number {
   return realDollars ? s.deflator : 1;
 }
 
+/**
+ * The year a chart pins by default: the first retirement — the year the plan
+ * turns over — rather than the start, where nothing has happened yet.
+ * Clamped into the projection, since a retirement before the plan starts
+ * (or after it ends) is a year no snapshot describes.
+ */
+export function defaultPinYear(plan: Plan, projection: Projection): number {
+  const first = projection.snapshots[0]?.period_start.year;
+  const last = projection.snapshots[projection.snapshots.length - 1]?.period_start.year;
+  if (first === undefined || last === undefined) return 0;
+  const retirement = plan.people.map((p) => p.retirement.year).sort((a, b) => a - b)[0];
+  return Math.min(last, Math.max(first, retirement ?? first));
+}
+
+/**
+ * Why a working year's residual is called current spending, and what has to
+ * be true for it to be right. Shared by every surface that shows one.
+ */
+export const CURRENT_SPENDING_NOTE =
+  "You enter what you save, not what you spend, so what's left over here is what the household lives on. It only reads right if every dollar you save is in this plan.";
+
 export interface HeadlineMetrics {
   /** Fraction of paths that never deplete, or null before the first run. */
   successRate: number | null;
@@ -455,9 +476,7 @@ export function yearDetail(
     shortfall: leftOver < 0,
     balances,
     transition: transitionNote(plan, year),
-    spendingNote: working
-      ? "You enter what you save, not what you spend, so what's left over here is what the household lives on. It only reads right if every dollar you save is in this plan."
-      : null,
+    spendingNote: working ? CURRENT_SPENDING_NOTE : null,
   };
 }
 

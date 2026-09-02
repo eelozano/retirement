@@ -9,7 +9,12 @@ import { DataTable } from "../charts/DataTable";
 import { HeadlineTiles } from "../charts/HeadlineTiles";
 import { fanRows } from "../charts/monteCarloData";
 import { mergeFan, ProjectionChart } from "../charts/ProjectionChart";
-import { headlineMetrics, milestones, yearDetail } from "../charts/planData";
+import {
+  defaultPinYear,
+  headlineMetrics,
+  milestones,
+  yearDetail,
+} from "../charts/planData";
 import { YearBalances } from "../charts/YearBalances";
 import { YearInspector } from "../charts/YearInspector";
 import { StatusBand } from "./StatusBand";
@@ -90,12 +95,7 @@ export function PlanScreen(props: { onOpenCashFlow: () => void }) {
     },
   ];
 
-  // Default the pin to the first retirement — the year the plan turns over —
-  // rather than to the start, where nothing has happened yet.
-  const defaultPin =
-    plan.people.map((p) => p.retirement.year).sort((a, b) => a - b)[0] ??
-    projection.snapshots[0]?.period_start.year ??
-    0;
+  const defaultPin = defaultPinYear(plan, projection);
   const activeYear = hoverYear ?? pinnedYear ?? defaultPin;
   const detail = yearDetail(plan, projection, activeYear, series, realDollars);
 

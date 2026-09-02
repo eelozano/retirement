@@ -54,7 +54,7 @@ function makePlan(overrides: Partial<Plan>): Plan {
   };
 }
 
-const projection: Projection = { snapshots: [], warnings: [] };
+const projection: Projection = { snapshots: [], warnings: [], streams: [] };
 
 beforeEach(() => {
   vi.clearAllMocks();

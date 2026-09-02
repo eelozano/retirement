@@ -13,7 +13,7 @@ pub mod strategies;
 pub use model::{Plan, YearMonth};
 pub use sim::{
     run_monte_carlo as run_monte_carlo_sim, simulate, MonteCarloConfig, MonteCarloResult,
-    PeriodPercentiles, PeriodSnapshot, Projection, SimWarning,
+    PeriodPercentiles, PeriodSnapshot, Projection, SimWarning, StreamInfo,
 };
 
 use model::FilingStatus;
