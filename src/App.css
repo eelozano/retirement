@@ -1104,6 +1104,14 @@ button.remove:hover {
   border-color: var(--muted);
 }
 
+/* Report — a wide, scrollable variant of the same dialog, for content built
+   to be read (and printed) rather than filled in. */
+.modal-lg {
+  width: min(960px, calc(100vw - 40px));
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+
 /* ── Plan screen ─────────────────────────────────────────────────────── */
 
 .plan-screen {
@@ -1636,4 +1644,142 @@ button.remove:hover {
   font-size: 17px;
   font-weight: 600;
   font-family: var(--font-num);
+}
+
+/* ── Report ──────────────────────────────────────────────────────────── */
+
+.report {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.report-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+.report-header h1 {
+  font-size: var(--t-header);
+  font-weight: 600;
+  margin: 0;
+}
+.report-meta {
+  margin: 2px 0 0;
+  font-size: var(--t-xs);
+  color: var(--text-secondary);
+}
+.report-actions {
+  display: flex;
+  gap: var(--sp-2);
+}
+.report-actions button {
+  font-size: var(--t-sm);
+  padding: 6px 14px;
+  border-radius: var(--r-2);
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.report-actions button:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+.report-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.report-section h2 {
+  font-size: var(--t-title);
+  font-weight: 600;
+  margin: 0 0 var(--sp-3);
+}
+
+.report-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  list-style: none;
+  border: 1px solid var(--status-critical);
+  border-radius: var(--r-2);
+  background: var(--status-critical-bg);
+  font-size: var(--t-body);
+}
+.report-warnings li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.report-warning-title {
+  color: var(--status-critical);
+}
+.report-warning-detail {
+  color: var(--text-secondary);
+}
+
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-body);
+}
+.report-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 6px var(--sp-3) 6px 0;
+  white-space: nowrap;
+  vertical-align: top;
+}
+.report-table td {
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+.report-table tr:first-child td {
+  border-top: none;
+}
+
+.report-footer {
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-3);
+  font-size: var(--t-xs);
+  color: var(--text-secondary);
+}
+.report-footer p {
+  margin: 0;
+}
+
+/* PDF capture — the report modal is on screen (not hidden-until-captured),
+   so the charts have already measured a real size before this ever applies.
+   WKWebView's createPDF has no concept of print media: it renders the page
+   exactly as currently displayed, and only within whatever rect it's told
+   to capture. ReportView toggles this class just long enough to hide the
+   rest of the app chrome, let the report grow to its true unclipped height,
+   measure the result, and hand that exact pixel size to the capture call. */
+.pdf-capturing * {
+  visibility: hidden;
+}
+.pdf-capturing .modal-lg,
+.pdf-capturing .modal-lg * {
+  visibility: visible;
+}
+.pdf-capturing .modal-lg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  margin: 0;
+  max-height: none;
+  overflow: visible;
+  border: none;
+  box-shadow: none;
+}
+.pdf-capturing .modal-lg::backdrop {
+  background: none;
+}
+.pdf-capturing .modal-lg .modal-close,
+.pdf-capturing .modal-lg .report-actions {
+  display: none;
 }
