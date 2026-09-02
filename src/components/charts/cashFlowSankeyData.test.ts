@@ -42,7 +42,7 @@ const streams: Projection["streams"] = [
   { id: "spending", name: "Household spending", direction: "Expense" },
   {
     id: "ss-survivor-p1",
-    name: "Claire's survivor Social Security",
+    name: "Jordan's survivor Social Security",
     direction: "Income",
   },
 ];
@@ -108,7 +108,7 @@ describe("yearComposition", () => {
       RESIDUAL_KEY,
     ]);
     // Synthesized streams are labelled from the projection, not the plan.
-    expect(c.nodes[0].fullLabel).toBe("Claire's survivor Social Security");
+    expect(c.nodes[0].fullLabel).toBe("Jordan's survivor Social Security");
     // Accounts keep their Plan-screen colours.
     expect(c.nodes[1].color).toBe(series[0].color);
 

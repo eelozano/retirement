@@ -1,7 +1,7 @@
 import type { Plan } from "../types/generated/Plan";
 
 /** Filesystem-safe stand-in for a plan name — shared by every export that
- * suggests a filename, so a plan called "Enrique's Plan / v2" always
+ * suggests a filename, so a plan called "Alex's Plan / v2" always
  * sanitizes the same way regardless of which export built the name. */
 export function sanitizedPlanName(plan: Plan): string {
   return (

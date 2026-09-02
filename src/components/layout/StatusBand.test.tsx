@@ -18,7 +18,7 @@ const metrics = {
 
 const warning: ReadableWarning = {
   key: "w0",
-  title: "Enrique 403(b): contributing $24,500/yr, not $37,200/yr",
+  title: "Alex 403(b): contributing $24,500/yr, not $37,200/yr",
   detail: "Contributions were held to the limit.",
 };
 

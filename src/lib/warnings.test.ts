@@ -5,8 +5,8 @@ import type { Projection } from "../types/generated/Projection";
 import { readableWarnings } from "./warnings";
 
 const plan = {
-  accounts: [{ id: "acct-1", name: "Enrique 403(b)" }],
-  streams: [{ id: "salary", name: "Enrique salary" }],
+  accounts: [{ id: "acct-1", name: "Alex 403(b)" }],
+  streams: [{ id: "salary", name: "Alex salary" }],
   social_security: [],
 } as unknown as Plan;
 
@@ -36,7 +36,7 @@ describe("readableWarnings", () => {
         },
       ]),
     );
-    expect(w.title).toContain("Enrique 403(b)");
+    expect(w.title).toContain("Alex 403(b)");
     expect(w.title).toContain("$24,500");
     expect(w.title).toContain("$37,200");
   });
@@ -149,7 +149,7 @@ describe("readableWarnings", () => {
       projection(["SurplusUnallocated", { UnknownPersonRef: { stream: "salary" } }]),
     );
     expect(surplus.title).toContain("Surplus");
-    expect(unknown.title).toBe("Enrique salary was skipped");
+    expect(unknown.title).toBe("Alex salary was skipped");
   });
 
   it("gives every warning a distinct key", () => {

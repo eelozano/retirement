@@ -90,7 +90,7 @@ const NEVER = "Never";
 
 const SWEEP_OPTIONS = (plan: Plan) => [
   // Read as a sentence with the field label: "Invest leftover cash from
-  // never / plan start / Enrique retires". Kept short because the select is
+  // never / plan start / Alex retires". Kept short because the select is
   // the same fixed width as every other one in this pane.
   { value: NEVER, label: "Never" },
   ...boundaryOptions(plan, "start").map((o) =>

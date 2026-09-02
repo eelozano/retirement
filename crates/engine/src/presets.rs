@@ -379,23 +379,23 @@ pub fn presets() -> Presets {
 /// Starter plan bootstrapped on first run. Balances, salaries, and spending
 /// are editable placeholders — only the people and dates are real inputs.
 pub fn seed_plan() -> Plan {
-    let enrique = "enrique".to_string();
-    let claire = "claire".to_string();
+    let alex = "alex".to_string();
+    let jordan = "jordan".to_string();
     Plan {
         id: "base-plan".to_string(),
         schema_version: SCHEMA_VERSION,
         name: "Base plan".to_string(),
         people: vec![
             Person {
-                id: enrique.clone(),
-                name: "Enrique".to_string(),
+                id: alex.clone(),
+                name: "Alex".to_string(),
                 birth: YearMonth::new(1983, 8),
                 retirement: YearMonth::new(2038, 8),
                 life_expectancy_age: 88,
             },
             Person {
-                id: claire.clone(),
-                name: "Claire".to_string(),
+                id: jordan.clone(),
+                name: "Jordan".to_string(),
                 birth: YearMonth::new(1987, 6),
                 retirement: YearMonth::new(2042, 8),
                 life_expectancy_age: 96,
@@ -404,7 +404,7 @@ pub fn seed_plan() -> Plan {
         accounts: vec![
             Account {
                 id: "taxable-brokerage".to_string(),
-                owner: enrique.clone(),
+                owner: alex.clone(),
                 kind: AccountKind::Taxable,
                 name: "Taxable Brokerage".to_string(),
                 balance: 150_000.0,
@@ -415,10 +415,10 @@ pub fn seed_plan() -> Plan {
                 employer_match: None,
             },
             Account {
-                id: "enrique-401k".to_string(),
-                owner: enrique.clone(),
+                id: "alex-401k".to_string(),
+                owner: alex.clone(),
                 kind: AccountKind::TraditionalPreTax,
-                name: "Enrique 401(k)".to_string(),
+                name: "Alex 401(k)".to_string(),
                 balance: 400_000.0,
                 cost_basis: None,
                 allocation: AllocationRef::Aggressive,
@@ -427,10 +427,10 @@ pub fn seed_plan() -> Plan {
                 employer_match: None,
             },
             Account {
-                id: "claire-roth".to_string(),
-                owner: claire.clone(),
+                id: "jordan-roth".to_string(),
+                owner: jordan.clone(),
                 kind: AccountKind::Roth,
-                name: "Claire Roth IRA".to_string(),
+                name: "Jordan Roth IRA".to_string(),
                 balance: 80_000.0,
                 cost_basis: None,
                 allocation: AllocationRef::Moderate,
@@ -441,24 +441,24 @@ pub fn seed_plan() -> Plan {
         ],
         streams: vec![
             CashFlowStream {
-                id: "enrique-salary".to_string(),
-                name: "Enrique salary".to_string(),
-                owner: Some(enrique.clone()),
+                id: "alex-salary".to_string(),
+                name: "Alex salary".to_string(),
+                owner: Some(alex.clone()),
                 direction: StreamDirection::Income,
                 annual_amount: 140_000.0,
                 start: StreamBoundary::PlanStart,
-                end: StreamBoundary::AtRetirement(enrique.clone()),
+                end: StreamBoundary::AtRetirement(alex.clone()),
                 growth: GrowthRule::Inflation,
                 survivor_percentage: None,
             },
             CashFlowStream {
-                id: "claire-salary".to_string(),
-                name: "Claire salary".to_string(),
-                owner: Some(claire.clone()),
+                id: "jordan-salary".to_string(),
+                name: "Jordan salary".to_string(),
+                owner: Some(jordan.clone()),
                 direction: StreamDirection::Income,
                 annual_amount: 110_000.0,
                 start: StreamBoundary::PlanStart,
-                end: StreamBoundary::AtRetirement(claire),
+                end: StreamBoundary::AtRetirement(jordan),
                 growth: GrowthRule::Inflation,
                 survivor_percentage: None,
             },
@@ -475,8 +475,8 @@ pub fn seed_plan() -> Plan {
             },
         ],
         social_security: vec![SocialSecurityBenefit {
-            id: "enrique-social-security".to_string(),
-            owner: enrique,
+            id: "alex-social-security".to_string(),
+            owner: alex,
             benefit_at_fra: 32_000.0,
             full_retirement_age: 67,
             claiming_age: 70,
