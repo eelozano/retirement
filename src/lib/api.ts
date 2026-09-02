@@ -121,19 +121,11 @@ export function exportTextFile(
   return invoke<string | null>("export_text_file", { suggestedName, contents });
 }
 
-/** Renders this window straight to a PDF file at a user-chosen path — no
- * print dialog involved. macOS only today.
- *
- * `width`/`height` (CSS pixels) name the exact page-coordinate rect to
- * capture — WKWebView's `createPDF` otherwise only captures whatever is
- * currently scrolled into the window's viewport, not the full element, so
- * the caller must measure its own content after switching into whatever
- * chrome-free, unclipped layout it wants captured. Resolves to the written
- * path, or null if the user cancels the picker. */
-export function exportReportPdf(
-  suggestedName: string,
-  width: number,
-  height: number,
-): Promise<string | null> {
-  return invoke<string | null>("export_report_pdf", { suggestedName, width, height });
+/** Renders this window straight to a paginated PDF file at a user-chosen
+ * path — no print dialog involved, but paginated exactly as one would be,
+ * via `@media print` (App.css) and the real print pipeline. macOS only
+ * today. Resolves to the written path, or null if the user cancels the
+ * picker. */
+export function exportReportPdf(suggestedName: string): Promise<string | null> {
+  return invoke<string | null>("export_report_pdf", { suggestedName });
 }

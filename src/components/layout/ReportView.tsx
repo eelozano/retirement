@@ -41,26 +41,13 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
     if (!plan) return;
     setActionError(null);
     setSavingPdf(true);
-    // createPDF has no print-media concept of its own: it captures the page
-    // exactly as displayed, and only the rect it's told to. `.pdf-capturing`
-    // (App.css) hides the app chrome and lets the report grow to its true,
-    // unclipped height so there's an exact rect to measure and capture.
-    document.body.classList.add("pdf-capturing");
     try {
-      window.scrollTo(0, 0);
-      // One frame for the unclipped layout to settle before measuring it.
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      const rect = dialogRef.current?.getBoundingClientRect();
-      if (!rect || rect.width === 0 || rect.height === 0) {
-        throw new Error("Could not measure the report for export.");
-      }
       const basis = realDollars ? "real" : "nominal";
       const name = `${sanitizedPlanName(plan)}-report-${basis}-${dateStamp()}.pdf`;
-      await exportReportPdf(name, rect.width, rect.height);
+      await exportReportPdf(name);
     } catch (e) {
       setActionError(String(e));
     } finally {
-      document.body.classList.remove("pdf-capturing");
       setSavingPdf(false);
     }
   };
@@ -228,7 +215,10 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
             </section>
           )}
 
-          <section className="report-section" aria-label="Year by year">
+          <section
+            className="report-section report-section--table"
+            aria-label="Year by year"
+          >
             <h2>Year by year</h2>
             <DataTable rows={rows} series={series} open />
           </section>

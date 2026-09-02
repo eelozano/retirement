@@ -308,29 +308,21 @@ pub async fn export_text_file(
     Ok(Some(path))
 }
 
-/// Renders the calling window's contents to PDF bytes and writes them to a
+/// Renders the calling window's contents to a paginated PDF at a
 /// user-chosen path — the printable report's "Save as PDF…" button. macOS
-/// only: it drives WKWebView's native `createPDF` API directly (see
-/// `pdf.rs`), and there is no cross-platform equivalent.
-///
-/// `width`/`height` (CSS pixels) name the exact page-coordinate rect to
-/// capture. `createPDF`'s default behavior only captures whatever is
-/// currently scrolled into the window's viewport — not the full page, and
-/// not with `@media print` applied — so the frontend is responsible for
-/// switching into a chrome-free, unclipped layout and measuring its own
-/// full extent before calling this; `pdf::render` then captures exactly
-/// that rect regardless of the window's actual on-screen size.
+/// only: it drives WKWebView's real print pipeline directly (see `pdf.rs`),
+/// headless and pointed at a file instead of the interactive sheet, and
+/// there is no cross-platform equivalent. `@media print` in `App.css`
+/// controls what's isolated and how it paginates; this command itself only
+/// picks the destination and hands it off.
 #[tauri::command]
 pub async fn export_report_pdf(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
     suggested_name: String,
-    width: f64,
-    height: f64,
 ) -> Result<Option<PathBuf>, String> {
     #[cfg(target_os = "macos")]
     {
-        let bytes = crate::pdf::render(window, width, height).await?;
         let (tx, mut rx) = tauri::async_runtime::channel(1);
         app.dialog()
             .file()
@@ -346,12 +338,12 @@ pub async fn export_report_pdf(
         let Some(path) = picked.and_then(|fp| fp.into_path().ok()) else {
             return Ok(None);
         };
-        std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
+        crate::pdf::render(window, path.clone()).await?;
         Ok(Some(path))
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (app, window, suggested_name, width, height);
+        let _ = (app, window, suggested_name);
         Err("PDF export is only available on macOS today.".to_string())
     }
 }

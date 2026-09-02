@@ -2929,6 +2929,7 @@ dependencies = [
  "block2",
  "engine",
  "objc2",
+ "objc2-app-kit",
  "objc2-core-foundation",
  "objc2-foundation",
  "objc2-web-kit",
@@ -2940,6 +2941,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
  "time",
+ "tokio",
 ]
 
 [[package]]
