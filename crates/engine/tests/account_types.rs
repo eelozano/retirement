@@ -78,7 +78,6 @@ fn base_plan(accounts: Vec<Account>) -> Plan {
             start: YearMonth::new(START_YEAR, 1),
             period: PeriodLength::Year,
             display_real_dollars: false,
-            show_monte_carlo_band: false,
         },
     }
 }

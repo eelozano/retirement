@@ -11,11 +11,4 @@ start: YearMonth, period: PeriodLength,
  * UI hint only: whether charts default to today's-dollars display. The
  * engine always outputs nominal values plus a per-period deflator.
  */
-display_real_dollars: boolean, 
-/**
- * UI hint only: whether the projection chart defaults to showing the
- * Monte Carlo percentile band. `#[serde(default)]` so plans saved
- * before this field existed load with the band off, same migration
- * precedent as `id` above.
- */
-show_monte_carlo_band: boolean, };
+display_real_dollars: boolean, };
