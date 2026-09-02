@@ -17,6 +17,7 @@ function projection(warnings: Projection["warnings"]): Projection {
       { period: 1, period_start: { year: 2027, month: 1 } } as PeriodSnapshot,
     ],
     warnings,
+    streams: [],
   };
 }
 

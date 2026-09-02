@@ -102,7 +102,10 @@ fn invariants_hold_across_plan_grid() {
                 snapshot.period
             );
             assert!(
-                close(snapshot.contributions, sums(&snapshot.contributions_by_account)),
+                close(
+                    snapshot.contributions,
+                    sums(&snapshot.contributions_by_account)
+                ),
                 "plan {i} period {}: contributions_by_account does not sum to contributions",
                 snapshot.period
             );

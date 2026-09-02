@@ -192,7 +192,11 @@ fn a_survivor_with_no_benefit_of_their_own_inherits_the_decedents() {
         .iter()
         .find(|s| s.id == "ss-survivor-second")
         .expect("the survivor benefit is listed among the run's streams");
-    assert!(survivor.name.contains("survivor Social Security"), "{}", survivor.name);
+    assert!(
+        survivor.name.contains("survivor Social Security"),
+        "{}",
+        survivor.name
+    );
     let after = year(&projection, 2044);
     assert_eq!(after.income_by_stream.len(), 1);
     assert_eq!(after.income_by_stream["ss-survivor-second"], 40_000.0);

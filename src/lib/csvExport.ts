@@ -5,6 +5,11 @@ import { dateStamp, sanitizedPlanName } from "./exportFilename";
 // The CSV twin of the year table, minus the account-count cap the chart
 // applies for legibility (`MAX_SERIES` in chartData.ts) — a spreadsheet has
 // no reason to fold anything into "Other".
+//
+// Per-stream and per-account columns (#67) sit right after the total they
+// decompose, and are taken from `projection.streams` rather than the plan so
+// the Social Security and survivor streams the engine synthesizes get
+// columns too.
 
 /** Wraps a field in quotes and escapes internal quotes if it needs it — the
  * only free-text values here are account names. */
@@ -41,13 +46,20 @@ export function buildProjectionCsv(
     `# Generated: ${new Date().toISOString()}`,
   ];
 
+  const incomeStreams = projection.streams.filter((s) => s.direction === "Income");
+  const expenseStreams = projection.streams.filter((s) => s.direction === "Expense");
+
   const header = [
     "Year",
     ...plan.accounts.map((a) => `${a.name} balance`),
     "Income",
+    ...incomeStreams.map((s) => `${s.name} income`),
     "Expenses",
+    ...expenseStreams.map((s) => `${s.name} expense`),
     "Taxes",
+    "Tax on withdrawals",
     "Contributions",
+    ...plan.accounts.map((a) => `${a.name} contribution`),
     "Employer match",
     "Required distributions",
     "Surplus",
@@ -63,9 +75,13 @@ export function buildProjectionCsv(
       s.period_start.year,
       ...plan.accounts.map((a) => m(s.balances[a.id] ?? 0)),
       m(s.income),
+      ...incomeStreams.map((st) => m(s.income_by_stream[st.id] ?? 0)),
       m(s.expenses),
+      ...expenseStreams.map((st) => m(s.expenses_by_stream[st.id] ?? 0)),
       m(s.taxes),
+      m(s.withdrawal_taxes),
       m(s.contributions),
+      ...plan.accounts.map((a) => m(s.contributions_by_account[a.id] ?? 0)),
       m(s.employer_match),
       m(s.required_distributions),
       m(s.surplus),
