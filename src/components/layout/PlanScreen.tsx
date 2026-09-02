@@ -19,12 +19,14 @@ import { StatusBand } from "./StatusBand";
 //   2  projection + year inspector
 //   3  supporting detail, below the fold
 
-export function PlanScreen(props: { showBand: boolean; onOpenCashFlow: () => void }) {
+export function PlanScreen(props: { onOpenCashFlow: () => void }) {
   const plan = usePlanStore((s) => s.plan);
   const projection = usePlanStore((s) => s.projection);
   const monteCarlo = usePlanStore((s) => s.monteCarlo);
   const projecting = usePlanStore((s) => s.projecting);
   const realDollars = usePlanStore((s) => s.realDollars);
+  const showBand = usePlanStore((s) => s.showMonteCarloBand);
+  const setShowBand = usePlanStore((s) => s.setShowMonteCarloBand);
 
   const [hoverYear, setHoverYear] = useState<number | null>(null);
   const [pinnedYear, setPinnedYear] = useState<number | null>(null);
@@ -96,7 +98,7 @@ export function PlanScreen(props: { showBand: boolean; onOpenCashFlow: () => voi
   const activeYear = hoverYear ?? pinnedYear ?? defaultPin;
   const detail = yearDetail(plan, projection, activeYear, series, realDollars);
 
-  const bandOn = props.showBand && monteCarlo !== null;
+  const bandOn = showBand && monteCarlo !== null;
   // `chartData` already carries the percentile fields when `monteCarlo` is
   // set (via `mergeFan`), regardless of whether the band is toggled on.
   const activeFanRow = monteCarlo
@@ -129,46 +131,74 @@ export function PlanScreen(props: { showBand: boolean; onOpenCashFlow: () => voi
           <>
             <section className="projection-zone" aria-label="Projection">
               <div className="card projection-card">
+                {/* The overlay toggle belongs to this chart — it shades this
+                    chart and fills this inspector, and does nothing anywhere
+                    else in the app. */}
                 <div className="card-head">
                   <h2>Net worth &amp; account balances</h2>
                   <span className="card-note">
                     {realDollars ? "today's dollars · deflated" : "nominal dollars"}
                   </span>
                   <span className="card-spacer" />
-                  <div className="chart-legend">
-                    {series.map((s) => (
-                      <span className="legend-item" key={s.key}>
-                        <span className="row-swatch" style={{ background: s.color }} />
-                        {s.label}
-                      </span>
-                    ))}
-                    <span className="legend-item">
-                      <span className="legend-rule" />
-                      Net worth
+                  <button
+                    type="button"
+                    className="chart-toggle"
+                    aria-pressed={bandOn}
+                    disabled={monteCarlo === null}
+                    title={
+                      monteCarlo === null
+                        ? "Monte Carlo results are not available for this plan"
+                        : "Show the Monte Carlo percentile band on this chart"
+                    }
+                    aria-describedby="monte-carlo-toggle-hint"
+                    onClick={() => setShowBand(!showBand)}
+                  >
+                    Monte Carlo
+                  </button>
+                  <span id="monte-carlo-toggle-hint" className="visually-hidden">
+                    Shades the projection chart with the 10th–90th and 25th–75th
+                    percentile ranges from the Monte Carlo simulation, and adds those
+                    percentiles to the year inspector.
+                  </span>
+                  <span className="visually-hidden" role="status">
+                    {bandOn
+                      ? "Monte Carlo percentile band shown."
+                      : "Monte Carlo percentile band hidden."}
+                  </span>
+                </div>
+                <div className="chart-legend">
+                  {series.map((s) => (
+                    <span className="legend-item" key={s.key}>
+                      <span className="row-swatch" style={{ background: s.color }} />
+                      {s.label}
                     </span>
-                    {bandOn && (
-                      <>
-                        <span className="legend-item">
-                          <span
-                            className="legend-swatch"
-                            style={{ background: "var(--band)" }}
-                          />
-                          10th–90th percentile
-                        </span>
-                        <span className="legend-item">
-                          <span
-                            className="legend-swatch"
-                            style={{ background: "var(--band-inner)" }}
-                          />
-                          25th–75th percentile
-                        </span>
-                        <span className="legend-item">
-                          <span className="legend-rule legend-rule-dashed" />
-                          Median (p50)
-                        </span>
-                      </>
-                    )}
-                  </div>
+                  ))}
+                  <span className="legend-item">
+                    <span className="legend-rule" />
+                    Net worth
+                  </span>
+                  {bandOn && (
+                    <>
+                      <span className="legend-item">
+                        <span
+                          className="legend-swatch"
+                          style={{ background: "var(--band)" }}
+                        />
+                        10th–90th percentile
+                      </span>
+                      <span className="legend-item">
+                        <span
+                          className="legend-swatch"
+                          style={{ background: "var(--band-inner)" }}
+                        />
+                        25th–75th percentile
+                      </span>
+                      <span className="legend-item">
+                        <span className="legend-rule legend-rule-dashed" />
+                        Median (p50)
+                      </span>
+                    </>
+                  )}
                 </div>
                 <ProjectionChart
                   rows={chartData}

@@ -238,34 +238,6 @@ body {
 .topbar-spacer {
   flex: 1;
 }
-.topbar-divider {
-  width: 1px;
-  height: 22px;
-  background: var(--border);
-}
-.topbar-toggle {
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-secondary);
-  border-radius: var(--r-2);
-  padding: 6px 11px;
-  font: inherit;
-  font-size: var(--t-sm);
-  font-weight: 500;
-  cursor: pointer;
-}
-.topbar-toggle:hover {
-  border-color: var(--border-strong);
-  color: var(--text-primary);
-}
-/* Active overlay/view state is announced by aria-pressed and shown by fill —
-   never by color alone. */
-.topbar-toggle[aria-pressed="true"] {
-  background: var(--series-1);
-  border-color: var(--series-1);
-  color: var(--page);
-}
-
 /* Segmented control: a display option, visually distinct from navigation. */
 .segmented {
   display: flex;
@@ -1132,8 +1104,6 @@ button.remove:hover {
   border-color: var(--muted);
 }
 
-/* Monte Carlo view */
-
 /* ── Plan screen ─────────────────────────────────────────────────────── */
 
 .plan-screen {
@@ -1356,6 +1326,38 @@ button.remove:hover {
 .card-spacer {
   flex: 1;
 }
+/* The chart's own overlay toggle. Active state is announced by aria-pressed
+   and shown by fill — never by color alone. */
+.chart-toggle {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--r-2);
+  padding: 5px 10px;
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+.chart-toggle:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+.chart-toggle[aria-pressed="true"] {
+  background: var(--series-1);
+  border-color: var(--series-1);
+  color: var(--page);
+}
+.chart-toggle:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Head and legend are two rows here — the toggle sits with the title, and the
+   legend (which wraps once there are enough accounts) keeps its own line. */
+.projection-card .card-head {
+  margin-bottom: 6px;
+}
 .chart-legend {
   display: flex;
   gap: 14px;
@@ -1363,6 +1365,7 @@ button.remove:hover {
   color: var(--text-secondary);
   align-items: center;
   flex-wrap: wrap;
+  margin-bottom: var(--sp-2);
 }
 .legend-item {
   display: inline-flex;
