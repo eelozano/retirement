@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 
 // Native <dialog> + showModal(), not a hand-rolled div backdrop.
 //
@@ -9,13 +9,20 @@ import { useEffect, useRef } from "react";
 // all four behaviors, plus role="dialog"/aria-modal and the ::backdrop
 // pseudo-element, from the platform.
 
-export function Modal(props: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
+export const Modal = forwardRef<
+  HTMLDialogElement,
+  {
+    open: boolean;
+    onClose: () => void;
+    title: string;
+    children: React.ReactNode;
+    /** "lg" for content that outgrows the small settings-panel width — a
+     * report full of charts and a year table, not a form. */
+    size?: "sm" | "lg";
+  }
+>(function Modal(props, forwardedRef) {
   const ref = useRef<HTMLDialogElement>(null);
+  useImperativeHandle(forwardedRef, () => ref.current as HTMLDialogElement);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -29,7 +36,7 @@ export function Modal(props: {
     // biome-ignore lint/a11y/useKeyWithClickEvents: showModal() handles Escape natively; a key handler on the backdrop would be dead code
     <dialog
       ref={ref}
-      className="modal"
+      className={`modal ${props.size === "lg" ? "modal-lg" : ""}`}
       aria-label={props.title}
       // Fires for Escape too, so React state stays in sync with the platform
       // closing the dialog out from under it.
@@ -49,4 +56,4 @@ export function Modal(props: {
       </div>
     </dialog>
   );
-}
+});

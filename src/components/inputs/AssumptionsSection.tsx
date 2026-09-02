@@ -7,19 +7,19 @@ import { PercentField, SelectField, YearMonthField } from "./fields";
 import { boundaryOptions, boundaryToChoice, choiceToBoundary } from "./streamBoundary";
 import { TaxBracketEditor } from "./TaxBracketEditor";
 
-const ASSET_LABELS: Record<AssetClass, string> = {
+export const ASSET_LABELS: Record<AssetClass, string> = {
   UsEquity: "US equity (VTI)",
   IntlEquity: "Intl equity (VXUS)",
   GlobalEquity: "Global equity (VT)",
   UsBonds: "US bonds (BND)",
 };
 
-const FILING_STATUS_OPTIONS: { value: FilingStatus; label: string }[] = [
+export const FILING_STATUS_OPTIONS: { value: FilingStatus; label: string }[] = [
   { value: "Single", label: "Single" },
   { value: "MarriedFilingJointly", label: "Married filing jointly" },
 ];
 
-const STATE_LABELS: Record<StateCode, string> = {
+export const STATE_LABELS: Record<StateCode, string> = {
   Alabama: "Alabama",
   Alaska: "Alaska",
   Arizona: "Arizona",

@@ -11,6 +11,7 @@ interface RailProps {
   active: Destination;
   onNavigate: (to: Destination) => void;
   onOpenStorage: () => void;
+  onOpenReport: () => void;
 }
 
 const ICON = {
@@ -47,6 +48,13 @@ const ICON = {
       <ellipse cx="12" cy="6" rx="7" ry="3" />
       <path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6" />
       <path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" />
+    </>
+  ),
+  report: (
+    <>
+      <path d="M6 3h9l4 4v14H6z" />
+      <path d="M15 3v4h4" />
+      <path d="M9 12h6M9 16h6" />
     </>
   ),
 };
@@ -127,6 +135,7 @@ export function Rail(props: RailProps) {
         onClick={() => props.onNavigate("scenarios")}
       />
       <div className="rail-spacer" />
+      <RailButton label="Report" icon={ICON.report} onClick={props.onOpenReport} />
       <RailButton label="Storage" icon={ICON.storage} onClick={props.onOpenStorage} />
     </nav>
   );
