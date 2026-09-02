@@ -4,11 +4,13 @@ import type { FlowRow, YearDetail } from "./planData";
 // Right-hand readout for one year of the projection. The cash-flow fields on
 // PeriodSnapshot are shown as the two sides of the identity the engine pins
 // — money in against money out, each closing on its own total — with market
-// growth lifted up beside net worth, the number it actually explains. Below
-// that: per-account balances, a note on the years after the first death so
-// the drop in income reads as the survivor transition rather than a glitch,
-// and one on working years, where what's left over is really current
-// spending.
+// growth lifted up beside net worth, the number it actually explains. Also
+// here: a note on the years after the first death so the drop in income reads
+// as the survivor transition rather than a glitch, and one on working years,
+// where what's left over is really current spending.
+//
+// Per-account balances are deliberately *not* here — they read beside their
+// own colored bands, under the chart, in YearBalances.
 
 // One side of the cash identity: its rows, then its total. Subset rows are
 // annotations on the row above (RMDs inside withdrawals, the employer's share
@@ -155,18 +157,6 @@ export function YearInspector(props: {
         totalCritical={detail.shortfall}
         note={detail.spendingNote}
       />
-
-      <div className="inspector-block">
-        <div className="tile-label">Balances</div>
-        {detail.balances.map((row) => (
-          <div className="inspector-row" key={row.key}>
-            <span className="row-swatch" style={{ background: row.color }} />
-            <span className="row-label">{row.label}</span>
-            <span className="row-leader" />
-            <span className="row-value">{currencyCompact(row.value)}</span>
-          </div>
-        ))}
-      </div>
 
       <p className="inspector-hint">
         Click the chart to pin a year, or focus it and use the arrow keys. Hovering reads
