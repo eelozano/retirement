@@ -37,8 +37,15 @@ Run the dev server, then launch that same fresh binary from inside the bundle
 so it inherits a bundle id. It still points at the Vite dev server, so the
 frontend is current and HMR works.
 
+Tear down anything already running *first*, every time — not just when a
+port conflict shows up. A previous session that got interrupted (see the
+wait-for-binary note below) leaves its dev server, Vite, and bundled app
+running with nothing to signal that. Starting clean is what actually
+prevents the pile-up; only cleaning up at the end does not, because
+interrupts skip the end:
+
 ```bash
-lsof -ti:1420 | xargs kill 2>/dev/null; true
+pkill -f "bundle/macos/Retirement Planner.app"; pkill -f "target/debug/retirement"; pkill -f "@tauri-apps/cli/tauri.js"; lsof -ti:1420 | xargs kill 2>/dev/null; true
 ```
 
 ```bash
@@ -47,17 +54,25 @@ pnpm tauri dev > dev.log 2>&1
 
 Run that in the background. Then wait for the *binary* to start, not just for
 Vite — Vite is ready in ~100ms while the Rust build can take minutes on a cold
-target dir. Poll for the launch line rather than sleeping a fixed amount:
+target dir.
+
+**Do not spawn a second background task to poll for it.** A background
+`until grep ...; do sleep; done` loop, on top of the dev server itself, means
+two long-running background jobs to track — and waiting on a notification
+from one while the other is also in flight has repeatedly turned into a
+stalled-looking turn that gets interrupted, which is the exact failure mode
+that leaves processes running (see above). Instead, issue one bounded,
+foreground wait-then-check and just read the log yourself:
 
 ```bash
-until grep -q 'Running `/Users' dev.log; do sleep 2; done
+sleep 20 && tail -20 dev.log
 ```
 
-**Run that wait loop in the background too** (`run_in_background: true`), not
-in the foreground. Foreground `sleep` is blocked in Claude Code sessions, so a
-foreground loop is killed and returns exit 137 — which looks like the build
-failed when it is still going fine. As a background command it exits the
-moment the line appears and notifies you.
+Look for the `Running `/Users...` line. That's enough on a warm target dir.
+On a cold one (first run after a clean, or after a dependency bump), rerun
+the same `sleep 20 && tail -20 dev.log` once or twice more rather than
+switching to a loop — this bounded, explicit poll has been reliable; open-
+ended background waits paired with a second task have not.
 
 Then swap the fresh binary into the bundle and open the bundle:
 
@@ -84,11 +99,18 @@ If `target/debug/bundle/` does not exist on a fresh clone, create it once with
 Killing the `tauri.js` CLI does **not** kill Vite — it is spawned as the
 `beforeDevCommand` and survives, holding port 1420. The next `pnpm tauri dev`
 then dies with `Port 1420 is already in use`, which reads like a broken
-project. Always tear down all three:
+project. Always tear down all three once you're done looking at the app:
 
 ```bash
 pkill -f "bundle/macos/Retirement Planner.app"; pkill -f "target/debug/retirement"; pkill -f "@tauri-apps/cli/tauri.js"; lsof -ti:1420 | xargs kill 2>/dev/null; true
 ```
+
+This is the same command the recipe runs *before* starting, too. Don't treat
+either copy as optional: the one at the start catches whatever an earlier,
+interrupted run left behind; this one is what keeps the next run — yours or
+a future session's — from inheriting a mess. If the user interrupts you
+mid-task, run this the moment you're back, before doing anything else — it's
+cheap, and skipping it is exactly how processes accumulate across sessions.
 
 ## Driving the UI
 
