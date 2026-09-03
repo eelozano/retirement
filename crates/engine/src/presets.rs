@@ -430,12 +430,12 @@ pub fn seed_plan() -> Plan {
                 cost_basis: None,
                 allocation: AllocationRef::Aggressive,
                 plan_type: PlanType::EmployerPlan,
+                // Intent rather than a frozen figure: a fresh install then
+                // indexes the limit forward and picks up catch-up as the
+                // owner ages, instead of deferring 2026's number in 2041.
                 contributions: vec![Contribution::until_retirement(
                     "alex-401k-contribution",
-                    ContributionRule::FlatAmount {
-                        amount: ELECTIVE_DEFERRAL_LIMIT,
-                        growth: GrowthRule::None,
-                    },
+                    ContributionRule::FederalMaximum,
                     &alex,
                 )],
                 employer_match: None,
@@ -451,10 +451,7 @@ pub fn seed_plan() -> Plan {
                 plan_type: PlanType::Ira,
                 contributions: vec![Contribution::until_retirement(
                     "jordan-roth-contribution",
-                    ContributionRule::FlatAmount {
-                        amount: IRA_CONTRIBUTION_LIMIT,
-                        growth: GrowthRule::None,
-                    },
+                    ContributionRule::FederalMaximum,
                     &jordan,
                 )],
                 employer_match: None,

@@ -21,8 +21,8 @@ use engine::model::PeriodLength;
 use engine::model::{
     Account, AccountKind, AllocationRef, CashFlowStream, Contribution, ContributionRule,
     EmployerMatch, FilingStatus, GrowthRule, MatchDestination, MatchTier, Person, Plan, PlanType,
-    SimConfig, SocialSecurityBenefit, StateCode, StreamBoundary, StreamDirection, YearMonth,
-    SCHEMA_VERSION,
+    SimConfig, SocialSecurityBenefit, StateCode, StepUp, StreamBoundary, StreamDirection,
+    YearMonth, SCHEMA_VERSION,
 };
 use engine::presets::{default_assumptions, presets};
 use std::fs;
@@ -52,7 +52,9 @@ fn tiered_match(tiers: &[(f64, f64)], destination: MatchDestination) -> Employer
 /// going on to exercise the parts of the app worth looking at: an employer
 /// match, a pre-Medicare healthcare bridge, a survivor pension, spending
 /// that steps down at retirement, and pre-tax balances large enough that
-/// RMDs eventually bite.
+/// RMDs eventually bite. Saving is dated and escalating too: a brokerage
+/// transfer that goes up in 2027, a 401(k) that auto-escalates a point a
+/// year, and a Roth IRA that does not open until 2029.
 fn demo_base() -> Plan {
     let mut assumptions = default_assumptions();
     assumptions.filing_status = FilingStatus::MarriedFilingJointly;
@@ -99,14 +101,29 @@ fn demo_base() -> Plan {
                 cost_basis: Some(88_000.0),
                 allocation: AllocationRef::Aggressive,
                 plan_type: PlanType::None,
-                contributions: vec![Contribution::until_retirement(
-                    "joint-brokerage-contribution",
-                    ContributionRule::FlatAmount {
-                        amount: 6_000.0,
-                        growth: GrowthRule::None,
+                // Two entries that overlap and sum: the $500/month standing
+                // transfer they have now, plus the $700/month they add from
+                // January 2027 once the car is paid off — $1,200/month from
+                // then until Alex retires.
+                contributions: vec![
+                    Contribution::until_retirement(
+                        "joint-brokerage-contribution",
+                        ContributionRule::FlatAmount {
+                            amount: 6_000.0,
+                            growth: GrowthRule::None,
+                        },
+                        &ALEX.to_string(),
+                    ),
+                    Contribution {
+                        id: "joint-brokerage-contribution-2027".to_string(),
+                        rule: ContributionRule::FlatAmount {
+                            amount: 8_400.0,
+                            growth: GrowthRule::None,
+                        },
+                        start: StreamBoundary::Date(YearMonth::new(2027, 1)),
+                        end: StreamBoundary::AtRetirement(ALEX.to_string()),
                     },
-                    &ALEX.to_string(),
-                )],
+                ],
                 employer_match: None,
             },
             Account {
@@ -118,11 +135,16 @@ fn demo_base() -> Plan {
                 cost_basis: None,
                 allocation: AllocationRef::Aggressive,
                 plan_type: PlanType::EmployerPlan,
+                // Auto-escalation, the way a plan document writes it:
+                // 10% now, up a point each year, stopping at 15%.
                 contributions: vec![Contribution::until_retirement(
                     "alex-401k-contribution",
                     ContributionRule::PercentOfSalary {
                         percent: 0.10,
-                        step_up: None,
+                        step_up: Some(StepUp {
+                            points_per_year: 0.01,
+                            cap: 0.15,
+                        }),
                     },
                     &ALEX.to_string(),
                 )],
@@ -165,6 +187,26 @@ fn demo_base() -> Plan {
                     ContributionRule::FederalMaximum,
                     &JORDAN.to_string(),
                 )],
+                employer_match: None,
+            },
+            // An account that does not exist yet: Alex opens a Roth IRA in
+            // 2029, when the college bills are done, and funds it to the
+            // maximum from then until retiring.
+            Account {
+                id: "alex-roth-ira".to_string(),
+                owner: ALEX.to_string(),
+                kind: AccountKind::Roth,
+                name: "Alex Roth IRA".to_string(),
+                balance: 0.0,
+                cost_basis: None,
+                allocation: AllocationRef::Aggressive,
+                plan_type: PlanType::Ira,
+                contributions: vec![Contribution {
+                    id: "alex-roth-ira-contribution".to_string(),
+                    rule: ContributionRule::FederalMaximum,
+                    start: StreamBoundary::Date(YearMonth::new(2029, 1)),
+                    end: StreamBoundary::AtRetirement(ALEX.to_string()),
+                }],
                 employer_match: None,
             },
             Account {
