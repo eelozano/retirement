@@ -130,6 +130,64 @@ export function NumberField(props: {
   );
 }
 
+/**
+ * A dollar amount entered per month or per year, at the user's choice.
+ *
+ * `value`/`onChange` are always the **annual** figure — storage never
+ * changes shape. The unit toggle is local component state: switching it
+ * only changes how the same annual figure is displayed (month = annual/12,
+ * rounded to the cent), never what is stored, so it resets to "year" on
+ * remount and is never round-tripped through the plan.
+ */
+export function AmountField(props: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  hint?: string;
+}) {
+  const id = useId();
+  const [unit, setUnit] = useState<"year" | "month">("year");
+  const min = props.min ?? 0;
+  const step = props.step ?? 1000;
+  const perMonth = unit === "month";
+
+  const displayed = perMonth ? Math.round((props.value / 12) * 100) / 100 : props.value;
+
+  return (
+    <label
+      className={props.hint ? "field field-amount field-with-hint" : "field field-amount"}
+      htmlFor={id}
+    >
+      <span>{props.label}</span>
+      <span className="field-group">
+        <BufferedNumberInput
+          id={id}
+          ariaLabel={props.label}
+          canonical={String(displayed)}
+          min={perMonth ? min / 12 : min}
+          max={
+            props.max === undefined ? undefined : perMonth ? props.max / 12 : props.max
+          }
+          step={perMonth ? step / 12 : step}
+          onCommit={(typed) => props.onChange(perMonth ? typed * 12 : typed)}
+        />
+        <select
+          aria-label={`${props.label} unit`}
+          value={unit}
+          onChange={(e) => setUnit(e.currentTarget.value as "year" | "month")}
+        >
+          <option value="year">/ yr</option>
+          <option value="month">/ mo</option>
+        </select>
+      </span>
+      {props.hint && <small className="field-hint">{props.hint}</small>}
+    </label>
+  );
+}
+
 export function PercentField(props: {
   label: string;
   /** Stored as a decimal rate (0.025 = 2.5%). */

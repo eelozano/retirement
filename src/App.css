@@ -613,6 +613,21 @@ body {
   min-width: 0;
 }
 
+/* AmountField's control slot is a number input plus a unit select, not the
+   month-select-plus-year-box .field-group was built for — the select stays
+   a fixed width and the input takes the rest, rather than the reverse. */
+.field-amount .field-group {
+  flex: 0 0 210px;
+}
+.field-amount .field-group input {
+  flex: 1 1 auto;
+  width: auto;
+}
+.field-amount .field-group select {
+  flex: 0 0 68px;
+  width: auto;
+}
+
 .field-checkbox {
   align-items: flex-start;
   justify-content: flex-start;
