@@ -24,8 +24,8 @@ pub enum StreamBoundary {
     AtDeath(PersonId),
 }
 
-/// How the stream's annual amount grows over time.
-#[derive(Serialize, Deserialize, TS, Clone, Copy, Debug)]
+/// How an amount grows over time — a stream's, or a flat contribution's.
+#[derive(Serialize, Deserialize, TS, Clone, Copy, Debug, PartialEq)]
 #[ts(export)]
 pub enum GrowthRule {
     /// Track the plan's inflation assumption (typical for spending, salary).
@@ -34,6 +34,16 @@ pub enum GrowthRule {
     Fixed(f64),
     /// Flat in nominal dollars.
     None,
+}
+
+/// `None` — no growth. The zero value, so `#[serde(default)]` on a field
+/// that gained a growth rule (`ContributionRule::FlatAmount::growth`) reads
+/// an older plan file as exactly the behaviour it had. A stream, which has
+/// always required the key, is unaffected.
+impl Default for GrowthRule {
+    fn default() -> Self {
+        GrowthRule::None
+    }
 }
 
 /// A dated cash flow: salary, retirement spending, pensions, or one-offs.

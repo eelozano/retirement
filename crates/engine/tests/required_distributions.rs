@@ -50,7 +50,10 @@ fn account(id: &str, kind: AccountKind, balance: f64, basis: Option<f64>) -> Acc
         },
         contributions: vec![Contribution::until_retirement(
             "contribution",
-            ContributionRule::FlatAmount { amount: 0.0 },
+            ContributionRule::FlatAmount {
+                amount: 0.0,
+                growth: GrowthRule::None,
+            },
             &"p1".to_string(),
         )],
         employer_match: None,

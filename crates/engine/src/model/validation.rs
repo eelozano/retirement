@@ -177,11 +177,11 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                 ));
             }
             match entry.rule {
-                ContributionRule::FlatAmount { amount } if amount < 0.0 => errors.push(err(
+                ContributionRule::FlatAmount { amount, .. } if amount < 0.0 => errors.push(err(
                     &field("rule"),
                     &format!("\"{}\" can't contribute a negative amount.", account.name),
                 )),
-                ContributionRule::PercentOfSalary { percent }
+                ContributionRule::PercentOfSalary { percent, .. }
                     if !(0.0..=1.0).contains(&percent) =>
                 {
                     errors.push(err(
@@ -192,6 +192,44 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                             percent * 100.0
                         ),
                     ))
+                }
+                // A step-up that cannot step, or one whose cap sits below
+                // where it starts, is a silent no-op — the user typed an
+                // escalation and would get a flat percentage forever.
+                ContributionRule::PercentOfSalary {
+                    percent,
+                    step_up: Some(step_up),
+                } => {
+                    if step_up.points_per_year <= 0.0 {
+                        errors.push(err(
+                            &field("rule"),
+                            &format!(
+                                "\"{}\"'s contribution steps up by {:.1} points a year — it has to go up by more than zero.",
+                                account.name,
+                                step_up.points_per_year * 100.0
+                            ),
+                        ));
+                    }
+                    if step_up.cap < percent {
+                        errors.push(err(
+                            &field("rule"),
+                            &format!(
+                                "\"{}\" starts at {:.0}% of salary and steps up to {:.0}% — the ceiling can't be below the starting percentage.",
+                                account.name,
+                                percent * 100.0,
+                                step_up.cap * 100.0
+                            ),
+                        ));
+                    } else if step_up.cap > 1.0 {
+                        errors.push(err(
+                            &field("rule"),
+                            &format!(
+                                "\"{}\"'s contribution steps up to {:.0}% of salary — it can't go past 100%.",
+                                account.name,
+                                step_up.cap * 100.0
+                            ),
+                        ));
+                    }
                 }
                 ContributionRule::FederalMaximum if account.plan_type == PlanType::None => {
                     errors.push(err(
@@ -677,14 +715,17 @@ mod tests {
 
     #[test]
     fn catches_bad_contribution_rules_per_entry() {
-        use crate::model::ContributionRule;
+        use crate::model::{ContributionRule, GrowthRule};
         let mut plan = seed_plan();
         let owner = plan.accounts[0].owner.clone();
         plan.accounts[0]
             .contributions
             .push(crate::model::Contribution::until_retirement(
                 "second",
-                ContributionRule::FlatAmount { amount: -1.0 },
+                ContributionRule::FlatAmount {
+                    amount: -1.0,
+                    growth: GrowthRule::None,
+                },
                 &owner,
             ));
         let errors = plan.validate();

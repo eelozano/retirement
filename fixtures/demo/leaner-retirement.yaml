@@ -33,6 +33,7 @@ accounts:
   - id: joint-brokerage-contribution
     rule: !FlatAmount
       amount: 6000.0
+      growth: None
     start: PlanStart
     end: !AtRetirement alex
   employer_match: null
@@ -48,6 +49,7 @@ accounts:
   - id: alex-401k-contribution
     rule: !PercentOfSalary
       percent: 0.1
+      step_up: null
     start: PlanStart
     end: !AtRetirement alex
   employer_match:
@@ -69,6 +71,7 @@ accounts:
   - id: jordan-403b-contribution
     rule: !PercentOfSalary
       percent: 0.08
+      step_up: null
     start: PlanStart
     end: !AtRetirement jordan
   employer_match:
@@ -116,6 +119,7 @@ accounts:
   - id: emergency-savings-contribution
     rule: !FlatAmount
       amount: 0.0
+      growth: None
     start: PlanStart
     end: !AtRetirement jordan
   employer_match: null

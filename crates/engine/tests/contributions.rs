@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use engine::model::{
     Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
-    StateTaxProfile, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
+    StateTaxProfile, StepUp, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
 };
 use engine::presets::CONTRIBUTION_LIMITS;
 use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
@@ -130,7 +130,10 @@ fn contributions_in(projection: &Projection, year: i32) -> f64 {
 #[test]
 fn percent_of_salary_rises_with_an_inflating_salary() {
     let plan = plan_with(
-        ContributionRule::PercentOfSalary { percent: 0.08 },
+        ContributionRule::PercentOfSalary {
+            percent: 0.08,
+            step_up: None,
+        },
         AccountKind::TraditionalPreTax,
         PlanType::EmployerPlan,
     );
@@ -157,7 +160,10 @@ fn a_flat_amount_stays_nominal_and_so_decays_in_real_terms() {
     // Documented behavior, not an oversight: a fixed standing transfer is a
     // fixed number of dollars. The UI says so where it is entered.
     let plan = plan_with(
-        ContributionRule::FlatAmount { amount: 10_000.0 },
+        ContributionRule::FlatAmount {
+            amount: 10_000.0,
+            growth: GrowthRule::None,
+        },
         AccountKind::TraditionalPreTax,
         PlanType::EmployerPlan,
     );
@@ -267,7 +273,10 @@ fn indexed_limits_round_down_to_statutory_increments() {
 #[test]
 fn a_taxable_account_has_no_federal_maximum_to_resolve() {
     let mut plan = plan_with(
-        ContributionRule::FlatAmount { amount: 0.0 },
+        ContributionRule::FlatAmount {
+            amount: 0.0,
+            growth: GrowthRule::None,
+        },
         AccountKind::Taxable,
         PlanType::None,
     );
@@ -288,7 +297,10 @@ fn a_clamp_is_reported_once_for_the_first_year_it_bites() {
     // 20% of a $200k salary is far above the deferral limit, and stays
     // above it for every year of the projection — one finding, not thirty.
     let plan = plan_with(
-        ContributionRule::PercentOfSalary { percent: 0.20 },
+        ContributionRule::PercentOfSalary {
+            percent: 0.20,
+            step_up: None,
+        },
         AccountKind::TraditionalPreTax,
         PlanType::EmployerPlan,
     );
@@ -333,7 +345,10 @@ fn clamps_in(projection: &Projection) -> Vec<(usize, f64, f64)> {
 #[test]
 fn an_entry_starting_at_a_date_contributes_nothing_before_it_and_prorates_its_first_year() {
     let mut plan = plan_with(
-        ContributionRule::FlatAmount { amount: 12_000.0 },
+        ContributionRule::FlatAmount {
+            amount: 12_000.0,
+            growth: GrowthRule::None,
+        },
         AccountKind::Taxable,
         PlanType::None,
     );
@@ -353,7 +368,10 @@ fn an_entry_starting_at_a_date_contributes_nothing_before_it_and_prorates_its_fi
 #[test]
 fn an_entry_ending_at_a_date_before_retirement_stops_there() {
     let mut plan = plan_with(
-        ContributionRule::FlatAmount { amount: 12_000.0 },
+        ContributionRule::FlatAmount {
+            amount: 12_000.0,
+            growth: GrowthRule::None,
+        },
         AccountKind::Taxable,
         PlanType::None,
     );
@@ -376,13 +394,19 @@ fn an_entry_ending_at_a_date_before_retirement_stops_there() {
 #[test]
 fn two_entries_on_one_account_sum_and_clamp_together_with_one_warning() {
     let mut plan = plan_with(
-        ContributionRule::FlatAmount { amount: 2_400.0 },
+        ContributionRule::FlatAmount {
+            amount: 2_400.0,
+            growth: GrowthRule::None,
+        },
         AccountKind::Taxable,
         PlanType::None,
     );
     plan.accounts[0].contributions.push(Contribution {
         id: "raise".to_string(),
-        rule: ContributionRule::FlatAmount { amount: 12_000.0 },
+        rule: ContributionRule::FlatAmount {
+            amount: 12_000.0,
+            growth: GrowthRule::None,
+        },
         start: StreamBoundary::Date(YearMonth::new(2027, 1)),
         end: StreamBoundary::AtRetirement("p1".to_string()),
     });
@@ -405,7 +429,10 @@ fn two_entries_on_one_account_sum_and_clamp_together_with_one_warning() {
     // Now on a capped account: the sum is what is clamped, and the account
     // — not each entry — is what is reported.
     let mut plan = plan_with(
-        ContributionRule::FlatAmount { amount: 15_000.0 },
+        ContributionRule::FlatAmount {
+            amount: 15_000.0,
+            growth: GrowthRule::None,
+        },
         AccountKind::TraditionalPreTax,
         PlanType::EmployerPlan,
     );
@@ -413,7 +440,10 @@ fn two_entries_on_one_account_sum_and_clamp_together_with_one_warning() {
         .contributions
         .push(Contribution::until_retirement(
             "second",
-            ContributionRule::FlatAmount { amount: 15_000.0 },
+            ContributionRule::FlatAmount {
+                amount: 15_000.0,
+                growth: GrowthRule::None,
+            },
             &"p1".to_string(),
         ));
     let projection = run(&plan);
@@ -432,7 +462,10 @@ fn two_entries_on_one_account_sum_and_clamp_together_with_one_warning() {
 fn percent_of_salary_scales_by_the_entrys_share_of_the_salary_earned() {
     // Full working year, entry starts in July: half of a full year's salary.
     let mut plan = plan_with(
-        ContributionRule::PercentOfSalary { percent: 0.10 },
+        ContributionRule::PercentOfSalary {
+            percent: 0.10,
+            step_up: None,
+        },
         AccountKind::Taxable,
         PlanType::None,
     );
@@ -452,7 +485,10 @@ fn percent_of_salary_scales_by_the_entrys_share_of_the_salary_earned() {
     // Retires in April, entry ends at retirement: 10% of the salary
     // actually earned — three months' worth — not docked a second time.
     let mut plan = plan_with(
-        ContributionRule::PercentOfSalary { percent: 0.10 },
+        ContributionRule::PercentOfSalary {
+            percent: 0.10,
+            step_up: None,
+        },
         AccountKind::Taxable,
         PlanType::None,
     );
@@ -492,7 +528,10 @@ fn percent_of_salary_scales_by_the_entrys_share_of_the_salary_earned() {
 #[test]
 fn an_ira_entry_can_run_past_the_owners_retirement() {
     let mut plan = plan_with(
-        ContributionRule::FlatAmount { amount: 5_000.0 },
+        ContributionRule::FlatAmount {
+            amount: 5_000.0,
+            growth: GrowthRule::None,
+        },
         AccountKind::Roth,
         PlanType::Ira,
     );
@@ -514,7 +553,10 @@ fn an_ira_entry_can_run_past_the_owners_retirement() {
 #[test]
 fn a_boundary_naming_a_deleted_person_is_reported_and_contributes_nothing() {
     let mut plan = plan_with(
-        ContributionRule::FlatAmount { amount: 12_000.0 },
+        ContributionRule::FlatAmount {
+            amount: 12_000.0,
+            growth: GrowthRule::None,
+        },
         AccountKind::Taxable,
         PlanType::None,
     );
@@ -533,4 +575,248 @@ fn a_boundary_naming_a_deleted_person_is_reported_and_contributes_nothing() {
         projection.snapshots.iter().all(|s| s.contributions == 0.0),
         "nothing contributed from an entry with no window"
     );
+}
+
+// ---- Escalation (#79) -----------------------------------------------------
+
+/// The plan-document sentence this exists for: "10% of salary now, up a
+/// point a year for five years until 15%."
+#[test]
+fn a_step_up_adds_a_point_a_year_until_it_reaches_the_cap() {
+    let plan = plan_with(
+        ContributionRule::PercentOfSalary {
+            percent: 0.10,
+            step_up: Some(StepUp {
+                points_per_year: 0.01,
+                cap: 0.15,
+            }),
+        },
+        AccountKind::Taxable,
+        PlanType::None,
+    );
+    let projection = run(&plan);
+
+    for (offset, percent) in [
+        (0, 0.10),
+        (1, 0.11),
+        (2, 0.12),
+        (3, 0.13),
+        (4, 0.14),
+        (5, 0.15),
+        (6, 0.15),
+        (12, 0.15),
+    ] {
+        let year = START_YEAR + offset;
+        assert_close(
+            contributions_in(&projection, year),
+            percent * salary_in(year),
+            &format!("{:.0}% of the {year} salary", percent * 100.0),
+        );
+    }
+}
+
+/// Years count from the *entry's* start, not the plan's: "open a Roth in
+/// 2029 at 5%, up a point a year" is 5% in 2029, not 5% plus three years of
+/// steps it never took.
+#[test]
+fn a_step_up_counts_years_from_the_entrys_own_start() {
+    let mut plan = plan_with(
+        ContributionRule::PercentOfSalary {
+            percent: 0.05,
+            step_up: Some(StepUp {
+                points_per_year: 0.01,
+                cap: 0.15,
+            }),
+        },
+        AccountKind::Taxable,
+        PlanType::None,
+    );
+    plan.accounts[0].contributions[0].start = StreamBoundary::Date(YearMonth::new(2029, 1));
+    let projection = run(&plan);
+
+    assert_close(contributions_in(&projection, 2028), 0.0, "before it starts");
+    assert_close(
+        contributions_in(&projection, 2029),
+        0.05 * salary_in(2029),
+        "its first year is its starting percentage",
+    );
+    assert_close(
+        contributions_in(&projection, 2030),
+        0.06 * salary_in(2030),
+        "one whole year in: one point",
+    );
+    assert_close(
+        contributions_in(&projection, 2032),
+        0.08 * salary_in(2032),
+        "three whole years in: three points",
+    );
+}
+
+/// A step-up crossing the statutory limit is still one finding, not one a
+/// year — the escalation is what pushes it over, and the dedup is by
+/// account.
+#[test]
+fn a_step_up_that_crosses_the_limit_is_reported_once() {
+    // 8% of $200k is under the deferral limit; 20% is well over it, so the
+    // clamp starts biting partway through rather than in period 0.
+    let plan = plan_with(
+        ContributionRule::PercentOfSalary {
+            percent: 0.08,
+            step_up: Some(StepUp {
+                points_per_year: 0.01,
+                cap: 0.20,
+            }),
+        },
+        AccountKind::TraditionalPreTax,
+        PlanType::EmployerPlan,
+    );
+    let projection = run(&plan);
+    let clamps = clamps_in(&projection);
+    assert_eq!(clamps.len(), 1, "one finding for the account: {clamps:?}");
+    assert!(
+        clamps[0].0 > 0,
+        "the first year the escalated percentage crosses the limit, not period 0: {clamps:?}"
+    );
+    assert_close(
+        clamps[0].2,
+        CONTRIBUTION_LIMITS
+            .annual_limit(
+                PlanType::EmployerPlan,
+                (START_YEAR + clamps[0].0 as i32) - 1980,
+                START_YEAR + clamps[0].0 as i32,
+                INFLATION,
+            )
+            .unwrap(),
+        "held to that year's statutory cap",
+    );
+}
+
+/// The mirror of `a_flat_amount_stays_nominal_and_so_decays_in_real_terms`:
+/// the same entry with a growth rule keeps its buying power instead.
+#[test]
+fn a_flat_amount_with_a_growth_rule_holds_its_real_value() {
+    let plan = plan_with(
+        ContributionRule::FlatAmount {
+            amount: 10_000.0,
+            growth: GrowthRule::Inflation,
+        },
+        AccountKind::TraditionalPreTax,
+        PlanType::EmployerPlan,
+    );
+    let projection = run(&plan);
+
+    // Nominal: $10,000 grown twelve years at the plan's inflation rate.
+    assert_close(
+        contributions_in(&projection, START_YEAR + 12),
+        10_000.0 * (1.0 + INFLATION).powi(12),
+        "grown from plan start",
+    );
+    // Real: the same $10,000 it started as — the point of the rule.
+    let real = |year: i32| {
+        let snapshot = &projection.snapshots[(year - START_YEAR) as usize];
+        snapshot.contributions / snapshot.deflator
+    };
+    assert_close(real(START_YEAR), 10_000.0, "today's dollars in year one");
+    assert_close(real(START_YEAR + 12), 10_000.0, "and twelve years on");
+
+    // And `None` — the default, and what every plan written before this
+    // field loads as — still decays, unchanged.
+    let flat = run(&plan_with(
+        ContributionRule::FlatAmount {
+            amount: 10_000.0,
+            growth: GrowthRule::None,
+        },
+        AccountKind::TraditionalPreTax,
+        PlanType::EmployerPlan,
+    ));
+    assert_close(
+        contributions_in(&flat, START_YEAR + 12),
+        10_000.0,
+        "nominal, as before",
+    );
+}
+
+/// An inflation-growing amount is entered in *simulation-start* dollars —
+/// the stream convention — so it means the same thing whichever year the
+/// entry begins.
+#[test]
+fn a_growing_flat_amount_grows_from_plan_start_not_from_the_entrys_start() {
+    let mut plan = plan_with(
+        ContributionRule::FlatAmount {
+            amount: 10_000.0,
+            growth: GrowthRule::Inflation,
+        },
+        AccountKind::Taxable,
+        PlanType::None,
+    );
+    plan.accounts[0].contributions[0].start = StreamBoundary::Date(YearMonth::new(2029, 1));
+    let projection = run(&plan);
+    assert_close(
+        contributions_in(&projection, 2029),
+        10_000.0 * (1.0 + INFLATION).powi(3),
+        "three years of inflation on today's $10,000, not a fresh $10,000",
+    );
+}
+
+#[test]
+fn validation_rejects_a_step_up_that_cannot_step() {
+    let cases: [(StepUp, &str); 3] = [
+        (
+            StepUp {
+                points_per_year: 0.0,
+                cap: 0.15,
+            },
+            "a step of zero points never moves",
+        ),
+        (
+            StepUp {
+                points_per_year: -0.01,
+                cap: 0.15,
+            },
+            "stepping down is not modelled",
+        ),
+        (
+            StepUp {
+                points_per_year: 0.01,
+                cap: 0.05,
+            },
+            "a cap below the starting percentage is a silent no-op",
+        ),
+    ];
+    for (step_up, why) in cases {
+        let mut plan = plan_with(
+            ContributionRule::PercentOfSalary {
+                percent: 0.10,
+                step_up: None,
+            },
+            AccountKind::Taxable,
+            PlanType::None,
+        );
+        assert!(plan.validate().is_empty(), "{:?}", plan.validate());
+        plan.accounts[0].contributions[0].rule = ContributionRule::PercentOfSalary {
+            percent: 0.10,
+            step_up: Some(step_up),
+        };
+        let errors = plan.validate();
+        assert!(
+            errors
+                .iter()
+                .any(|e| e.field == "accounts[0].contributions[0].rule"),
+            "{why}: {errors:?}"
+        );
+    }
+
+    // The valid escalation the rejections are drawn around.
+    let plan = plan_with(
+        ContributionRule::PercentOfSalary {
+            percent: 0.10,
+            step_up: Some(StepUp {
+                points_per_year: 0.01,
+                cap: 0.15,
+            }),
+        },
+        AccountKind::Taxable,
+        PlanType::None,
+    );
+    assert!(plan.validate().is_empty(), "{:?}", plan.validate());
 }

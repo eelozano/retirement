@@ -413,7 +413,10 @@ pub fn seed_plan() -> Plan {
                 plan_type: PlanType::None,
                 contributions: vec![Contribution::until_retirement(
                     "taxable-brokerage-contribution",
-                    ContributionRule::FlatAmount { amount: 40_000.0 },
+                    ContributionRule::FlatAmount {
+                        amount: 40_000.0,
+                        growth: GrowthRule::None,
+                    },
                     &alex,
                 )],
                 employer_match: None,
@@ -431,6 +434,7 @@ pub fn seed_plan() -> Plan {
                     "alex-401k-contribution",
                     ContributionRule::FlatAmount {
                         amount: ELECTIVE_DEFERRAL_LIMIT,
+                        growth: GrowthRule::None,
                     },
                     &alex,
                 )],
@@ -449,6 +453,7 @@ pub fn seed_plan() -> Plan {
                     "jordan-roth-contribution",
                     ContributionRule::FlatAmount {
                         amount: IRA_CONTRIBUTION_LIMIT,
+                        growth: GrowthRule::None,
                     },
                     &jordan,
                 )],

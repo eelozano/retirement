@@ -62,7 +62,10 @@ fn micro_plan() -> Plan {
             plan_type: PlanType::EmployerPlan,
             contributions: vec![Contribution::until_retirement(
                 "contribution",
-                ContributionRule::FlatAmount { amount: 10_000.0 },
+                ContributionRule::FlatAmount {
+                    amount: 10_000.0,
+                    growth: GrowthRule::None,
+                },
                 &person,
             )],
             employer_match: None,
@@ -197,7 +200,10 @@ fn micro_plan_with_taxable_account() -> Plan {
         plan_type: PlanType::None,
         contributions: vec![Contribution::until_retirement(
             "contribution",
-            ContributionRule::FlatAmount { amount: 0.0 },
+            ContributionRule::FlatAmount {
+                amount: 0.0,
+                growth: GrowthRule::None,
+            },
             &"p1".to_string(),
         )],
         employer_match: None,
@@ -283,6 +289,7 @@ fn contribution_above_limit_is_clamped_with_warning() {
     let mut plan = micro_plan();
     plan.accounts[0].contributions[0].rule = ContributionRule::FlatAmount {
         amount: deferral_cap() + 10_000.0,
+        growth: GrowthRule::None,
     };
     let projection = run_with_flat_tax(&plan, 0.20);
     assert_eq!(
@@ -332,6 +339,7 @@ fn with_second_account(
             "contribution",
             ContributionRule::FlatAmount {
                 amount: contribution,
+                growth: GrowthRule::None,
             },
             &"p1".to_string(),
         )],
@@ -352,6 +360,7 @@ fn two_employer_plans_share_one_deferral_limit_filled_in_plan_order() {
     );
     plan.accounts[0].contributions[0].rule = ContributionRule::FlatAmount {
         amount: deferral_cap(),
+        growth: GrowthRule::None,
     };
 
     let projection = run_with_flat_tax(&plan, 0.20);
@@ -373,6 +382,7 @@ fn ira_and_employer_plan_are_capped_independently() {
     let mut plan = with_second_account("roth-ira", AccountKind::Roth, PlanType::Ira, ira_cap());
     plan.accounts[0].contributions[0].rule = ContributionRule::FlatAmount {
         amount: deferral_cap(),
+        growth: GrowthRule::None,
     };
 
     let projection = run_with_flat_tax(&plan, 0.20);
@@ -398,7 +408,10 @@ fn traditional_and_roth_iras_share_one_ira_limit() {
     let mut plan = with_second_account("roth-ira", AccountKind::Roth, PlanType::Ira, ira_cap());
     plan.accounts[0].kind = AccountKind::TraditionalPreTax;
     plan.accounts[0].plan_type = PlanType::Ira;
-    plan.accounts[0].contributions[0].rule = ContributionRule::FlatAmount { amount: ira_cap() };
+    plan.accounts[0].contributions[0].rule = ContributionRule::FlatAmount {
+        amount: ira_cap(),
+        growth: GrowthRule::None,
+    };
 
     let projection = run_with_flat_tax(&plan, 0.20);
     assert_close(
@@ -421,6 +434,7 @@ fn plan_type_decides_the_bucket_not_the_tax_treatment() {
     );
     plan.accounts[0].contributions[0].rule = ContributionRule::FlatAmount {
         amount: deferral_cap(),
+        growth: GrowthRule::None,
     };
 
     let projection = run_with_flat_tax(&plan, 0.20);
@@ -449,6 +463,7 @@ fn limits_are_per_person_so_two_people_do_not_share_a_bucket() {
     );
     plan.accounts[0].contributions[0].rule = ContributionRule::FlatAmount {
         amount: deferral_cap(),
+        growth: GrowthRule::None,
     };
     plan.accounts[1].owner = "p2".to_string();
     let mut spouse = plan.people[0].clone();

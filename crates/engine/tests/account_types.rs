@@ -221,14 +221,20 @@ fn an_hsa_contribution_reduces_taxable_income() {
         "hsa",
         AccountKind::Hsa,
         PlanType::Hsa,
-        ContributionRule::FlatAmount { amount: 4_000.0 },
+        ContributionRule::FlatAmount {
+            amount: 4_000.0,
+            growth: GrowthRule::None,
+        },
         AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
     )]));
     let without = run(&base_plan(vec![account(
         "hsa",
         AccountKind::Hsa,
         PlanType::Hsa,
-        ContributionRule::FlatAmount { amount: 0.0 },
+        ContributionRule::FlatAmount {
+            amount: 0.0,
+            growth: GrowthRule::None,
+        },
         AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
     )]));
 
@@ -253,7 +259,10 @@ fn a_savings_account_grows_at_its_own_cash_rate_not_market_returns() {
         "savings",
         AccountKind::Savings,
         PlanType::None,
-        ContributionRule::FlatAmount { amount: 0.0 },
+        ContributionRule::FlatAmount {
+            amount: 0.0,
+            growth: GrowthRule::None,
+        },
         AllocationRef::Cash(0.045),
     )]);
     plan.accounts[0].balance = 10_000.0;
@@ -279,7 +288,10 @@ fn a_savings_account_has_no_cost_basis_its_interest_is_taxed_as_it_accrues() {
         "savings",
         AccountKind::Savings,
         PlanType::None,
-        ContributionRule::FlatAmount { amount: 0.0 },
+        ContributionRule::FlatAmount {
+            amount: 0.0,
+            growth: GrowthRule::None,
+        },
         AllocationRef::Cash(0.045),
     )]);
     plan.accounts[0].balance = 10_000.0;
@@ -309,7 +321,10 @@ fn kind_and_plan_type_have_to_agree() {
         "hsa",
         AccountKind::Hsa,
         PlanType::Ira,
-        ContributionRule::FlatAmount { amount: 0.0 },
+        ContributionRule::FlatAmount {
+            amount: 0.0,
+            growth: GrowthRule::None,
+        },
         AllocationRef::Moderate,
     )]);
     let errors = plan.validate();
@@ -328,7 +343,10 @@ fn a_savings_account_is_a_valid_reinvestment_destination() {
         "savings",
         AccountKind::Savings,
         PlanType::None,
-        ContributionRule::FlatAmount { amount: 0.0 },
+        ContributionRule::FlatAmount {
+            amount: 0.0,
+            growth: GrowthRule::None,
+        },
         AllocationRef::Cash(0.02),
     )]);
     plan.assumptions.reinvest_into = Some("savings".to_string());

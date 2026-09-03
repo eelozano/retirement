@@ -385,6 +385,14 @@ The **statutory cap is no longer prorated by the working share** either — only
 
 Migration goes through `AccountWire` like every shape change before it: the tuple-shaped pre-#78 rule survives as a private `LegacyContributionRule` read only there, `SCHEMA_VERSION` is unchanged because nothing migrates behind it, and the dated list wins whenever present.
 
+**Escalation (#79)** is two typed fields, each inside the one variant it belongs to — no generic schedule DSL, and nothing that can be written on a mode it does not mean anything for.
+
+`PercentOfSalary::step_up` is 401(k) auto-escalation, the "10% now, up a point a year until 15%" a plan document literally says: `percent_in_period = min(cap, percent + points_per_year × whole_years_since(entry start))`. Whole years, because a plan escalates on an anniversary rather than continuously, and from the **entry's** resolved start rather than the plan's — so "open a Roth in 2029 at 5%, +1/yr" is 5% in 2029, not 5% plus the steps it never took. Validation refuses a step-up that cannot step: `points_per_year > 0` and `percent ≤ cap ≤ 1`, since a cap below the starting percentage is exactly the silent no-op a typed escalation must not become. Stepping *down* is not modelled, and `FederalMaximum` has no equivalent — the statutory table already indexes and steps up at 50 and 60.
+
+`FlatAmount::growth` is the standing transfer the owner actually raises each year. It uses `growth_factor` from **plan** start, the same convention `CashFlowStream::annual_amount` follows: the amount is in simulation-start dollars, so `Inflation` means "holds what it buys today" whichever year the entry begins, rather than "holds what it buys in the entry's first year". The default is `GrowthRule::None` — the nominal transfer `FlatAmount` has always been — and `Fixed` is accepted by the model but not offered by the UI, as for streams.
+
+Both fields are `#[serde(default)]` members of the struct variants #78 introduced, which is what makes escalation purely additive: a plan written with neither key loads as the unescalated rules it meant, and `SCHEMA_VERSION` does not move.
+
 #### Employer match (`sim/contributions.rs`)
 
 Tiers apply in order, each consuming the employee's deferral percentage until it runs out: `[{3%, 100%}, {2%, 50%}]` on an 8% deferral pays 3% + 1% = 4% of salary. The gate is the **person's** deferral percentage across all their employer plans, derived from what actually went in post-clamp — so a `FlatAmount` or `FederalMaximum` contribution still produces an effective percentage, and splitting deferrals between a Roth and a traditional 401(k) at one employer still earns one match on the combined figure.

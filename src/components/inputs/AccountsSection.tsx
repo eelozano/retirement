@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { currency } from "../../lib/format";
 import { usePlanStore } from "../../store/planStore";
 import type { AllocationRef } from "../../types/generated/AllocationRef";
-import { defaultContribution } from "./accountContribution";
+import { defaultContribution, NO_CONTRIBUTION } from "./accountContribution";
 import { ACCOUNT_TYPE_OPTIONS, accountTypeByValue, accountTypeFor } from "./accountTypes";
 import { NumberField, PercentField, SelectField, TextField } from "./fields";
 
@@ -195,7 +195,7 @@ export function AccountsSection() {
                 if (type.planType === "None") {
                   for (const entry of account.contributions) {
                     if (entry.rule === "FederalMaximum") {
-                      entry.rule = { FlatAmount: { amount: 0 } };
+                      entry.rule = NO_CONTRIBUTION;
                     }
                   }
                 }

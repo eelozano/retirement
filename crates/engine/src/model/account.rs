@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{AssetClass, PersonId, StreamBoundary};
+use super::{AssetClass, GrowthRule, PersonId, StreamBoundary};
 use crate::presets::{ELECTIVE_DEFERRAL_LIMIT, IRA_CONTRIBUTION_LIMIT};
 
 pub type AccountId = String;
@@ -87,6 +87,26 @@ impl PlanType {
     }
 }
 
+/// A percent-of-salary escalation: the "up a point a year to 15%" a 401(k)
+/// plan document calls auto-escalation.
+///
+/// Lives inside `PercentOfSalary` rather than beside it, so escalating a
+/// flat amount or a federal maximum — neither of which is a percentage —
+/// cannot be written down. `FederalMaximum` needs no equivalent: the
+/// statutory table already indexes and steps up at 50 and 60.
+#[derive(Serialize, Deserialize, TS, Clone, Copy, Debug, PartialEq)]
+#[ts(export)]
+pub struct StepUp {
+    /// Added to `percent` each whole year after the entry's resolved start
+    /// (0.01 = one point a year). Years count from the *entry's* start, not
+    /// the plan's: an entry opening in 2029 at 5% steps from 2029.
+    pub points_per_year: f64,
+    /// Where it stops (0.15 = 15%). Validation requires it to be at or
+    /// above `percent` — a cap below the starting percentage would be a
+    /// silent no-op, and stepping *down* is not modelled.
+    pub cap: f64,
+}
+
 /// How much goes into an account over an entry's active window.
 ///
 /// A tagged enum rather than a number plus flags, so the combinations that
@@ -102,12 +122,30 @@ pub enum ContributionRule {
     /// resolved against their income streams. Grows with the salary, so it
     /// holds its real value without any indexing machinery — and it is the
     /// basis an employer match is expressed against.
-    PercentOfSalary { percent: f64 },
-    /// A flat annual amount, **nominal**: it does not index with inflation,
-    /// so it buys less every year. Correct for an account funded by a fixed
-    /// standing transfer; the UI says so rather than letting it decay
-    /// silently.
-    FlatAmount { amount: f64 },
+    PercentOfSalary {
+        percent: f64,
+        /// Auto-escalation, if the plan has one: `percent` rises by
+        /// `points_per_year` each whole year until it reaches `cap`. `None`
+        /// — the default, and what a plan written before this field existed
+        /// loads as — is a percentage that stays put.
+        #[serde(default)]
+        step_up: Option<StepUp>,
+    },
+    /// A flat annual amount. **Nominal by default** (`GrowthRule::None`): it
+    /// does not index with inflation, so it buys less every year. That is
+    /// correct for an account funded by a fixed standing transfer, and the
+    /// UI says so rather than letting it decay silently.
+    ///
+    /// `growth` is the escape hatch for the transfer the owner actually
+    /// raises each year. It follows the **stream convention**: `amount` is
+    /// then in simulation-start dollars and is grown from *plan* start, not
+    /// from the entry's own start — so `Inflation` holds the entry's real
+    /// value at what the amount buys today, whenever the entry begins.
+    FlatAmount {
+        amount: f64,
+        #[serde(default)]
+        growth: GrowthRule,
+    },
     /// The statutory maximum for the account's `plan_type`, indexed forward
     /// and stepped up for the owner's catch-up tier. Stored as intent rather
     /// than a number so the plan stays correct as limits index and the owner
@@ -117,7 +155,10 @@ pub enum ContributionRule {
 
 impl Default for ContributionRule {
     fn default() -> Self {
-        ContributionRule::FlatAmount { amount: 0.0 }
+        ContributionRule::FlatAmount {
+            amount: 0.0,
+            growth: GrowthRule::None,
+        }
     }
 }
 
@@ -178,10 +219,14 @@ enum LegacyContributionRule {
 impl From<LegacyContributionRule> for ContributionRule {
     fn from(legacy: LegacyContributionRule) -> Self {
         match legacy {
-            LegacyContributionRule::PercentOfSalary(percent) => {
-                ContributionRule::PercentOfSalary { percent }
-            }
-            LegacyContributionRule::FlatAmount(amount) => ContributionRule::FlatAmount { amount },
+            LegacyContributionRule::PercentOfSalary(percent) => ContributionRule::PercentOfSalary {
+                percent,
+                step_up: None,
+            },
+            LegacyContributionRule::FlatAmount(amount) => ContributionRule::FlatAmount {
+                amount,
+                growth: GrowthRule::None,
+            },
             LegacyContributionRule::FederalMaximum => ContributionRule::FederalMaximum,
         }
     }
@@ -378,6 +423,7 @@ impl From<AccountWire> for Account {
                 .map(ContributionRule::from)
                 .unwrap_or_else(|| ContributionRule::FlatAmount {
                     amount: w.annual_contribution.unwrap_or(0.0),
+                    growth: GrowthRule::None,
                 });
             vec![Contribution::until_retirement(
                 format!("{}-contribution", w.id),
@@ -426,7 +472,10 @@ mod tests {
             account.contributions,
             vec![Contribution::until_retirement(
                 "401k-contribution",
-                ContributionRule::FlatAmount { amount: 23_000.0 },
+                ContributionRule::FlatAmount {
+                    amount: 23_000.0,
+                    growth: GrowthRule::None,
+                },
                 &"p1".to_string(),
             )]
         );
@@ -456,7 +505,10 @@ employer_match: null
             account.contributions,
             vec![Contribution {
                 id: "alex-401k-contribution".to_string(),
-                rule: ContributionRule::PercentOfSalary { percent: 0.1 },
+                rule: ContributionRule::PercentOfSalary {
+                    percent: 0.1,
+                    step_up: None,
+                },
                 start: StreamBoundary::PlanStart,
                 end: StreamBoundary::AtRetirement("alex".to_string()),
             }]
@@ -471,6 +523,52 @@ employer_match: null
         assert_eq!(
             account.contributions[0].rule,
             ContributionRule::FederalMaximum
+        );
+    }
+
+    /// A plan written by #78 — a dated list, but no `step_up` and no
+    /// `growth` — loads as exactly the rules it meant: a percentage that
+    /// stays put and a flat amount that stays nominal. Both fields are
+    /// `#[serde(default)]`, so escalation is purely additive.
+    #[test]
+    fn an_account_written_before_escalation_loads_unescalated() {
+        let yaml = "
+id: alex-401k
+owner: alex
+kind: TraditionalPreTax
+name: Alex 401(k)
+balance: 340000.0
+cost_basis: null
+allocation: Aggressive
+plan_type: EmployerPlan
+contributions:
+- id: alex-401k-contribution
+  rule: !PercentOfSalary
+    percent: 0.1
+  start: PlanStart
+  end: !AtRetirement alex
+- id: alex-401k-extra
+  rule: !FlatAmount
+    amount: 1200.0
+  start: PlanStart
+  end: !AtRetirement alex
+employer_match: null
+";
+        let account: Account =
+            serde_yaml_ng::from_str(yaml).expect("pre-escalation account parses");
+        assert_eq!(
+            account.contributions[0].rule,
+            ContributionRule::PercentOfSalary {
+                percent: 0.1,
+                step_up: None,
+            }
+        );
+        assert_eq!(
+            account.contributions[1].rule,
+            ContributionRule::FlatAmount {
+                amount: 1_200.0,
+                growth: GrowthRule::None,
+            }
         );
     }
 
@@ -556,7 +654,10 @@ employer_match: null
             plan_type: PlanType::Ira,
             contributions: vec![Contribution {
                 id: "a-contribution".into(),
-                rule: ContributionRule::PercentOfSalary { percent: 0.08 },
+                rule: ContributionRule::PercentOfSalary {
+                    percent: 0.08,
+                    step_up: None,
+                },
                 start: StreamBoundary::Date(super::super::YearMonth::new(2029, 1)),
                 end: StreamBoundary::PlanEnd,
             }],

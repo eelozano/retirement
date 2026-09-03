@@ -94,7 +94,10 @@ fn staggered_household() -> Plan {
             plan_type: PlanType::None,
             contributions: vec![Contribution::until_retirement(
                 "contribution",
-                ContributionRule::FlatAmount { amount: 0.0 },
+                ContributionRule::FlatAmount {
+                    amount: 0.0,
+                    growth: GrowthRule::None,
+                },
                 &"early".to_string(),
             )],
             employer_match: None,

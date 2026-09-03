@@ -49,7 +49,7 @@ describe("AccountsSection", () => {
     expect(currentAccount()?.contributions).toEqual([
       {
         id: expect.stringMatching(/-contribution$/),
-        rule: { FlatAmount: { amount: 0 } },
+        rule: { FlatAmount: { amount: 0, growth: "None" } },
         start: "PlanStart",
         end: { AtRetirement: "p1" },
       },
@@ -90,7 +90,7 @@ describe("AccountsSection", () => {
 
     await userEvent.selectOptions(screen.getByLabelText("Type"), "taxable");
     expect(currentAccount()?.contributions[0].rule).toEqual({
-      FlatAmount: { amount: 0 },
+      FlatAmount: { amount: 0, growth: "None" },
     });
   });
 
