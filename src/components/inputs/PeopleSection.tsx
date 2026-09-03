@@ -1,5 +1,4 @@
 import { usePlanStore } from "../../store/planStore";
-import { AccountSavingFields } from "./AccountSavingFields";
 import { NumberField, TextField, YearMonthField } from "./fields";
 import { SocialSecurityFields } from "./SocialSecurityFields";
 import { StreamCard } from "./StreamCard";
@@ -7,13 +6,15 @@ import { ownedBy } from "./shared";
 
 /**
  * One card per person, readable top to bottom as one story: dates, their
- * income, their Social Security, and what they save. Replaces the old flat
- * panel where a person's salary sat in a different column with "Owner" as a
- * dropdown the reader had to resolve by hand.
+ * income, and their Social Security. Replaces the old flat panel where a
+ * person's salary sat in a different column with "Owner" as a dropdown the
+ * reader had to resolve by hand.
+ *
+ * What they *save* is not here: a contribution carries its own dates and can
+ * outlive a retirement, so it is edited on the account in the Accounts pane.
  */
 export function PeopleSection() {
   const plan = usePlanStore((s) => s.plan);
-  const presets = usePlanStore((s) => s.presets);
   const updatePlan = usePlanStore((s) => s.updatePlan);
   if (!plan) return null;
 
@@ -40,7 +41,6 @@ export function PeopleSection() {
       {plan.people.map((person, i) => {
         const streams = ownedBy(plan.streams, person.id);
         const benefits = ownedBy(plan.social_security, person.id);
-        const accounts = ownedBy(plan.accounts, person.id);
 
         const addStream = () =>
           updatePlan((d) => {
@@ -142,26 +142,6 @@ export function PeopleSection() {
               <button type="button" className="add" onClick={addBenefit}>
                 Add Social Security benefit
               </button>
-            </div>
-
-            <div className="band band-saving">
-              <p className="band-label">Saving</p>
-              {accounts.length === 0 ? (
-                <p className="field-hint">
-                  No accounts yet. Add one in Accounts and set its owner to{" "}
-                  {person.name || "this person"}.
-                </p>
-              ) : (
-                accounts.map(({ item: account, index: accountIndex }) => (
-                  <AccountSavingFields
-                    key={account.id}
-                    account={account}
-                    accountIndex={accountIndex}
-                    presets={presets}
-                    updatePlan={updatePlan}
-                  />
-                ))
-              )}
             </div>
           </div>
         );
