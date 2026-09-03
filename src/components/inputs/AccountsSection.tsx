@@ -2,8 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { currency } from "../../lib/format";
 import { usePlanStore } from "../../store/planStore";
 import type { AllocationRef } from "../../types/generated/AllocationRef";
-import { defaultContribution, NO_CONTRIBUTION } from "./accountContribution";
+import {
+  contributionSummary,
+  defaultContribution,
+  NO_CONTRIBUTION,
+} from "./accountContribution";
 import { ACCOUNT_TYPE_OPTIONS, accountTypeByValue, accountTypeFor } from "./accountTypes";
+import { ContributionCard } from "./ContributionCard";
+import { EmployerMatchFields } from "./EmployerMatchFields";
 import { NumberField, PercentField, SelectField, TextField } from "./fields";
 
 /** A sensible starting rate for a newly-typed Savings account. */
@@ -32,13 +38,19 @@ function allocationLabel(allocation: AllocationRef): string {
 /**
  * The balance sheet as a table — the task here is comparing accounts to each
  * other, which a masonry card grid could not do. Selecting a row opens an
- * editor below for the fields that belong to the account itself: type,
- * owner, allocation, balance. Contribution and employer match moved to the
- * owner's card in the People pane — what you put in is part of the paycheck
- * story and stops at retirement, unlike the account's balance sheet facts.
+ * editor below for everything that belongs to the account: type, owner,
+ * allocation, balance, what goes into it, and any employer match.
+ *
+ * Contributions lived on the owner's card in the People pane for a while,
+ * on the argument that saving is part of the paycheck story and stops at
+ * retirement. Dated entries ended that: an entry now carries its own window
+ * and can outlive a retirement, so the 3% on a savings account and the
+ * match on a 401(k) read as facts about the account — which is where the
+ * data model always kept them.
  */
 export function AccountsSection() {
   const plan = usePlanStore((s) => s.plan);
+  const presets = usePlanStore((s) => s.presets);
   const updatePlan = usePlanStore((s) => s.updatePlan);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const editorRef = useRef<HTMLFieldSetElement>(null);
@@ -101,6 +113,7 @@ export function AccountsSection() {
                   <th>Type</th>
                   <th>Owner</th>
                   <th>Allocation</th>
+                  <th>Contributing</th>
                   <th className="num">Balance</th>
                 </tr>
               </thead>
@@ -133,6 +146,7 @@ export function AccountsSection() {
                       {plan.people.find((p) => p.id === account.owner)?.name ?? "—"}
                     </td>
                     <td>{allocationLabel(account.allocation)}</td>
+                    <td>{contributionSummary(account)}</td>
                     <td className="num">{currency(account.balance)}</td>
                   </tr>
                 ))}
@@ -208,7 +222,24 @@ export function AccountsSection() {
             options={plan.people.map((p) => ({ value: p.id, label: p.name }))}
             onChange={(owner) =>
               updatePlan((d) => {
-                d.accounts[selectedIndex].owner = owner;
+                const account = d.accounts[selectedIndex];
+                // "Until the owner retires" means *this* account's owner —
+                // handing the account to someone else has to carry those
+                // boundaries with it, or the entries silently keep running
+                // to a date that no longer has anything to do with them.
+                for (const entry of account.contributions) {
+                  for (const edge of ["start", "end"] as const) {
+                    const boundary = entry[edge];
+                    if (
+                      typeof boundary === "object" &&
+                      "AtRetirement" in boundary &&
+                      boundary.AtRetirement === account.owner
+                    ) {
+                      entry[edge] = { AtRetirement: owner };
+                    }
+                  }
+                }
+                account.owner = owner;
               })
             }
           />
@@ -257,9 +288,49 @@ export function AccountsSection() {
               }
             />
           )}
-          <p className="field-hint">
-            What this account's owner puts into it lives on their card in the People pane.
-          </p>
+          <div className="band">
+            <p className="band-label">Contributions</p>
+            {selected.contributions.length === 0 && (
+              <p className="field-hint">Nothing goes into this account yet.</p>
+            )}
+            {selected.contributions.map((entry, entryIndex) => (
+              <ContributionCard
+                key={entry.id}
+                plan={plan}
+                accountIndex={selectedIndex}
+                entryIndex={entryIndex}
+                presets={presets}
+                updatePlan={updatePlan}
+              />
+            ))}
+            <button
+              type="button"
+              className="add"
+              onClick={() =>
+                updatePlan((d) => {
+                  const account = d.accounts[selectedIndex];
+                  account.contributions.push({
+                    id: `contribution-${Date.now()}`,
+                    rule: NO_CONTRIBUTION,
+                    start: "PlanStart",
+                    end: { AtRetirement: account.owner },
+                  });
+                })
+              }
+            >
+              Add contribution
+            </button>
+          </div>
+          {selected.plan_type === "EmployerPlan" && (
+            <div className="band">
+              <p className="band-label">Employer match</p>
+              <EmployerMatchFields
+                account={selected}
+                accountIndex={selectedIndex}
+                updatePlan={updatePlan}
+              />
+            </div>
+          )}
           <button
             type="button"
             className="remove"

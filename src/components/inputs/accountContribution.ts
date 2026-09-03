@@ -1,15 +1,17 @@
-import { currency } from "../../lib/format";
+import { currency, rateToPercent } from "../../lib/format";
 import type { Account } from "../../types/generated/Account";
 import type { Contribution } from "../../types/generated/Contribution";
 import type { ContributionRule } from "../../types/generated/ContributionRule";
 import type { EmployerMatch } from "../../types/generated/EmployerMatch";
+import type { Plan } from "../../types/generated/Plan";
 import type { PlanType } from "../../types/generated/PlanType";
 import type { Presets } from "../../types/generated/Presets";
+import { boundaryPhrase } from "./streamBoundary";
 
-// Shared between AccountsSection (which seeds a new account's first entry)
-// and the People pane's Saving band (which edits it) — the mode/rule
-// vocabulary is a property of the account's `plan_type`, wherever the
-// controls happen to sit.
+// The contribution vocabulary — modes, rules, and the prose an unnamed
+// entry describes itself with. It is a property of the account's
+// `plan_type`, so it lives beside the account editor that uses it
+// (AccountsSection and its ContributionCard) rather than inside either.
 
 export const CONTRIBUTION_MODES = [
   { value: "PercentOfSalary", label: "Percent of salary" },
@@ -54,8 +56,8 @@ export function ruleForMode(mode: ContributionMode): ContributionRule {
 
 /**
  * A flat amount that neither escalates nor grows — what an account starts
- * with, and what an empty editor reads as. Escalation (#79) is off until
- * the user turns it on, and its controls arrive with #81.
+ * with, and what a newly added entry reads as. Escalation (#79) is off
+ * until the user turns it on, and its controls arrive with #81.
  */
 export const NO_CONTRIBUTION: ContributionRule = {
   FlatAmount: { amount: 0, growth: "None" },
@@ -76,18 +78,6 @@ export function defaultContribution(
     start: "PlanStart",
     end: { AtRetirement: account.owner },
   };
-}
-
-/**
- * The account's first entry, created with the defaults if it has none — the
- * one the editor points at until entries get their own controls (#80).
- * Mutates the draft it is handed, so call it inside `updatePlan`.
- */
-export function firstContribution(account: Account): Contribution {
-  if (account.contributions.length === 0) {
-    account.contributions.push(defaultContribution(account));
-  }
-  return account.contributions[0];
 }
 
 /**
@@ -112,5 +102,58 @@ export function federalMaximumHint(presets: Presets | null, planType: PlanType):
       return `${currency(limits.simple_ira)}/yr in ${limits.basis_year}, indexed for inflation and stepped up from age 50.`;
     default:
       return `${currency(limits.employer_plan)}/yr in ${limits.basis_year}, indexed for inflation and stepped up from age 50.`;
+  }
+}
+
+/** One rule in a few words — "10% of salary", "$6,000/yr", "Max". */
+export function ruleSummary(rule: ContributionRule): string {
+  if (rule === "FederalMaximum") return "Max";
+  if ("PercentOfSalary" in rule) {
+    return `${rateToPercent(rule.PercentOfSalary.percent)}% of salary`;
+  }
+  return `${currency(rule.FlatAmount.amount)}/yr`;
+}
+
+/**
+ * What the accounts table shows in its Contributing column. Entries have no
+ * names, so a single one is described by its rule and several are counted —
+ * the editor below has the detail, and this column exists to answer "is
+ * anything going in here?" while scanning the balance sheet.
+ */
+export function contributionSummary(account: Account): string {
+  if (account.contributions.length === 0) return "—";
+  if (account.contributions.length > 1)
+    return `${account.contributions.length} schedules`;
+  return ruleSummary(account.contributions[0].rule);
+}
+
+/**
+ * An entry's card legend, derived rather than named: "$6,000/yr from Jan
+ * 2027 until Alex retires". A name field would be one more thing to keep
+ * true after the dates change.
+ */
+export function contributionLegend(entry: Contribution, plan: Plan): string {
+  const window = `from ${boundaryPhrase(entry.start, plan)} until ${boundaryPhrase(entry.end, plan)}`;
+  return `${ruleSummary(entry.rule)} ${window}`;
+}
+
+/**
+ * What the entry's end date is allowed to be, in the account's own terms.
+ * Employer plans are fed by an employer's paycheck, so validation rejects an
+ * entry that outlives the owner's retirement; an IRA or HSA is deliberately
+ * left free, and the hint says so before the error would.
+ */
+export function contributionEndHint(planType: PlanType): string | undefined {
+  switch (planType) {
+    case "EmployerPlan":
+    case "Plan457b":
+    case "SimpleIra":
+    case "SepIra":
+      return "Money into an employer's plan comes out of that employer's paycheck, so this can't run past the owner's retirement.";
+    case "Ira":
+    case "Hsa":
+      return "This one may run past retirement — a spousal IRA on a working partner's income, or an HSA under HDHP coverage.";
+    default:
+      return undefined;
   }
 }

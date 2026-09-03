@@ -427,8 +427,9 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-/* A band groups one topic within a person's card — income, Social Security,
-   saving — each keyed by a color so the eye can tell them apart while
+/* A band groups one topic within an editor card — a person's income and
+   Social Security, an account's contributions and employer match. The
+   person's bands are keyed by a color so the eye can tell them apart while
    scanning top to bottom. */
 .band {
   margin-top: var(--sp-3);
@@ -463,10 +464,6 @@ body {
 
 .band-social-security .band-label::before {
   background: var(--series-4);
-}
-
-.band-saving .band-label::before {
-  background: var(--series-1);
 }
 
 .input-table {

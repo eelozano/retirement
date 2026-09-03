@@ -1,25 +1,15 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { usePlanStore } from "../../store/planStore";
 import type { Plan } from "../../types/generated/Plan";
-import type { Presets } from "../../types/generated/Presets";
 import { PeopleSection } from "./PeopleSection";
 
-// Contribution mode, employer match, a person's own income/expense streams,
-// and their Social Security benefits all moved onto the person's card here —
-// grouped by `owner` instead of scattered across separate flat panels.
-
-const presets = {
-  contribution_limits: {
-    basis_year: 2026,
-    employer_plan: 24500,
-    employer_plan_catch_up_50: 8000,
-    employer_plan_catch_up_60_63: 11250,
-    ira: 7500,
-    ira_catch_up_50: 1100,
-  },
-} as unknown as Presets;
+// A person's own income/expense streams and their Social Security benefits
+// live on the person's card here — grouped by `owner` instead of scattered
+// across separate flat panels. What they *save* does not: contributions and
+// the employer match are edited on the account, covered in
+// AccountsSection.test.tsx.
 
 const plan = {
   people: [
@@ -60,7 +50,7 @@ const plan = {
 beforeEach(() => {
   usePlanStore.setState({
     plan: structuredClone(plan),
-    presets,
+    presets: null,
     updatePlan: (recipe) =>
       usePlanStore.setState((s) => {
         const draft = structuredClone(s.plan) as Plan;
@@ -70,56 +60,7 @@ beforeEach(() => {
   } as Partial<ReturnType<typeof usePlanStore.getState>> as never);
 });
 
-function currentAccount() {
-  return usePlanStore.getState().plan?.accounts[0];
-}
-
 describe("PeopleSection", () => {
-  it("edits an owned account's contribution mode from the person's card, not the account", async () => {
-    render(<PeopleSection />);
-
-    await userEvent.selectOptions(
-      screen.getByLabelText("Contribution"),
-      "PercentOfSalary",
-    );
-    const percent = screen.getByLabelText("Of salary (%)");
-    await userEvent.clear(percent);
-    await userEvent.type(percent, "10");
-    // `step_up` rides along unset: escalation is off until #81's controls
-    // turn it on, and editing the percentage does not disturb it.
-    expect(currentAccount()?.contributions[0].rule).toEqual({
-      PercentOfSalary: { percent: 0.1, step_up: null },
-    });
-    // The window is untouched: the mode select edits the rule, not the dates.
-    expect(currentAccount()?.contributions[0].end).toEqual({ AtRetirement: "p1" });
-
-    await userEvent.selectOptions(
-      screen.getByLabelText("Contribution"),
-      "FederalMaximum",
-    );
-    expect(currentAccount()?.contributions[0].rule).toBe("FederalMaximum");
-    expect(screen.getByText(/\$24,500\/yr in 2026/)).toBeTruthy();
-  });
-
-  it("adds an employer match with a tiered formula", async () => {
-    render(<PeopleSection />);
-
-    await userEvent.click(screen.getByLabelText("Employer match"));
-    expect(currentAccount()?.employer_match).toEqual({
-      tiers: [{ employee_percent: 0.03, match_percent: 1 }],
-      destination: "PreTax",
-    });
-
-    await userEvent.click(screen.getByRole("button", { name: "Add match tier" }));
-    expect(currentAccount()?.employer_match?.tiers).toHaveLength(2);
-  });
-
-  it("shows a hint instead of a saving band when the person owns no accounts", () => {
-    usePlanStore.setState((s) => ({ plan: { ...(s.plan as Plan), accounts: [] } }));
-    render(<PeopleSection />);
-    expect(screen.getByText(/No accounts yet/)).toBeTruthy();
-  });
-
   it("adds and edits a stream owned by the person, defaulting to income that ends at their retirement", async () => {
     render(<PeopleSection />);
 
@@ -159,12 +100,11 @@ describe("PeopleSection", () => {
     expect(screen.getAllByText("New person")).toHaveLength(1);
   });
 
-  it("names each person's card, so an account's contribution reads as that person's story", () => {
+  it("no longer carries a saving band for the accounts the person owns", () => {
     render(<PeopleSection />);
-    const card = screen
-      .getByText("Into 403(b)", { selector: "legend" })
-      .closest(".person-card");
-    expect(card).not.toBeNull();
-    expect(within(card as HTMLElement).getByText("Alex")).toBeTruthy();
+    expect(screen.queryByText("Saving")).toBeNull();
+    expect(screen.queryByText(/^Into /)).toBeNull();
+    expect(screen.queryByLabelText("Contribution")).toBeNull();
+    expect(screen.queryByLabelText("Employer match")).toBeNull();
   });
 });
