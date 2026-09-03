@@ -303,7 +303,7 @@ describe("AccountsSection", () => {
     await addAccount();
     await userEvent.selectOptions(screen.getByLabelText("Type"), "employer_pretax");
 
-    const amount = screen.getByLabelText("Amount / yr ($)");
+    const amount = screen.getByLabelText("Amount ($)");
     await userEvent.clear(amount);
     await userEvent.type(amount, "6000");
     expect(screen.getByRole("cell", { name: "$6,000/yr" })).toBeTruthy();
@@ -363,7 +363,7 @@ describe("AccountsSection", () => {
   it("grows a flat amount with inflation, and the table summary follows", async () => {
     render(<AccountsSection />);
     await addAccount();
-    const amount = screen.getByLabelText("Amount / yr ($)");
+    const amount = screen.getByLabelText("Amount ($)");
     await userEvent.clear(amount);
     await userEvent.type(amount, "6000");
 
@@ -374,6 +374,21 @@ describe("AccountsSection", () => {
     expect(screen.getByRole("cell", { name: "$6,000/yr, +inflation" })).toBeTruthy();
 
     await userEvent.selectOptions(screen.getByLabelText("Grows with"), "None");
+    expect(currentAccount()?.contributions[0].rule).toEqual({
+      FlatAmount: { amount: 6000, growth: "None" },
+    });
+    expect(screen.getByRole("cell", { name: "$6,000/yr" })).toBeTruthy();
+  });
+
+  it("enters a flat contribution amount per month", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+
+    await userEvent.selectOptions(screen.getByLabelText("Amount ($) unit"), "month");
+    const amount = screen.getByLabelText("Amount ($)");
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "500");
+
     expect(currentAccount()?.contributions[0].rule).toEqual({
       FlatAmount: { amount: 6000, growth: "None" },
     });
