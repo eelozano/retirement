@@ -8,7 +8,13 @@ import {
   federalMaximumHint,
   ruleForMode,
 } from "./accountContribution";
-import { NumberField, PercentField, SelectField, YearMonthField } from "./fields";
+import {
+  CheckboxField,
+  NumberField,
+  PercentField,
+  SelectField,
+  YearMonthField,
+} from "./fields";
 import type { UpdatePlan } from "./shared";
 import { boundaryOptions, boundaryToChoice, choiceToBoundary } from "./streamBoundary";
 
@@ -57,34 +63,106 @@ export function ContributionCard(props: {
         }
       />
       {typeof rule === "object" && "PercentOfSalary" in rule && (
-        <PercentField
-          label="Of salary"
-          rate={rule.PercentOfSalary.percent}
-          minPercent={0}
-          maxPercent={100}
-          onChange={(rate) =>
-            updatePlan((d) => {
-              // Spread rather than replace: an escalation already on the
-              // entry survives a change to the starting percentage.
-              d.accounts[i].contributions[e].rule = {
-                PercentOfSalary: { ...rule.PercentOfSalary, percent: rate },
-              };
-            })
-          }
-        />
+        <>
+          <PercentField
+            label="Of salary"
+            rate={rule.PercentOfSalary.percent}
+            minPercent={0}
+            maxPercent={100}
+            onChange={(rate) =>
+              updatePlan((d) => {
+                // Spread rather than replace: an escalation already on the
+                // entry survives a change to the starting percentage.
+                d.accounts[i].contributions[e].rule = {
+                  PercentOfSalary: { ...rule.PercentOfSalary, percent: rate },
+                };
+              })
+            }
+          />
+          <CheckboxField
+            label="Increase each year"
+            checked={rule.PercentOfSalary.step_up !== null}
+            onChange={(on) =>
+              updatePlan((d) => {
+                const target = d.accounts[i].contributions[e].rule;
+                if (typeof target !== "object" || !("PercentOfSalary" in target)) return;
+                target.PercentOfSalary.step_up = on
+                  ? {
+                      points_per_year: 0.01,
+                      cap: Math.max(target.PercentOfSalary.percent, 0.15),
+                    }
+                  : null;
+              })
+            }
+          />
+          {rule.PercentOfSalary.step_up !== null && (
+            <>
+              <PercentField
+                label="By (points/yr)"
+                rate={rule.PercentOfSalary.step_up.points_per_year}
+                minPercent={0}
+                maxPercent={100}
+                onChange={(rate) =>
+                  updatePlan((d) => {
+                    const target = d.accounts[i].contributions[e].rule;
+                    if (typeof target !== "object" || !("PercentOfSalary" in target))
+                      return;
+                    const stepUp = target.PercentOfSalary.step_up;
+                    if (stepUp) stepUp.points_per_year = rate;
+                  })
+                }
+              />
+              <PercentField
+                label="Up to"
+                rate={rule.PercentOfSalary.step_up.cap}
+                minPercent={0}
+                maxPercent={100}
+                onChange={(rate) =>
+                  updatePlan((d) => {
+                    const target = d.accounts[i].contributions[e].rule;
+                    if (typeof target !== "object" || !("PercentOfSalary" in target))
+                      return;
+                    const stepUp = target.PercentOfSalary.step_up;
+                    if (stepUp) stepUp.cap = rate;
+                  })
+                }
+              />
+            </>
+          )}
+        </>
       )}
       {typeof rule === "object" && "FlatAmount" in rule && (
-        <NumberField
-          label="Amount / yr ($)"
-          value={rule.FlatAmount.amount}
-          onChange={(amount) =>
-            updatePlan((d) => {
-              d.accounts[i].contributions[e].rule = {
-                FlatAmount: { ...rule.FlatAmount, amount },
-              };
-            })
-          }
-        />
+        <>
+          <NumberField
+            label="Amount / yr ($)"
+            value={rule.FlatAmount.amount}
+            onChange={(amount) =>
+              updatePlan((d) => {
+                d.accounts[i].contributions[e].rule = {
+                  FlatAmount: { ...rule.FlatAmount, amount },
+                };
+              })
+            }
+          />
+          <SelectField
+            label="Grows with"
+            value={rule.FlatAmount.growth === "Inflation" ? "Inflation" : "None"}
+            options={
+              [
+                { value: "Inflation", label: "Inflation" },
+                { value: "None", label: "Nothing (flat)" },
+              ] as const
+            }
+            hint="An amount that grows with inflation is entered in today's dollars."
+            onChange={(growth) =>
+              updatePlan((d) => {
+                const target = d.accounts[i].contributions[e].rule;
+                if (typeof target !== "object" || !("FlatAmount" in target)) return;
+                target.FlatAmount.growth = growth;
+              })
+            }
+          />
+        </>
       )}
       <SelectField
         label="Starts"
