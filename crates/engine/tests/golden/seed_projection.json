@@ -43,7 +43,7 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 516431.831125,
+        "alex-401k": 516969.081125,
         "jordan-roth": 107571.73671875002,
         "taxable-brokerage": 262344.5475
       },
@@ -56,20 +56,20 @@
       "expenses_by_stream": {
         "household-spending": 98399.99999999999
       },
-      "taxes": 46183.0,
+      "taxes": 46023.0,
       "withdrawal_taxes": 0.0,
-      "contributions": 72000.0,
+      "contributions": 72500.0,
       "contributions_by_account": {
-        "alex-401k": 24500.0,
+        "alex-401k": 25000.0,
         "jordan-roth": 7500.0,
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
       "required_distributions": 0.0,
-      "surplus": 39667.000000000015,
+      "surplus": 39327.000000000015,
       "withdrawals": {},
-      "growth": 60727.24034375002,
-      "net_worth": 886348.11534375,
+      "growth": 60764.49034375002,
+      "net_worth": 886885.36534375,
       "deflator": 1.025
     },
     {
@@ -79,7 +79,7 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 581231.2525438125,
+        "alex-401k": 582883.0276688125,
         "jordan-roth": 122752.77514472659,
         "taxable-brokerage": 324869.21628875
       },
@@ -92,20 +92,20 @@
       "expenses_by_stream": {
         "household-spending": 100859.99999999999
       },
-      "taxes": 48233.0,
+      "taxes": 47913.0,
       "withdrawal_taxes": 0.0,
-      "contributions": 72000.0,
+      "contributions": 73000.0,
       "contributions_by_account": {
-        "alex-401k": 24500.0,
+        "alex-401k": 25500.0,
         "jordan-roth": 7500.0,
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
       "required_distributions": 0.0,
-      "surplus": 41563.250000000015,
+      "surplus": 40883.250000000015,
       "withdrawals": {},
-      "growth": 70505.12863353906,
-      "net_worth": 1028853.2439772891,
+      "growth": 70619.6537585391,
+      "net_worth": 1030505.0191022892,
       "deflator": 1.050625
     },
     {
@@ -115,8 +115,8 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 650858.2308583265,
-        "jordan-roth": 138947.1478856371,
+        "alex-401k": 654244.8132301391,
+        "jordan-roth": 139480.5228856371,
         "taxable-brokerage": 392051.9729022619
       },
       "income": 269222.6562499999,
@@ -128,20 +128,20 @@
       "expenses_by_stream": {
         "household-spending": 103381.49999999997
       },
-      "taxes": 50334.24999999996,
+      "taxes": 49854.24999999996,
       "withdrawal_taxes": 0.0,
-      "contributions": 72000.0,
+      "contributions": 74000.0,
       "contributions_by_account": {
-        "alex-401k": 24500.0,
-        "jordan-roth": 7500.0,
+        "alex-401k": 26000.0,
+        "jordan-roth": 8000.0,
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
       "required_distributions": 0.0,
-      "surplus": 43506.90624999994,
+      "surplus": 41986.90624999994,
       "withdrawals": {},
-      "growth": 81004.10766893643,
-      "net_worth": 1181857.3516462254,
+      "growth": 81272.28991574893,
+      "net_worth": 1185777.309018038,
       "deflator": 1.0768906249999997
     },
     {
@@ -151,8 +151,8 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 725672.4190572719,
-        "jordan-roth": 156222.4950070034,
+        "alex-401k": 731997.5518157844,
+        "jordan-roth": 157324.8477882534,
         "taxable-brokerage": 464239.8448834804
       },
       "income": 275953.2226562499,
@@ -164,20 +164,20 @@
       "expenses_by_stream": {
         "household-spending": 105966.03749999996
       },
-      "taxes": 52488.03124999996,
+      "taxes": 51688.03124999996,
       "withdrawal_taxes": 0.0,
-      "contributions": 72000.0,
+      "contributions": 75000.0,
       "contributions_by_account": {
-        "alex-401k": 24500.0,
-        "jordan-roth": 7500.0,
+        "alex-401k": 27000.0,
+        "jordan-roth": 8000.0,
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
       "required_distributions": 0.0,
-      "surplus": 45499.15390624995,
+      "surplus": 43299.15390624995,
       "withdrawals": {},
-      "growth": 92277.40730153018,
-      "net_worth": 1346134.7589477557,
+      "growth": 92784.93546948014,
+      "net_worth": 1353562.2444875182,
       "deflator": 1.1038128906249995
     },
     {
@@ -187,8 +187,8 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 806060.2642770386,
-        "jordan-roth": 174650.97154872087,
+        "alex-401k": 816080.1194260604,
+        "jordan-roth": 176360.2813781193,
         "taxable-brokerage": 541805.7133272997
       },
       "income": 282852.05322265613,
@@ -200,20 +200,20 @@
       "expenses_by_stream": {
         "household-spending": 108615.18843749995
       },
-      "taxes": 54695.65703124996,
+      "taxes": 53735.65703124996,
       "withdrawal_taxes": 0.0,
-      "contributions": 72000.0,
+      "contributions": 75500.0,
       "contributions_by_account": {
-        "alex-401k": 24500.0,
-        "jordan-roth": 7500.0,
+        "alex-401k": 27500.0,
+        "jordan-roth": 8000.0,
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
       "required_distributions": 0.0,
-      "surplus": 47541.20775390623,
+      "surplus": 45001.20775390623,
       "withdrawals": {},
-      "growth": 104382.19020530349,
-      "net_worth": 1522516.9491530594,
+      "growth": 105183.86964396114,
+      "net_worth": 1534246.1141314793,
       "deflator": 1.1314082128906244
     },
     {
@@ -223,8 +223,8 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 892437.003965678,
-        "jordan-roth": 194309.548899598,
+        "alex-401k": 906964.0883233019,
+        "jordan-roth": 197199.7051601088,
         "taxable-brokerage": 625150.2389701835
       },
       "income": 289923.3545532225,
@@ -236,20 +236,20 @@
       "expenses_by_stream": {
         "household-spending": 111330.56814843744
       },
-      "taxes": 56958.4734570312,
+      "taxes": 55838.47345703119,
       "withdrawal_taxes": 0.0,
-      "contributions": 72000.0,
+      "contributions": 76500.0,
       "contributions_by_account": {
-        "alex-401k": 24500.0,
-        "jordan-roth": 7500.0,
+        "alex-401k": 28000.0,
+        "jordan-roth": 8500.0,
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
       "required_distributions": 0.0,
-      "surplus": 49634.31294775386,
+      "surplus": 46254.31294775386,
       "withdrawals": {},
-      "growth": 117379.8426824004,
-      "net_worth": 1711896.7918354594,
+      "growth": 118567.91832211486,
+      "net_worth": 1729314.0324535943,
       "deflator": 1.15969341821289
     },
     {
@@ -259,8 +259,8 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 985248.8107611211,
-        "jordan-roth": 215280.33628864618,
+        "alex-401k": 1015901.1629033879,
+        "jordan-roth": 219430.1604795461,
         "taxable-brokerage": 714703.9317734622
       },
       "income": 297171.4384170531,
@@ -272,20 +272,20 @@
       "expenses_by_stream": {
         "household-spending": 114113.83235214838
       },
-      "taxes": 59469.75344596858,
+      "taxes": 54797.860293456986,
       "withdrawal_taxes": 0.0,
-      "contributions": 72000.0,
+      "contributions": 87000.0,
       "contributions_by_account": {
-        "alex-401k": 24500.0,
-        "jordan-roth": 7500.0,
+        "alex-401k": 38500.0,
+        "jordan-roth": 8500.0,
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
       "required_distributions": 0.0,
-      "surplus": 51587.852618936115,
+      "surplus": 41259.745771447706,
       "withdrawals": {},
-      "growth": 131336.2869877699,
-      "net_worth": 1915233.0788232295,
+      "growth": 133721.222702802,
+      "net_worth": 1950035.2551563962,
       "deflator": 1.1886857536682123
     },
     {
@@ -295,8 +295,8 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 1084975.0971628246,
-        "jordan-roth": 237650.92373591333,
+        "alex-401k": 1133491.2995396904,
+        "jordan-roth": 243677.8736915558,
         "taxable-brokerage": 810929.3746905852
       },
       "income": 304600.7243774793,
@@ -308,20 +308,20 @@
       "expenses_by_stream": {
         "household-spending": 116966.67816095205
       },
-      "taxes": 62070.00353211775,
+      "taxes": 57015.23180079337,
       "withdrawal_taxes": 0.0,
-      "contributions": 72000.0,
+      "contributions": 88000.0,
       "contributions_by_account": {
-        "alex-401k": 24500.0,
-        "jordan-roth": 7500.0,
+        "alex-401k": 39000.0,
+        "jordan-roth": 9000.0,
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
       "required_distributions": 0.0,
-      "surplus": 53564.042684409476,
+      "surplus": 42618.814415733854,
       "withdrawals": {},
-      "growth": 146322.3167660936,
-      "net_worth": 2133555.3955893232,
+      "growth": 150063.29276543504,
+      "net_worth": 2188098.5479218317,
       "deflator": 1.2184028975099173
     },
     {
@@ -331,8 +331,8 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 1192130.991901455,
-        "jordan-roth": 261514.74789528557,
+        "alex-401k": 1260916.4013553974,
+        "jordan-roth": 269544.1217604672,
         "taxable-brokerage": 914323.6131050338
       },
       "income": 312215.7424869163,
@@ -344,20 +344,20 @@
       "expenses_by_stream": {
         "household-spending": 119890.84511497586
       },
-      "taxes": 64735.259870420705,
+      "taxes": 59310.259870420705,
       "withdrawal_taxes": 0.0,
-      "contributions": 72000.0,
+      "contributions": 89000.0,
       "contributions_by_account": {
-        "alex-401k": 24500.0,
-        "jordan-roth": 7500.0,
+        "alex-401k": 40000.0,
+        "jordan-roth": 9000.0,
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
       "required_distributions": 0.0,
-      "surplus": 55589.63750151974,
+      "surplus": 44014.63750151974,
       "withdrawals": {},
-      "growth": 162413.9573124512,
-      "net_worth": 2367969.3529017745,
+      "growth": 167685.588299067,
+      "net_worth": 2444784.1362208985,
       "deflator": 1.2488629699476652
     },
     {
@@ -367,8 +367,8 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 1307270.0007981134,
-        "jordan-roth": 286971.4823172959,
+        "alex-401k": 1398909.1732563744,
+        "jordan-roth": 297670.3168879784,
         "taxable-brokerage": 1025420.7222813588
       },
       "income": 320021.13604908914,
@@ -380,20 +380,20 @@
       "expenses_by_stream": {
         "household-spending": 122888.11624285024
       },
-      "taxes": 67467.1476171812,
+      "taxes": 61692.147617181196,
       "withdrawal_taxes": 0.0,
-      "contributions": 72000.0,
+      "contributions": 90500.0,
       "contributions_by_account": {
-        "alex-401k": 24500.0,
-        "jordan-roth": 7500.0,
+        "alex-401k": 41000.0,
+        "jordan-roth": 9500.0,
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
       "required_distributions": 0.0,
-      "surplus": 57665.872189057714,
+      "surplus": 44940.872189057714,
       "withdrawals": {},
-      "growth": 179692.85249499377,
-      "net_worth": 2619662.205396768,
+      "growth": 186716.07620481326,
+      "net_worth": 2722000.2124257116,
       "deflator": 1.2800845441963566
     },
     {
@@ -403,8 +403,8 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 1430986.8658575728,
-        "jordan-roth": 314127.45376197546,
+        "alex-401k": 1548256.9066639743,
+        "jordan-roth": 329167.385540251,
         "taxable-brokerage": 1144794.56609132
       },
       "income": 328021.66445031634,
@@ -416,20 +416,20 @@
       "expenses_by_stream": {
         "household-spending": 125960.3191489215
       },
-      "taxes": 70267.33255761072,
+      "taxes": 64142.332557610716,
       "withdrawal_taxes": 0.0,
-      "contributions": 72000.0,
+      "contributions": 92900.0,
       "contributions_by_account": {
-        "alex-401k": 24500.0,
-        "jordan-roth": 7500.0,
+        "alex-401k": 42000.0,
+        "jordan-roth": 10900.0,
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
       "required_distributions": 0.0,
-      "surplus": 59794.012743784144,
+      "surplus": 45019.012743784144,
       "withdrawals": {},
-      "growth": 198246.68031410023,
-      "net_worth": 2889908.885710868,
+      "growth": 207318.64586983377,
+      "net_worth": 3022218.8582955454,
       "deflator": 1.3120866578012655
     },
     {
@@ -439,8 +439,8 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 1552951.7831972954,
-        "jordan-roth": 343096.08630058734,
+        "alex-401k": 1690554.0878771069,
+        "jordan-roth": 363300.25852506276,
         "taxable-brokerage": 1255153.42793179
       },
       "income": 257770.35798054026,
@@ -452,20 +452,20 @@
       "expenses_by_stream": {
         "household-spending": 129109.32712764452
       },
-      "taxes": 49936.181220439554,
+      "taxes": 46482.84788710621,
       "withdrawal_taxes": 0.0,
-      "contributions": 45125.0,
+      "contributions": 59816.66666666667,
       "contributions_by_account": {
-        "alex-401k": 14291.666666666668,
-        "jordan-roth": 7500.0,
+        "alex-401k": 25083.333333333336,
+        "jordan-roth": 11400.0,
         "taxable-brokerage": 23333.333333333336
       },
       "employer_match": 0.0,
       "required_distributions": 0.0,
-      "surplus": 33599.849632456186,
+      "surplus": 22361.516299122843,
       "withdrawals": {},
-      "growth": 216167.4117188045,
-      "net_worth": 3151201.2974296724,
+      "growth": 226972.24937174784,
+      "net_worth": 3309007.77433396,
       "deflator": 1.344888824246297
     },
     {
@@ -475,9 +475,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 1660171.9758274262,
-        "jordan-roth": 372098.9138164962,
-        "taxable-brokerage": 1341812.7780670144
+        "alex-401k": 1805118.3019208538,
+        "jordan-roth": 397312.94278100925,
+        "taxable-brokerage": 1340211.7333752378
       },
       "income": 151636.21493376995,
       "income_by_stream": {
@@ -487,22 +487,22 @@
       "expenses_by_stream": {
         "household-spending": 132337.06030583562
       },
-      "taxes": 27841.552397522435,
-      "withdrawal_taxes": 2381.8608134176466,
-      "contributions": 7500.0,
+      "taxes": 28605.226384811,
+      "withdrawal_taxes": 3145.534800706213,
+      "contributions": 11500.0,
       "contributions_by_account": {
-        "jordan-roth": 7500.0
+        "jordan-roth": 11500.0
       },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 7887.124446782441,
-        "jordan-roth": 1780.6058070357383,
-        "taxable-brokerage": 6374.667515769169
+        "alex-401k": 10592.894837689502,
+        "jordan-roth": 2348.4724636526616,
+        "taxable-brokerage": 7864.704455533196
       },
-      "growth": 231424.76805085147,
-      "net_worth": 3374083.667710937,
+      "growth": 242941.27550001675,
+      "net_worth": 3542642.978077101,
       "deflator": 1.3785110448524542
     },
     {
@@ -512,9 +512,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 1775108.8091440054,
-        "jordan-roth": 402951.7937896847,
-        "taxable-brokerage": 1434709.004397952
+        "alex-401k": 1927629.046383491,
+        "jordan-roth": 433939.8171014968,
+        "taxable-brokerage": 1431169.9475923583
       },
       "income": 155427.12030711424,
       "income_by_stream": {
@@ -524,22 +524,22 @@
       "expenses_by_stream": {
         "household-spending": 135645.48681348152
       },
-      "taxes": 28861.04317761481,
-      "withdrawal_taxes": 2491.5343039073923,
-      "contributions": 7500.0,
+      "taxes": 29719.717420637775,
+      "withdrawal_taxes": 3350.2085469303565,
+      "contributions": 12000.0,
       "contributions_by_account": {
-        "jordan-roth": 7500.0
+        "jordan-roth": 12000.0
       },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 8139.580160599524,
-        "jordan-roth": 1861.1179039725348,
-        "taxable-brokerage": 6578.71161940907
+        "alex-401k": 11140.594723561191,
+        "jordan-roth": 2526.1444669743037,
+        "taxable-brokerage": 8271.344736467925
       },
-      "growth": 247765.3493046863,
-      "net_worth": 3612769.607331642,
+      "growth": 260033.91692724853,
+      "net_worth": 3792738.811077346,
       "deflator": 1.4129738209737657
     },
     {
@@ -549,9 +549,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 1898330.0045997112,
-        "jordan-roth": 435777.82065911405,
-        "taxable-brokerage": 1534300.960531746
+        "alex-401k": 2058992.6685596148,
+        "jordan-roth": 472894.019284353,
+        "taxable-brokerage": 1528700.9889605446
       },
       "income": 159312.79831479205,
       "income_by_stream": {
@@ -561,22 +561,22 @@
       "expenses_by_stream": {
         "household-spending": 139036.6239838185
       },
-      "taxes": 29905.03091446944,
-      "withdrawal_taxes": 2602.9593189193474,
-      "contributions": 7500.0,
+      "taxes": 30769.030073790924,
+      "withdrawal_taxes": 3466.958478240831,
+      "contributions": 12000.0,
       "contributions_by_account": {
-        "jordan-roth": 7500.0
+        "jordan-roth": 12000.0
       },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 8398.707143343547,
-        "jordan-roth": 1942.0017492685085,
-        "taxable-brokerage": 6788.147690882683
+        "alex-401k": 11395.757821727486,
+        "jordan-roth": 2636.30710913406,
+        "taxable-brokerage": 8460.790811953917
       },
-      "growth": 265268.0350424238,
-      "net_worth": 3868408.785790571,
+      "growth": 278341.72146998165,
+      "net_worth": 4060587.6768045123,
       "deflator": 1.4482981664981096
     },
     {
@@ -586,9 +586,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 2000201.1869158258,
-        "jordan-roth": 460427.960784854,
-        "taxable-brokerage": 1616637.0414551876
+        "alex-401k": 2169531.6505294354,
+        "jordan-roth": 502376.5820309716,
+        "taxable-brokerage": 1610770.7571711172
       },
       "income": 95255.77732571942,
       "income_by_stream": {
@@ -598,22 +598,22 @@
       "expenses_by_stream": {
         "household-spending": 142512.53958341398
       },
-      "taxes": 23468.240631495028,
-      "withdrawal_taxes": 11062.969619836756,
-      "contributions": 4375.0,
+      "taxes": 24192.911340560957,
+      "withdrawal_taxes": 11787.640328902686,
+      "contributions": 7350.000000000001,
       "contributions_by_account": {
-        "jordan-roth": 4375.0
+        "jordan-roth": 7350.000000000001
       },
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 36811.915334168334,
-        "jordan-roth": 8535.32753996336,
-        "taxable-brokerage": 29752.76001505201
+        "alex-401k": 39884.571277683346,
+        "jordan-roth": 9302.76591573659,
+        "taxable-brokerage": 29612.336404828013
       },
-      "growth": 279582.40625447995,
-      "net_worth": 4077266.1891558673,
+      "growth": 293540.9865252599,
+      "net_worth": 4282678.989731524,
       "deflator": 1.4845056206605622
     },
     {
@@ -623,9 +623,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 2064370.6874123018,
-        "jordan-roth": 471771.74222961423,
-        "taxable-brokerage": 1668501.2199752687
+        "alex-401k": 2243384.7155021927,
+        "jordan-roth": 515731.17547065165,
+        "taxable-brokerage": 1665603.0327714966
       },
       "income": 0.0,
       "income_by_stream": {},
@@ -633,20 +633,20 @@
       "expenses_by_stream": {
         "household-spending": 146075.3530729993
       },
-      "taxes": 14884.555568786664,
-      "withdrawal_taxes": 14884.555568786664,
+      "taxes": 15183.682869722603,
+      "withdrawal_taxes": 15183.682869722603,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 78962.76214867666,
-        "jordan-roth": 18176.50333970362,
-        "taxable-brokerage": 63820.64315340213
+        "alex-401k": 81691.05908951673,
+        "jordan-roth": 18916.375355882246,
+        "taxable-brokerage": 60651.60149731866
       },
-      "growth": 288337.36910309957,
-      "net_worth": 4204643.649617185,
+      "growth": 303298.9699555343,
+      "net_worth": 4424718.923744341,
       "deflator": 1.521618261177076
     },
     {
@@ -656,9 +656,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 2130830.01084028,
-        "jordan-roth": 483447.45360759064,
-        "taxable-brokerage": 1722216.1186097336
+        "alex-401k": 2320167.4112509685,
+        "jordan-roth": 529535.624309331,
+        "taxable-brokerage": 1722610.4154195965
       },
       "income": 0.0,
       "income_by_stream": {},
@@ -666,20 +666,20 @@
       "expenses_by_stream": {
         "household-spending": 149727.2368998243
       },
-      "taxes": 15823.01433080963,
-      "withdrawal_taxes": 15823.01433080963,
+      "taxes": 16117.27298220814,
+      "withdrawal_taxes": 16117.27298220814,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 81280.86811004051,
-        "jordan-roth": 18575.160455449117,
-        "taxable-brokerage": 65694.22266513982
+        "alex-401k": 84085.12383074689,
+        "jordan-roth": 19330.308998347104,
+        "taxable-brokerage": 62429.07705293313
       },
-      "growth": 297400.18467104883,
-      "net_worth": 4336493.583057605,
+      "growth": 313439.03711758205,
+      "net_worth": 4572313.450979896,
       "deflator": 1.5596587177065029
     },
     {
@@ -689,9 +689,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 2199691.18621003,
-        "jordan-roth": 495471.2035379621,
-        "taxable-brokerage": 1777872.2833741058
+        "alex-401k": 2400037.1486499268,
+        "jordan-roth": 543813.5888920666,
+        "taxable-brokerage": 1781909.7749628338
       },
       "income": 0.0,
       "income_by_stream": {},
@@ -699,20 +699,20 @@
       "expenses_by_stream": {
         "household-spending": 153470.41782231987
       },
-      "taxes": 16774.39849311764,
-      "withdrawal_taxes": 16774.39849311764,
+      "taxes": 17064.206305572683,
+      "withdrawal_taxes": 17064.206305572683,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 83653.47644285782,
-        "jordan-roth": 18979.486850654077,
-        "taxable-brokerage": 67611.85302192008
+        "alex-401k": 86535.8164162298,
+        "jordan-roth": 19750.211708377978,
+        "taxable-brokerage": 64248.59600327831
       },
-      "growth": 306785.9063799258,
-      "net_worth": 4473034.673122099,
+      "growth": 323981.6856528173,
+      "net_worth": 4725760.512504827,
       "deflator": 1.5986501856491653
     },
     {
@@ -722,9 +722,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 2271072.9114380823,
-        "jordan-roth": 507860.0053263003,
-        "taxable-brokerage": 1835565.6503421466
+        "alex-401k": 2483161.3293480584,
+        "jordan-roth": 558590.1325662932,
+        "taxable-brokerage": 1843625.3989085292
       },
       "income": 0.0,
       "income_by_stream": {},
@@ -732,20 +732,20 @@
       "expenses_by_stream": {
         "household-spending": 157307.17826787784
       },
-      "taxes": 17739.40811135083,
-      "withdrawal_taxes": 17739.40811135083,
+      "taxes": 18025.18141353998,
+      "withdrawal_taxes": 18025.18141353998,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 86082.14811037229,
-        "jordan-roth": 19389.642416518218,
-        "taxable-brokerage": 69574.7958523314
+        "alex-401k": 89044.75279319494,
+        "jordan-roth": 20176.248778363133,
+        "taxable-brokerage": 66111.3581098519
       },
-      "growth": 316510.4803636533,
-      "net_worth": 4614498.567106529,
+      "growth": 334948.7079994633,
+      "net_worth": 4885376.860822881,
       "deflator": 1.6386164402903942
     },
     {
@@ -755,9 +755,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 2345101.009158801,
-        "jordan-roth": 520631.83574450033,
-        "taxable-brokerage": 1895397.9140497348
+        "alex-401k": 2569718.0478161997,
+        "jordan-roth": 573891.8136850544,
+        "taxable-brokerage": 1907889.5136593564
       },
       "income": 0.0,
       "income_by_stream": {},
@@ -765,20 +765,20 @@
       "expenses_by_stream": {
         "household-spending": 161239.8577245748
       },
-      "taxes": 18718.756722082802,
-      "withdrawal_taxes": 18718.756722082802,
+      "taxes": 19000.909902966538,
+      "withdrawal_taxes": 19000.909902966538,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 88568.48225353031,
-        "jordan-roth": 19805.78855151677,
-        "taxable-brokerage": 71584.34364160243
+        "alex-401k": 91613.5882441032,
+        "jordan-roth": 20608.587044798656,
+        "taxable-brokerage": 68018.59233863014
       },
-      "growth": 326590.80629315646,
-      "net_worth": 4761130.758953036,
+      "growth": 346363.2819652619,
+      "net_worth": 5051499.37516061,
       "deflator": 1.6795818512976541
     },
     {
@@ -788,9 +788,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 2421908.915943543,
-        "jordan-roth": 533805.6977885066,
-        "taxable-brokerage": 1957476.9228999966
+        "alex-401k": 2659896.845072939,
+        "jordan-roth": 589746.783794576,
+        "taxable-brokerage": 1974842.8441178317
       },
       "income": 0.0,
       "income_by_stream": {},
@@ -798,20 +798,20 @@
       "expenses_by_stream": {
         "household-spending": 165270.85416768913
       },
-      "taxes": 19713.17079167647,
-      "withdrawal_taxes": 19713.17079167647,
+      "taxes": 19992.11593817734,
+      "withdrawal_taxes": 19992.11593817734,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 91114.11670320008,
-        "jordan-roth": 20228.088110559274,
-        "taxable-brokerage": 73641.82014559662
+        "alex-401k": 94244.01796702453,
+        "jordan-roth": 21047.394847861175,
+        "taxable-brokerage": 69971.55729096971
       },
-      "growth": 337044.8026383662,
-      "net_worth": 4913191.536632046,
+      "growth": 358250.0679305913,
+      "net_worth": 5224486.472985347,
       "deflator": 1.7215713975800953
     },
     {
@@ -821,9 +821,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 2501638.207335896,
-        "jordan-roth": 547401.6876622518,
-        "taxable-brokerage": 2021917.1035163258
+        "alex-401k": 2753899.5178611125,
+        "jordan-roth": 606184.8924027897,
+        "taxable-brokerage": 2044635.2144601427
       },
       "income": 0.0,
       "income_by_stream": {},
@@ -831,20 +831,20 @@
       "expenses_by_stream": {
         "household-spending": 169402.62552188136
       },
-      "taxes": 20723.389280752916,
-      "withdrawal_taxes": 20723.389280752916,
+      "taxes": 20999.53590190989,
+      "withdrawal_taxes": 20999.53590190989,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 93720.72856718578,
-        "jordan-roth": 20656.70537017836,
-        "taxable-brokerage": 75748.58086525876
+        "alex-401k": 96937.77772895322,
+        "jordan-roth": 21492.842006162828,
+        "taxable-brokerage": 71971.54168866224
       },
-      "growth": 347891.4766850502,
-      "net_worth": 5070956.998514473,
+      "growth": 370635.31316247664,
+      "net_worth": 5404719.624724044,
       "deflator": 1.7646106825195975
     },
     {
@@ -854,9 +854,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 2584439.1612948137,
-        "jordan-roth": 561441.0662544963,
-        "taxable-brokerage": 2088839.9161380967
+        "alex-401k": 2851940.9873313024,
+        "jordan-roth": 623237.7987535129,
+        "taxable-brokerage": 2117426.1930910046
       },
       "income": 0.0,
       "income_by_stream": {},
@@ -864,20 +864,20 @@
       "expenses_by_stream": {
         "household-spending": 173637.69115992836
       },
-      "taxes": 21750.163315260525,
-      "withdrawal_taxes": 21750.163315260525,
+      "taxes": 22023.918144446623,
+      "withdrawal_taxes": 22023.918144446623,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 96390.03488841951,
-        "jordan-roth": 21091.80600816572,
-        "taxable-brokerage": 77906.01357859037
+        "alex-401k": 99696.64458861141,
+        "jordan-roth": 21945.099805168153,
+        "taxable-brokerage": 74019.86491058042
       },
-      "growth": 359150.99964810885,
-      "net_worth": 5234720.143687407,
+      "growth": 383546.9637561352,
+      "net_worth": 5592604.97917582,
       "deflator": 1.8087259495825871
     },
     {
@@ -887,9 +887,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 2670471.3628342086,
-        "jordan-roth": 575946.3353946247,
-        "taxable-brokerage": 2158374.3433128847
+        "alex-401k": 2954250.2315943916,
+        "jordan-roth": 640939.0910608337,
+        "taxable-brokerage": 2193385.785018159
       },
       "income": 0.0,
       "income_by_stream": {},
@@ -897,20 +897,20 @@
       "expenses_by_stream": {
         "household-spending": 177978.63343892657
       },
-      "taxes": 22794.255955619985,
-      "withdrawal_taxes": 22794.255955619985,
+      "taxes": 23066.022823005824,
+      "withdrawal_taxes": 23066.022823005824,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 99123.79337093442,
-        "jordan-roth": 21533.557096188655,
-        "taxable-brokerage": 80115.53892740812
+        "alex-401k": 102522.43768552116,
+        "jordan-roth": 22404.34099786855,
+        "taxable-brokerage": 76117.87757852537
       },
-      "growth": 370844.7872488423,
-      "net_worth": 5404792.041541718,
+      "growth": 397014.7847594797,
+      "net_worth": 5788575.107673384,
       "deflator": 1.8539440983221518
     },
     {
@@ -920,9 +920,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 2759904.352858705,
-        "jordan-roth": 590941.3191939873,
-        "taxable-brokerage": 2230657.414309671
+        "alex-401k": 3061071.28683343,
+        "jordan-roth": 659324.4136899756,
+        "taxable-brokerage": 2272695.1751287915
       },
       "income": 0.0,
       "income_by_stream": {},
@@ -930,20 +930,20 @@
       "expenses_by_stream": {
         "household-spending": 182428.0992748997
       },
-      "taxes": 23856.44205593294,
-      "withdrawal_taxes": 23856.44205593294,
+      "taxes": 24126.621823966336,
+      "withdrawal_taxes": 24126.621823966336,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 101923.80317045342,
-        "jordan-roth": 21982.12710403445,
-        "taxable-brokerage": 82378.61105632714
+        "alex-401k": 105417.01909236287,
+        "jordan-roth": 22870.73981642262,
+        "taxable-brokerage": 78266.96219006079
       },
-      "growth": 382995.5861514602,
-      "net_worth": 5581503.086362364,
+      "growth": 411070.4890776592,
+      "net_worth": 5993090.875652197,
       "deflator": 1.9002927007802053
     },
     {
@@ -953,9 +953,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 2869439.5639191014,
-        "jordan-roth": 609963.2077584041,
-        "taxable-brokerage": 2319187.84849909
+        "alex-401k": 3189741.666169981,
+        "jordan-roth": 682083.3632145392,
+        "taxable-brokerage": 2368226.615888761
       },
       "income": 32203.626969221878,
       "income_by_stream": {
@@ -965,20 +965,20 @@
       "expenses_by_stream": {
         "household-spending": 186988.80175677218
       },
-      "taxes": 26045.93586198645,
-      "withdrawal_taxes": 26045.93586198645,
+      "taxes": 26293.583535218073,
+      "withdrawal_taxes": 26293.583535218073,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 89416.15935558607,
-        "jordan-roth": 19145.483470149444,
-        "taxable-brokerage": 72269.46782378023
+        "alex-401k": 92489.00096094867,
+        "jordan-roth": 19921.214051316976,
+        "taxable-brokerage": 68668.54331049374
       },
-      "growth": 397918.6444637475,
-      "net_worth": 5798590.620176596,
+      "growth": 428039.5279438434,
+      "net_worth": 6240051.645273281,
       "deflator": 1.9478000182997104
     },
     {
@@ -988,9 +988,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 3007940.7796090194,
-        "jordan-roth": 634792.9150290889,
-        "taxable-brokerage": 2431129.6856680517
+        "alex-401k": 3349495.2230827226,
+        "jordan-roth": 711078.487134987,
+        "taxable-brokerage": 2486835.7902542604
       },
       "income": 79220.92234428582,
       "income_by_stream": {
@@ -1000,20 +1000,20 @@
       "expenses_by_stream": {
         "household-spending": 191663.5218006915
       },
-      "taxes": 29121.322458678434,
-      "withdrawal_taxes": 29121.322458678434,
+      "taxes": 29353.553486249475,
+      "withdrawal_taxes": 29353.553486249475,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 70053.07754495619,
-        "jordan-roth": 14891.339908309146,
-        "taxable-brokerage": 56619.50446181528
+        "alex-401k": 72482.26823352445,
+        "jordan-roth": 15499.358400864967,
+        "taxable-brokerage": 53814.52630824856
       },
-      "growth": 416836.68204464484,
-      "net_worth": 6073863.38030616,
+      "growth": 449154.0081413273,
+      "net_worth": 6547409.50047197,
       "deflator": 1.996495018757203
     },
     {
@@ -1023,9 +1023,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 3154568.519279842,
-        "jordan-roth": 660935.3581708787,
-        "taxable-brokerage": 2549639.681966077
+        "alex-401k": 3518882.9170189667,
+        "jordan-roth": 741650.3834517071,
+        "taxable-brokerage": 2612597.83845972
       },
       "income": 81201.44540289296,
       "income_by_stream": {
@@ -1035,20 +1035,20 @@
       "expenses_by_stream": {
         "household-spending": 196455.10984570876
       },
-      "taxes": 30321.86780090759,
-      "withdrawal_taxes": 30321.86780090759,
+      "taxes": 30555.769440249067,
+      "withdrawal_taxes": 30555.769440249067,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 72092.925463052,
-        "jordan-roth": 15214.421313711551,
-        "taxable-brokerage": 58268.185466956435
+        "alex-401k": 74592.55484729543,
+        "jordan-roth": 15835.568502029899,
+        "taxable-brokerage": 55381.31053372065
       },
-      "growth": 436855.71135435754,
-      "net_worth": 6365143.559416798,
+      "growth": 471531.07234146947,
+      "net_worth": 6873131.138930393,
       "deflator": 2.046407394226133
     },
     {
@@ -1058,9 +1058,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 3309874.0787649797,
-        "jordan-roth": 688472.7009481475,
-        "taxable-brokerage": 2675163.4152034987
+        "alex-401k": 3698566.2891594577,
+        "jordan-roth": 773898.5756545594,
+        "taxable-brokerage": 2746003.9223595182
       },
       "income": 83231.48153796526,
       "income_by_stream": {
@@ -1070,20 +1070,20 @@
       "expenses_by_stream": {
         "household-spending": 201366.48759185144
       },
-      "taxes": 31548.34990148888,
-      "withdrawal_taxes": 31548.34990148888,
+      "taxes": 31784.215928254744,
+      "withdrawal_taxes": 31784.215928254744,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 74183.15048972573,
-        "jordan-roth": 15542.622339477419,
-        "taxable-brokerage": 59957.58312615282
+        "alex-401k": 76755.14674492527,
+        "jordan-roth": 16177.14637220453,
+        "taxable-brokerage": 56986.92886500763
       },
-      "growth": 458049.9914551842,
-      "net_worth": 6673510.1949166255,
+      "growth": 495256.8702252788,
+      "net_worth": 7218468.787173536,
       "deflator": 2.097567579081786
     },
     {
@@ -1093,9 +1093,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 3474448.3608645564,
-        "jordan-roth": 717492.4670355482,
-        "taxable-brokerage": 2808178.4750152132
+        "alex-401k": 3889254.647965831,
+        "jordan-roth": 807929.1012610273,
+        "taxable-brokerage": 2887580.668669398
       },
       "income": 85312.2685764144,
       "income_by_stream": {
@@ -1105,20 +1105,20 @@
       "expenses_by_stream": {
         "household-spending": 206400.64978164775
       },
-      "taxes": 32801.5932508495,
-      "withdrawal_taxes": 32801.5932508495,
+      "taxes": 33039.718014748374,
+      "withdrawal_taxes": 33039.718014748374,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 76325.11565231654,
-        "jordan-roth": 15876.059714917421,
-        "taxable-brokerage": 61688.7990888282
+        "alex-401k": 78971.45624570116,
+        "jordan-roth": 16524.21309442146,
+        "taxable-brokerage": 58632.429879855285
       },
-      "growth": 480499.0824547544,
-      "net_worth": 7000119.302915317,
+      "growth": 520423.7299426992,
+      "net_worth": 7584764.417896256,
       "deflator": 2.1500067685588307
     },
     {
@@ -1128,9 +1128,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 3565764.017452631,
-        "jordan-roth": 762014.8211124043,
-        "taxable-brokerage": 3004101.118857417
+        "alex-401k": 4000622.327076049,
+        "jordan-roth": 860030.3198985789,
+        "taxable-brokerage": 3096124.4200933543
       },
       "income": 87445.07529082474,
       "income_by_stream": {
@@ -1140,20 +1140,20 @@
       "expenses_by_stream": {
         "household-spending": 211560.6660261889
       },
-      "taxes": 47324.29026210225,
-      "withdrawal_taxes": 6320.15354410938,
+      "taxes": 49736.554733959514,
+      "withdrawal_taxes": 3336.563874811851,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 141237.7382465267,
+      "required_distributions": 158099.7824376354,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 155915.07333302483,
-        "jordan-roth": 3159.379515131754,
-        "taxable-brokerage": 12365.428149306863
+        "alex-401k": 166013.76655489634,
+        "jordan-roth": 1713.6619373067776,
+        "taxable-brokerage": 6124.716977118618
       },
-      "growth": 503200.53550459736,
-      "net_worth": 7331879.957422453,
+      "growth": 545864.7946410478,
+      "net_worth": 7956777.067067983,
       "deflator": 2.203756937772801
     },
     {
@@ -1163,9 +1163,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 3656005.6559145837,
-        "jordan-roth": 809834.7337793645,
-        "taxable-brokerage": 3215816.777281501
+        "alex-401k": 4111376.419394109,
+        "jordan-roth": 916119.5881000899,
+        "taxable-brokerage": 3322007.2806258206
       },
       "income": 89631.20217309536,
       "income_by_stream": {
@@ -1175,20 +1175,20 @@
       "expenses_by_stream": {
         "household-spending": 216849.6826768436
       },
-      "taxes": 50133.17276332914,
-      "withdrawal_taxes": 5585.148827739096,
+      "taxes": 52770.35992043665,
+      "withdrawal_taxes": 2350.831382336328,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 150454.17795158783,
+      "required_distributions": 168802.62983443245,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 163245.95703887218,
-        "jordan-roth": 2854.067628116117,
-        "taxable-brokerage": 11251.628600086808
+        "alex-401k": 174306.44118111266,
+        "jordan-roth": 1235.299415719965,
+        "taxable-brokerage": 4447.099827351047
       },
-      "growth": 527128.8628200723,
-      "net_worth": 7681657.166975449,
+      "growth": 572715.0614762212,
+      "net_worth": 8349503.288120019,
       "deflator": 2.258850861217121
     },
     {
@@ -1198,9 +1198,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 3744977.903328327,
-        "jordan-roth": 861165.0572920573,
-        "taxable-brokerage": 3444491.0827784906
+        "alex-401k": 4221282.860146025,
+        "jordan-roth": 976465.6763612664,
+        "taxable-brokerage": 3566556.9335739342
       },
       "income": 91871.98222742273,
       "income_by_stream": {
@@ -1210,20 +1210,20 @@
       "expenses_by_stream": {
         "household-spending": 222270.92474376466
       },
-      "taxes": 52988.83685003412,
-      "withdrawal_taxes": 4888.369042573948,
+      "taxes": 55866.04938581007,
+      "withdrawal_taxes": 1402.3220013434475,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 159650.90200500368,
+      "required_distributions": 179536.08818314888,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 170684.20097896073,
-        "jordan-roth": 2555.5612534144248,
-        "taxable-brokerage": 10148.01713399917
+        "alex-401k": 182774.40902088906,
+        "jordan-roth": 754.5294066132021,
+        "taxable-brokerage": 2736.053474649083
       },
-      "growth": 552364.6557898002,
-      "net_worth": 8050634.043398875,
+      "growth": 601067.1738633575,
+      "net_worth": 8764305.470081225,
       "deflator": 2.3153221327475486
     },
     {
@@ -1233,9 +1233,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 3831552.149119674,
-        "jordan-roth": 916371.3414972946,
-        "taxable-brokerage": 3691934.0302256057
+        "alex-401k": 4328956.116496946,
+        "jordan-roth": 1041490.538146584,
+        "taxable-brokerage": 3831698.0339287124
       },
       "income": 94168.7817831083,
       "income_by_stream": {
@@ -1245,20 +1245,20 @@
       "expenses_by_stream": {
         "household-spending": 227827.69786235876
       },
-      "taxes": 56095.638018366786,
-      "withdrawal_taxes": 3986.3235067674905,
+      "taxes": 59486.78003124991,
+      "withdrawal_taxes": 280.0446757247846,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 170226.26833310578,
+      "required_distributions": 191876.49364300116,
       "surplus": 0.0,
       "withdrawals": {
-        "alex-401k": 179084.79107176626,
-        "jordan-roth": 2134.0364368479404,
-        "taxable-brokerage": 8535.72658900185
+        "alex-401k": 192473.0728059174,
+        "jordan-roth": 144.571935127411,
+        "taxable-brokerage": 528.0513694555111
       },
-      "growth": 578978.0315413158,
-      "net_worth": 8439857.520842575,
+      "growth": 630984.9146015166,
+      "net_worth": 9202144.688572241,
       "deflator": 2.373205186066237
     },
     {
@@ -1268,9 +1268,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 3914791.329719134,
-        "jordan-roth": 975771.2212056534,
-        "taxable-brokerage": 3959808.7136052116
+        "alex-401k": 4431014.847309809,
+        "jordan-roth": 1111010.0315678685,
+        "taxable-brokerage": 4121033.9009684087
       },
       "income": 96523.00132768598,
       "income_by_stream": {
@@ -1280,20 +1280,18 @@
       "expenses_by_stream": {
         "household-spending": 233523.3903089177
       },
-      "taxes": 59525.07185362615,
-      "withdrawal_taxes": 3138.967733334641,
+      "taxes": 64557.67184161837,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 181590.1492473779,
-      "surplus": 0.0,
+      "required_distributions": 205163.79699037655,
+      "surplus": 3605.7361675264838,
       "withdrawals": {
-        "alex-401k": 188191.20940898603,
-        "jordan-roth": 1657.2836527637332,
-        "taxable-brokerage": 6676.967773105644
+        "alex-401k": 205163.79699037655
       },
-      "growth": 607039.2045222801,
-      "net_worth": 8850371.26453,
+      "growth": 662472.1520966945,
+      "net_worth": 9663058.779846085,
       "deflator": 2.432535315717893
     },
     {
@@ -1303,9 +1301,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 3993553.442972769,
-        "jordan-roth": 1039693.3363359784,
-        "taxable-brokerage": 4249865.93945281
+        "alex-401k": 4525426.173561401,
+        "jordan-roth": 1185169.9511750238,
+        "taxable-brokerage": 4437386.751543852
       },
       "income": 98936.07636087813,
       "income_by_stream": {
@@ -1315,20 +1313,18 @@
       "expenses_by_stream": {
         "household-spending": 239361.47506664065
       },
-      "taxes": 63444.09705130576,
-      "withdrawal_taxes": 2145.321492276358,
+      "taxes": 70243.24244797675,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 193801.55097619476,
-      "surplus": 0.0,
+      "required_distributions": 219357.17065890145,
+      "surplus": 8688.52950516218,
       "withdrawals": {
-        "alex-401k": 198129.21434196393,
-        "jordan-roth": 1134.8618562478657,
-        "taxable-brokerage": 4605.419558855142
+        "alex-401k": 219357.17065890145
       },
-      "growth": 636610.9499886257,
-      "net_worth": 9283112.718761558,
+      "growth": 695592.737587929,
+      "net_worth": 10147982.876280274,
       "deflator": 2.49334869861084
     },
     {
@@ -1338,9 +1334,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 4067421.447111061,
-        "jordan-roth": 1108421.8357158455,
-        "taxable-brokerage": 4563718.108944217
+        "alex-401k": 4611922.463517925,
+        "jordan-roth": 1264280.0454159568,
+        "taxable-brokerage": 4782461.697350464
       },
       "income": 101409.47826990008,
       "income_by_stream": {
@@ -1350,20 +1346,18 @@
       "expenses_by_stream": {
         "household-spending": 245345.51194330666
       },
-      "taxes": 67409.22110463679,
-      "withdrawal_taxes": 1156.5067296266207,
+      "taxes": 75848.3564217123,
+      "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 205853.2702563283,
-      "surplus": 0.0,
+      "required_distributions": 233269.39038976294,
+      "surplus": 13485.000294644036,
       "withdrawals": {
-        "alex-401k": 208144.93007275887,
-        "jordan-roth": 629.042250348718,
-        "taxable-brokerage": 2571.28245493522
+        "alex-401k": 233269.39038976294
       },
-      "growth": 667793.9277876079,
-      "net_worth": 9739561.391771123,
+      "growth": 730465.7200991877,
+      "net_worth": 10658664.206284344,
       "deflator": 2.555682416076111
     },
     {
@@ -1373,9 +1367,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 4134204.1100602495,
-        "jordan-roth": 1182408.9932498783,
-        "taxable-brokerage": 4904162.8144962825
+        "alex-401k": 4687645.244506766,
+        "jordan-roth": 1348670.738447472,
+        "taxable-brokerage": 5159759.185232523
       },
       "income": 103944.71522664756,
       "income_by_stream": {
@@ -1385,18 +1379,18 @@
       "expenses_by_stream": {
         "household-spending": 251479.14974188927
       },
-      "taxes": 71909.51934689366,
+      "taxes": 82210.88992756406,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 219860.61876276004,
-      "surplus": 416.6649006247171,
+      "required_distributions": 249293.10613610403,
+      "surplus": 19547.781693298253,
       "withdrawals": {
-        "alex-401k": 219860.61876276004
+        "alex-401k": 249293.10613610403
       },
-      "growth": 700658.479897422,
-      "net_worth": 10220775.91780641,
+      "growth": 767156.2863452213,
+      "net_worth": 11196075.168186761,
       "deflator": 2.619574476478013
     },
     {
@@ -1406,9 +1400,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 4191230.4339851765,
-        "jordan-roth": 1261334.7935493079,
-        "taxable-brokerage": 5274752.393747345
+        "alex-401k": 4752305.616622378,
+        "jordan-roth": 1438694.510238841,
+        "taxable-brokerage": 5571228.949715062
       },
       "income": 106543.33310731374,
       "income_by_stream": {
@@ -1418,18 +1412,18 @@
       "expenses_by_stream": {
         "household-spending": 257766.12848543646
       },
-      "taxes": 77481.19038592794,
+      "taxes": 88424.94163204549,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 233570.8536757203,
-      "surplus": 4866.867911669629,
+      "required_distributions": 264838.71437891334,
+      "surplus": 25190.97736874511,
       "withdrawals": {
-        "alex-401k": 233570.8536757203
+        "alex-401k": 264838.71437891334
       },
-      "growth": 735245.6892394696,
-      "net_worth": 10727317.62128183,
+      "growth": 805801.645399688,
+      "net_worth": 11762229.076576281,
       "deflator": 2.685063838389963
     },
     {
@@ -1439,9 +1433,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 4235412.988143437,
-        "jordan-roth": 1345528.8910187243,
-        "taxable-brokerage": 5679147.1733612
+        "alex-401k": 4802402.8383309385,
+        "jordan-roth": 1534727.3687972836,
+        "taxable-brokerage": 6021036.764560023
       },
       "income": 109206.91643499659,
       "income_by_stream": {
@@ -1451,18 +1445,18 @@
       "expenses_by_stream": {
         "household-spending": 264210.2816975724
       },
-      "taxes": 83841.10834743599,
+      "taxes": 95530.1746523777,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 249478.00202292716,
-      "surplus": 10633.528412915359,
+      "required_distributions": 282875.3343227606,
+      "surplus": 32341.794407807116,
       "withdrawals": {
-        "alex-401k": 249478.00202292716
+        "alex-401k": 282875.3343227606
       },
-      "growth": 771615.9048515433,
-      "net_worth": 11260089.052523362,
+      "growth": 846471.4350269178,
+      "net_worth": 12358166.971688244,
       "deflator": 2.7521904343497123
     },
     {
@@ -1472,9 +1466,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 4266516.802275115,
-        "jordan-roth": 1435342.9444942242,
-        "taxable-brokerage": 6119273.570048474
+        "alex-401k": 4837670.484174931,
+        "jordan-roth": 1637170.4206645025,
+        "taxable-brokerage": 6511383.928673935
       },
       "income": 111937.08934587149,
       "income_by_stream": {
@@ -1484,18 +1478,18 @@
       "expenses_by_stream": {
         "household-spending": 270815.53874001163
       },
-      "taxes": 89985.69319603444,
+      "taxes": 102388.59616888603,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 264713.3117589648,
-      "surplus": 15849.16916879022,
+      "required_distributions": 300150.17739568366,
+      "surplus": 38883.1318326575,
       "withdrawals": {
-        "alex-401k": 264713.3117589648
+        "alex-401k": 300150.17739568366
       },
-      "growth": 809908.4068846267,
-      "net_worth": 11821133.316817813,
+      "growth": 889324.90738815,
+      "net_worth": 12986224.83351337,
       "deflator": 2.8209951952084547
     },
     {
@@ -1505,9 +1499,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 4282768.862989045,
-        "jordan-roth": 1531152.0860392137,
-        "taxable-brokerage": 6598186.797119354
+        "alex-401k": 4856098.189506099,
+        "jordan-roth": 1746451.5462438583,
+        "taxable-brokerage": 7045753.325507206
       },
       "income": 114735.51657951825,
       "income_by_stream": {
@@ -1517,18 +1511,18 @@
       "expenses_by_stream": {
         "household-spending": 277585.9272085119
       },
-      "taxes": 96410.72939268893,
+      "taxes": 109562.29443643472,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 280691.8948865207,
-      "surplus": 21430.75486483815,
+      "required_distributions": 318267.7950115087,
+      "surplus": 45855.08994608029,
       "withdrawals": {
-        "alex-401k": 280691.8948865207
+        "alex-401k": 318267.7950115087
       },
-      "growth": 850235.5693514824,
-      "net_worth": 12412107.746147612,
+      "growth": 934490.932809222,
+      "net_worth": 13648303.061257161,
       "deflator": 2.891520075088666
     },
     {
@@ -1538,9 +1532,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 4282263.258331609,
-        "jordan-roth": 1633356.4877823314,
-        "taxable-brokerage": 7119167.059345753
+        "alex-401k": 4855524.900136504,
+        "jordan-roth": 1863027.186955636,
+        "taxable-brokerage": 7627884.761797992
       },
       "income": 117603.90449400622,
       "income_by_stream": {
@@ -1550,18 +1544,18 @@
       "expenses_by_stream": {
         "household-spending": 284525.5753887247
       },
-      "taxes": 103116.98811795056,
+      "taxes": 117052.07591524007,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 297414.5043742392,
-      "surplus": 27375.845361570187,
+      "required_distributions": 337229.04093792354,
+      "surplus": 53255.294127965,
       "withdrawals": {
-        "alex-401k": 297414.5043742392
+        "alex-401k": 337229.04093792354
       },
-      "growth": 892717.7183247502,
-      "net_worth": 13034786.805459693,
+      "growth": 982107.5344429275,
+      "net_worth": 14346436.848890131,
       "deflator": 2.9638080769658823
     },
     {
@@ -1571,9 +1565,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 4265431.150560722,
-        "jordan-roth": 1742383.0333418022,
-        "taxable-brokerage": 7684124.318213686
+        "alex-401k": 4836439.497518085,
+        "jordan-roth": 1987384.2516849248,
+        "taxable-brokerage": 8259966.326153915
       },
       "income": 120544.00210635638,
       "income_by_stream": {
@@ -1584,18 +1578,18 @@
       "expenses_by_stream": {
         "household-spending": 291638.7147734428
       },
-      "taxes": 109297.47678839746,
+      "taxes": 123942.84719947142,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 312573.9604621613,
-      "surplus": 32181.771006677358,
+      "required_distributions": 354417.8759223726,
+      "surplus": 59380.316055814736,
       "withdrawals": {
-        "alex-401k": 312573.9604621613
+        "alex-401k": 354417.8759223726
       },
-      "growth": 937543.886112001,
-      "net_worth": 13691938.50211621,
+      "growth": 1032390.7863333512,
+      "net_worth": 15083790.075356925,
       "deflator": 3.0379032788900293
     },
     {
@@ -1605,9 +1599,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 4227918.502186216,
-        "jordan-roth": 1858687.1008173677,
-        "taxable-brokerage": 8298238.779027975
+        "alex-401k": 4793905.0741852615,
+        "jordan-roth": 2120042.150484894,
+        "taxable-brokerage": 8947896.249484068
       },
       "income": 123557.60215901525,
       "income_by_stream": {
@@ -1617,18 +1611,18 @@
       "expenses_by_stream": {
         "household-spending": 298929.68264277885
       },
-      "taxes": 116521.88878930335,
+      "taxes": 132014.36331915428,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 330653.57756284665,
-      "surplus": 38759.60828977969,
+      "required_distributions": 374917.79050527787,
+      "surplus": 67531.34670235997,
       "withdrawals": {
-        "alex-401k": 330653.57756284665
+        "alex-401k": 374917.79050527787
       },
-      "growth": 984799.8491884156,
-      "net_worth": 14384844.38203156,
+      "growth": 1085439.8426002164,
+      "net_worth": 15861843.474154223,
       "deflator": 3.1138508608622795
     },
     {
@@ -1638,9 +1632,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 4170529.7067794916,
-        "jordan-roth": 1982754.464796927,
-        "taxable-brokerage": 8963509.358073162
+        "alex-401k": 4728833.70694878,
+        "jordan-roth": 2261554.9640297606,
+        "taxable-brokerage": 9693967.881516628
       },
       "income": 126646.54221299062,
       "income_by_stream": {
@@ -1650,18 +1644,18 @@
       "expenses_by_stream": {
         "household-spending": 306402.9247088483
       },
-      "taxes": 123004.84022354307,
+      "taxes": 139242.15991204022,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 346550.6969005096,
-      "surplus": 43789.474181108875,
+      "required_distributions": 392943.0388676444,
+      "surplus": 73944.4964597465,
       "withdrawals": {
-        "alex-401k": 346550.6969005096
+        "alex-401k": 392943.0388676444
       },
-      "growth": 1034710.370337422,
-      "net_worth": 15116793.52964958,
+      "growth": 1141511.620748843,
+      "net_worth": 16684356.552495169,
       "deflator": 3.1916971323838363
     },
     {
@@ -1671,9 +1665,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 4091561.633418515,
-        "jordan-roth": 2115103.3253221223,
-        "taxable-brokerage": 9683749.259969905
+        "alex-401k": 4639294.268715033,
+        "jordan-roth": 2412513.7578787473,
+        "taxable-brokerage": 10502534.201785408
       },
       "income": 129812.70576831538,
       "income_by_stream": {
@@ -1683,18 +1677,18 @@
       "expenses_by_stream": {
         "household-spending": 314062.9978265695
       },
-      "taxes": 129583.19495501486,
+      "taxes": 146575.05582973236,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 362654.75711126014,
-      "surplus": 48821.27009799122,
+      "required_distributions": 411202.9310390244,
+      "surplus": 80377.58315103792,
       "withdrawals": {
-        "alex-401k": 362654.75711126014
+        "alex-401k": 411202.9310390244
       },
-      "growth": 1087454.1760742303,
-      "net_worth": 15890414.218710542,
+      "growth": 1200811.023772005,
+      "net_worth": 17554342.22837919,
       "deflator": 3.271489560693432
     },
     {
@@ -1704,9 +1698,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 3989310.4774129908,
-        "jordan-roth": 2256286.472287374,
-        "taxable-brokerage": 10462970.175445901
+        "alex-401k": 4523354.868425572,
+        "jordan-roth": 2573549.0512171537,
+        "taxable-brokerage": 11378175.907075452
       },
       "income": 133058.02341252327,
       "income_by_stream": {
@@ -1716,18 +1710,18 @@
       "expenses_by_stream": {
         "household-spending": 321914.5727722337
       },
-      "taxes": 136216.41675193678,
+      "taxes": 153967.01141432396,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 378848.2993906032,
-      "surplus": 53775.33327895601,
+      "required_distributions": 429564.28414028086,
+      "surplus": 86740.7233662465,
       "withdrawals": {
-        "alex-401k": 378848.2993906032
+        "alex-401k": 429564.28414028086
       },
-      "growth": 1143225.8725473713,
-      "net_worth": 16708567.125146266,
+      "growth": 1263561.159113024,
+      "net_worth": 18475079.826718178,
       "deflator": 3.3532767997107675
     },
     {
@@ -1737,9 +1731,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 3862106.7705564704,
-        "jordan-roth": 2406893.5943125566,
-        "taxable-brokerage": 11305374.190222973
+        "alex-401k": 4379122.54809127,
+        "jordan-roth": 2745333.450385899,
+        "taxable-brokerage": 12325692.447254268
       },
       "income": 136384.47399783632,
       "income_by_stream": {
@@ -1749,18 +1743,18 @@
       "expenses_by_stream": {
         "household-spending": 329962.4370915395
       },
-      "taxes": 142852.563399955,
+      "taxes": 161359.05219742068,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 394981.2353874248,
-      "surplus": 58550.708893766685,
+      "required_distributions": 447856.9176658983,
+      "surplus": 92919.90237477439,
       "withdrawals": {
-        "alex-401k": 394981.2353874248
+        "alex-401k": 447856.9176658983
       },
-      "growth": 1202237.9564393922,
-      "net_worth": 17574374.555092,
+      "growth": 1330005.6343043838,
+      "net_worth": 19450148.44573144,
       "deflator": 3.437108719703536
     },
     {
@@ -1770,9 +1764,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 3713009.122335251,
-        "jordan-roth": 2567553.74173292,
-        "taxable-brokerage": 12212318.609139862
+        "alex-401k": 4210065.3697215365,
+        "jordan-roth": 2928584.458199158,
+        "taxable-brokerage": 13346660.759943647
       },
       "income": 139794.08584778223,
       "income_by_stream": {
@@ -1782,18 +1776,18 @@
       "expenses_by_stream": {
         "household-spending": 338211.49801882793
       },
-      "taxes": 147911.63471811148,
+      "taxes": 166959.584416762,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 406537.55479541793,
-      "surplus": 60208.507906260726,
+      "required_distributions": 460960.2682201337,
+      "surplus": 95583.27163232601,
       "withdrawals": {
-        "alex-401k": 406537.55479541793
+        "alex-401k": 460960.2682201337
       },
-      "growth": 1264835.9650051906,
-      "net_worth": 18492881.473208033,
+      "growth": 1400539.1387207112,
+      "net_worth": 20485310.587864343,
       "deflator": 3.5230364376961245
     },
     {
@@ -1803,9 +1797,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 3541355.4590335833,
-        "jordan-roth": 2738937.953993593,
-        "taxable-brokerage": 13187824.578176044
+        "alex-401k": 4015432.628556152,
+        "jordan-roth": 3124067.4707839517,
+        "taxable-brokerage": 14445681.568605809
       },
       "income": 143288.93799397675,
       "income_by_stream": {
@@ -1815,18 +1809,18 @@
       "expenses_by_stream": {
         "household-spending": 346666.7854692986
       },
-      "taxes": 152680.42172931344,
+      "taxes": 172227.5775254033,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 417192.03621744394,
-      "surplus": 61133.76701280859,
+      "required_distributions": 473041.0527777007,
+      "surplus": 97435.62777697557,
       "withdrawals": {
-        "alex-401k": 417192.03621744394
+        "alex-401k": 473041.0527777007
       },
-      "growth": 1331294.7871998232,
-      "net_worth": 19468117.99120322,
+      "growth": 1475476.5050822962,
+      "net_worth": 21585181.667945914,
       "deflator": 3.6111123486385273
     },
     {
@@ -1836,9 +1830,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 3352188.054930206,
-        "jordan-roth": 2921762.0624226653,
-        "taxable-brokerage": 14232469.000372028
+        "alex-401k": 3800941.602314111,
+        "jordan-roth": 3332598.9744587806,
+        "taxable-brokerage": 15623453.87791307
       },
       "income": 146871.16144382616,
       "income_by_stream": {
@@ -1848,18 +1842,18 @@
       "expenses_by_stream": {
         "household-spending": 355333.4551060311
       },
-      "taxes": 155285.39798927092,
+      "taxes": 175038.6133860446,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 421589.9355992361,
-      "surplus": 57842.24394776032,
+      "required_distributions": 478027.69387573237,
+      "surplus": 94526.7868274828,
       "withdrawals": {
-        "alex-401k": 421589.9355992361
+        "alex-401k": 478027.69387573237
       },
-      "growth": 1402048.8181731543,
-      "net_worth": 20506419.1177249,
+      "growth": 1555313.6937883003,
+      "net_worth": 22756994.45468596,
       "deflator": 3.7013901573544903
     },
     {
@@ -1869,9 +1863,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 3140140.672070903,
-        "jordan-roth": 3116789.6800893783,
-        "taxable-brokerage": 15353877.433649907
+        "alex-401k": 3560507.680957472,
+        "jordan-roth": 3555049.9560039043,
+        "taxable-brokerage": 16888672.82512309
       },
       "income": 150542.94047992182,
       "income_by_stream": {
@@ -1881,18 +1875,18 @@
       "expenses_by_stream": {
         "household-spending": 364216.79148368177
       },
-      "taxes": 159239.969565286,
+      "taxes": 179376.34669148683,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 429767.69935002644,
-      "surplus": 56853.878780980536,
+      "required_distributions": 487300.205424886,
+      "surplus": 94250.00772963924,
       "withdrawals": {
-        "alex-401k": 429767.69935002644
+        "alex-401k": 487300.205424886
       },
-      "growth": 1477302.4886543355,
-      "net_worth": 21610807.785810187,
+      "growth": 1640286.2050937521,
+      "net_worth": 24004230.462084465,
       "deflator": 3.793924911288352
     },
     {
@@ -1902,9 +1896,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 2911878.2545867353,
-        "jordan-roth": 3324835.3912353446,
-        "taxable-brokerage": 16552159.281353354
+        "alex-401k": 3301688.0369985565,
+        "jordan-roth": 3792349.5405671652,
+        "taxable-brokerage": 18241515.39910521
       },
       "income": 154306.51399191984,
       "income_by_stream": {
@@ -1914,18 +1908,18 @@
       "expenses_by_stream": {
         "household-spending": 373322.21127077384
       },
-      "taxes": 160495.62766942027,
+      "taxes": 180650.21028726944,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 430156.2564480689,
-      "surplus": 50644.93149979459,
+      "required_distributions": 487740.7782133523,
+      "surplus": 88074.87064722885,
       "withdrawals": {
-        "alex-401k": 430156.2564480689
+        "alex-401k": 487740.7782133523
       },
-      "growth": 1557576.466313521,
-      "net_worth": 22788872.927175432,
+      "growth": 1730988.4221525881,
+      "net_worth": 25335552.97667093,
       "deflator": 3.8887730340705606
     },
     {
@@ -1935,9 +1929,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 2668693.598589705,
-        "jordan-roth": 3546768.153600304,
-        "taxable-brokerage": 17831242.510036442
+        "alex-401k": 3025948.5316733387,
+        "jordan-roth": 4045488.872400024,
+        "taxable-brokerage": 19686492.849337425
       },
       "income": 158164.17684171782,
       "income_by_stream": {
@@ -1947,18 +1941,18 @@
       "expenses_by_stream": {
         "household-spending": 382655.26655254315
       },
-      "taxes": 160964.67924355183,
+      "taxes": 181028.4180441603,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 428217.39038040227,
-      "surplus": 42761.62142602517,
+      "required_distributions": 485542.3583821407,
+      "surplus": 80022.8506271551,
       "withdrawals": {
-        "alex-401k": 428217.39038040227
+        "alex-401k": 485542.3583821407
       },
-      "growth": 1643287.1040053936,
-      "net_worth": 24046704.26222645,
+      "growth": 1827896.7844948429,
+      "net_worth": 26757930.253410786,
       "deflator": 3.9859923599223244
     },
     {
@@ -1968,9 +1962,9 @@
         "month": 1
       },
       "balances": {
-        "alex-401k": 2419462.6354839136,
-        "jordan-roth": 3783514.9278531247,
-        "taxable-brokerage": 19364934.099388108
+        "alex-401k": 2743353.3070825334,
+        "jordan-roth": 4315525.254632726,
+        "taxable-brokerage": 21397387.42906685
       },
       "income": 67549.28385948365,
       "income_by_stream": {
@@ -1980,18 +1974,18 @@
       "expenses_by_stream": {
         "household-spending": 163425.68675681527
       },
-      "taxes": 130074.84312107085,
+      "taxes": 149612.22227408207,
       "withdrawal_taxes": 0.0,
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
-      "required_distributions": 416983.37477964134,
-      "surplus": 191032.1287612389,
+      "required_distributions": 472804.45807395916,
+      "surplus": 227315.83290254543,
       "withdrawals": {
-        "alex-401k": 416983.37477964134
+        "alex-401k": 472804.45807395916
       },
-      "growth": 1747158.6465170966,
-      "net_worth": 25567911.662725147,
+      "growth": 1943824.3625427359,
+      "net_worth": 28456265.990782112,
       "deflator": 4.085642168920382
     }
   ],
