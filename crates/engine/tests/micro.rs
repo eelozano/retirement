@@ -13,9 +13,9 @@
 use std::collections::BTreeMap;
 
 use engine::model::{
-    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, ContributionRule,
-    FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig, StateTaxProfile,
-    StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
+    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, Contribution,
+    ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
+    StateTaxProfile, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
 };
 use engine::presets::CONTRIBUTION_LIMITS;
 use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
@@ -60,7 +60,11 @@ fn micro_plan() -> Plan {
             cost_basis: None,
             allocation: bonds_only,
             plan_type: PlanType::EmployerPlan,
-            contribution: ContributionRule::FlatAmount(10_000.0),
+            contributions: vec![Contribution::until_retirement(
+                "contribution",
+                ContributionRule::FlatAmount { amount: 10_000.0 },
+                &person,
+            )],
             employer_match: None,
         }],
         streams: vec![
@@ -191,7 +195,11 @@ fn micro_plan_with_taxable_account() -> Plan {
         cost_basis: Some(0.0),
         allocation: AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 0.0)])),
         plan_type: PlanType::None,
-        contribution: ContributionRule::FlatAmount(0.0),
+        contributions: vec![Contribution::until_retirement(
+            "contribution",
+            ContributionRule::FlatAmount { amount: 0.0 },
+            &"p1".to_string(),
+        )],
         employer_match: None,
     });
     for stream in &mut plan.streams {
@@ -273,7 +281,9 @@ fn ira_cap() -> f64 {
 #[test]
 fn contribution_above_limit_is_clamped_with_warning() {
     let mut plan = micro_plan();
-    plan.accounts[0].contribution = ContributionRule::FlatAmount(deferral_cap() + 10_000.0);
+    plan.accounts[0].contributions[0].rule = ContributionRule::FlatAmount {
+        amount: deferral_cap() + 10_000.0,
+    };
     let projection = run_with_flat_tax(&plan, 0.20);
     assert_eq!(
         clamp_for(&projection, "401k"),
@@ -318,7 +328,13 @@ fn with_second_account(
         cost_basis: None,
         allocation: AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
         plan_type,
-        contribution: ContributionRule::FlatAmount(contribution),
+        contributions: vec![Contribution::until_retirement(
+            "contribution",
+            ContributionRule::FlatAmount {
+                amount: contribution,
+            },
+            &"p1".to_string(),
+        )],
         employer_match: None,
     });
     plan
@@ -334,7 +350,9 @@ fn two_employer_plans_share_one_deferral_limit_filled_in_plan_order() {
         PlanType::EmployerPlan,
         deferral_cap(),
     );
-    plan.accounts[0].contribution = ContributionRule::FlatAmount(deferral_cap());
+    plan.accounts[0].contributions[0].rule = ContributionRule::FlatAmount {
+        amount: deferral_cap(),
+    };
 
     let projection = run_with_flat_tax(&plan, 0.20);
     assert_close(
@@ -353,7 +371,9 @@ fn ira_and_employer_plan_are_capped_independently() {
     // Different buckets: filling the deferral limit leaves the IRA limit
     // entirely intact, and neither is clamped.
     let mut plan = with_second_account("roth-ira", AccountKind::Roth, PlanType::Ira, ira_cap());
-    plan.accounts[0].contribution = ContributionRule::FlatAmount(deferral_cap());
+    plan.accounts[0].contributions[0].rule = ContributionRule::FlatAmount {
+        amount: deferral_cap(),
+    };
 
     let projection = run_with_flat_tax(&plan, 0.20);
     assert_close(
@@ -378,7 +398,7 @@ fn traditional_and_roth_iras_share_one_ira_limit() {
     let mut plan = with_second_account("roth-ira", AccountKind::Roth, PlanType::Ira, ira_cap());
     plan.accounts[0].kind = AccountKind::TraditionalPreTax;
     plan.accounts[0].plan_type = PlanType::Ira;
-    plan.accounts[0].contribution = ContributionRule::FlatAmount(ira_cap());
+    plan.accounts[0].contributions[0].rule = ContributionRule::FlatAmount { amount: ira_cap() };
 
     let projection = run_with_flat_tax(&plan, 0.20);
     assert_close(
@@ -399,7 +419,9 @@ fn plan_type_decides_the_bucket_not_the_tax_treatment() {
         PlanType::Ira,
         ira_cap(),
     );
-    plan.accounts[0].contribution = ContributionRule::FlatAmount(deferral_cap());
+    plan.accounts[0].contributions[0].rule = ContributionRule::FlatAmount {
+        amount: deferral_cap(),
+    };
 
     let projection = run_with_flat_tax(&plan, 0.20);
     assert_close(
@@ -425,7 +447,9 @@ fn limits_are_per_person_so_two_people_do_not_share_a_bucket() {
         PlanType::EmployerPlan,
         deferral_cap(),
     );
-    plan.accounts[0].contribution = ContributionRule::FlatAmount(deferral_cap());
+    plan.accounts[0].contributions[0].rule = ContributionRule::FlatAmount {
+        amount: deferral_cap(),
+    };
     plan.accounts[1].owner = "p2".to_string();
     let mut spouse = plan.people[0].clone();
     spouse.id = "p2".to_string();

@@ -1,18 +1,38 @@
 //! Resolving what actually goes into each account in a period, and holding
 //! it to the statutory limits.
 //!
+//! ### Dated entries
+//!
+//! An account carries a list of `Contribution` entries, each a rule over a
+//! window bounded like a cash-flow stream. `simulate` resolves the
+//! boundaries to months once, up front; this module prorates each entry by
+//! how much of the period its window covers (`active`), sums the entries per
+//! account, and clamps the account. Nothing here asks whether the owner is
+//! still working: the entry's `end` is the single source of truth for when
+//! the owner's own contributions stop, and the migrated default
+//! (`AtRetirement(owner)`) reproduces the old behaviour exactly. The
+//! working share survives only where salary is genuinely the thing being
+//! bounded — the percent-of-salary ratio below, the employer match, and the
+//! 415(c) cap.
+//!
 //! ### The three contribution modes
 //!
 //! `ContributionRule` says what the owner *intends*; this module turns that
 //! into dollars for a concrete period:
 //!
 //! - `PercentOfSalary` resolves against the owner's gross salary for the
-//!   period, so it rises with the salary and holds its real value.
+//!   period, so it rises with the salary and holds its real value. The
+//!   salary is already prorated to the months the owner worked, so the entry
+//!   is scaled by `min(1, active / working_share)` — months of salary the
+//!   entry covers over months of salary earned — rather than by `active`
+//!   again, which would dock a partial year twice. A full year gives 1; an
+//!   entry ending at retirement gives 1 in the retirement year; an entry
+//!   starting in July gives ½.
 //! - `FlatAmount` is nominal by design — the same dollars every year, which
-//!   is what a fixed standing transfer actually does.
+//!   is what a fixed standing transfer actually does — times `active`.
 //! - `FederalMaximum` resolves against the indexed limit table, including
-//!   the owner's catch-up tier. Stored as intent, so it stays correct as
-//!   limits index and the owner ages.
+//!   the owner's catch-up tier, times `active`. Stored as intent, so it
+//!   stays correct as limits index and the owner ages.
 //!
 //! ### Which bucket an account lands in
 //!
@@ -30,6 +50,11 @@
 //! `PlanType::None` is uncapped and joins no bucket — that is what a taxable
 //! brokerage is.
 //!
+//! The cap is the statutory annual figure scaled to the period length, and
+//! **not** to the share of the period the owner worked: the statute does not
+//! prorate a limit for a partial year, and an IRA funded after retirement (a
+//! spousal IRA on the working spouse's compensation) needs a non-zero cap.
+//!
 //! ### Allocation order
 //!
 //! When a person's accounts collectively ask for more than the shared cap,
@@ -42,10 +67,11 @@
 //!
 //! It used to be resolved once for the whole run, because a flat nominal
 //! contribution against a flat nominal limit gives the same answer every
-//! year. Neither is flat any more — salaries grow, limits index, and
-//! catch-up tiers turn on with age — so the split is genuinely a function of
-//! the period. Clamp warnings are therefore deduplicated by account: only
-//! the first period in which an account is held back is reported.
+//! year. Neither is flat any more — salaries grow, limits index, catch-up
+//! tiers turn on with age, and entries start and stop — so the split is
+//! genuinely a function of the period. Clamp warnings are therefore
+//! deduplicated by account: only the first period in which an account is
+//! held back is reported.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -55,12 +81,14 @@ use crate::model::{
 use crate::presets::CONTRIBUTION_LIMITS;
 
 use super::period::{PeriodContext, Warnings};
-use super::SimWarning;
+use super::{ResolvedContribution, SimWarning};
 
 /// What contribution resolution needs beyond the period's time coordinates:
-/// who earned what, and who was still working.
+/// the dated entries, who earned what, and who was still working.
 pub(super) struct Inputs<'a> {
     pub ctx: &'a PeriodContext,
+    /// Every account's entries, boundaries resolved, in plan account order.
+    pub contributions: &'a [ResolvedContribution<'a>],
     /// Gross salary accrued this period per person: their income streams,
     /// already grown and prorated, excluding Social Security.
     pub salary: &'a BTreeMap<PersonId, f64>,
@@ -70,7 +98,9 @@ pub(super) struct Inputs<'a> {
 
 impl Inputs<'_> {
     /// This period's share of an annual figure for `owner`, zero once they
-    /// have retired.
+    /// have retired. Bounds the salary-linked figures — the employer match
+    /// and the 415(c) cap — not the owner's own entries, which carry their
+    /// own windows.
     fn prorate(&self, owner: &PersonId) -> f64 {
         self.ctx.fraction * self.working.get(owner).copied().unwrap_or(0.0)
     }
@@ -85,8 +115,7 @@ pub(super) fn allowed_contributions(
     reported: &mut BTreeSet<AccountId>,
     warnings: &mut Warnings,
 ) -> Vec<f64> {
-    // Bucket capacity for this period, per person. The statutory figure is
-    // annual, so it is prorated the same way the contributions are.
+    // Bucket capacity for this period, per person.
     let mut remaining: BTreeMap<(PersonId, PlanType), f64> = BTreeMap::new();
     let limit_for = |plan: &Plan, owner: &PersonId, plan_type: PlanType| -> Option<f64> {
         let person = plan.person(owner)?;
@@ -98,37 +127,55 @@ pub(super) fn allowed_contributions(
         )
     };
 
-    let mut requested = Vec::with_capacity(plan.accounts.len());
-    for account in &plan.accounts {
-        // Nobody contributes out of a period they spend retired, whatever
-        // the mode says — so a zero share short-circuits before any of the
-        // modes resolve, and before anything can be reported as clamped.
-        let share = inputs.prorate(&account.owner);
-        let amount = if share <= 0.0 {
-            0.0
-        } else {
-            match account.contribution {
-                ContributionRule::FlatAmount(a) => a.max(0.0) * share,
-                // The salary is already grown and prorated for the period,
-                // so it carries its own share — applying `prorate` again
-                // would double-count a partial working year.
-                ContributionRule::PercentOfSalary(p) => {
-                    p.max(0.0) * inputs.salary.get(&account.owner).copied().unwrap_or(0.0)
-                }
-                // A taxable account has no federal maximum; validation
-                // rejects that combination, so the fallback only guards a
-                // hand-edited plan file.
-                ContributionRule::FederalMaximum => {
-                    limit_for(plan, &account.owner, account.plan_type).unwrap_or(0.0) * share
+    // What each account asks for: its entries, each prorated by the share
+    // of this period its window covers, summed. An entry outside its window
+    // contributes nothing and cannot be reported as clamped.
+    let mut requested = vec![0.0; plan.accounts.len()];
+    for resolved in inputs.contributions {
+        let account = &plan.accounts[resolved.account];
+        let active = inputs.ctx.overlap(resolved.start, resolved.end);
+        if active <= 0.0 {
+            continue;
+        }
+        let amount = match resolved.entry.rule {
+            ContributionRule::FlatAmount { amount } => {
+                amount.max(0.0) * active * inputs.ctx.fraction
+            }
+            // Percent of salary *earned*, not of the period: the salary is
+            // already grown and prorated to the owner's working months, so
+            // the entry's share of it is its overlap with those months —
+            // `active` over the working share, capped at all of it. With no
+            // working months there is no salary for a percentage to be of,
+            // whatever owned income streams (a pension) the period holds.
+            ContributionRule::PercentOfSalary { percent } => {
+                let working = inputs.working.get(&account.owner).copied().unwrap_or(0.0);
+                if working <= 0.0 {
+                    0.0
+                } else {
+                    let salary = inputs.salary.get(&account.owner).copied().unwrap_or(0.0);
+                    percent.max(0.0) * salary * (active / working).min(1.0)
                 }
             }
+            // A taxable account has no federal maximum; validation
+            // rejects that combination, so the fallback only guards a
+            // hand-edited plan file.
+            ContributionRule::FederalMaximum => {
+                limit_for(plan, &account.owner, account.plan_type).unwrap_or(0.0)
+                    * active
+                    * inputs.ctx.fraction
+            }
         };
-        requested.push(amount);
+        requested[resolved.account] += amount;
+    }
 
+    // Bucket capacity: the annual figure scaled to the period length only.
+    // Not scaled by the owner's working share — see the module docs.
+    for account in &plan.accounts {
         if account.plan_type != PlanType::None {
             let key = (account.owner.clone(), account.plan_type);
             if let std::collections::btree_map::Entry::Vacant(slot) = remaining.entry(key) {
-                let cap = limit_for(plan, &account.owner, account.plan_type).unwrap_or(0.0) * share;
+                let cap = limit_for(plan, &account.owner, account.plan_type).unwrap_or(0.0)
+                    * inputs.ctx.fraction;
                 slot.insert(cap);
             }
         }

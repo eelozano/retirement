@@ -8,10 +8,10 @@
 use std::collections::BTreeMap;
 
 use engine::model::{
-    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, ContributionRule,
-    EmployerMatch, FilingStatus, GrowthRule, MatchDestination, MatchTier, PeriodLength, Person,
-    Plan, PlanType, SimConfig, StateTaxProfile, StreamBoundary, StreamDirection, YearMonth,
-    SCHEMA_VERSION,
+    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, Contribution,
+    ContributionRule, EmployerMatch, FilingStatus, GrowthRule, MatchDestination, MatchTier,
+    PeriodLength, Person, Plan, PlanType, SimConfig, StateTaxProfile, StreamBoundary,
+    StreamDirection, YearMonth, SCHEMA_VERSION,
 };
 use engine::presets::CONTRIBUTION_LIMITS;
 use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
@@ -46,7 +46,11 @@ fn account(id: &str, kind: AccountKind, contribution: ContributionRule) -> Accou
         cost_basis: None,
         allocation: AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
         plan_type: PlanType::EmployerPlan,
-        contribution,
+        contributions: vec![Contribution::until_retirement(
+            "contribution",
+            contribution,
+            &"p1".to_string(),
+        )],
         employer_match: None,
     }
 }
@@ -139,7 +143,7 @@ fn a_two_tier_match_pays_each_tier_at_its_own_rate() {
     let mut plan = plan_with(vec![account(
         "401k",
         AccountKind::TraditionalPreTax,
-        ContributionRule::PercentOfSalary(0.08),
+        ContributionRule::PercentOfSalary { percent: 0.08 },
     )]);
     plan.accounts[0].employer_match = Some(EmployerMatch {
         tiers: two_tier(),
@@ -160,7 +164,7 @@ fn a_partial_deferral_only_reaches_the_tiers_it_pays_for() {
     let mut plan = plan_with(vec![account(
         "401k",
         AccountKind::TraditionalPreTax,
-        ContributionRule::PercentOfSalary(0.02),
+        ContributionRule::PercentOfSalary { percent: 0.02 },
     )]);
     plan.accounts[0].employer_match = Some(EmployerMatch {
         tiers: two_tier(),
@@ -180,7 +184,7 @@ fn the_match_is_not_reduced_when_the_employee_hits_the_deferral_limit() {
     let mut plan = plan_with(vec![account(
         "401k",
         AccountKind::TraditionalPreTax,
-        ContributionRule::PercentOfSalary(0.20),
+        ContributionRule::PercentOfSalary { percent: 0.20 },
     )]);
     plan.accounts[0].employer_match = Some(EmployerMatch {
         tiers: two_tier(),
@@ -217,12 +221,12 @@ fn taxes_with(destination: MatchDestination) -> f64 {
         account(
             "401k",
             AccountKind::TraditionalPreTax,
-            ContributionRule::PercentOfSalary(0.08),
+            ContributionRule::PercentOfSalary { percent: 0.08 },
         ),
         account(
             "roth-401k",
             AccountKind::Roth,
-            ContributionRule::FlatAmount(0.0),
+            ContributionRule::FlatAmount { amount: 0.0 },
         ),
     ]);
     plan.accounts[0].employer_match = Some(EmployerMatch {
@@ -266,7 +270,7 @@ fn a_match_with_nowhere_to_land_is_reported_rather_than_mis_taxed() {
     let mut plan = plan_with(vec![account(
         "roth-401k",
         AccountKind::Roth,
-        ContributionRule::PercentOfSalary(0.08),
+        ContributionRule::PercentOfSalary { percent: 0.08 },
     )]);
     plan.accounts[0].employer_match = Some(EmployerMatch {
         tiers: two_tier(),
@@ -342,7 +346,7 @@ fn no_salary_means_no_match() {
     let mut plan = plan_with(vec![account(
         "401k",
         AccountKind::TraditionalPreTax,
-        ContributionRule::PercentOfSalary(0.08),
+        ContributionRule::PercentOfSalary { percent: 0.08 },
     )]);
     plan.accounts[0].employer_match = Some(EmployerMatch {
         tiers: two_tier(),
@@ -364,7 +368,7 @@ fn a_match_needs_an_employer_plan_to_sit_on() {
     let mut plan = plan_with(vec![account(
         "roth-ira",
         AccountKind::Roth,
-        ContributionRule::FlatAmount(0.0),
+        ContributionRule::FlatAmount { amount: 0.0 },
     )]);
     plan.accounts[0].plan_type = PlanType::Ira;
     plan.accounts[0].employer_match = Some(EmployerMatch {

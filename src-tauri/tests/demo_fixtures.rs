@@ -19,9 +19,10 @@
 
 use engine::model::PeriodLength;
 use engine::model::{
-    Account, AccountKind, AllocationRef, CashFlowStream, ContributionRule, EmployerMatch,
-    FilingStatus, GrowthRule, MatchDestination, MatchTier, Person, Plan, PlanType, SimConfig,
-    SocialSecurityBenefit, StateCode, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
+    Account, AccountKind, AllocationRef, CashFlowStream, Contribution, ContributionRule,
+    EmployerMatch, FilingStatus, GrowthRule, MatchDestination, MatchTier, Person, Plan, PlanType,
+    SimConfig, SocialSecurityBenefit, StateCode, StreamBoundary, StreamDirection, YearMonth,
+    SCHEMA_VERSION,
 };
 use engine::presets::{default_assumptions, presets};
 use std::fs;
@@ -98,7 +99,11 @@ fn demo_base() -> Plan {
                 cost_basis: Some(88_000.0),
                 allocation: AllocationRef::Aggressive,
                 plan_type: PlanType::None,
-                contribution: ContributionRule::FlatAmount(6_000.0),
+                contributions: vec![Contribution::until_retirement(
+                    "joint-brokerage-contribution",
+                    ContributionRule::FlatAmount { amount: 6_000.0 },
+                    &ALEX.to_string(),
+                )],
                 employer_match: None,
             },
             Account {
@@ -110,7 +115,11 @@ fn demo_base() -> Plan {
                 cost_basis: None,
                 allocation: AllocationRef::Aggressive,
                 plan_type: PlanType::EmployerPlan,
-                contribution: ContributionRule::PercentOfSalary(0.10),
+                contributions: vec![Contribution::until_retirement(
+                    "alex-401k-contribution",
+                    ContributionRule::PercentOfSalary { percent: 0.10 },
+                    &ALEX.to_string(),
+                )],
                 // "100% of the first 3%, then 50% of the next 2%."
                 employer_match: Some(tiered_match(
                     &[(0.03, 1.0), (0.02, 0.5)],
@@ -126,7 +135,11 @@ fn demo_base() -> Plan {
                 cost_basis: None,
                 allocation: AllocationRef::Moderate,
                 plan_type: PlanType::EmployerPlan,
-                contribution: ContributionRule::PercentOfSalary(0.08),
+                contributions: vec![Contribution::until_retirement(
+                    "jordan-403b-contribution",
+                    ContributionRule::PercentOfSalary { percent: 0.08 },
+                    &JORDAN.to_string(),
+                )],
                 employer_match: Some(tiered_match(&[(0.04, 0.5)], MatchDestination::PreTax)),
             },
             Account {
@@ -138,7 +151,11 @@ fn demo_base() -> Plan {
                 cost_basis: None,
                 allocation: AllocationRef::Aggressive,
                 plan_type: PlanType::Ira,
-                contribution: ContributionRule::FederalMaximum,
+                contributions: vec![Contribution::until_retirement(
+                    "jordan-roth-ira-contribution",
+                    ContributionRule::FederalMaximum,
+                    &JORDAN.to_string(),
+                )],
                 employer_match: None,
             },
             Account {
@@ -150,7 +167,11 @@ fn demo_base() -> Plan {
                 cost_basis: None,
                 allocation: AllocationRef::Moderate,
                 plan_type: PlanType::Hsa,
-                contribution: ContributionRule::FederalMaximum,
+                contributions: vec![Contribution::until_retirement(
+                    "alex-hsa-contribution",
+                    ContributionRule::FederalMaximum,
+                    &ALEX.to_string(),
+                )],
                 employer_match: None,
             },
             Account {
@@ -162,7 +183,11 @@ fn demo_base() -> Plan {
                 cost_basis: None,
                 allocation: AllocationRef::Conservative,
                 plan_type: PlanType::None,
-                contribution: ContributionRule::FlatAmount(0.0),
+                contributions: vec![Contribution::until_retirement(
+                    "emergency-savings-contribution",
+                    ContributionRule::FlatAmount { amount: 0.0 },
+                    &JORDAN.to_string(),
+                )],
                 employer_match: None,
             },
         ],

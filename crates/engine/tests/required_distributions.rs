@@ -9,8 +9,8 @@
 use std::collections::BTreeMap;
 
 use engine::model::{
-    Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, ContributionRule,
-    FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
+    Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
+    ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
     SocialSecurityBenefit, StateTaxProfile, StreamBoundary, StreamDirection, YearMonth,
     SCHEMA_VERSION,
 };
@@ -48,7 +48,11 @@ fn account(id: &str, kind: AccountKind, balance: f64, basis: Option<f64>) -> Acc
             AccountKind::Taxable => PlanType::None,
             _ => PlanType::EmployerPlan,
         },
-        contribution: ContributionRule::FlatAmount(0.0),
+        contributions: vec![Contribution::until_retirement(
+            "contribution",
+            ContributionRule::FlatAmount { amount: 0.0 },
+            &"p1".to_string(),
+        )],
         employer_match: None,
     }
 }

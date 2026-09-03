@@ -11,3 +11,8 @@ ts-rs = { workspace = true }
 rand = { workspace = true }
 rand_distr = { workspace = true }
 rayon = { workspace = true }
+
+[dev-dependencies]
+# The on-disk plan format, so the migration tests read the YAML shape a
+# real plan file carries rather than a JSON approximation of it.
+serde_yaml_ng = "0.10"

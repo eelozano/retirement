@@ -29,7 +29,12 @@ accounts:
   cost_basis: 88000.0
   allocation: Aggressive
   plan_type: None
-  contribution: !FlatAmount 6000.0
+  contributions:
+  - id: joint-brokerage-contribution
+    rule: !FlatAmount
+      amount: 6000.0
+    start: PlanStart
+    end: !AtRetirement alex
   employer_match: null
 - id: alex-401k
   owner: alex
@@ -39,7 +44,12 @@ accounts:
   cost_basis: null
   allocation: Aggressive
   plan_type: EmployerPlan
-  contribution: !PercentOfSalary 0.1
+  contributions:
+  - id: alex-401k-contribution
+    rule: !PercentOfSalary
+      percent: 0.1
+    start: PlanStart
+    end: !AtRetirement alex
   employer_match:
     tiers:
     - employee_percent: 0.03
@@ -55,7 +65,12 @@ accounts:
   cost_basis: null
   allocation: Moderate
   plan_type: EmployerPlan
-  contribution: !PercentOfSalary 0.08
+  contributions:
+  - id: jordan-403b-contribution
+    rule: !PercentOfSalary
+      percent: 0.08
+    start: PlanStart
+    end: !AtRetirement jordan
   employer_match:
     tiers:
     - employee_percent: 0.04
@@ -69,7 +84,11 @@ accounts:
   cost_basis: null
   allocation: Aggressive
   plan_type: Ira
-  contribution: FederalMaximum
+  contributions:
+  - id: jordan-roth-ira-contribution
+    rule: FederalMaximum
+    start: PlanStart
+    end: !AtRetirement jordan
   employer_match: null
 - id: alex-hsa
   owner: alex
@@ -79,7 +98,11 @@ accounts:
   cost_basis: null
   allocation: Moderate
   plan_type: Hsa
-  contribution: FederalMaximum
+  contributions:
+  - id: alex-hsa-contribution
+    rule: FederalMaximum
+    start: PlanStart
+    end: !AtRetirement alex
   employer_match: null
 - id: emergency-savings
   owner: jordan
@@ -89,7 +112,12 @@ accounts:
   cost_basis: null
   allocation: Conservative
   plan_type: None
-  contribution: !FlatAmount 0.0
+  contributions:
+  - id: emergency-savings-contribution
+    rule: !FlatAmount
+      amount: 0.0
+    start: PlanStart
+    end: !AtRetirement jordan
   employer_match: null
 streams:
 - id: alex-salary

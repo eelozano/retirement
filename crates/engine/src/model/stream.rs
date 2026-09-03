@@ -14,7 +14,7 @@ pub enum StreamDirection {
 
 /// When a stream turns on or off. Person-relative boundaries mean editing a
 /// retirement date moves every stream tied to it — no manual re-dating.
-#[derive(Serialize, Deserialize, TS, Clone, Debug)]
+#[derive(Serialize, Deserialize, TS, Clone, Debug, PartialEq, Eq)]
 #[ts(export)]
 pub enum StreamBoundary {
     PlanStart,
