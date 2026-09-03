@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
 import type { YearMonth } from "../../types/generated/YearMonth";
-import { NumberField, PercentField, YearMonthField } from "./fields";
+import { AmountField, NumberField, PercentField, YearMonthField } from "./fields";
 
 // These cover the "input fights the user while typing" class of bug: the
 // fields are controlled and re-derived from the store on every keystroke, so
@@ -33,6 +33,11 @@ function PercentHarness(props: { initial: number }) {
 function YearMonthHarness(props: { initial: YearMonth }) {
   const [value, setValue] = useState(props.initial);
   return <YearMonthField label="Born" value={value} onChange={setValue} />;
+}
+
+function AmountHarness(props: { initial: number }) {
+  const [value, setValue] = useState(props.initial);
+  return <AmountField label="Amount" value={value} onChange={setValue} />;
 }
 
 describe("NumberField", () => {
@@ -137,5 +142,57 @@ describe("YearMonthField", () => {
       expect(value.month).toBeGreaterThanOrEqual(1);
       expect(value.month).toBeLessThanOrEqual(12);
     }
+  });
+});
+
+describe("AmountField", () => {
+  it("in per-year mode (the default), typing is a plain pass-through", async () => {
+    const user = userEvent.setup();
+    render(<AmountHarness initial={1000} />);
+    const input = screen.getByLabelText("Amount");
+
+    await user.clear(input);
+    await user.type(input, "5000");
+    expect(input).toHaveValue(5000);
+  });
+
+  it("in per-month mode, typing 200 commits an annual figure of 2400", async () => {
+    const seen: number[] = [];
+    function Recording() {
+      const [value, setValue] = useState(0);
+      return (
+        <AmountField
+          label="Amount"
+          value={value}
+          onChange={(next) => {
+            seen.push(next);
+            setValue(next);
+          }}
+        />
+      );
+    }
+    const user = userEvent.setup();
+    render(<Recording />);
+
+    await user.selectOptions(screen.getByLabelText("Amount unit"), "month");
+    const input = screen.getByLabelText("Amount");
+    await user.clear(input);
+    await user.type(input, "200");
+
+    expect(seen[seen.length - 1]).toBe(2400);
+  });
+
+  it("re-displays the same annual figure when switching units", async () => {
+    const user = userEvent.setup();
+    render(<AmountHarness initial={2400} />);
+    const input = screen.getByLabelText("Amount");
+    const unit = screen.getByLabelText("Amount unit");
+    expect(input).toHaveValue(2400);
+
+    await user.selectOptions(unit, "month");
+    expect(input).toHaveValue(200);
+
+    await user.selectOptions(unit, "year");
+    expect(input).toHaveValue(2400);
   });
 });

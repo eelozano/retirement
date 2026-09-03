@@ -9,8 +9,8 @@ import {
   ruleForMode,
 } from "./accountContribution";
 import {
+  AmountField,
   CheckboxField,
-  NumberField,
   PercentField,
   SelectField,
   YearMonthField,
@@ -133,8 +133,8 @@ export function ContributionCard(props: {
       )}
       {typeof rule === "object" && "FlatAmount" in rule && (
         <>
-          <NumberField
-            label="Amount / yr ($)"
+          <AmountField
+            label="Amount ($)"
             value={rule.FlatAmount.amount}
             onChange={(amount) =>
               updatePlan((d) => {
