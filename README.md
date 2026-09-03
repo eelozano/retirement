@@ -11,7 +11,7 @@ you choose. No cloud, no accounts, no telemetry, no network calls.
 
 ## What it looks like
 
-![The Plan screen: a probability-of-success tile reading 80.6%, a fund-depletion
+![The Plan screen: a probability-of-success tile reading 88.6%, a fund-depletion
 tile, and a stacked area chart of net worth and account balances through
 2072, with a year inspector pinned to 2042.](docs/screenshots/plan.png)
 
@@ -46,6 +46,17 @@ autosaves.
 
 ![The Inputs screen with People, Accounts and Spending in a left rail, editing
 a person's birth date, retirement date and salary.](docs/screenshots/inputs.png)
+
+**Accounts.** The balance sheet as a table, with the account under the cursor
+open for editing beneath it. Saving is dated: the demo household's brokerage
+runs two overlapping schedules, its 401(k) escalates from 10% to 15% of
+salary, and one Roth IRA has a zero balance because it doesn't open until
+2029.
+
+![The Accounts table listing seven accounts with a contributing column reading
+"2 schedules", "10% to 15% of salary" and "Max", above the editor for the
+joint brokerage's first contribution
+schedule.](docs/screenshots/accounts.png)
 
 </details>
 
@@ -195,10 +206,16 @@ there — it just doesn't bundle an installer.
   People, Accounts, Spending, plus Assumptions — and every edit re-projects
   and autosaves.
 - **Contributions modeled the way you actually set them.** Percent of salary,
-  a flat amount, or "the federal maximum," resolved each year against an
-  inflation-indexed limit table with age-50 and SECURE 2.0 catch-up tiers.
-  Limits are enforced *per person* across all their accounts, not per account,
-  and clamps surface as readable warnings.
+  a flat amount (per month or per year), or "the federal maximum," resolved
+  each year against an inflation-indexed limit table with age-50 and SECURE
+  2.0 catch-up tiers. Limits are enforced *per person* across all their
+  accounts, not per account, and clamps surface as readable warnings.
+- **Contributions are dated, and they escalate.** An account carries a list of
+  entries, each with its own start and end — "$500 a month now, $1,200 from
+  January", an account you don't open until 2029, an IRA funded past
+  retirement. A percent-of-salary entry can auto-escalate the way a plan
+  document writes it (up a point a year to a cap), and a flat amount can be
+  set to keep pace with inflation instead of quietly decaying.
 - **Employer match.** Tiered formulas ("100% of the first 3%, 50% of the next
   2%"), matched against your household deferral rate, landing in a pre-tax or
   Roth account and held to the annual-additions cap rather than your own

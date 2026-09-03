@@ -133,17 +133,25 @@ pub struct Person {
     pub life_expectancy_age: u8,
 }
 
-pub enum AccountKind { Taxable, TraditionalPreTax, Roth }
+pub enum AccountKind { Taxable, Savings, TraditionalPreTax, Roth, Hsa }
 
 // Orthogonal to AccountKind: tax treatment vs statutory bucket. A Roth 401(k)
 // and a Roth IRA are taxed the same and capped separately; a traditional IRA
-// and a Roth IRA are taxed differently and share one cap. 457(b) would be a
-// fourth variant, not a rework.
-pub enum PlanType { EmployerPlan, Ira, None }
+// and a Roth IRA are taxed differently and share one cap. 457(b) was a new
+// variant when it arrived, not a rework — as the design predicted.
+pub enum PlanType { EmployerPlan, Plan457b, Ira, SimpleIra, SepIra, Hsa, None }
+
+// A 401(k) plan document's auto-escalation: "10% now, up a point a year
+// until 15%". Inside PercentOfSalary, so escalating a flat amount or a
+// federal maximum — neither a percentage — cannot be written down.
+pub struct StepUp { pub points_per_year: f64, pub cap: f64 }
 
 pub enum ContributionRule {
-    PercentOfSalary { percent: f64 }, // resolved against the owner's salary each period
-    FlatAmount { amount: f64 },       // nominal by design; the UI says so
+    // resolved against the owner's salary each period; step_up escalates it
+    PercentOfSalary { percent: f64, step_up: Option<StepUp> },
+    // annual figure, nominal by default; growth is the transfer the owner
+    // raises each year, in simulation-start dollars like a stream's amount
+    FlatAmount { amount: f64, growth: GrowthRule },
     FederalMaximum,                   // intent, resolved against the indexed limit table
 }
 
@@ -392,6 +400,10 @@ Migration goes through `AccountWire` like every shape change before it: the tupl
 `FlatAmount::growth` is the standing transfer the owner actually raises each year. It uses `growth_factor` from **plan** start, the same convention `CashFlowStream::annual_amount` follows: the amount is in simulation-start dollars, so `Inflation` means "holds what it buys today" whichever year the entry begins, rather than "holds what it buys in the entry's first year". The default is `GrowthRule::None` — the nominal transfer `FlatAmount` has always been — and `Fixed` is accepted by the model but not offered by the UI, as for streams.
 
 Both fields are `#[serde(default)]` members of the struct variants #78 introduced, which is what makes escalation purely additive: a plan written with neither key loads as the unescalated rules it meant, and `SCHEMA_VERSION` does not move.
+
+**The UI edits entries on the account** (#80–#82): contributions and the employer match live on the account card rather than in a separate pane, each entry carrying its own rule, window and escalation controls. One convention is display-only and deliberately not persisted — a flat amount can be typed per month or per year, but `AmountField` always reads and writes the **annual** figure, so the unit toggle is local component state and the schema stays one number per entry.
+
+The demo household (#83) is the worked example of all three: the joint brokerage runs two overlapping entries that sum ($6,000/yr from plan start, plus $8,400/yr from January 2027), Alex's 401(k) steps up a point a year from 10% to 15%, and Alex's Roth IRA is an account with a zero balance and a `FederalMaximum` entry that does not open until 2029.
 
 #### Employer match (`sim/contributions.rs`)
 
