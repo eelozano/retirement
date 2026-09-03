@@ -61,29 +61,27 @@ committed fixtures if it is empty, then starts the dev server pointed at it.) Th
 Vite — Vite is ready in ~100ms while the Rust build can take minutes on a cold
 target dir.
 
-**Do not spawn a second background task to poll for it.** A background
-`until grep ...; do sleep; done` loop, on top of the dev server itself, means
-two long-running background jobs to track — and waiting on a notification
-from one while the other is also in flight has repeatedly turned into a
-stalled-looking turn that gets interrupted, which is the exact failure mode
-that leaves processes running (see above). Instead, issue one bounded,
-foreground wait-then-check and just read the log yourself:
+**Do not spawn a second background task to poll for it**, and do not use a
+foreground `sleep` — the harness blocks a bare `sleep N && tail` outright.
+Fold the wait into the launch step instead: one background command that
+polls the log and, once the binary is up, does the swap-and-open below
+itself. The line to wait for is the cargo `Running` line, and it is wrapped
+in ANSI colour codes, so **grep for the binary path, not for `Running \``**
+— a session hung indefinitely on `grep "Running \`"` while the app was
+already running:
 
 ```bash
-sleep 20 && tail -20 dev.log
+until grep -q "Running.*target/debug/retirement" dev.log; do sleep 3; done; sleep 2; APP="target/debug/bundle/macos/Retirement Planner.app"; cp target/debug/retirement "$APP/Contents/MacOS/retirement" && open --env "RETIREMENT_DATA_DIR=/tmp/retirement-demo" "$APP"
 ```
 
-Look for the `Running `/Users...` line. That's enough on a warm target dir.
-On a cold one (first run after a clean, or after a dependency bump), rerun
-the same `sleep 20 && tail -20 dev.log` once or twice more rather than
-switching to a loop — this bounded, explicit poll has been reliable; open-
-ended background waits paired with a second task have not.
+Run that in the background too (it is the second and last background task;
+the dev server is the first). If it has not reported back after a couple of
+minutes on a cold target dir, read `dev.log` yourself rather than starting
+another waiter.
 
-Then swap the fresh binary into the bundle and open the bundle:
-
-```bash
-APP="target/debug/bundle/macos/Retirement Planner.app"; cp target/debug/retirement "$APP/Contents/MacOS/retirement"; open --env "RETIREMENT_DATA_DIR=/tmp/retirement-demo" "$APP"
-```
+The swap-and-open at the end of that command is the whole trick: the fresh
+binary runs from inside the bundle, so it inherits the bundle id and shows
+up in screenshots, while still pointing at the Vite dev server.
 
 The `--env` is not optional: `open` does not pass the calling shell's
 environment, so without it the bundled copy reads the *real* plans directory
@@ -171,6 +169,13 @@ cheap, and skipping it is exactly how processes accumulate across sessions.
 
 ## Driving the UI
 
+- **The window opens on whichever Space the user is on, and stays there.**
+  Background `app_*` clicks are refused or silently dropped when the window
+  is on another Space, and `app_bring_to_current_space` cannot move it into
+  a full-screen Space. If `app_screenshot` reports the window is off-Space
+  and clicks have no effect, ask the user to switch to a regular desktop
+  Space (or to bring the window over) before driving the UI; do not keep
+  re-clicking.
 - **Editing is free on demo data, off-limits on real data.** On the demo root
   (the default) change anything you want. In a deliberate real-data session
   every edit debounces into a real save of the user's finances: reading,
