@@ -9,8 +9,8 @@ mod validation;
 mod year_month;
 
 pub use account::{
-    Account, AccountId, AccountKind, AllocationRef, ContributionRule, EmployerMatch,
-    MatchDestination, MatchTier, PlanType,
+    Account, AccountId, AccountKind, AllocationRef, Contribution, ContributionId, ContributionRule,
+    EmployerMatch, MatchDestination, MatchTier, PlanType,
 };
 pub(crate) use assumptions::default_asset_volatility;
 pub use assumptions::{AssetClass, Assumptions};

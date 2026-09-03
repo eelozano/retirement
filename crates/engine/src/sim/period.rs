@@ -33,7 +33,7 @@ use crate::strategies::{
 
 use super::{
     contributions, growth_factor, overlap_fraction, required_distributions, PeriodSnapshot,
-    ResolvedStream, SimWarning, StreamSource,
+    ResolvedContribution, ResolvedStream, SimWarning, StreamSource,
 };
 
 /// The warnings collected over a run, deduplicated on push.
@@ -63,6 +63,10 @@ pub(super) struct RunContext<'a> {
     /// Plan, Social Security and survivor-continuation streams, boundaries
     /// already resolved to concrete months.
     pub streams: &'a [ResolvedStream<'a>],
+    /// Every account's contribution entries, boundaries already resolved to
+    /// concrete months, in plan account order. An entry whose boundary
+    /// could not be resolved is absent — it was reported instead.
+    pub contributions: &'a [ResolvedContribution<'a>],
     /// The month ordinary surplus starts being swept into the taxable
     /// account, resolved from `Assumptions::sweep_surplus_from`. `None`
     /// never sweeps.
@@ -320,10 +324,10 @@ fn accrue_streams(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodStat
     }
 }
 
-/// Step 2 — contribute to accounts while their owner still works, resolving
-/// each account's contribution mode and clamping to the owner's shared
-/// statutory limits for that year, then add the employer match those
-/// deferrals earn. See `contributions`.
+/// Step 2 — contribute to accounts: resolve each account's dated entries
+/// for the months they are active this period, clamp the account to the
+/// owner's shared statutory limits for that year, then add the employer
+/// match those deferrals earn. See `contributions`.
 fn contribute(
     run: &RunContext,
     ctx: &PeriodContext,
@@ -332,7 +336,10 @@ fn contribute(
 ) {
     let plan = run.plan;
     // Modes and statutory limits both depend on the year, so the split is
-    // resolved per period rather than once.
+    // resolved per period rather than once. The working share is no longer
+    // a gate on the owner's own contributions — each entry's `end` is —
+    // but it is still the denominator a percent-of-salary entry is scaled
+    // by, and what the employer match and the 415(c) cap are bound to.
     let working: BTreeMap<PersonId, f64> = plan
         .people
         .iter()
@@ -345,6 +352,7 @@ fn contribute(
         .collect();
     let inputs = contributions::Inputs {
         ctx,
+        contributions: run.contributions,
         salary: &period.salary,
         working: &working,
     };

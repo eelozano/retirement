@@ -8,8 +8,8 @@ use ts_rs::TS;
 
 use crate::model::{
     default_asset_volatility, Account, AccountKind, AllocationRef, AssetClass, Assumptions,
-    CashFlowStream, ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan,
-    PlanType, SimConfig, SocialSecurityBenefit, StateCode, StateTaxProfile, StreamBoundary,
+    CashFlowStream, Contribution, ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person,
+    Plan, PlanType, SimConfig, SocialSecurityBenefit, StateCode, StateTaxProfile, StreamBoundary,
     StreamDirection, YearMonth, SCHEMA_VERSION,
 };
 use crate::state_tax_data::state_tax_profiles;
@@ -411,7 +411,11 @@ pub fn seed_plan() -> Plan {
                 cost_basis: Some(110_000.0),
                 allocation: AllocationRef::Aggressive,
                 plan_type: PlanType::None,
-                contribution: ContributionRule::FlatAmount(40_000.0),
+                contributions: vec![Contribution::until_retirement(
+                    "taxable-brokerage-contribution",
+                    ContributionRule::FlatAmount { amount: 40_000.0 },
+                    &alex,
+                )],
                 employer_match: None,
             },
             Account {
@@ -423,7 +427,13 @@ pub fn seed_plan() -> Plan {
                 cost_basis: None,
                 allocation: AllocationRef::Aggressive,
                 plan_type: PlanType::EmployerPlan,
-                contribution: ContributionRule::FlatAmount(ELECTIVE_DEFERRAL_LIMIT),
+                contributions: vec![Contribution::until_retirement(
+                    "alex-401k-contribution",
+                    ContributionRule::FlatAmount {
+                        amount: ELECTIVE_DEFERRAL_LIMIT,
+                    },
+                    &alex,
+                )],
                 employer_match: None,
             },
             Account {
@@ -435,7 +445,13 @@ pub fn seed_plan() -> Plan {
                 cost_basis: None,
                 allocation: AllocationRef::Moderate,
                 plan_type: PlanType::Ira,
-                contribution: ContributionRule::FlatAmount(IRA_CONTRIBUTION_LIMIT),
+                contributions: vec![Contribution::until_retirement(
+                    "jordan-roth-contribution",
+                    ContributionRule::FlatAmount {
+                        amount: IRA_CONTRIBUTION_LIMIT,
+                    },
+                    &jordan,
+                )],
                 employer_match: None,
             },
         ],

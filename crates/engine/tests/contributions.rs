@@ -7,9 +7,9 @@
 use std::collections::BTreeMap;
 
 use engine::model::{
-    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, ContributionRule,
-    FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig, StateTaxProfile,
-    StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
+    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, Contribution,
+    ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
+    StateTaxProfile, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
 };
 use engine::presets::CONTRIBUTION_LIMITS;
 use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
@@ -45,7 +45,11 @@ fn plan_with(contribution: ContributionRule, kind: AccountKind, plan_type: PlanT
             // actually went in — no growth to unwind.
             allocation: AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
             plan_type,
-            contribution,
+            contributions: vec![Contribution::until_retirement(
+                "contribution",
+                contribution,
+                &person,
+            )],
             employer_match: None,
         }],
         streams: vec![
@@ -126,7 +130,7 @@ fn contributions_in(projection: &Projection, year: i32) -> f64 {
 #[test]
 fn percent_of_salary_rises_with_an_inflating_salary() {
     let plan = plan_with(
-        ContributionRule::PercentOfSalary(0.08),
+        ContributionRule::PercentOfSalary { percent: 0.08 },
         AccountKind::TraditionalPreTax,
         PlanType::EmployerPlan,
     );
@@ -153,7 +157,7 @@ fn a_flat_amount_stays_nominal_and_so_decays_in_real_terms() {
     // Documented behavior, not an oversight: a fixed standing transfer is a
     // fixed number of dollars. The UI says so where it is entered.
     let plan = plan_with(
-        ContributionRule::FlatAmount(10_000.0),
+        ContributionRule::FlatAmount { amount: 10_000.0 },
         AccountKind::TraditionalPreTax,
         PlanType::EmployerPlan,
     );
@@ -263,16 +267,18 @@ fn indexed_limits_round_down_to_statutory_increments() {
 #[test]
 fn a_taxable_account_has_no_federal_maximum_to_resolve() {
     let mut plan = plan_with(
-        ContributionRule::FlatAmount(0.0),
+        ContributionRule::FlatAmount { amount: 0.0 },
         AccountKind::Taxable,
         PlanType::None,
     );
     assert!(plan.validate().is_empty(), "{:?}", plan.validate());
 
-    plan.accounts[0].contribution = ContributionRule::FederalMaximum;
+    plan.accounts[0].contributions[0].rule = ContributionRule::FederalMaximum;
     let errors = plan.validate();
     assert!(
-        errors.iter().any(|e| e.field == "accounts[0].contribution"),
+        errors
+            .iter()
+            .any(|e| e.field == "accounts[0].contributions[0].rule"),
         "a taxable brokerage has no statutory maximum: {errors:?}"
     );
 }
@@ -282,7 +288,7 @@ fn a_clamp_is_reported_once_for_the_first_year_it_bites() {
     // 20% of a $200k salary is far above the deferral limit, and stays
     // above it for every year of the projection — one finding, not thirty.
     let plan = plan_with(
-        ContributionRule::PercentOfSalary(0.20),
+        ContributionRule::PercentOfSalary { percent: 0.20 },
         AccountKind::TraditionalPreTax,
         PlanType::EmployerPlan,
     );
@@ -303,5 +309,228 @@ fn a_clamp_is_reported_once_for_the_first_year_it_bites() {
         clamps[0].1,
         CONTRIBUTION_LIMITS.employer_plan,
         "held to the statutory cap",
+    );
+}
+
+// ---- Dated entries (#78) --------------------------------------------------
+
+fn clamps_in(projection: &Projection) -> Vec<(usize, f64, f64)> {
+    projection
+        .warnings
+        .iter()
+        .filter_map(|w| match w {
+            engine::SimWarning::ContributionClamped {
+                period,
+                requested,
+                allowed,
+                ..
+            } => Some((*period, *requested, *allowed)),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn an_entry_starting_at_a_date_contributes_nothing_before_it_and_prorates_its_first_year() {
+    let mut plan = plan_with(
+        ContributionRule::FlatAmount { amount: 12_000.0 },
+        AccountKind::Taxable,
+        PlanType::None,
+    );
+    plan.accounts[0].contributions[0].start = StreamBoundary::Date(YearMonth::new(2028, 7));
+    let projection = run(&plan);
+
+    assert_close(contributions_in(&projection, 2026), 0.0, "before the start");
+    assert_close(contributions_in(&projection, 2027), 0.0, "still before");
+    assert_close(
+        contributions_in(&projection, 2028),
+        6_000.0,
+        "July start: half the year",
+    );
+    assert_close(contributions_in(&projection, 2029), 12_000.0, "full year");
+}
+
+#[test]
+fn an_entry_ending_at_a_date_before_retirement_stops_there() {
+    let mut plan = plan_with(
+        ContributionRule::FlatAmount { amount: 12_000.0 },
+        AccountKind::Taxable,
+        PlanType::None,
+    );
+    plan.accounts[0].contributions[0].end = StreamBoundary::Date(YearMonth::new(2030, 4));
+    let projection = run(&plan);
+
+    assert_close(contributions_in(&projection, 2029), 12_000.0, "full year");
+    assert_close(
+        contributions_in(&projection, 2030),
+        3_000.0,
+        "ends in April: a quarter",
+    );
+    assert_close(contributions_in(&projection, 2031), 0.0, "stopped");
+    // The owner is still working — the entry's own end is what stopped it.
+    assert!(projection.snapshots[5].income > 0.0);
+}
+
+/// "$200/mo now, $1,200/mo from January" is two entries on one account.
+/// They sum, the account is clamped as one, and it is reported once.
+#[test]
+fn two_entries_on_one_account_sum_and_clamp_together_with_one_warning() {
+    let mut plan = plan_with(
+        ContributionRule::FlatAmount { amount: 2_400.0 },
+        AccountKind::Taxable,
+        PlanType::None,
+    );
+    plan.accounts[0].contributions.push(Contribution {
+        id: "raise".to_string(),
+        rule: ContributionRule::FlatAmount { amount: 12_000.0 },
+        start: StreamBoundary::Date(YearMonth::new(2027, 1)),
+        end: StreamBoundary::AtRetirement("p1".to_string()),
+    });
+    let projection = run(&plan);
+    assert_close(
+        contributions_in(&projection, 2026),
+        2_400.0,
+        "first entry alone",
+    );
+    assert_close(
+        contributions_in(&projection, 2027),
+        14_400.0,
+        "both entries, summed",
+    );
+    assert_eq!(
+        projection.snapshots[1].contributions_by_account["plan"], 14_400.0,
+        "attributed to the one account, not per entry"
+    );
+
+    // Now on a capped account: the sum is what is clamped, and the account
+    // — not each entry — is what is reported.
+    let mut plan = plan_with(
+        ContributionRule::FlatAmount { amount: 15_000.0 },
+        AccountKind::TraditionalPreTax,
+        PlanType::EmployerPlan,
+    );
+    plan.accounts[0]
+        .contributions
+        .push(Contribution::until_retirement(
+            "second",
+            ContributionRule::FlatAmount { amount: 15_000.0 },
+            &"p1".to_string(),
+        ));
+    let projection = run(&plan);
+    assert_close(
+        contributions_in(&projection, START_YEAR),
+        CONTRIBUTION_LIMITS.employer_plan,
+        "the sum is held to the cap",
+    );
+    let clamps = clamps_in(&projection);
+    assert_eq!(clamps.len(), 1, "one warning for the account: {clamps:?}");
+    assert_close(clamps[0].1, 30_000.0, "requested is the sum of the entries");
+}
+
+/// The percent-of-salary ratio, against the hand-computed cases in #78.
+#[test]
+fn percent_of_salary_scales_by_the_entrys_share_of_the_salary_earned() {
+    // Full working year, entry starts in July: half of a full year's salary.
+    let mut plan = plan_with(
+        ContributionRule::PercentOfSalary { percent: 0.10 },
+        AccountKind::Taxable,
+        PlanType::None,
+    );
+    plan.accounts[0].contributions[0].start = StreamBoundary::Date(YearMonth::new(2028, 7));
+    let projection = run(&plan);
+    assert_close(
+        contributions_in(&projection, 2028),
+        0.10 * salary_in(2028) * 0.5,
+        "July start of a full working year: ½",
+    );
+    assert_close(
+        contributions_in(&projection, 2029),
+        0.10 * salary_in(2029),
+        "full year after",
+    );
+
+    // Retires in April, entry ends at retirement: 10% of the salary
+    // actually earned — three months' worth — not docked a second time.
+    let mut plan = plan_with(
+        ContributionRule::PercentOfSalary { percent: 0.10 },
+        AccountKind::Taxable,
+        PlanType::None,
+    );
+    plan.people[0].retirement = YearMonth::new(2049, 4);
+    let projection = run(&plan);
+    let earned = projection.snapshots[(2049 - START_YEAR) as usize].income;
+    assert_close(
+        earned,
+        salary_in(2049) * 3.0 / 12.0,
+        "three months of salary",
+    );
+    assert_close(
+        contributions_in(&projection, 2049),
+        0.10 * earned,
+        "retirement year: the whole 10% of what was earned",
+    );
+
+    // Retires in April, entry runs to plan end: the ratio caps at 1, so the
+    // same answer — and nothing after, since there is no salary to be a
+    // percentage of.
+    plan.accounts[0].contributions[0].end = StreamBoundary::PlanEnd;
+    let projection = run(&plan);
+    assert_close(
+        contributions_in(&projection, 2049),
+        0.10 * earned,
+        "capped at all of the salary earned",
+    );
+    assert_close(
+        contributions_in(&projection, 2050),
+        0.0,
+        "retired: no salary",
+    );
+}
+
+/// A spousal IRA: funded after the owner's own retirement, so the cap
+/// cannot be prorated by the months they worked.
+#[test]
+fn an_ira_entry_can_run_past_the_owners_retirement() {
+    let mut plan = plan_with(
+        ContributionRule::FlatAmount { amount: 5_000.0 },
+        AccountKind::Roth,
+        PlanType::Ira,
+    );
+    plan.accounts[0].contributions[0].end = StreamBoundary::PlanEnd;
+    assert!(plan.validate().is_empty(), "{:?}", plan.validate());
+    let projection = run(&plan);
+    assert_close(
+        contributions_in(&projection, 2050),
+        5_000.0,
+        "the first fully retired year still contributes",
+    );
+    assert!(
+        clamps_in(&projection).is_empty(),
+        "{:?}",
+        projection.warnings
+    );
+}
+
+#[test]
+fn a_boundary_naming_a_deleted_person_is_reported_and_contributes_nothing() {
+    let mut plan = plan_with(
+        ContributionRule::FlatAmount { amount: 12_000.0 },
+        AccountKind::Taxable,
+        PlanType::None,
+    );
+    plan.accounts[0].contributions[0].end = StreamBoundary::AtRetirement("ghost".to_string());
+    let projection = run(&plan);
+    assert!(
+        projection
+            .warnings
+            .contains(&engine::SimWarning::ContributionBoundaryUnresolved {
+                account: "plan".to_string()
+            }),
+        "{:?}",
+        projection.warnings
+    );
+    assert!(
+        projection.snapshots.iter().all(|s| s.contributions == 0.0),
+        "nothing contributed from an entry with no window"
     );
 }

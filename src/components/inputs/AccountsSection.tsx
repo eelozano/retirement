@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { currency } from "../../lib/format";
 import { usePlanStore } from "../../store/planStore";
 import type { AllocationRef } from "../../types/generated/AllocationRef";
+import { defaultContribution } from "./accountContribution";
 import { ACCOUNT_TYPE_OPTIONS, accountTypeByValue, accountTypeFor } from "./accountTypes";
 import { NumberField, PercentField, SelectField, TextField } from "./fields";
 
@@ -61,16 +62,17 @@ export function AccountsSection() {
   const addAccount = () => {
     const id = `account-${Date.now()}`;
     updatePlan((d) => {
+      const owner = d.people[0]?.id ?? "";
       d.accounts.push({
         id,
-        owner: d.people[0]?.id ?? "",
+        owner,
         kind: "Taxable",
         name: "New account",
         balance: 0,
         cost_basis: 0,
         allocation: "Moderate",
         plan_type: "None",
-        contribution: { FlatAmount: 0 },
+        contributions: [defaultContribution({ id, owner })],
         employer_match: null,
       });
     });
@@ -190,11 +192,12 @@ export function AccountsSection() {
                 if (type.planType !== "EmployerPlan") {
                   account.employer_match = null;
                 }
-                if (
-                  type.planType === "None" &&
-                  account.contribution === "FederalMaximum"
-                ) {
-                  account.contribution = { FlatAmount: 0 };
+                if (type.planType === "None") {
+                  for (const entry of account.contributions) {
+                    if (entry.rule === "FederalMaximum") {
+                      entry.rule = { FlatAmount: { amount: 0 } };
+                    }
+                  }
                 }
               })
             }

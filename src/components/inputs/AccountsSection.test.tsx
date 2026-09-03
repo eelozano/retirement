@@ -44,6 +44,16 @@ describe("AccountsSection", () => {
     render(<AccountsSection />);
     await addAccount();
     expect(currentAccount()?.plan_type).toBe("None");
+    // One entry from plan start until the owner retires — what every
+    // account did before entries were dated.
+    expect(currentAccount()?.contributions).toEqual([
+      {
+        id: expect.stringMatching(/-contribution$/),
+        rule: { FlatAmount: { amount: 0 } },
+        start: "PlanStart",
+        end: { AtRetirement: "p1" },
+      },
+    ]);
     expect(screen.queryByLabelText("Plan type")).toBeNull();
     expect(screen.getByRole("button", { name: "New account" })).toHaveAttribute(
       "aria-current",
@@ -68,6 +78,20 @@ describe("AccountsSection", () => {
     await userEvent.selectOptions(screen.getByLabelText("Type"), "plan_457b");
     expect(currentAccount()?.kind).toBe("TraditionalPreTax");
     expect(currentAccount()?.plan_type).toBe("Plan457b");
+  });
+
+  it("rewrites a federal-maximum entry when the account is retyped to an uncapped bucket", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "roth_ira");
+    usePlanStore.getState().updatePlan((d) => {
+      d.accounts[0].contributions[0].rule = "FederalMaximum";
+    });
+
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "taxable");
+    expect(currentAccount()?.contributions[0].rule).toEqual({
+      FlatAmount: { amount: 0 },
+    });
   });
 
   it("switches a savings account to a fixed cash rate instead of a market allocation", async () => {
@@ -131,7 +155,7 @@ describe("AccountsSection", () => {
             cost_basis: 0,
             allocation: "Moderate",
             plan_type: "None",
-            contribution: { FlatAmount: 0 },
+            contributions: [],
             employer_match: null,
           },
           {
@@ -143,7 +167,7 @@ describe("AccountsSection", () => {
             cost_basis: 0,
             allocation: "Moderate",
             plan_type: "None",
-            contribution: { FlatAmount: 0 },
+            contributions: [],
             employer_match: null,
           },
         ],

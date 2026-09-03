@@ -152,6 +152,15 @@ describe("readableWarnings", () => {
     expect(unknown.title).toBe("Alex salary was skipped");
   });
 
+  it("names the account whose contribution window could not be resolved", () => {
+    const [skipped] = readableWarnings(
+      plan,
+      projection([{ ContributionBoundaryUnresolved: { account: "acct-1" } }]),
+    );
+    expect(skipped.title).toContain("a contribution was skipped");
+    expect(skipped.detail).toContain("no longer in this plan");
+  });
+
   it("gives every warning a distinct key", () => {
     const ws = readableWarnings(
       plan,

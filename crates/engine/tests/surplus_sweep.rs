@@ -10,9 +10,9 @@
 use std::collections::BTreeMap;
 
 use engine::model::{
-    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, ContributionRule,
-    FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig, StateTaxProfile,
-    StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
+    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, Contribution,
+    ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
+    StateTaxProfile, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
 };
 use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
 use engine::{simulate, Projection, SimWarning};
@@ -92,7 +92,11 @@ fn staggered_household() -> Plan {
             cost_basis: Some(0.0),
             allocation: bonds_only,
             plan_type: PlanType::None,
-            contribution: ContributionRule::FlatAmount(0.0),
+            contributions: vec![Contribution::until_retirement(
+                "contribution",
+                ContributionRule::FlatAmount { amount: 0.0 },
+                &"early".to_string(),
+            )],
             employer_match: None,
         }],
         streams: vec![
