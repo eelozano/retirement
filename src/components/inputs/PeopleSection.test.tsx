@@ -41,7 +41,14 @@ const plan = {
       cost_basis: null,
       allocation: "Moderate",
       plan_type: "EmployerPlan",
-      contribution: { FlatAmount: 0 },
+      contributions: [
+        {
+          id: "a1-contribution",
+          rule: { FlatAmount: { amount: 0 } },
+          start: "PlanStart",
+          end: { AtRetirement: "p1" },
+        },
+      ],
       employer_match: null,
     },
   ],
@@ -78,13 +85,17 @@ describe("PeopleSection", () => {
     const percent = screen.getByLabelText("Of salary (%)");
     await userEvent.clear(percent);
     await userEvent.type(percent, "10");
-    expect(currentAccount()?.contribution).toEqual({ PercentOfSalary: 0.1 });
+    expect(currentAccount()?.contributions[0].rule).toEqual({
+      PercentOfSalary: { percent: 0.1 },
+    });
+    // The window is untouched: the mode select edits the rule, not the dates.
+    expect(currentAccount()?.contributions[0].end).toEqual({ AtRetirement: "p1" });
 
     await userEvent.selectOptions(
       screen.getByLabelText("Contribution"),
       "FederalMaximum",
     );
-    expect(currentAccount()?.contribution).toBe("FederalMaximum");
+    expect(currentAccount()?.contributions[0].rule).toBe("FederalMaximum");
     expect(screen.getByText(/\$24,500\/yr in 2026/)).toBeTruthy();
   });
 

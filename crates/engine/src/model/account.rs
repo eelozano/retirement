@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{AssetClass, PersonId};
+use super::{AssetClass, PersonId, StreamBoundary};
 use crate::presets::{ELECTIVE_DEFERRAL_LIMIT, IRA_CONTRIBUTION_LIMIT};
 
 pub type AccountId = String;
@@ -87,11 +87,14 @@ impl PlanType {
     }
 }
 
-/// How much goes into an account each year while its owner is still working.
+/// How much goes into an account over an entry's active window.
 ///
 /// A tagged enum rather than a number plus flags, so the combinations that
 /// do not mean anything cannot be written down — the same approach
-/// `StreamBoundary` and `GrowthRule` take.
+/// `StreamBoundary` and `GrowthRule` take. Struct variants rather than
+/// tuple variants so that fields a mode later grows (an escalation, a growth
+/// rule) live *inside* the variant they belong to and invalid combinations
+/// stay unrepresentable.
 #[derive(Serialize, Deserialize, TS, Clone, Copy, Debug, PartialEq)]
 #[ts(export)]
 pub enum ContributionRule {
@@ -99,12 +102,12 @@ pub enum ContributionRule {
     /// resolved against their income streams. Grows with the salary, so it
     /// holds its real value without any indexing machinery — and it is the
     /// basis an employer match is expressed against.
-    PercentOfSalary(f64),
+    PercentOfSalary { percent: f64 },
     /// A flat annual amount, **nominal**: it does not index with inflation,
     /// so it buys less every year. Correct for an account funded by a fixed
     /// standing transfer; the UI says so rather than letting it decay
     /// silently.
-    FlatAmount(f64),
+    FlatAmount { amount: f64 },
     /// The statutory maximum for the account's `plan_type`, indexed forward
     /// and stepped up for the owner's catch-up tier. Stored as intent rather
     /// than a number so the plan stays correct as limits index and the owner
@@ -114,7 +117,73 @@ pub enum ContributionRule {
 
 impl Default for ContributionRule {
     fn default() -> Self {
-        ContributionRule::FlatAmount(0.0)
+        ContributionRule::FlatAmount { amount: 0.0 }
+    }
+}
+
+pub type ContributionId = String;
+
+/// One dated contribution to an account: a rule and the window it applies
+/// over, in the same `StreamBoundary` vocabulary a cash-flow stream uses.
+///
+/// An account carries a **list** of these, so "$200/month now and $1,200
+/// from January", "open this account in three years and fund it until I
+/// retire", or a contribution that legitimately outlives the owner's
+/// retirement (a spousal IRA, an HSA under HDHP coverage) are all just
+/// entries. Entries on one account sum; the statutory clamp still applies
+/// per account and per person — see `sim::contributions`.
+///
+/// Entries have an id (a React key, distinct within the account) and no
+/// name: the UI describes one from its data.
+#[derive(Serialize, Deserialize, TS, Clone, Debug, PartialEq)]
+#[ts(export)]
+pub struct Contribution {
+    pub id: ContributionId,
+    pub rule: ContributionRule,
+    /// First month the entry contributes. `PlanStart` is the usual choice.
+    pub start: StreamBoundary,
+    /// Exclusive. `AtRetirement(owner)` reproduces what every account did
+    /// before entries were dated: contribute while the owner still works.
+    pub end: StreamBoundary,
+}
+
+impl Contribution {
+    /// The entry every plan written before dated contributions had: `rule`
+    /// from plan start until `owner` retires. What the migration below
+    /// produces, and the shape a new account starts with.
+    pub fn until_retirement(
+        id: impl Into<ContributionId>,
+        rule: ContributionRule,
+        owner: &PersonId,
+    ) -> Self {
+        Contribution {
+            id: id.into(),
+            rule,
+            start: StreamBoundary::PlanStart,
+            end: StreamBoundary::AtRetirement(owner.clone()),
+        }
+    }
+}
+
+/// The pre-dated-contributions `ContributionRule`: tuple-shaped, so it
+/// serialized as `!PercentOfSalary 0.1`. Read only by `AccountWire` to
+/// migrate an older plan file; nothing writes it.
+#[derive(Deserialize, Clone, Copy)]
+enum LegacyContributionRule {
+    PercentOfSalary(f64),
+    FlatAmount(f64),
+    FederalMaximum,
+}
+
+impl From<LegacyContributionRule> for ContributionRule {
+    fn from(legacy: LegacyContributionRule) -> Self {
+        match legacy {
+            LegacyContributionRule::PercentOfSalary(percent) => {
+                ContributionRule::PercentOfSalary { percent }
+            }
+            LegacyContributionRule::FlatAmount(amount) => ContributionRule::FlatAmount { amount },
+            LegacyContributionRule::FederalMaximum => ContributionRule::FederalMaximum,
+        }
     }
 }
 
@@ -205,22 +274,27 @@ pub struct Account {
     /// person per year with the owner's other accounts in the same bucket
     /// rather than granted per account — see `sim::contributions`.
     pub plan_type: PlanType,
-    /// What the owner puts in each year while still working.
-    pub contribution: ContributionRule,
+    /// What goes into this account and when: dated entries that sum. Empty
+    /// means nothing is contributed. Every entry is the owner's own money;
+    /// the employer's share is `employer_match`.
+    pub contributions: Vec<Contribution>,
     /// Employer match on this plan, if any. Matched dollars are employer
     /// money: they do not count against the employee elective-deferral
     /// limit, only against the much higher 415(c) annual-additions cap.
     pub employer_match: Option<EmployerMatch>,
 }
 
-/// Deserialization shape for `Account`, carrying the pre-#32 fields so plans
-/// written before contribution modes existed still load.
+/// Deserialization shape for `Account`, carrying the fields plans written
+/// before contribution modes (#32) and before dated contributions (#78)
+/// had, so both still load.
 ///
 /// A wire struct rather than `#[serde(default)]` on the new fields because
-/// neither default can be computed field-locally: `contribution` has to read
-/// the legacy `annual_contribution`, and `plan_type` has to read `kind`.
-/// Same migration intent as the `#[serde(default)]` precedent documented on
-/// `sweep_surplus_from` and `social_security`.
+/// none of the defaults can be computed field-locally: `contributions` has
+/// to read the legacy single `contribution` (or, older still,
+/// `annual_contribution`) plus the account's own id and owner, and
+/// `plan_type` has to read `kind`. Same migration intent as the
+/// `#[serde(default)]` precedent documented on `sweep_surplus_from` and
+/// `social_security`.
 ///
 /// The legacy per-account `contribution_limit` no longer survives as a
 /// field — the engine owns statutory limits now, indexed and with catch-up
@@ -238,8 +312,14 @@ struct AccountWire {
     allocation: AllocationRef,
     #[serde(default)]
     plan_type: Option<PlanType>,
+    /// The dated list. Wins whenever present, even if the older keys are
+    /// also there.
     #[serde(default)]
-    contribution: Option<ContributionRule>,
+    contributions: Option<Vec<Contribution>>,
+    /// #32–#77: one undated rule, applied from plan start until the owner
+    /// retired. Becomes a one-entry list with exactly those boundaries.
+    #[serde(default)]
+    contribution: Option<LegacyContributionRule>,
     /// `#[serde(default)]` so plans saved before #33 load with no match,
     /// unchanged — the same precedent as `social_security`.
     #[serde(default)]
@@ -292,14 +372,24 @@ impl<'de> Deserialize<'de> for Account {
 
 impl From<AccountWire> for Account {
     fn from(w: AccountWire) -> Self {
-        let contribution = w
-            .contribution
-            .unwrap_or_else(|| ContributionRule::FlatAmount(w.annual_contribution.unwrap_or(0.0)));
+        let contributions = w.contributions.unwrap_or_else(|| {
+            let rule = w
+                .contribution
+                .map(ContributionRule::from)
+                .unwrap_or_else(|| ContributionRule::FlatAmount {
+                    amount: w.annual_contribution.unwrap_or(0.0),
+                });
+            vec![Contribution::until_retirement(
+                format!("{}-contribution", w.id),
+                rule,
+                &w.owner,
+            )]
+        });
         Account {
             plan_type: w
                 .plan_type
                 .unwrap_or_else(|| migrated_plan_type(w.kind, w.contribution_limit)),
-            contribution,
+            contributions,
             employer_match: w.employer_match,
             id: w.id,
             owner: w.owner,
@@ -332,9 +422,75 @@ mod tests {
             "contribution_limit": 23000.0
         }"#;
         let account: Account = serde_json::from_str(json).expect("legacy account parses");
-        assert_eq!(account.contribution, ContributionRule::FlatAmount(23_000.0));
+        assert_eq!(
+            account.contributions,
+            vec![Contribution::until_retirement(
+                "401k-contribution",
+                ContributionRule::FlatAmount { amount: 23_000.0 },
+                &"p1".to_string(),
+            )]
+        );
         assert_eq!(account.plan_type, PlanType::EmployerPlan);
         assert_eq!(account.employer_match, None, "no match until one is set");
+    }
+
+    /// A plan file written between #32 and #78 carries one tuple-shaped
+    /// `contribution` rule. It becomes the one entry that reproduces what
+    /// it did: from plan start until the owner retires.
+    #[test]
+    fn a_single_undated_rule_migrates_to_a_one_entry_list() {
+        let yaml = "
+id: alex-401k
+owner: alex
+kind: TraditionalPreTax
+name: Alex 401(k)
+balance: 340000.0
+cost_basis: null
+allocation: Aggressive
+plan_type: EmployerPlan
+contribution: !PercentOfSalary 0.1
+employer_match: null
+";
+        let account: Account = serde_yaml_ng::from_str(yaml).expect("undated account parses");
+        assert_eq!(
+            account.contributions,
+            vec![Contribution {
+                id: "alex-401k-contribution".to_string(),
+                rule: ContributionRule::PercentOfSalary { percent: 0.1 },
+                start: StreamBoundary::PlanStart,
+                end: StreamBoundary::AtRetirement("alex".to_string()),
+            }]
+        );
+
+        // The unit variant, in the same undated shape.
+        let account: Account = serde_yaml_ng::from_str(&yaml.replace(
+            "contribution: !PercentOfSalary 0.1",
+            "contribution: FederalMaximum",
+        ))
+        .expect("undated account parses");
+        assert_eq!(
+            account.contributions[0].rule,
+            ContributionRule::FederalMaximum
+        );
+    }
+
+    /// The dated list wins over any older key left beside it.
+    #[test]
+    fn the_dated_list_wins_over_legacy_keys() {
+        let json = r#"{
+            "id": "a",
+            "owner": "p1",
+            "kind": "Taxable",
+            "name": "a",
+            "balance": 0.0,
+            "allocation": "Moderate",
+            "plan_type": "None",
+            "contributions": [],
+            "contribution": {"FlatAmount": 5000.0},
+            "annual_contribution": 7000.0
+        }"#;
+        let account: Account = serde_json::from_str(json).expect("account parses");
+        assert!(account.contributions.is_empty());
     }
 
     /// The old schema could not name the bucket, but the limit the user
@@ -385,7 +541,8 @@ mod tests {
         );
     }
 
-    /// Round-tripping a current account leaves both new fields alone.
+    /// Round-tripping a current account leaves the dated list alone,
+    /// boundaries included.
     #[test]
     fn current_account_round_trips() {
         let account = Account {
@@ -397,12 +554,17 @@ mod tests {
             cost_basis: None,
             allocation: AllocationRef::Moderate,
             plan_type: PlanType::Ira,
-            contribution: ContributionRule::PercentOfSalary(0.08),
+            contributions: vec![Contribution {
+                id: "a-contribution".into(),
+                rule: ContributionRule::PercentOfSalary { percent: 0.08 },
+                start: StreamBoundary::Date(super::super::YearMonth::new(2029, 1)),
+                end: StreamBoundary::PlanEnd,
+            }],
             employer_match: None,
         };
         let json = serde_json::to_string(&account).unwrap();
         let back: Account = serde_json::from_str(&json).unwrap();
-        assert_eq!(back.contribution, ContributionRule::PercentOfSalary(0.08));
+        assert_eq!(back.contributions, account.contributions);
         assert_eq!(back.plan_type, PlanType::Ira);
     }
 }

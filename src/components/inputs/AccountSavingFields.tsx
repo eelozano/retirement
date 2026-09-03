@@ -6,6 +6,7 @@ import {
   contributionMode,
   DEFAULT_MATCH,
   federalMaximumHint,
+  firstContribution,
   MATCH_DESTINATIONS,
   ruleForMode,
 } from "./accountContribution";
@@ -24,7 +25,10 @@ export function AccountSavingFields(props: {
   updatePlan: UpdatePlan;
 }) {
   const { account, accountIndex: i, presets, updatePlan } = props;
-  const mode = contributionMode(account.contribution);
+  // Until entries get their own controls (#80) the editor reads and writes
+  // the account's first entry; an account with none reads as nothing.
+  const rule = account.contributions[0]?.rule ?? { FlatAmount: { amount: 0 } };
+  const mode = contributionMode(rule);
 
   return (
     <fieldset>
@@ -44,36 +48,36 @@ export function AccountSavingFields(props: {
         }
         onChange={(next) =>
           updatePlan((d) => {
-            d.accounts[i].contribution = ruleForMode(next);
+            firstContribution(d.accounts[i]).rule = ruleForMode(next);
           })
         }
       />
-      {typeof account.contribution === "object" &&
-        "PercentOfSalary" in account.contribution && (
-          <PercentField
-            label="Of salary"
-            rate={account.contribution.PercentOfSalary}
-            minPercent={0}
-            maxPercent={100}
-            onChange={(rate) =>
-              updatePlan((d) => {
-                d.accounts[i].contribution = { PercentOfSalary: rate };
-              })
-            }
-          />
-        )}
-      {typeof account.contribution === "object" &&
-        "FlatAmount" in account.contribution && (
-          <NumberField
-            label="Amount / yr ($)"
-            value={account.contribution.FlatAmount}
-            onChange={(amount) =>
-              updatePlan((d) => {
-                d.accounts[i].contribution = { FlatAmount: amount };
-              })
-            }
-          />
-        )}
+      {typeof rule === "object" && "PercentOfSalary" in rule && (
+        <PercentField
+          label="Of salary"
+          rate={rule.PercentOfSalary.percent}
+          minPercent={0}
+          maxPercent={100}
+          onChange={(rate) =>
+            updatePlan((d) => {
+              firstContribution(d.accounts[i]).rule = {
+                PercentOfSalary: { percent: rate },
+              };
+            })
+          }
+        />
+      )}
+      {typeof rule === "object" && "FlatAmount" in rule && (
+        <NumberField
+          label="Amount / yr ($)"
+          value={rule.FlatAmount.amount}
+          onChange={(amount) =>
+            updatePlan((d) => {
+              firstContribution(d.accounts[i]).rule = { FlatAmount: { amount } };
+            })
+          }
+        />
+      )}
       {account.plan_type === "EmployerPlan" && (
         <CheckboxField
           label="Employer match"

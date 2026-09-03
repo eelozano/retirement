@@ -9,7 +9,7 @@ pub use monte_carlo::{run_monte_carlo, MonteCarloConfig, MonteCarloResult, Perio
 pub use projection::{PeriodSnapshot, Projection, SimWarning, StreamInfo};
 
 use crate::model::{
-    Account, AccountKind, CashFlowStream, GrowthRule, Plan, StreamBoundary, YearMonth,
+    Account, AccountKind, CashFlowStream, Contribution, GrowthRule, Plan, StreamBoundary, YearMonth,
 };
 use crate::strategies::{DrawdownStrategy, ReturnModel, TaxModel};
 
@@ -35,6 +35,18 @@ struct ResolvedStream<'a> {
     source: StreamSource,
 }
 
+/// A contribution entry with its boundaries resolved to concrete months,
+/// ready for the period loop to prorate — the contribution analogue of
+/// `ResolvedStream`.
+struct ResolvedContribution<'a> {
+    /// Index into `plan.accounts`.
+    account: usize,
+    entry: &'a Contribution,
+    start: YearMonth,
+    /// Exclusive.
+    end: YearMonth,
+}
+
 /// Runs one deterministic-or-stochastic simulation path over the plan.
 ///
 /// Pure function: no global state, `plan` is untouched, and all randomness
@@ -42,10 +54,10 @@ struct ResolvedStream<'a> {
 ///
 /// Per-period order (documented so results are explainable):
 /// 1. accrue stream income and expenses (prorated by months active)
-/// 2. contribute to accounts while their owner still works, resolving each
-///    account's contribution mode and clamping to the owner's shared
-///    statutory limits for that year, then add the employer match those
-///    deferrals earn — see `contributions`
+/// 2. contribute to accounts: resolve each account's dated contribution
+///    entries for the months they are active, clamp the account to the
+///    owner's shared statutory limits for that year, then add the employer
+///    match those deferrals earn — see `contributions`
 /// 3. force out each pre-tax account owner's required minimum distribution,
 ///    once they are past their RMD age — see `required_distributions`
 /// 4. tax ordinary income (gross income minus pre-tax deferrals, plus any
@@ -127,6 +139,31 @@ pub fn simulate(
         }
     }
 
+    // Contribution entries resolve the same way streams do, once, up front.
+    // An entry pinned to a person who has since been deleted has no window
+    // to resolve; it contributes nothing and says so, once per account.
+    let mut resolved_contributions: Vec<ResolvedContribution> = Vec::new();
+    for (idx, account) in plan.accounts.iter().enumerate() {
+        for entry in &account.contributions {
+            match (
+                resolve_boundary(plan, &entry.start, start, end),
+                resolve_boundary(plan, &entry.end, start, end),
+            ) {
+                (Some(s), Some(e)) => resolved_contributions.push(ResolvedContribution {
+                    account: idx,
+                    entry,
+                    start: s,
+                    end: e,
+                }),
+                _ => state
+                    .warnings
+                    .push(SimWarning::ContributionBoundaryUnresolved {
+                        account: account.id.clone(),
+                    }),
+            }
+        }
+    }
+
     // When ordinary surplus starts being swept into the taxable account.
     // `None` means never — which is also what an unresolvable boundary
     // (a person deleted after it was chosen) falls back to, loudly: the
@@ -176,6 +213,7 @@ pub fn simulate(
     let run = RunContext {
         plan,
         streams: &resolved_streams,
+        contributions: &resolved_contributions,
         sweep_from,
         reinvest_into,
         survivor_step_down,

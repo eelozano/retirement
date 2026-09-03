@@ -10,9 +10,9 @@
 use std::collections::BTreeMap;
 
 use engine::model::{
-    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, ContributionRule,
-    FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig, StateTaxProfile,
-    StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
+    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, Contribution,
+    ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
+    StateTaxProfile, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
 };
 use engine::run_deterministic;
 
@@ -36,7 +36,11 @@ fn taxable(id: &str, allocation: AllocationRef) -> Account {
         cost_basis: Some(0.0),
         allocation,
         plan_type: PlanType::None,
-        contribution: ContributionRule::FlatAmount(0.0),
+        contributions: vec![Contribution::until_retirement(
+            "contribution",
+            ContributionRule::FlatAmount { amount: 0.0 },
+            &"p1".to_string(),
+        )],
         employer_match: None,
     }
 }
@@ -51,7 +55,11 @@ fn pretax(id: &str, balance: f64) -> Account {
         cost_basis: None,
         allocation: bonds(),
         plan_type: PlanType::EmployerPlan,
-        contribution: ContributionRule::FlatAmount(0.0),
+        contributions: vec![Contribution::until_retirement(
+            "contribution",
+            ContributionRule::FlatAmount { amount: 0.0 },
+            &"p1".to_string(),
+        )],
         employer_match: None,
     }
 }

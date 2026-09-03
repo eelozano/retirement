@@ -65,6 +65,12 @@ pub enum SimWarning {
     RequiredDistributionUnallocated { period: usize },
     /// A stream references a person id that does not exist; it was skipped.
     UnknownPersonRef { stream: StreamId },
+    /// A contribution entry on this account starts or ends at the
+    /// retirement or death of a person who is no longer in the plan, so its
+    /// window cannot be resolved. The entry contributes nothing — the
+    /// contribution analogue of `UnknownPersonRef`. Reported once per
+    /// account.
+    ContributionBoundaryUnresolved { account: AccountId },
 }
 
 /// One simulated period (a year in V1), in nominal dollars.

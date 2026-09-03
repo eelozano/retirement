@@ -110,6 +110,15 @@ export function readableWarnings(plan: Plan, projection: Projection): ReadableWa
           "From this year on, the accounts cannot cover spending. Balances stop at zero rather than going negative, so later years understate the shortfall.",
       };
     }
+    if ("ContributionBoundaryUnresolved" in warning) {
+      const name = accountName(plan, warning.ContributionBoundaryUnresolved.account);
+      return {
+        key,
+        title: `${name}: a contribution was skipped`,
+        detail:
+          "One of its contributions starts or ends at the retirement or death of someone who is no longer in this plan, so there is no window to apply it over and nothing is being contributed from it. Pick a new start or end for it.",
+      };
+    }
     const name = streamName(plan, warning.UnknownPersonRef.stream);
     return {
       key,

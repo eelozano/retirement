@@ -142,9 +142,19 @@ pub enum AccountKind { Taxable, TraditionalPreTax, Roth }
 pub enum PlanType { EmployerPlan, Ira, None }
 
 pub enum ContributionRule {
-    PercentOfSalary(f64),   // resolved against the owner's salary each period
-    FlatAmount(f64),        // nominal by design; the UI says so
-    FederalMaximum,         // intent, resolved against the indexed limit table
+    PercentOfSalary { percent: f64 }, // resolved against the owner's salary each period
+    FlatAmount { amount: f64 },       // nominal by design; the UI says so
+    FederalMaximum,                   // intent, resolved against the indexed limit table
+}
+
+// One dated contribution: a rule over a window in the stream vocabulary.
+// An account carries a list; entries sum. The pre-#78 single rule migrates
+// to one entry from PlanStart until AtRetirement(owner).
+pub struct Contribution {
+    pub id: ContributionId,           // React key; distinct within the account
+    pub rule: ContributionRule,
+    pub start: StreamBoundary,
+    pub end: StreamBoundary,          // exclusive
 }
 
 // Employer match, per account: a match belongs to one employer's plan
@@ -166,7 +176,7 @@ pub struct Account {
     pub cost_basis: Option<f64>,    // taxable only; splits withdrawals principal vs gains
     pub allocation: AllocationRef,  // preset id or custom weights
     pub plan_type: PlanType,        // limit bucket; cap shared per person per year
-    pub contribution: ContributionRule,
+    pub contributions: Vec<Contribution>,
     pub employer_match: Option<EmployerMatch>,
 }
 
@@ -362,6 +372,18 @@ Statutory limits are granted **per person per year**, shared across a bucket of 
 Two independent buckets, named directly by `Account::plan_type`: **employer plans** (401(k)/403(b)/TSP elective deferrals) and **IRAs** (traditional and Roth share one cap with each other). `PlanType::None` accounts — taxable brokerages — join no bucket. The bucket used to be *inferred* from whichever statutory figure the account's user-typed limit sat nearer, which mis-bucketed a 457(b) and any hand-typed figure near neither; the engine now owns the limits and reads the bucket from a field.
 
 When a person's accounts collectively ask for more than the shared cap, room is handed out **in plan account order**: the first account listed fills first. The split is resolved **per period**, not once: salaries grow, limits index, and catch-up tiers turn on with age, so what fits is a function of the year. Clamp warnings are deduplicated by account and report the first period the clamp bit.
+
+#### Dated contributions (`sim/contributions.rs`)
+
+An account's contributions are a **list of dated entries** (#78), each a `ContributionRule` over a `StreamBoundary` window — the vocabulary streams already had. `simulate` resolves every entry's boundaries once, up front, exactly as it does streams; an entry pinned to a person who has since been deleted contributes nothing and reports `ContributionBoundaryUnresolved` for its account. Per period each entry is prorated by `active`, its overlap with the period, and entries on one account sum before the clamp — so `contributions_by_account`, the clamp, and its warning stay per account and no consumer had to change.
+
+**The owner's working share is no longer a gate on their own contributions.** It used to be applied implicitly to every account; now the entry's `end` is the single source of truth, and the migration writes `AtRetirement(owner)` as that end so an older plan projects identically. A spousal IRA on the working spouse's compensation, or an HSA under HDHP coverage, can therefore be written down by ending later; validation refuses that only for the plan types that need an employer (`EmployerPlan`, `Plan457b`, `SimpleIra`, `SepIra`), since those dollars come out of a paycheck.
+
+`PercentOfSalary` is the mode with a trap. The salary it resolves against is already prorated to the months the owner worked, so an entry is scaled by `min(1, active / working_share)` — months of salary the entry covers over months of salary earned — not by `active` a second time, which would dock a partial retirement year twice. A full working year gives 1; an entry ending at retirement gives 1 in the retirement year, today's answer; an entry starting in July of a full year gives ½; with no working months there is no salary for a percentage to be of, whatever owned income (a pension) the period holds. `FlatAmount` and `FederalMaximum` are simply the annual figure times `active`.
+
+The **statutory cap is no longer prorated by the working share** either — only by the period length. The statute does not prorate a limit for a partial year of work, and an IRA funded after retirement needs a non-zero cap. A larger ceiling changes nothing unless something was pressing against the old one, which is why the seed golden did not move. The employer match and the 415(c) cap keep the working share: both are bound to salary, and a match on months not worked is not a thing.
+
+Migration goes through `AccountWire` like every shape change before it: the tuple-shaped pre-#78 rule survives as a private `LegacyContributionRule` read only there, `SCHEMA_VERSION` is unchanged because nothing migrates behind it, and the dated list wins whenever present.
 
 #### Employer match (`sim/contributions.rs`)
 

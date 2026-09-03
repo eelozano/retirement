@@ -13,8 +13,8 @@
 use std::collections::BTreeMap;
 
 use engine::model::{
-    Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, ContributionRule,
-    FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
+    Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
+    ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
     SocialSecurityBenefit, StateTaxProfile, StreamBoundary, StreamDirection, YearMonth,
     SCHEMA_VERSION,
 };
@@ -54,7 +54,11 @@ fn retiree() -> Plan {
             cost_basis: None,
             allocation: AllocationRef::Custom(BTreeMap::new()),
             plan_type: PlanType::EmployerPlan,
-            contribution: ContributionRule::FlatAmount(0.0),
+            contributions: vec![Contribution::until_retirement(
+                "contribution",
+                ContributionRule::FlatAmount { amount: 0.0 },
+                &"p1".to_string(),
+            )],
             employer_match: None,
         }],
         streams: vec![CashFlowStream {

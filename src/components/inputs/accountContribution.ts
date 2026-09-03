@@ -1,13 +1,15 @@
 import { currency } from "../../lib/format";
+import type { Account } from "../../types/generated/Account";
+import type { Contribution } from "../../types/generated/Contribution";
 import type { ContributionRule } from "../../types/generated/ContributionRule";
 import type { EmployerMatch } from "../../types/generated/EmployerMatch";
 import type { PlanType } from "../../types/generated/PlanType";
 import type { Presets } from "../../types/generated/Presets";
 
-// Shared between AccountsSection (which no longer edits contributions) and
-// the People pane's Saving band (which does) — an account's contribution is
-// part of the paycheck story, so it moved, but the mode/rule vocabulary is
-// still a property of the account's `plan_type`.
+// Shared between AccountsSection (which seeds a new account's first entry)
+// and the People pane's Saving band (which edits it) — the mode/rule
+// vocabulary is a property of the account's `plan_type`, wherever the
+// controls happen to sit.
 
 export const CONTRIBUTION_MODES = [
   { value: "PercentOfSalary", label: "Percent of salary" },
@@ -45,7 +47,38 @@ export function contributionMode(rule: ContributionRule): ContributionMode {
  */
 export function ruleForMode(mode: ContributionMode): ContributionRule {
   if (mode === "FederalMaximum") return "FederalMaximum";
-  return mode === "PercentOfSalary" ? { PercentOfSalary: 0 } : { FlatAmount: 0 };
+  return mode === "PercentOfSalary"
+    ? { PercentOfSalary: { percent: 0 } }
+    : { FlatAmount: { amount: 0 } };
+}
+
+/**
+ * The entry every account starts with, and what an undated plan migrated
+ * to: `rule` from plan start until the owner retires. The id only has to be
+ * distinct within the account.
+ */
+export function defaultContribution(
+  account: Pick<Account, "id" | "owner">,
+  rule: ContributionRule = { FlatAmount: { amount: 0 } },
+): Contribution {
+  return {
+    id: `${account.id}-contribution`,
+    rule,
+    start: "PlanStart",
+    end: { AtRetirement: account.owner },
+  };
+}
+
+/**
+ * The account's first entry, created with the defaults if it has none — the
+ * one the editor points at until entries get their own controls (#80).
+ * Mutates the draft it is handed, so call it inside `updatePlan`.
+ */
+export function firstContribution(account: Account): Contribution {
+  if (account.contributions.length === 0) {
+    account.contributions.push(defaultContribution(account));
+  }
+  return account.contributions[0];
 }
 
 /**

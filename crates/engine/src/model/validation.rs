@@ -163,31 +163,89 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                 },
             ));
         }
-        match account.contribution {
-            ContributionRule::FlatAmount(amount) if amount < 0.0 => errors.push(err(
-                &format!("accounts[{i}].contribution"),
-                &format!("\"{}\" can't contribute a negative amount.", account.name),
-            )),
-            ContributionRule::PercentOfSalary(pct) if !(0.0..=1.0).contains(&pct) => {
+        let owner = plan.person(&account.owner);
+        let mut seen_entry_ids = HashSet::new();
+        for (j, entry) in account.contributions.iter().enumerate() {
+            let field = |leaf: &str| format!("accounts[{i}].contributions[{j}].{leaf}");
+            if !seen_entry_ids.insert(entry.id.as_str()) {
                 errors.push(err(
-                    &format!("accounts[{i}].contribution"),
+                    &field("id"),
                     &format!(
-                        "\"{}\" contributes {:.0}% of salary — it has to be between 0% and 100%.",
-                        account.name,
-                        pct * 100.0
+                        "\"{}\" has two contributions with the id \"{}\".",
+                        account.name, entry.id
                     ),
-                ))
+                ));
             }
-            ContributionRule::FederalMaximum if account.plan_type == PlanType::None => {
-                errors.push(err(
-                    &format!("accounts[{i}].contribution"),
-                    &format!(
-                        "\"{}\" has no federal maximum — a taxable brokerage is uncapped.",
-                        account.name
-                    ),
-                ))
+            match entry.rule {
+                ContributionRule::FlatAmount { amount } if amount < 0.0 => errors.push(err(
+                    &field("rule"),
+                    &format!("\"{}\" can't contribute a negative amount.", account.name),
+                )),
+                ContributionRule::PercentOfSalary { percent }
+                    if !(0.0..=1.0).contains(&percent) =>
+                {
+                    errors.push(err(
+                        &field("rule"),
+                        &format!(
+                            "\"{}\" contributes {:.0}% of salary — it has to be between 0% and 100%.",
+                            account.name,
+                            percent * 100.0
+                        ),
+                    ))
+                }
+                ContributionRule::FederalMaximum if account.plan_type == PlanType::None => {
+                    errors.push(err(
+                        &field("rule"),
+                        &format!(
+                            "\"{}\" has no federal maximum — a taxable brokerage is uncapped.",
+                            account.name
+                        ),
+                    ))
+                }
+                _ => {}
             }
-            _ => {}
+            for (boundary, edge) in [(&entry.start, "start"), (&entry.end, "end")] {
+                if let StreamBoundary::Date(date) = boundary {
+                    check_date(
+                        &mut errors,
+                        &field(edge),
+                        &format!("\"{}\"'s contribution {edge} date", account.name),
+                        *date,
+                    );
+                }
+            }
+            // Money into an employer's plan comes out of a paycheck from
+            // that employer, so an entry cannot outlive the owner's
+            // retirement. IRAs and HSAs are deliberately left alone: a
+            // spousal IRA on the working spouse's compensation and an HSA
+            // under HDHP coverage are both real after one's own retirement.
+            let needs_employer = matches!(
+                account.plan_type,
+                PlanType::EmployerPlan
+                    | PlanType::Plan457b
+                    | PlanType::SimpleIra
+                    | PlanType::SepIra
+            );
+            if let (true, Some(owner)) = (needs_employer, owner) {
+                let retirement = owner.retirement.month_index();
+                let past_retirement = match &entry.end {
+                    StreamBoundary::PlanStart => false,
+                    StreamBoundary::PlanEnd | StreamBoundary::AtDeath(_) => true,
+                    StreamBoundary::Date(date) => date.month_index() > retirement,
+                    StreamBoundary::AtRetirement(other) => plan
+                        .person(other)
+                        .is_some_and(|p| p.retirement.month_index() > retirement),
+                };
+                if past_retirement {
+                    errors.push(err(
+                        &field("end"),
+                        &format!(
+                            "\"{}\" is an employer plan, so contributions to it can't continue after {} retires.",
+                            account.name, owner.name
+                        ),
+                    ));
+                }
+            }
         }
         if let Some(employer) = &account.employer_match {
             let field = format!("accounts[{i}].employer_match");
@@ -545,6 +603,107 @@ mod tests {
         let errors = plan.validate();
         assert!(errors.iter().any(|e| e.field == "sim_config.start"));
         assert!(errors.iter().any(|e| e.field == "streams[0].start"));
+    }
+
+    /// An employer plan is funded from a paycheck, so an entry on one cannot
+    /// run past the owner's retirement in any of the ways an end can.
+    #[test]
+    fn rejects_an_employer_plan_contribution_past_the_owners_retirement() {
+        use crate::model::{StreamBoundary, YearMonth};
+        let i = plan_index_of(&seed_plan(), "alex-401k");
+        let alex_retires = seed_plan().people[0].retirement;
+        for end in [
+            StreamBoundary::PlanEnd,
+            StreamBoundary::AtDeath("alex".to_string()),
+            StreamBoundary::Date(alex_retires.add_months(1)),
+            // Jordan retires four years after Alex.
+            StreamBoundary::AtRetirement("jordan".to_string()),
+        ] {
+            let mut plan = seed_plan();
+            plan.accounts[i].contributions[0].end = end.clone();
+            let errors = plan.validate();
+            assert!(
+                errors
+                    .iter()
+                    .any(|e| e.field == format!("accounts[{i}].contributions[0].end")),
+                "{end:?} should be rejected on an employer plan: {errors:?}"
+            );
+        }
+        // Ending at or before the owner's own retirement is fine.
+        for end in [
+            StreamBoundary::AtRetirement("alex".to_string()),
+            StreamBoundary::Date(alex_retires),
+            StreamBoundary::Date(YearMonth::new(2030, 1)),
+        ] {
+            let mut plan = seed_plan();
+            plan.accounts[i].contributions[0].end = end.clone();
+            assert!(
+                plan.validate().is_empty(),
+                "{end:?} should be accepted: {:?}",
+                plan.validate()
+            );
+        }
+    }
+
+    /// A spousal IRA is funded on the working spouse's compensation, so an
+    /// IRA entry may outlive its owner's retirement.
+    #[test]
+    fn accepts_an_ira_contribution_past_the_owners_retirement() {
+        use crate::model::StreamBoundary;
+        let mut plan = seed_plan();
+        let i = plan_index_of(&plan, "jordan-roth");
+        plan.accounts[i].contributions[0].end = StreamBoundary::PlanEnd;
+        assert!(plan.validate().is_empty(), "{:?}", plan.validate());
+    }
+
+    #[test]
+    fn catches_bad_contribution_dates_and_duplicate_entry_ids() {
+        use crate::model::{StreamBoundary, YearMonth};
+        let mut plan = seed_plan();
+        plan.accounts[0].contributions[0].start = StreamBoundary::Date(YearMonth {
+            year: 12,
+            month: 13,
+        });
+        let dup = plan.accounts[0].contributions[0].clone();
+        plan.accounts[0].contributions.push(dup);
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "accounts[0].contributions[0].start"));
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "accounts[0].contributions[1].id"));
+    }
+
+    #[test]
+    fn catches_bad_contribution_rules_per_entry() {
+        use crate::model::ContributionRule;
+        let mut plan = seed_plan();
+        let owner = plan.accounts[0].owner.clone();
+        plan.accounts[0]
+            .contributions
+            .push(crate::model::Contribution::until_retirement(
+                "second",
+                ContributionRule::FlatAmount { amount: -1.0 },
+                &owner,
+            ));
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "accounts[0].contributions[1].rule"));
+        assert!(
+            !errors
+                .iter()
+                .any(|e| e.field == "accounts[0].contributions[0].rule"),
+            "the good entry is not blamed: {errors:?}"
+        );
+    }
+
+    fn plan_index_of(plan: &crate::model::Plan, account: &str) -> usize {
+        plan.accounts
+            .iter()
+            .position(|a| a.id == account)
+            .expect("seed plan has the account")
     }
 
     #[test]
