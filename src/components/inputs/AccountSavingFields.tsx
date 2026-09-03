@@ -8,6 +8,7 @@ import {
   federalMaximumHint,
   firstContribution,
   MATCH_DESTINATIONS,
+  NO_CONTRIBUTION,
   ruleForMode,
 } from "./accountContribution";
 import { CheckboxField, NumberField, PercentField, SelectField } from "./fields";
@@ -27,7 +28,7 @@ export function AccountSavingFields(props: {
   const { account, accountIndex: i, presets, updatePlan } = props;
   // Until entries get their own controls (#80) the editor reads and writes
   // the account's first entry; an account with none reads as nothing.
-  const rule = account.contributions[0]?.rule ?? { FlatAmount: { amount: 0 } };
+  const rule = account.contributions[0]?.rule ?? NO_CONTRIBUTION;
   const mode = contributionMode(rule);
 
   return (
@@ -60,8 +61,10 @@ export function AccountSavingFields(props: {
           maxPercent={100}
           onChange={(rate) =>
             updatePlan((d) => {
+              // Spread rather than replace: an escalation already on the
+              // entry survives a change to the starting percentage.
               firstContribution(d.accounts[i]).rule = {
-                PercentOfSalary: { percent: rate },
+                PercentOfSalary: { ...rule.PercentOfSalary, percent: rate },
               };
             })
           }
@@ -73,7 +76,9 @@ export function AccountSavingFields(props: {
           value={rule.FlatAmount.amount}
           onChange={(amount) =>
             updatePlan((d) => {
-              firstContribution(d.accounts[i]).rule = { FlatAmount: { amount } };
+              firstContribution(d.accounts[i]).rule = {
+                FlatAmount: { ...rule.FlatAmount, amount },
+              };
             })
           }
         />

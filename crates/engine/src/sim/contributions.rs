@@ -28,11 +28,29 @@
 //!   again, which would dock a partial year twice. A full year gives 1; an
 //!   entry ending at retirement gives 1 in the retirement year; an entry
 //!   starting in July gives ½.
-//! - `FlatAmount` is nominal by design — the same dollars every year, which
+//! - `FlatAmount` is nominal by default — the same dollars every year, which
 //!   is what a fixed standing transfer actually does — times `active`.
 //! - `FederalMaximum` resolves against the indexed limit table, including
 //!   the owner's catch-up tier, times `active`. Stored as intent, so it
 //!   stays correct as limits index and the owner ages.
+//!
+//! ### Escalation
+//!
+//! Two of the three modes carry an optional way of changing over time, each
+//! shaped like the mode it sits in and neither a general schedule DSL:
+//!
+//! - `PercentOfSalary::step_up` is 401(k) auto-escalation — "10% now, up a
+//!   point a year until 15%". `escalated` below is the whole of it, and it
+//!   counts whole years from the **entry's** resolved start, so an entry
+//!   that opens in 2029 steps from 2029.
+//! - `FlatAmount::growth` is a standing transfer the owner actually raises.
+//!   It grows from **plan** start under `growth_factor`, the same
+//!   convention a stream's `annual_amount` follows — which is what makes
+//!   `Inflation` mean "holds today's buying power" rather than "holds the
+//!   buying power of whichever year the entry happens to begin".
+//!
+//! `FederalMaximum` needs neither: the statutory table already indexes and
+//! steps up at 50 and 60.
 //!
 //! ### Which bucket an account lands in
 //!
@@ -76,12 +94,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::model::{
-    AccountId, AccountKind, ContributionRule, MatchDestination, PersonId, Plan, PlanType,
+    AccountId, AccountKind, ContributionRule, MatchDestination, PersonId, Plan, PlanType, StepUp,
+    YearMonth,
 };
 use crate::presets::CONTRIBUTION_LIMITS;
 
 use super::period::{PeriodContext, Warnings};
-use super::{ResolvedContribution, SimWarning};
+use super::{growth_factor, ResolvedContribution, SimWarning};
 
 /// What contribution resolution needs beyond the period's time coordinates:
 /// the dated entries, who earned what, and who was still working.
@@ -104,6 +123,28 @@ impl Inputs<'_> {
     fn prorate(&self, owner: &PersonId) -> f64 {
         self.ctx.fraction * self.working.get(owner).copied().unwrap_or(0.0)
     }
+}
+
+/// The percentage in force for a period, given the entry's escalation.
+///
+/// `min(cap, percent + points_per_year × whole years since the entry's
+/// start)`. Whole years, not a fraction: a plan document escalates on an
+/// anniversary, not continuously. Counting from the *entry's* resolved
+/// start rather than the plan's is what makes "open a Roth in 2029 at 5%,
+/// up a point a year" step from 2029 — and it means an entry that has not
+/// begun yet (`period_start` before it) is still at its starting
+/// percentage rather than a negative number of steps below it.
+fn escalated(
+    percent: f64,
+    step_up: Option<StepUp>,
+    start: YearMonth,
+    period_start: YearMonth,
+) -> f64 {
+    let Some(step_up) = step_up else {
+        return percent;
+    };
+    let years = (start.months_until(period_start).max(0) / 12) as f64;
+    (percent + step_up.points_per_year * years).min(step_up.cap)
 }
 
 /// Nominal dollars each account receives this period, indexed parallel to
@@ -138,8 +179,16 @@ pub(super) fn allowed_contributions(
             continue;
         }
         let amount = match resolved.entry.rule {
-            ContributionRule::FlatAmount { amount } => {
-                amount.max(0.0) * active * inputs.ctx.fraction
+            // Grown from *plan* start, the stream convention: an
+            // inflation-growing amount is entered in simulation-start
+            // dollars, so it means the same thing whenever the entry
+            // begins. `GrowthRule::None`, the default, is the flat nominal
+            // transfer and leaves the factor at 1.
+            ContributionRule::FlatAmount { amount, growth } => {
+                amount.max(0.0)
+                    * growth_factor(growth, inputs.ctx.inflation, inputs.ctx.years_elapsed)
+                    * active
+                    * inputs.ctx.fraction
             }
             // Percent of salary *earned*, not of the period: the salary is
             // already grown and prorated to the owner's working months, so
@@ -147,12 +196,13 @@ pub(super) fn allowed_contributions(
             // `active` over the working share, capped at all of it. With no
             // working months there is no salary for a percentage to be of,
             // whatever owned income streams (a pension) the period holds.
-            ContributionRule::PercentOfSalary { percent } => {
+            ContributionRule::PercentOfSalary { percent, step_up } => {
                 let working = inputs.working.get(&account.owner).copied().unwrap_or(0.0);
                 if working <= 0.0 {
                     0.0
                 } else {
                     let salary = inputs.salary.get(&account.owner).copied().unwrap_or(0.0);
+                    let percent = escalated(percent, step_up, resolved.start, inputs.ctx.start);
                     percent.max(0.0) * salary * (active / working).min(1.0)
                 }
             }
