@@ -105,13 +105,23 @@ export function federalMaximumHint(presets: Presets | null, planType: PlanType):
   }
 }
 
-/** One rule in a few words — "10% of salary", "$6,000/yr", "Max". */
+/**
+ * One rule in a few words — "10% of salary", "$6,000/yr", "Max", and with
+ * an escalation riding along: "10% → 15% of salary", "$6,000/yr,
+ * +inflation".
+ */
 export function ruleSummary(rule: ContributionRule): string {
   if (rule === "FederalMaximum") return "Max";
   if ("PercentOfSalary" in rule) {
-    return `${rateToPercent(rule.PercentOfSalary.percent)}% of salary`;
+    const { percent, step_up } = rule.PercentOfSalary;
+    const base = `${rateToPercent(percent)}% of salary`;
+    return step_up
+      ? `${rateToPercent(percent)}% → ${rateToPercent(step_up.cap)}% of salary`
+      : base;
   }
-  return `${currency(rule.FlatAmount.amount)}/yr`;
+  const { amount, growth } = rule.FlatAmount;
+  const base = `${currency(amount)}/yr`;
+  return growth === "Inflation" ? `${base}, +inflation` : base;
 }
 
 /**

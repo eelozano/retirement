@@ -327,6 +327,59 @@ describe("AccountsSection", () => {
     expect(screen.getByRole("cell", { name: "2 schedules" })).toBeTruthy();
   });
 
+  it("seeds, edits, and clears a percent-of-salary step-up", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "employer_pretax");
+    await userEvent.selectOptions(
+      screen.getByLabelText("Contribution"),
+      "PercentOfSalary",
+    );
+    const percent = screen.getByLabelText("Of salary (%)");
+    await userEvent.clear(percent);
+    await userEvent.type(percent, "10");
+
+    await userEvent.click(screen.getByLabelText("Increase each year"));
+    expect(currentAccount()?.contributions[0].rule).toEqual({
+      PercentOfSalary: { percent: 0.1, step_up: { points_per_year: 0.01, cap: 0.15 } },
+    });
+    expect(screen.getByRole("cell", { name: "10% → 15% of salary" })).toBeTruthy();
+
+    const upTo = screen.getByLabelText("Up to (%)");
+    await userEvent.clear(upTo);
+    await userEvent.type(upTo, "20");
+    expect(currentAccount()?.contributions[0].rule).toEqual({
+      PercentOfSalary: { percent: 0.1, step_up: { points_per_year: 0.01, cap: 0.2 } },
+    });
+    expect(screen.getByRole("cell", { name: "10% → 20% of salary" })).toBeTruthy();
+
+    await userEvent.click(screen.getByLabelText("Increase each year"));
+    expect(currentAccount()?.contributions[0].rule).toEqual({
+      PercentOfSalary: { percent: 0.1, step_up: null },
+    });
+    expect(screen.queryByLabelText("Up to (%)")).toBeNull();
+  });
+
+  it("grows a flat amount with inflation, and the table summary follows", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+    const amount = screen.getByLabelText("Amount / yr ($)");
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "6000");
+
+    await userEvent.selectOptions(screen.getByLabelText("Grows with"), "Inflation");
+    expect(currentAccount()?.contributions[0].rule).toEqual({
+      FlatAmount: { amount: 6000, growth: "Inflation" },
+    });
+    expect(screen.getByRole("cell", { name: "$6,000/yr, +inflation" })).toBeTruthy();
+
+    await userEvent.selectOptions(screen.getByLabelText("Grows with"), "None");
+    expect(currentAccount()?.contributions[0].rule).toEqual({
+      FlatAmount: { amount: 6000, growth: "None" },
+    });
+    expect(screen.getByRole("cell", { name: "$6,000/yr" })).toBeTruthy();
+  });
+
   it("adds an employer match with a tiered formula, only on an employer plan", async () => {
     render(<AccountsSection />);
     await addAccount();
