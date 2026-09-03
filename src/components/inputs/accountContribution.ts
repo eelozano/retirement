@@ -48,9 +48,18 @@ export function contributionMode(rule: ContributionRule): ContributionMode {
 export function ruleForMode(mode: ContributionMode): ContributionRule {
   if (mode === "FederalMaximum") return "FederalMaximum";
   return mode === "PercentOfSalary"
-    ? { PercentOfSalary: { percent: 0 } }
-    : { FlatAmount: { amount: 0 } };
+    ? { PercentOfSalary: { percent: 0, step_up: null } }
+    : { FlatAmount: { amount: 0, growth: "None" } };
 }
+
+/**
+ * A flat amount that neither escalates nor grows — what an account starts
+ * with, and what an empty editor reads as. Escalation (#79) is off until
+ * the user turns it on, and its controls arrive with #81.
+ */
+export const NO_CONTRIBUTION: ContributionRule = {
+  FlatAmount: { amount: 0, growth: "None" },
+};
 
 /**
  * The entry every account starts with, and what an undated plan migrated
@@ -59,7 +68,7 @@ export function ruleForMode(mode: ContributionMode): ContributionRule {
  */
 export function defaultContribution(
   account: Pick<Account, "id" | "owner">,
-  rule: ContributionRule = { FlatAmount: { amount: 0 } },
+  rule: ContributionRule = NO_CONTRIBUTION,
 ): Contribution {
   return {
     id: `${account.id}-contribution`,

@@ -38,7 +38,10 @@ fn taxable(id: &str, allocation: AllocationRef) -> Account {
         plan_type: PlanType::None,
         contributions: vec![Contribution::until_retirement(
             "contribution",
-            ContributionRule::FlatAmount { amount: 0.0 },
+            ContributionRule::FlatAmount {
+                amount: 0.0,
+                growth: GrowthRule::None,
+            },
             &"p1".to_string(),
         )],
         employer_match: None,
@@ -57,7 +60,10 @@ fn pretax(id: &str, balance: f64) -> Account {
         plan_type: PlanType::EmployerPlan,
         contributions: vec![Contribution::until_retirement(
             "contribution",
-            ContributionRule::FlatAmount { amount: 0.0 },
+            ContributionRule::FlatAmount {
+                amount: 0.0,
+                growth: GrowthRule::None,
+            },
             &"p1".to_string(),
         )],
         employer_match: None,

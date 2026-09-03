@@ -101,7 +101,10 @@ fn demo_base() -> Plan {
                 plan_type: PlanType::None,
                 contributions: vec![Contribution::until_retirement(
                     "joint-brokerage-contribution",
-                    ContributionRule::FlatAmount { amount: 6_000.0 },
+                    ContributionRule::FlatAmount {
+                        amount: 6_000.0,
+                        growth: GrowthRule::None,
+                    },
                     &ALEX.to_string(),
                 )],
                 employer_match: None,
@@ -117,7 +120,10 @@ fn demo_base() -> Plan {
                 plan_type: PlanType::EmployerPlan,
                 contributions: vec![Contribution::until_retirement(
                     "alex-401k-contribution",
-                    ContributionRule::PercentOfSalary { percent: 0.10 },
+                    ContributionRule::PercentOfSalary {
+                        percent: 0.10,
+                        step_up: None,
+                    },
                     &ALEX.to_string(),
                 )],
                 // "100% of the first 3%, then 50% of the next 2%."
@@ -137,7 +143,10 @@ fn demo_base() -> Plan {
                 plan_type: PlanType::EmployerPlan,
                 contributions: vec![Contribution::until_retirement(
                     "jordan-403b-contribution",
-                    ContributionRule::PercentOfSalary { percent: 0.08 },
+                    ContributionRule::PercentOfSalary {
+                        percent: 0.08,
+                        step_up: None,
+                    },
                     &JORDAN.to_string(),
                 )],
                 employer_match: Some(tiered_match(&[(0.04, 0.5)], MatchDestination::PreTax)),
@@ -185,7 +194,10 @@ fn demo_base() -> Plan {
                 plan_type: PlanType::None,
                 contributions: vec![Contribution::until_retirement(
                     "emergency-savings-contribution",
-                    ContributionRule::FlatAmount { amount: 0.0 },
+                    ContributionRule::FlatAmount {
+                        amount: 0.0,
+                        growth: GrowthRule::None,
+                    },
                     &JORDAN.to_string(),
                 )],
                 employer_match: None,
