@@ -215,12 +215,32 @@ pub fn run_projections(plans: Vec<Plan>) -> Vec<Result<Projection, String>> {
 }
 
 /// Monte Carlo run: N stochastic paths in parallel, returning a success rate
-/// and per-period net-worth percentiles. Run on demand (not on every edit
-/// like `run_projection`) since it's orders of magnitude more work.
+/// and per-period net-worth percentiles.
+///
+/// The path count arrives from the frontend, so it is clamped here as well as
+/// in `settings::set_monte_carlo_paths` — this command is stateless and will
+/// run whatever it is handed.
 #[tauri::command]
 pub fn run_monte_carlo(plan: Plan, config: MonteCarloConfig) -> Result<MonteCarloResult, String> {
     require_valid(&plan)?;
+    let config = MonteCarloConfig {
+        n_paths: settings::clamp_monte_carlo_paths(config.n_paths),
+        ..config
+    };
     Ok(engine::run_monte_carlo(&plan, &config))
+}
+
+/// Paths per Monte Carlo run. Always a concrete number — the "unset means
+/// default" resolution happens in `settings`, so the frontend never carries a
+/// second copy of the default.
+#[tauri::command]
+pub fn get_monte_carlo_paths(app: tauri::AppHandle) -> Result<u32, String> {
+    Ok(settings::monte_carlo_paths(&config_dir(&app)?))
+}
+
+#[tauri::command]
+pub fn set_monte_carlo_paths(app: tauri::AppHandle, paths: u32) -> Result<(), String> {
+    settings::set_monte_carlo_paths(&config_dir(&app)?, paths)
 }
 
 /// Where plans are currently stored, for display in the Storage settings

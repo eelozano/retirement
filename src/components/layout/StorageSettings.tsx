@@ -16,6 +16,25 @@ interface StorageSettingsProps {
   onClose: () => void;
 }
 
+/** The offered path counts, and roughly what each costs.
+ *
+ * Presets rather than a free number: the meaningful axis is "how much
+ * precision do you want", not an arbitrary integer, and each step here
+ * meaningfully narrows the margin on the success rate.
+ *
+ * The timings are medians measured in release against the seed plan on an
+ * Apple-silicon laptop. They scale slightly worse than linearly, so don't
+ * re-derive them from a per-path figure — and they will differ on other
+ * machines, hence "approximately" wherever they are shown. The ceiling
+ * matches `MAX_MONTE_CARLO_PATHS` in `src-tauri/src/settings.rs`, which
+ * clamps regardless of what is sent. */
+const PATH_PRESETS: { paths: number; label: string; cost: string }[] = [
+  { paths: 1_000, label: "1,000", cost: "~50 ms" },
+  { paths: 5_000, label: "5,000", cost: "~330 ms" },
+  { paths: 10_000, label: "10,000", cost: "~720 ms" },
+  { paths: 25_000, label: "25,000", cost: "~1.7 s" },
+];
+
 /** "2026-09-01T14-23-45-123Z" (a filesystem-safe stand-in for a colon-bearing
  * ISO timestamp) into a locale-formatted date, falling back to the raw
  * string if it doesn't match — the display is best-effort, not load-bearing. */
@@ -30,6 +49,8 @@ function formatSnapshotTimestamp(timestamp: string): string {
 export function StorageSettings({ open, onClose }: StorageSettingsProps) {
   const plan = usePlanStore((s) => s.plan);
   const restoreSnapshot = usePlanStore((s) => s.restoreSnapshot);
+  const monteCarloPaths = usePlanStore((s) => s.monteCarloPaths);
+  const setMonteCarloPaths = usePlanStore((s) => s.setMonteCarloPaths);
 
   const [info, setInfo] = useState<StorageInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +61,8 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
 
   const [exporting, setExporting] = useState(false);
   const [exportedTo, setExportedTo] = useState<string | null>(null);
+
+  const [savingPaths, setSavingPaths] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -109,13 +132,29 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
     }
   };
 
+  const handleChangePaths = async (paths: number) => {
+    if (paths === monteCarloPaths) return;
+    setSavingPaths(true);
+    setError(null);
+    try {
+      // Through the store, not the API directly: it persists the choice and
+      // re-runs Monte Carlo, so the headline behind this modal updates.
+      await setMonteCarloPaths(paths);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSavingPaths(false);
+    }
+  };
+
   return (
-    <Modal open={open} onClose={onClose} title="Plan storage">
+    <Modal open={open} onClose={onClose} title="Settings">
       {error && (
         <p role="alert" className="banner critical">
           {error}
         </p>
       )}
+      <h3>Plan storage</h3>
       {info ? (
         <>
           <p className="storage-path">{info.effective_dir}</p>
@@ -134,6 +173,35 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
       ) : (
         <p>Loading…</p>
       )}
+
+      <h3>Simulation</h3>
+      <p className="storage-badge">
+        How many randomised paths each projection is tested against. More paths narrow the
+        margin on the probability of success; they also take longer to run.
+      </p>
+      {/* A segmented control, like the dollar-basis toggle: these are mutually
+          exclusive settings of one value, not four separate actions. */}
+      <fieldset className="segmented">
+        <legend className="visually-hidden">Monte Carlo paths</legend>
+        {PATH_PRESETS.map((preset) => (
+          <button
+            key={preset.paths}
+            type="button"
+            aria-pressed={monteCarloPaths === preset.paths}
+            disabled={savingPaths || monteCarloPaths === null}
+            onClick={() => handleChangePaths(preset.paths)}
+          >
+            {preset.label}
+          </button>
+        ))}
+      </fieldset>
+      <p className="storage-badge">
+        {savingPaths
+          ? "Re-running…"
+          : monteCarloPaths === null
+            ? "Loading…"
+            : `${PATH_PRESETS.find((p) => p.paths === monteCarloPaths)?.cost ?? "—"} per run, approximately.`}
+      </p>
 
       <h3>Snapshot history</h3>
       {plan && snapshots.length > 0 ? (

@@ -136,7 +136,7 @@ export function Rail(props: RailProps) {
       />
       <div className="rail-spacer" />
       <RailButton label="Report" icon={ICON.report} onClick={props.onOpenReport} />
-      <RailButton label="Storage" icon={ICON.storage} onClick={props.onOpenStorage} />
+      <RailButton label="Settings" icon={ICON.storage} onClick={props.onOpenStorage} />
     </nav>
   );
 }

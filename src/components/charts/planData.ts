@@ -16,6 +16,32 @@ function basis(s: { deflator: number }, realDollars: boolean): number {
   return realDollars ? s.deflator : 1;
 }
 
+/** 1.96 — the standard normal quantile for a two-sided 95% interval. */
+const Z_95 = 1.96;
+
+/**
+ * Half-width of the 95% **Wilson score** interval on a success rate measured
+ * from `n` paths.
+ *
+ * Wilson rather than the textbook `z * sqrt(p(1-p)/n)`: that formula
+ * collapses to exactly zero at p = 0 and p = 1, and plans that never deplete
+ * in any path are common — the demo household is one. It would print
+ * "100% ± 0", claiming certainty the sample cannot support, which is a worse
+ * failure than the over-precision this margin exists to fix. Wilson stays
+ * finite at both boundaries.
+ *
+ * The Wilson interval is asymmetric about `p`, so this returns the larger of
+ * the two sides: a single ± that never understates the error.
+ */
+export function successMargin(p: number, n: number): number {
+  if (n <= 0) return 0;
+  const z2 = Z_95 * Z_95;
+  const denom = 1 + z2 / n;
+  const center = (p + z2 / (2 * n)) / denom;
+  const half = (Z_95 / denom) * Math.sqrt((p * (1 - p)) / n + z2 / (4 * n * n));
+  return Math.max(center + half - p, p - (center - half));
+}
+
 /**
  * The year a chart pins by default: the first retirement — the year the plan
  * turns over — rather than the start, where nothing has happened yet.
@@ -43,6 +69,17 @@ export interface HeadlineMetrics {
   nPaths: number | null;
   /** Paths that ran dry — the complement of the success rate. */
   failedPaths: number | null;
+  /**
+   * Half-width of the 95% confidence interval on `successRate`, as a
+   * fraction — the sampling error the path count leaves behind. Null before
+   * the first run.
+   *
+   * The success rate is a proportion measured from a finite sample, so it is
+   * only precise to about this much: at 1,000 paths near 90% that is a full
+   * percentage point, which is why the tile must not print a first decimal
+   * without saying so.
+   */
+  successMargin: number | null;
   /**
    * Where the 10th-percentile path ends, in the displayed basis.
    *
@@ -187,6 +224,9 @@ export function headlineMetrics(
     nPaths: monteCarlo?.n_paths ?? null,
     failedPaths: monteCarlo
       ? Math.round((1 - monteCarlo.success_rate) * monteCarlo.n_paths)
+      : null,
+    successMargin: monteCarlo
+      ? successMargin(monteCarlo.success_rate, monteCarlo.n_paths)
       : null,
     p10AtEnd: lastPct ? lastPct.p10 / basis(lastPct, realDollars) : null,
     medianZeroYear: medianZero?.period_start.year ?? null,

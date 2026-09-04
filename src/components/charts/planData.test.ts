@@ -6,7 +6,13 @@ import type { Person } from "../../types/generated/Person";
 import type { Plan } from "../../types/generated/Plan";
 import type { Projection } from "../../types/generated/Projection";
 import { seriesDefs } from "./chartData";
-import { firstDeath, headlineMetrics, milestones, yearDetail } from "./planData";
+import {
+  firstDeath,
+  headlineMetrics,
+  milestones,
+  successMargin,
+  yearDetail,
+} from "./planData";
 
 function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
   return {
@@ -251,6 +257,64 @@ describe("headlineMetrics", () => {
     expect(m.successRate).toBeNull();
     expect(m.failedPaths).toBeNull();
     expect(m.p10AtEnd).toBeNull();
+    expect(m.successMargin).toBeNull();
+  });
+
+  it("carries the sampling margin for the path count that produced the rate", () => {
+    const p = plan([person("a", 1980, 2030)], []);
+    const proj = projection([snapshot({})]);
+
+    const coarse = headlineMetrics(
+      p,
+      proj,
+      mc({ success_rate: 0.9, n_paths: 1000 }),
+      null,
+      false,
+    );
+    const fine = headlineMetrics(
+      p,
+      proj,
+      mc({ success_rate: 0.9, n_paths: 25000 }),
+      null,
+      false,
+    );
+
+    // ~2 points at 1,000 paths — the whole reason the tile cannot print a
+    // first decimal at that count.
+    expect(coarse.successMargin).toBeCloseTo(0.0202, 3);
+    // 25x the paths, so roughly a fifth the margin.
+    expect(fine.successMargin).toBeCloseTo(0.0038, 3);
+  });
+});
+
+describe("successMargin", () => {
+  it("narrows as the square root of the path count", () => {
+    // Four times the paths roughly halves the margin (Wilson's correction
+    // term makes this approximate rather than exact at small n).
+    expect(successMargin(0.9, 4000)).toBeCloseTo(successMargin(0.9, 1000) / 2, 3);
+  });
+
+  it("stays finite at a 100% success rate", () => {
+    // The textbook z*sqrt(p(1-p)/n) collapses to exactly zero here, which
+    // would render "100% ± 0" — a certainty 5,000 paths cannot support.
+    const margin = successMargin(1, 5000);
+    expect(margin).toBeGreaterThan(0);
+    expect(margin).toBeLessThan(0.01);
+  });
+
+  it("stays finite at a 0% success rate", () => {
+    const margin = successMargin(0, 5000);
+    expect(margin).toBeGreaterThan(0);
+    expect(margin).toBeLessThan(0.01);
+  });
+
+  it("is widest in the middle, where a proportion is least certain", () => {
+    expect(successMargin(0.5, 5000)).toBeGreaterThan(successMargin(0.9, 5000));
+    expect(successMargin(0.9, 5000)).toBeGreaterThan(successMargin(1, 5000));
+  });
+
+  it("does not divide by zero when no paths ran", () => {
+    expect(successMargin(0.9, 0)).toBe(0);
   });
 
   it("reports the plan's final year and the age that determines it", () => {
