@@ -29,7 +29,9 @@ function pct(rate: number, margin: number | null): string {
 /** The ± that follows the headline, at the same precision as the headline. */
 function marginPct(margin: number): string {
   const marginPts = margin * 100;
-  return `±${marginPts.toFixed(marginPts >= 0.5 ? 0 : 1)}`;
+  const value = marginPts.toFixed(marginPts >= 0.5 ? 0 : 1);
+  // Only exactly one point is singular — "±0.4 pts" is right, "±1 pts" isn't.
+  return `±${value} ${value === "1" ? "pt" : "pts"}`;
 }
 
 export function HeadlineTiles(props: { metrics: HeadlineMetrics; realDollars: boolean }) {
@@ -53,7 +55,7 @@ export function HeadlineTiles(props: { metrics: HeadlineMetrics; realDollars: bo
                 {/* The margin is always shown, including at 100%: the number
                     is a sample, and how big a sample is the whole reason the
                     path count is a setting. */}
-                {m.successMargin !== null && <>{marginPct(m.successMargin)} pts · </>}
+                {m.successMargin !== null && <>{marginPct(m.successMargin)} · </>}
                 of {m.nPaths?.toLocaleString()} paths
               </span>
             </div>
