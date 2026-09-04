@@ -517,8 +517,8 @@ whether it did.
 
 **UI implication, flagged but out of scope for the engine work:** a historical
 result is not a Monte Carlo result and must not render as a percentile band. It
-needs its own presentation, and `SimConfig::show_monte_carlo_band` is not the
-flag for it.
+needs its own presentation, and the Plan screen's session-only Monte Carlo band
+toggle is not the flag for it.
 
 ---
 

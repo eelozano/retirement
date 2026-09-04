@@ -2,12 +2,15 @@
 
 use std::collections::HashSet;
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use engine::model::Plan;
 use engine::presets::Presets;
-use engine::{MonteCarloConfig, MonteCarloResult, Projection};
+use engine::{MonteCarloConfig, MonteCarloResult, Projection, RunControl};
 use serde::Serialize;
+use tauri::ipc::Channel;
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
@@ -19,6 +22,14 @@ use crate::{migrate, settings, storage};
 /// save of a launch, not on every debounced autosave after that.
 #[derive(Default)]
 pub struct SnapshotState(pub Mutex<HashSet<String>>);
+
+/// The Monte Carlo run currently in flight, if any: its id and the handle
+/// that stops it. One slot, not a map — the app has one window and one
+/// headline, and starting a run supersedes whatever was running. The id is
+/// what lets `cancel_monte_carlo` ignore a stale Cancel click aimed at a run
+/// that has already been replaced.
+#[derive(Default)]
+pub struct MonteCarloState(pub Mutex<Option<(u32, Arc<RunControl>)>>);
 
 /// Where settings.json lives — fixed, not user-configurable (it's what
 /// makes the plans directory itself relocatable without a bootstrapping
@@ -214,20 +225,120 @@ pub fn run_projections(plans: Vec<Plan>) -> Vec<Result<Projection, String>> {
         .collect()
 }
 
+/// One progress report from an in-flight Monte Carlo run. `run_id` is echoed
+/// so a report from a superseded run can be told apart from the current one;
+/// `total` is the clamped path count the run is actually doing.
+#[derive(Serialize, Clone, Copy)]
+pub struct MonteCarloProgress {
+    run_id: u32,
+    completed: u32,
+    total: u32,
+}
+
+/// How often the progress channel is fed. Coarse on purpose: the frontend
+/// paints a count, not an animation, and at the default path count the whole
+/// run is only a couple of ticks long.
+const PROGRESS_INTERVAL: Duration = Duration::from_millis(150);
+
 /// Monte Carlo run: N stochastic paths in parallel, returning a success rate
-/// and per-period net-worth percentiles.
+/// and per-period net-worth percentiles — or `None` if the run was cancelled,
+/// which is not an error: the caller asked for it and keeps its last result.
+///
+/// Async, with the engine on a blocking thread, so rayon's work never sits
+/// on the IPC thread and the window stays live for the duration. Starting a
+/// run cancels the one before it. Progress is sampled from the engine's
+/// counter on a timer and sent down `on_progress`; the engine itself never
+/// sees the channel.
 ///
 /// The path count arrives from the frontend, so it is clamped here as well as
 /// in `settings::set_monte_carlo_paths` — this command is stateless and will
 /// run whatever it is handed.
 #[tauri::command]
-pub fn run_monte_carlo(plan: Plan, config: MonteCarloConfig) -> Result<MonteCarloResult, String> {
+pub async fn run_monte_carlo(
+    state: tauri::State<'_, MonteCarloState>,
+    plan: Plan,
+    config: MonteCarloConfig,
+    run_id: u32,
+    on_progress: Channel<MonteCarloProgress>,
+) -> Result<Option<MonteCarloResult>, String> {
     require_valid(&plan)?;
     let config = MonteCarloConfig {
         n_paths: settings::clamp_monte_carlo_paths(config.n_paths),
         ..config
     };
-    Ok(engine::run_monte_carlo(&plan, &config))
+
+    let control = Arc::new(RunControl::new());
+    if let Some((_, previous)) = state.0.lock().unwrap().replace((run_id, control.clone())) {
+        previous.cancel();
+    }
+
+    let worker = control.clone();
+    let outcome = tauri::async_runtime::spawn_blocking(move || {
+        let done = AtomicBool::new(false);
+        let total = config.n_paths;
+        // A scoped thread rather than a tokio timer: the runtime's `time`
+        // feature is not otherwise needed, and a ticker that ends with the
+        // scope cannot outlive the run it reports on.
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                while !done.load(Ordering::Relaxed) {
+                    std::thread::sleep(PROGRESS_INTERVAL);
+                    if done.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    let _ = on_progress.send(MonteCarloProgress {
+                        run_id,
+                        completed: worker.completed(),
+                        total,
+                    });
+                }
+            });
+            let result = engine::run_monte_carlo_with(&plan, &config, &worker);
+            done.store(true, Ordering::Relaxed);
+            result
+        })
+    })
+    .await
+    .map_err(|e| format!("Monte Carlo worker failed: {e}"))?;
+
+    // Release the slot only if it is still ours: a newer run may already
+    // have replaced it, and that one's handle must stay reachable.
+    let mut slot = state.0.lock().unwrap();
+    if matches!(&*slot, Some((id, _)) if *id == run_id) {
+        *slot = None;
+    }
+    Ok(outcome.ok())
+}
+
+/// Stops the in-flight run if it is still the one the caller means. A Cancel
+/// aimed at a run that has since been replaced is a no-op rather than a
+/// cancel of its successor.
+#[tauri::command]
+pub fn cancel_monte_carlo(state: tauri::State<'_, MonteCarloState>, run_id: u32) {
+    if let Some((id, control)) = &*state.0.lock().unwrap() {
+        if *id == run_id {
+            control.cancel();
+        }
+    }
+}
+
+/// The path-count limits, defined once here and read by the frontend rather
+/// than duplicated: the clamp range, and the count above which runs are on
+/// demand instead of automatic.
+#[derive(Serialize, Clone, Copy)]
+pub struct MonteCarloLimits {
+    min_paths: u32,
+    max_paths: u32,
+    auto_run_max_paths: u32,
+}
+
+#[tauri::command]
+pub fn get_monte_carlo_limits() -> MonteCarloLimits {
+    MonteCarloLimits {
+        min_paths: settings::MIN_MONTE_CARLO_PATHS,
+        max_paths: settings::MAX_MONTE_CARLO_PATHS,
+        auto_run_max_paths: settings::AUTO_RUN_MAX_MONTE_CARLO_PATHS,
+    }
 }
 
 /// Paths per Monte Carlo run. Always a concrete number — the "unset means

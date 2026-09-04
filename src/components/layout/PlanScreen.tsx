@@ -33,6 +33,11 @@ export function PlanScreen(props: { onOpenCashFlow: () => void }) {
   const realDollars = usePlanStore((s) => s.realDollars);
   const showBand = usePlanStore((s) => s.showMonteCarloBand);
   const setShowBand = usePlanStore((s) => s.setShowMonteCarloBand);
+  const monteCarloStale = usePlanStore((s) => s.monteCarloStale);
+  const monteCarloRun = usePlanStore((s) => s.monteCarloRun);
+  const runMonteCarloNow = usePlanStore((s) => s.runMonteCarloNow);
+  const cancelMonteCarlo = usePlanStore((s) => s.cancelMonteCarlo);
+  const rerollSeed = usePlanStore((s) => s.rerollSeed);
 
   const [hoverYear, setHoverYear] = useState<number | null>(null);
   const [pinnedYear, setPinnedYear] = useState<number | null>(null);
@@ -52,9 +57,16 @@ export function PlanScreen(props: { onOpenCashFlow: () => void }) {
   const metrics = useMemo(
     () =>
       plan && projection
-        ? headlineMetrics(plan, projection, monteCarlo, depletionYear, realDollars)
+        ? headlineMetrics(
+            plan,
+            projection,
+            monteCarlo,
+            depletionYear,
+            realDollars,
+            monteCarloStale,
+          )
         : null,
-    [plan, projection, monteCarlo, depletionYear, realDollars],
+    [plan, projection, monteCarlo, depletionYear, realDollars, monteCarloStale],
   );
 
   const warnings = useMemo(
@@ -120,7 +132,15 @@ export function PlanScreen(props: { onOpenCashFlow: () => void }) {
       <StatusBand metrics={metrics} warnings={warnings} />
 
       <div className="plan-scroll">
-        <HeadlineTiles metrics={metrics} realDollars={realDollars} />
+        <HeadlineTiles
+          metrics={metrics}
+          realDollars={realDollars}
+          monteCarlo={{
+            inFlight: monteCarloRun,
+            onRun: runMonteCarloNow,
+            onCancel: cancelMonteCarlo,
+          }}
+        />
 
         {series.length === 0 ? (
           <section className="card">
@@ -141,6 +161,19 @@ export function PlanScreen(props: { onOpenCashFlow: () => void }) {
                     {realDollars ? "today's dollars · deflated" : "nominal dollars"}
                   </span>
                   <span className="card-spacer" />
+                  {/* A fresh seed is the one way to watch the sampling error
+                      the tile's margin describes: the same plan, a new draw,
+                      a headline that lands somewhere inside the ±. Session
+                      only — relaunch returns to the fixed seed. */}
+                  <button
+                    type="button"
+                    className="card-action"
+                    disabled={monteCarlo === null || monteCarloRun !== null}
+                    title="Draw a fresh set of random paths and re-run the simulation"
+                    onClick={rerollSeed}
+                  >
+                    Re-roll
+                  </button>
                   <button
                     type="button"
                     role="switch"

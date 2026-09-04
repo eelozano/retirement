@@ -254,8 +254,9 @@ pub struct SimConfig {
     pub start: YearMonth,
     pub period: PeriodLength,        // Year (V1) | Month (V2) — engine iterates periods
     pub display_real_dollars: bool,  // UI hint; engine always outputs nominal + deflator
-    pub show_monte_carlo_band: bool, // UI hint; whether the chart opens with the fan on
 }
+// The Monte Carlo band toggle on the chart is session-only by design (see
+// `planStore.ts`), so there is deliberately no `show_monte_carlo_band` here.
 
 // `first_period_after(month)` is the survivor transition point: the period a
 // death falls inside keeps the pre-death rules — the IRS lets a survivor file
@@ -444,7 +445,7 @@ Frontend consumes `Projection` directly (generated types); the real-dollar toggl
 - `run_projection(plan: Plan) -> Projection` — stateless; frontend sends full plan (small payload, ~KB). `run_projections(plans: Vec<Plan>) -> Vec<Result<Projection, String>>` does the same for N scenarios in one round-trip, for the comparison view (#6) — one entry per plan, so one invalid scenario doesn't blank the rest.
 - `save_plan(plan) / load_plan() / load_plan_named(id) / list_plans() -> Vec<PlanSummary>` — YAML in the resolved plans directory, keyed by each plan's stable `id` (not its editable `name`), atomic write + `.bak`, `schema_version` checked on load. `load_plan` loads the active scenario (see `set_active_plan`, falling back to the first stored plan or a fresh seed) and also runs the one-shot legacy-JSON migration check; plans saved before `id` existed are backfilled once from their pre-#6 filename slug.
 - `duplicate_plan(id, new_name) / delete_plan(id) / set_active_plan(id)` — scenario management: branch a new plan off an existing one (deep copy, fresh id), remove a scenario (moved aside as `.deleted`, never unlinked — refused for the last remaining scenario), and record which scenario loads on next launch.
-- `run_monte_carlo(plan, MonteCarloConfig { n_paths, seed }) -> MonteCarloResult` — the same `simulate` over N seeded paths in parallel (rayon), returning per-period net-worth percentiles plus probability of success. `seed` is `u32`, not `u64`, so ts-rs emits a plain `number`: a `bigint` would not survive `JSON.stringify` across the IPC boundary.
+- `run_monte_carlo(plan, MonteCarloConfig { n_paths, seed }, run_id, on_progress: Channel<MonteCarloProgress>) -> Option<MonteCarloResult>` — async; the same `simulate` over N seeded paths in parallel (rayon, on a blocking thread so the window stays live), returning per-period net-worth percentiles plus probability of success, or `None` if cancelled. Progress is sampled from the engine's `RunControl` counter on a timer and sent down the channel; the engine crate never sees Tauri. Starting a run cancels the one before it; `cancel_monte_carlo(run_id)` stops the current one by id. `get_monte_carlo_limits()` returns the clamp range and the path count above which the frontend runs on demand rather than after every edit (#91). `seed` is `u32`, not `u64`, so ts-rs emits a plain `number`: a `bigint` would not survive `JSON.stringify` across the IPC boundary.
 - `get_presets() -> Presets` — allocations, default assumptions, and the contribution-limit table, so defaults live in one place (Rust).
 - `engine_version() -> String` — the engine crate version, surfaced in the UI.
 - `get_storage_info() / choose_storage_dir() / set_storage_dir(path) / reveal_storage_dir()` — the Storage settings surface: report the effective/default plans dir, open a native folder picker, persist a new location (copying existing plans forward), and reveal the folder in Finder/Explorer.

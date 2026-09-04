@@ -12,8 +12,9 @@ pub mod strategies;
 
 pub use model::{Plan, YearMonth};
 pub use sim::{
-    run_monte_carlo as run_monte_carlo_sim, simulate, MonteCarloConfig, MonteCarloResult,
-    PeriodPercentiles, PeriodSnapshot, Projection, SimWarning, StreamInfo,
+    run_monte_carlo as run_monte_carlo_sim, run_monte_carlo_with as run_monte_carlo_sim_with,
+    simulate, Cancelled, MonteCarloConfig, MonteCarloResult, PeriodPercentiles, PeriodSnapshot,
+    Projection, RunControl, SimWarning, StreamInfo,
 };
 
 use model::FilingStatus;
@@ -63,18 +64,41 @@ pub fn run_deterministic(plan: &Plan) -> Projection {
 /// (`asset_returns`) and the spread (`asset_volatility`) from the plan — same
 /// tax/drawdown strategies as `run_deterministic`.
 pub fn run_monte_carlo(plan: &Plan, config: &MonteCarloConfig) -> MonteCarloResult {
-    let returns = StochasticReturns::new(
-        &plan.assumptions.asset_returns,
-        &plan.assumptions.asset_volatility,
-        plan.sim_config.period.months(),
-        config.seed as u64,
-    );
+    let returns = stochastic_returns(plan, config);
     run_monte_carlo_sim(
         plan,
         &returns,
         &tax_model(plan),
         &ProportionalDrawdown,
         config,
+    )
+}
+
+/// `run_monte_carlo`, observable and interruptible through `control` — the
+/// form a UI drives, with a progress counter to sample and a cancel flag to
+/// set. Same output as `run_monte_carlo` when it runs to completion.
+pub fn run_monte_carlo_with(
+    plan: &Plan,
+    config: &MonteCarloConfig,
+    control: &RunControl,
+) -> Result<MonteCarloResult, Cancelled> {
+    let returns = stochastic_returns(plan, config);
+    run_monte_carlo_sim_with(
+        plan,
+        &returns,
+        &tax_model(plan),
+        &ProportionalDrawdown,
+        config,
+        control,
+    )
+}
+
+fn stochastic_returns(plan: &Plan, config: &MonteCarloConfig) -> StochasticReturns {
+    StochasticReturns::new(
+        &plan.assumptions.asset_returns,
+        &plan.assumptions.asset_volatility,
+        plan.sim_config.period.months(),
+        config.seed as u64,
     )
 }
 

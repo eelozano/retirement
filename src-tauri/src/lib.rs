@@ -11,10 +11,13 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(commands::SnapshotState::default())
+        .manage(commands::MonteCarloState::default())
         .invoke_handler(tauri::generate_handler![
             commands::run_projection,
             commands::run_projections,
             commands::run_monte_carlo,
+            commands::cancel_monte_carlo,
+            commands::get_monte_carlo_limits,
             commands::load_plan,
             commands::load_plan_named,
             commands::save_plan,

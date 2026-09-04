@@ -1,7 +1,7 @@
 // Typed wrappers over the Tauri commands. All request/response shapes come
 // from the ts-rs generated types — never hand-declare engine types here.
 
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import type { MonteCarloConfig } from "../types/generated/MonteCarloConfig";
 import type { MonteCarloResult } from "../types/generated/MonteCarloResult";
 import type { Plan } from "../types/generated/Plan";
@@ -22,11 +22,54 @@ export function runProjections(plans: Plan[]): Promise<ProjectionResult[]> {
   return invoke<ProjectionResult[]>("run_projections", { plans });
 }
 
+/** One progress report from an in-flight Monte Carlo run — a command-only
+ * shape (src-tauri/src/commands.rs), hand-declared like StorageInfo. */
+export interface MonteCarloProgress {
+  run_id: number;
+  completed: number;
+  total: number;
+}
+
+/** Starts a Monte Carlo run, superseding (cancelling) any run in flight.
+ *
+ * Resolves to the result, or to `null` if the run was cancelled — by
+ * `cancelMonteCarlo` or by a later `runMonteCarlo`. Cancellation is not a
+ * rejection: the caller asked for it and keeps its previous result.
+ *
+ * The Tauri `Channel` is built here so the store only ever sees a callback,
+ * and its tests can mock this module without a transport. */
 export function runMonteCarlo(
   plan: Plan,
   config: MonteCarloConfig,
-): Promise<MonteCarloResult> {
-  return invoke<MonteCarloResult>("run_monte_carlo", { plan, config });
+  runId: number,
+  onProgress: (progress: MonteCarloProgress) => void,
+): Promise<MonteCarloResult | null> {
+  const channel = new Channel<MonteCarloProgress>();
+  channel.onmessage = onProgress;
+  return invoke<MonteCarloResult | null>("run_monte_carlo", {
+    plan,
+    config,
+    runId,
+    onProgress: channel,
+  });
+}
+
+/** Stops the run with this id if it is still the one in flight; a no-op for
+ * a run that has already finished or been superseded. */
+export function cancelMonteCarlo(runId: number): Promise<void> {
+  return invoke<void>("cancel_monte_carlo", { runId });
+}
+
+/** The path-count limits, from the backend: the clamp range and the count
+ * above which runs are on demand rather than automatic after every edit. */
+export interface MonteCarloLimits {
+  min_paths: number;
+  max_paths: number;
+  auto_run_max_paths: number;
+}
+
+export function getMonteCarloLimits(): Promise<MonteCarloLimits> {
+  return invoke<MonteCarloLimits>("get_monte_carlo_limits");
 }
 
 export function loadPlan(): Promise<Plan> {

@@ -33,6 +33,8 @@ const PATH_PRESETS: { paths: number; label: string; cost: string }[] = [
   { paths: 5_000, label: "5,000", cost: "~330 ms" },
   { paths: 10_000, label: "10,000", cost: "~720 ms" },
   { paths: 25_000, label: "25,000", cost: "~1.7 s" },
+  { paths: 50_000, label: "50,000", cost: "~2.4 s" },
+  { paths: 100_000, label: "100,000", cost: "~4.8 s" },
 ];
 
 /** "2026-09-01T14-23-45-123Z" (a filesystem-safe stand-in for a colon-bearing
@@ -50,6 +52,7 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
   const plan = usePlanStore((s) => s.plan);
   const restoreSnapshot = usePlanStore((s) => s.restoreSnapshot);
   const monteCarloPaths = usePlanStore((s) => s.monteCarloPaths);
+  const monteCarloLimits = usePlanStore((s) => s.monteCarloLimits);
   const setMonteCarloPaths = usePlanStore((s) => s.setMonteCarloPaths);
 
   const [info, setInfo] = useState<StorageInfo | null>(null);
@@ -138,7 +141,8 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
     setError(null);
     try {
       // Through the store, not the API directly: it persists the choice and
-      // re-runs Monte Carlo, so the headline behind this modal updates.
+      // starts a Monte Carlo run, so the headline behind this modal updates.
+      // Resolves once saved; the run itself reports progress on the tile.
       await setMonteCarloPaths(paths);
     } catch (e) {
       setError(String(e));
@@ -197,11 +201,18 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
       </fieldset>
       <p className="storage-badge">
         {savingPaths
-          ? "Re-running…"
+          ? "Saving…"
           : monteCarloPaths === null
             ? "Loading…"
             : `${PATH_PRESETS.find((p) => p.paths === monteCarloPaths)?.cost ?? "—"} per run, approximately.`}
       </p>
+      {monteCarloLimits && (
+        <p className="storage-badge">
+          Up to {monteCarloLimits.auto_run_max_paths.toLocaleString()} paths, the
+          simulation re-runs after every edit. Above that it runs on demand: an edit marks
+          the last result as stale, and you run it from the Plan screen when ready.
+        </p>
+      )}
 
       <h3>Snapshot history</h3>
       {plan && snapshots.length > 0 ? (

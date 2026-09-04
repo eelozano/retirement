@@ -121,14 +121,23 @@ pub const DEFAULT_MONTE_CARLO_PATHS: u32 = 5_000;
 
 /// Hard ceiling, enforced here rather than only in the UI.
 ///
-/// Monte Carlo re-runs on every edit with no progress or cancel. It no longer
-/// blocks the deterministic projection, so a slow run costs freshness in the
-/// success tile rather than responsiveness everywhere — but it still has to
-/// land within a few seconds to feel connected to the edit that caused it.
-/// 25,000 paths is ~1.7s in release against the seed plan; 100,000 would be
-/// north of six. Raise this once runs become on-demand and interruptible
-/// (#91).
-pub const MAX_MONTE_CARLO_PATHS: u32 = 25_000;
+/// Above `AUTO_RUN_MAX_MONTE_CARLO_PATHS` a run is on demand, reports
+/// progress, and can be cancelled (#91), so the ceiling is set by memory and
+/// patience rather than by edit latency: the engine keeps one `f64` per path
+/// per period for the percentile pass, ~48 MB at this count, and a run takes
+/// several seconds in release against the seed plan.
+pub const MAX_MONTE_CARLO_PATHS: u32 = 100_000;
+
+/// The most paths that still re-run automatically after every edit. Above
+/// this an edit marks the last result stale and the user runs when ready.
+///
+/// A constant rather than a measured budget, deliberately — predictable
+/// beats adaptive for a threshold the UI has to explain. 5,000 paths is
+/// ~330 ms in release against the seed plan: over the edit debounce, but a
+/// superseded run is cancelled now rather than left to finish, so the cost
+/// of a burst of edits is one run after the last keystroke. The default path
+/// count sits exactly here, so a fresh install stays always-on.
+pub const AUTO_RUN_MAX_MONTE_CARLO_PATHS: u32 = 5_000;
 
 /// Minimum: below this the success rate is too coarse to mean anything.
 pub const MIN_MONTE_CARLO_PATHS: u32 = 100;

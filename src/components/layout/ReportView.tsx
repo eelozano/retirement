@@ -31,6 +31,7 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
   const plan = usePlanStore((s) => s.plan);
   const projection = usePlanStore((s) => s.projection);
   const monteCarlo = usePlanStore((s) => s.monteCarlo);
+  const monteCarloStale = usePlanStore((s) => s.monteCarloStale);
   const realDollars = usePlanStore((s) => s.realDollars);
 
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -65,9 +66,16 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
   const metrics = useMemo(
     () =>
       plan && projection
-        ? headlineMetrics(plan, projection, monteCarlo, depletionYear, realDollars)
+        ? headlineMetrics(
+            plan,
+            projection,
+            monteCarlo,
+            depletionYear,
+            realDollars,
+            monteCarloStale,
+          )
         : null,
-    [plan, projection, monteCarlo, depletionYear, realDollars],
+    [plan, projection, monteCarlo, depletionYear, realDollars, monteCarloStale],
   );
   const warnings = useMemo(
     () => (plan && projection ? readableWarnings(plan, projection) : []),
@@ -101,7 +109,13 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
                     has to record the sample its success rate was measured
                     against — the number changes with the path count. */}
                 {metrics.nPaths !== null && (
-                  <> · {metrics.nPaths.toLocaleString()} simulated paths</>
+                  <>
+                    {" "}
+                    · {metrics.nPaths.toLocaleString()} simulated paths
+                    {/* A report is a record: a stale sample must be labelled
+                        in the header, not only greyed on a tile. */}
+                    {metrics.successStale && " (from before the latest change)"}
+                  </>
                 )}
               </p>
             </div>
