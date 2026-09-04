@@ -81,6 +81,13 @@ export interface HeadlineMetrics {
    */
   successMargin: number | null;
   /**
+   * True when the Monte Carlo figures above were computed against an
+   * earlier version of the plan, seed, or path count than the one on screen
+   * — an edit landed in on-demand mode, or the run that would have refreshed
+   * them was cancelled. Every surface that prints them has to say so.
+   */
+  successStale: boolean;
+  /**
    * Where the 10th-percentile path ends, in the displayed basis.
    *
    * The design asked for the *worst* path; `MonteCarloResult` carries
@@ -200,6 +207,7 @@ export function headlineMetrics(
   monteCarlo: MonteCarloResult | null,
   depletionYear: number | null,
   realDollars: boolean,
+  monteCarloStale = false,
 ): HeadlineMetrics {
   const lastPct = monteCarlo?.percentiles[monteCarlo.percentiles.length - 1];
   const medianZero = monteCarlo?.percentiles.find((p) => p.p50 <= 0);
@@ -228,6 +236,7 @@ export function headlineMetrics(
     successMargin: monteCarlo
       ? successMargin(monteCarlo.success_rate, monteCarlo.n_paths)
       : null,
+    successStale: monteCarlo !== null && monteCarloStale,
     p10AtEnd: lastPct ? lastPct.p10 / basis(lastPct, realDollars) : null,
     medianZeroYear: medianZero?.period_start.year ?? null,
     depletionYear,

@@ -14,6 +14,9 @@ export function StatusBand(props: {
   const m = props.metrics;
   const count = props.warnings.length;
   const depleting = m.depletionYear !== null;
+  // A stale sample is still worth stating — it is the best figure there is —
+  // but never as if it described the plan on screen.
+  const staleNote = m.successStale ? " (from before the latest change)" : "";
 
   return (
     <div
@@ -30,7 +33,7 @@ export function StatusBand(props: {
             {m.successRate !== null && m.failedPaths !== null && m.nPaths !== null ? (
               <>
                 {m.failedPaths.toLocaleString()} of {m.nPaths.toLocaleString()} simulated
-                paths also run dry.
+                paths also run dry{staleNote}.
               </>
             ) : (
               "Spending exceeds what the accounts can fund."
@@ -48,7 +51,7 @@ export function StatusBand(props: {
                     two separate roundings of the same rate could sum to
                     nPaths ± 1 and print a count that doesn't add up. */}
                 {(m.nPaths - (m.failedPaths ?? 0)).toLocaleString()} of{" "}
-                {m.nPaths.toLocaleString()} simulated paths stay solvent.
+                {m.nPaths.toLocaleString()} simulated paths stay solvent{staleNote}.
               </>
             ) : (
               "Funds never deplete across the projection."

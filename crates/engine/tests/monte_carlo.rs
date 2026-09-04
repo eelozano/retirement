@@ -6,7 +6,10 @@ use std::collections::BTreeMap;
 use engine::model::AssetClass;
 use engine::presets::seed_plan;
 use engine::strategies::{BracketTax, ProportionalDrawdown, StochasticReturns};
-use engine::{run_monte_carlo, run_monte_carlo_sim, MonteCarloConfig};
+use engine::{
+    run_monte_carlo, run_monte_carlo_sim, run_monte_carlo_sim_with, run_monte_carlo_with,
+    Cancelled, MonteCarloConfig, RunControl,
+};
 
 #[test]
 fn same_seed_reproduces_identical_results() {
@@ -250,4 +253,116 @@ fn fold_reproduces_pre_refactor_output() {
     assert_eq!(at(12).p90, 4965592.984084475);
     assert_eq!(at(38).p90, 25760238.28534736);
     assert_eq!(at(57).p90, 78211766.53865191);
+}
+
+/// The observed form must not change the answer: progress counting and the
+/// cancel check sit beside the path, not in it, and the collect still runs in
+/// index order.
+#[test]
+fn controlled_run_matches_uncontrolled_and_counts_every_path() {
+    let plan = seed_plan();
+    let config = MonteCarloConfig {
+        n_paths: 200,
+        seed: 7,
+    };
+    let control = RunControl::new();
+
+    let observed = run_monte_carlo_with(&plan, &config, &control).expect("not cancelled");
+    let plain = run_monte_carlo(&plan, &config);
+
+    assert_eq!(control.completed(), 200);
+    assert_eq!(observed.success_rate, plain.success_rate);
+    for (a, b) in observed.percentiles.iter().zip(&plain.percentiles) {
+        assert_eq!(a.p10, b.p10);
+        assert_eq!(a.p50, b.p50);
+        assert_eq!(a.p90, b.p90);
+    }
+}
+
+/// A cancel that is already set produces no result at all — not a partial
+/// one — and does no path work.
+#[test]
+fn cancelled_before_start_returns_cancelled_without_running() {
+    let plan = seed_plan();
+    let control = RunControl::new();
+    control.cancel();
+
+    let result = run_monte_carlo_with(
+        &plan,
+        &MonteCarloConfig {
+            n_paths: 5_000,
+            seed: 1,
+        },
+        &control,
+    );
+
+    assert_eq!(result.unwrap_err(), Cancelled);
+    assert_eq!(control.completed(), 0);
+}
+
+/// A cancel that lands mid-sweep stops the sweep short: the run reports
+/// `Cancelled` and far fewer paths have completed than were asked for. The
+/// flag is set from the return model — the one hook every path passes
+/// through — since there is no other way to get code to run "during" a run
+/// from a test.
+#[test]
+fn cancel_mid_run_short_circuits_the_sweep() {
+    use engine::strategies::{AssetReturns, PeriodIndex, ReturnModel};
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    struct CancelAfter<'a> {
+        inner: StochasticReturns,
+        control: &'a RunControl,
+        calls: AtomicU32,
+        after: u32,
+    }
+    impl ReturnModel for CancelAfter<'_> {
+        fn returns_for(&self, period: PeriodIndex, path_id: u64) -> AssetReturns {
+            if self.calls.fetch_add(1, Ordering::Relaxed) == self.after {
+                self.control.cancel();
+            }
+            self.inner.returns_for(period, path_id)
+        }
+    }
+
+    let plan = seed_plan();
+    let config = MonteCarloConfig {
+        n_paths: 20_000,
+        seed: 1,
+    };
+    let control = RunControl::new();
+    let returns = CancelAfter {
+        inner: StochasticReturns::new(
+            &plan.assumptions.asset_returns,
+            &plan.assumptions.asset_volatility,
+            12,
+            1,
+        ),
+        control: &control,
+        calls: AtomicU32::new(0),
+        // Roughly 50 paths in (58 periods each), well before the end.
+        after: 3_000,
+    };
+    let tax = BracketTax {
+        filing_status: plan.assumptions.filing_status,
+        state_tax: plan.assumptions.state_tax.clone(),
+    };
+
+    let result = run_monte_carlo_sim_with(
+        &plan,
+        &returns,
+        &tax,
+        &ProportionalDrawdown,
+        &config,
+        &control,
+    );
+
+    assert_eq!(result.unwrap_err(), Cancelled);
+    // Threads already inside a path finish it, so this is "far short of the
+    // whole", not an exact count.
+    assert!(
+        control.completed() < 5_000,
+        "cancel should stop scheduling promptly; {} paths completed",
+        control.completed()
+    );
 }
