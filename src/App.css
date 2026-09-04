@@ -1863,3 +1863,73 @@ button.remove:hover {
     padding: 2px 4px;
   }
 }
+
+/* Monte Carlo run control on the success tile (#91). A stale figure is
+   dimmed rather than removed — it is still the best number there is, just
+   not for the plan on screen — and the sub-line doubles as the progress
+   line so the tile never changes height. */
+.tile-stale .tile-hero,
+.tile-stale .tile-aside,
+.tile-stale .tile-bar {
+  opacity: 0.45;
+}
+.tile-run {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tile-run > span:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.tile-run-count {
+  font-family: var(--font-num);
+  white-space: nowrap;
+}
+.tile-progress {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.tile-progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--series-1);
+  transition: width 120ms linear;
+}
+.tile-button {
+  flex: none;
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: var(--r-2);
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.tile-button:hover {
+  border-color: var(--muted);
+}
+
+/* A plain text action in a card head, styled like the switch beside it. */
+.card-action {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 4px 6px;
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+.card-action:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+.card-action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

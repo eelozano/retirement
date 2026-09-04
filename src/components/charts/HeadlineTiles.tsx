@@ -1,4 +1,5 @@
 import { currencyCompact } from "../../lib/format";
+import type { MonteCarloRun } from "../../store/planStore";
 import { successTone } from "./monteCarloData";
 import type { HeadlineMetrics } from "./planData";
 
@@ -34,14 +35,31 @@ function marginPct(margin: number): string {
   return `±${value} ${value === "1" ? "pt" : "pts"}`;
 }
 
-export function HeadlineTiles(props: { metrics: HeadlineMetrics; realDollars: boolean }) {
+/** The live controls on the success tile. Absent in the printable report,
+ * where the tile is a record rather than a control surface. */
+export interface MonteCarloTileControls {
+  /** The run in flight, or null. */
+  inFlight: MonteCarloRun | null;
+  onRun: () => void;
+  onCancel: () => void;
+}
+
+export function HeadlineTiles(props: {
+  metrics: HeadlineMetrics;
+  realDollars: boolean;
+  monteCarlo?: MonteCarloTileControls;
+}) {
   const m = props.metrics;
   const tone = m.successRate !== null ? successTone(m.successRate) : null;
   const basisLabel = props.realDollars ? "in today's dollars" : "nominal";
+  const inFlight = props.monteCarlo?.inFlight ?? null;
+  // Greyed only while nothing is on the way: a stale figure with a run in
+  // flight is "updating", not "needs attention".
+  const greyed = m.successStale && inFlight === null;
 
   return (
     <section className="headline" aria-label="Headline">
-      <div className="tile tile-wide">
+      <div className={`tile tile-wide ${greyed ? "tile-stale" : ""}`}>
         <span className="tile-label">Probability of success</span>
         {m.successRate === null ? (
           <div className="tile-hero tile-muted">—</div>
@@ -67,26 +85,78 @@ export function HeadlineTiles(props: { metrics: HeadlineMetrics; realDollars: bo
             </div>
           </>
         )}
-        <div className="tile-sub">
-          {m.successRate === null ? (
-            "Simulation has not run yet."
-          ) : m.failedPaths && m.failedPaths > 0 ? (
-            <>
-              {m.failedPaths.toLocaleString()} paths run dry
-              {m.medianZeroYear !== null && (
-                <> — the median path reaches zero in {m.medianZeroYear}</>
-              )}
-              .
-            </>
-          ) : (
-            <>
-              {/* p10, not the worst path — MonteCarloResult carries
-                  percentiles, so there is no minimum to report. */}
-              The 10th-percentile path still ends above{" "}
-              {m.p10AtEnd !== null ? currencyCompact(m.p10AtEnd) : "—"} {basisLabel}.
-            </>
-          )}
-        </div>
+        {inFlight ? (
+          // The sub-line becomes the progress line for the duration, so the
+          // tile does not change height when a run starts or lands.
+          <div className="tile-sub tile-run">
+            <span
+              className="tile-progress"
+              role="progressbar"
+              aria-label="Monte Carlo progress"
+              aria-valuemin={0}
+              aria-valuemax={inFlight.total}
+              aria-valuenow={inFlight.completed}
+            >
+              <span
+                className="tile-progress-fill"
+                style={{
+                  width: `${inFlight.total > 0 ? (inFlight.completed / inFlight.total) * 100 : 0}%`,
+                }}
+              />
+            </span>
+            <span className="tile-run-count">
+              {inFlight.completed.toLocaleString()} of {inFlight.total.toLocaleString()}{" "}
+              paths
+            </span>
+            {props.monteCarlo && (
+              <button
+                type="button"
+                className="tile-button"
+                onClick={props.monteCarlo.onCancel}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        ) : m.successStale || (m.successRate === null && props.monteCarlo) ? (
+          <div className="tile-sub tile-run">
+            <span>
+              {m.successStale
+                ? "Computed before the latest edit."
+                : "Simulation has not run yet."}
+            </span>
+            {props.monteCarlo && (
+              <button
+                type="button"
+                className="tile-button"
+                onClick={props.monteCarlo.onRun}
+              >
+                Run
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="tile-sub">
+            {m.successRate === null ? (
+              "Simulation has not run yet."
+            ) : m.failedPaths && m.failedPaths > 0 ? (
+              <>
+                {m.failedPaths.toLocaleString()} paths run dry
+                {m.medianZeroYear !== null && (
+                  <> — the median path reaches zero in {m.medianZeroYear}</>
+                )}
+                .
+              </>
+            ) : (
+              <>
+                {/* p10, not the worst path — MonteCarloResult carries
+                    percentiles, so there is no minimum to report. */}
+                The 10th-percentile path still ends above{" "}
+                {m.p10AtEnd !== null ? currencyCompact(m.p10AtEnd) : "—"} {basisLabel}.
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="tile">
