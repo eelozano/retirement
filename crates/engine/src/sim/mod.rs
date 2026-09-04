@@ -5,7 +5,10 @@ mod projection;
 mod required_distributions;
 mod survivor;
 
-pub use monte_carlo::{run_monte_carlo, MonteCarloConfig, MonteCarloResult, PeriodPercentiles};
+pub use monte_carlo::{
+    run_monte_carlo, run_monte_carlo_with, Cancelled, MonteCarloConfig, MonteCarloResult,
+    PeriodPercentiles, RunControl,
+};
 pub use projection::{PeriodSnapshot, Projection, SimWarning, StreamInfo};
 
 use crate::model::{
