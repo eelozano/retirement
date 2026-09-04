@@ -265,6 +265,15 @@ body {
   color: var(--text-primary);
   box-shadow: var(--shadow-1);
 }
+/* The pressed segment keeps most of its contrast while the group is disabled
+   mid-save, so the current selection never looks lost. */
+.segmented button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.segmented button[aria-pressed="true"]:disabled {
+  opacity: 0.8;
+}
 
 .plan-name {
   font-size: var(--t-header);

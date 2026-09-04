@@ -44,7 +44,10 @@ export function StatusBand(props: {
             {m.successRate !== null && m.nPaths !== null ? (
               <>
                 Funds never deplete in the projection, and{" "}
-                {Math.round(m.successRate * m.nPaths).toLocaleString()} of{" "}
+                {/* Derived from failedPaths rather than rounded independently:
+                    two separate roundings of the same rate could sum to
+                    nPaths ± 1 and print a count that doesn't add up. */}
+                {(m.nPaths - (m.failedPaths ?? 0)).toLocaleString()} of{" "}
                 {m.nPaths.toLocaleString()} simulated paths stay solvent.
               </>
             ) : (

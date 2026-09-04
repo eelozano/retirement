@@ -6,11 +6,30 @@ import type { HeadlineMetrics } from "./planData";
 // clicked. Probability of success sits first and widest; it used to be two
 // clicks deep behind a mode toggle.
 
-function pct(rate: number): string {
-  // Round toward the honest side: 99.96% should not read as 100%.
+/**
+ * The success rate at the precision its sample supports, and the margin that
+ * says how much that is.
+ *
+ * A rate measured from N paths carries sampling error of roughly `margin`, so
+ * printing a first decimal when the margin is half a point wide advertises
+ * precision that isn't there. Below half a point the decimal is meaningful
+ * and is kept.
+ */
+function pct(rate: number, margin: number | null): string {
   const value = rate * 100;
-  const rounded = value >= 99.95 && value < 100 ? 99.9 : Math.round(value * 10) / 10;
-  return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}%`;
+  const marginPts = (margin ?? 0) * 100;
+  const decimals = marginPts >= 0.5 ? 0 : 1;
+  // Round toward the honest side: 99.96% should not read as 100%.
+  if (value >= 100 - 0.5 * 10 ** -decimals && value < 100) {
+    return `${(100 - 10 ** -decimals).toFixed(decimals)}%`;
+  }
+  return `${value.toFixed(decimals)}%`;
+}
+
+/** The ± that follows the headline, at the same precision as the headline. */
+function marginPct(margin: number): string {
+  const marginPts = margin * 100;
+  return `±${marginPts.toFixed(marginPts >= 0.5 ? 0 : 1)}`;
 }
 
 export function HeadlineTiles(props: { metrics: HeadlineMetrics; realDollars: boolean }) {
@@ -27,8 +46,16 @@ export function HeadlineTiles(props: { metrics: HeadlineMetrics; realDollars: bo
         ) : (
           <>
             <div className="tile-hero-row">
-              <span className={`tile-hero stat-${tone}`}>{pct(m.successRate)}</span>
-              <span className="tile-aside">of {m.nPaths?.toLocaleString()} paths</span>
+              <span className={`tile-hero stat-${tone}`}>
+                {pct(m.successRate, m.successMargin)}
+              </span>
+              <span className="tile-aside">
+                {/* The margin is always shown, including at 100%: the number
+                    is a sample, and how big a sample is the whole reason the
+                    path count is a setting. */}
+                {m.successMargin !== null && <>{marginPct(m.successMargin)} pts · </>}
+                of {m.nPaths?.toLocaleString()} paths
+              </span>
             </div>
             <div className="tile-bar">
               <div

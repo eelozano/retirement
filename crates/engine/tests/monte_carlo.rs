@@ -210,3 +210,44 @@ fn net_worth_never_goes_negative() {
         );
     }
 }
+
+/// Pins the exact aggregate output against values captured before
+/// `run_monte_carlo` was changed from collecting whole `Projection`s to
+/// folding each path down to a net-worth vector and a success flag. The
+/// percentile pass is nearest-rank over a sorted slice and the success count
+/// is an integer, so the refactor is required to be *bit*-identical, not
+/// approximately equal — hence `assert_eq!` on `f64` rather than an epsilon.
+///
+/// Spot indices rather than all 58 periods: enough to catch an off-by-one or
+/// a reordering, few enough to read when it fails.
+#[test]
+fn fold_reproduces_pre_refactor_output() {
+    let plan = seed_plan();
+    let result = run_monte_carlo(
+        &plan,
+        &MonteCarloConfig {
+            n_paths: 200,
+            seed: 7,
+        },
+    );
+
+    assert_eq!(result.success_rate, 0.745);
+    assert_eq!(result.percentiles.len(), 58);
+
+    let at = |i: usize| &result.percentiles[i];
+
+    assert_eq!(at(0).p10, 626751.4776252601);
+    assert_eq!(at(12).p10, 2031389.8270239325);
+    assert_eq!(at(38).p10, 16595.174591872736);
+    assert_eq!(at(57).p10, 0.0);
+
+    assert_eq!(at(0).p50, 762556.4549689445);
+    assert_eq!(at(12).p50, 3213900.8128613797);
+    assert_eq!(at(38).p50, 6639330.651474725);
+    assert_eq!(at(57).p50, 10304220.924875783);
+
+    assert_eq!(at(0).p90, 868644.9166317225);
+    assert_eq!(at(12).p90, 4965592.984084475);
+    assert_eq!(at(38).p90, 25760238.28534736);
+    assert_eq!(at(57).p90, 78211766.53865191);
+}
