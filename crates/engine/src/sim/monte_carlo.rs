@@ -63,36 +63,52 @@ pub fn run_monte_carlo(
 ) -> MonteCarloResult {
     let n_paths = config.n_paths.max(1);
 
-    let projections: Vec<_> = (0..n_paths as u64)
+    // Timeline metadata (period start, deflator) is identical across paths —
+    // only returns vary, and the deflator comes from a fixed inflation
+    // assumption. Take it from one path up front so the parallel sweep below
+    // can discard everything but the two numbers the aggregate needs. The
+    // duplicated path costs 1/n of the run.
+    let timeline: Vec<(YearMonth, f64)> = simulate(plan, returns, tax, drawdown, 0)
+        .snapshots
+        .iter()
+        .map(|s| (s.period_start, s.deflator))
+        .collect();
+    let n_periods = timeline.len();
+
+    // `map` + `collect`, not `fold`/`reduce`: rayon preserves index order here,
+    // so path `i` is always `summaries[i]` — which keeps results bit-identical
+    // run to run and gives per-path diagnostics a stable id to hang off. A
+    // `reduce` accumulating `f64` would be neither.
+    let summaries: Vec<PathSummary> = (0..n_paths as u64)
         .into_par_iter()
-        .map(|path_id| simulate(plan, returns, tax, drawdown, path_id))
+        .map(|path_id| {
+            let projection = simulate(plan, returns, tax, drawdown, path_id);
+            PathSummary {
+                net_worth: projection.snapshots.iter().map(|s| s.net_worth).collect(),
+                succeeded: !projection
+                    .warnings
+                    .iter()
+                    .any(|w| matches!(w, SimWarning::DepletedFunds { .. })),
+            }
+            // `projection` is dropped here: at 25,000 paths, holding every
+            // path's snapshots (and their per-account maps) would be gigabytes.
+        })
         .collect();
 
-    let succeeded = projections
-        .iter()
-        .filter(|p| {
-            !p.warnings
-                .iter()
-                .any(|w| matches!(w, SimWarning::DepletedFunds { .. }))
-        })
-        .count();
+    // An integer count, deliberately — a floating accumulation would make the
+    // success rate depend on reduction order.
+    let succeeded = summaries.iter().filter(|s| s.succeeded).count();
     let success_rate = succeeded as f64 / n_paths as f64;
 
-    let n_periods = projections.first().map_or(0, |p| p.snapshots.len());
     let percentiles = (0..n_periods)
         .map(|period| {
-            let mut net_worths: Vec<f64> = projections
-                .iter()
-                .map(|p| p.snapshots[period].net_worth)
-                .collect();
+            let mut net_worths: Vec<f64> = summaries.iter().map(|s| s.net_worth[period]).collect();
             net_worths.sort_by(|a, b| a.total_cmp(b));
-            // Timeline metadata is identical across paths (only returns
-            // vary), so read it off the first path rather than recomputing.
-            let reference = &projections[0].snapshots[period];
+            let (period_start, deflator) = timeline[period];
             PeriodPercentiles {
                 period,
-                period_start: reference.period_start,
-                deflator: reference.deflator,
+                period_start,
+                deflator,
                 p10: percentile(&net_worths, 0.10),
                 p25: percentile(&net_worths, 0.25),
                 p50: percentile(&net_worths, 0.50),
@@ -107,6 +123,14 @@ pub fn run_monte_carlo(
         success_rate,
         percentiles,
     }
+}
+
+/// What one path contributes to the aggregate: its net worth at each period,
+/// and whether it stayed solvent. Everything else the path produced is
+/// dropped as soon as this is built — see the comment in the sweep above.
+struct PathSummary {
+    net_worth: Vec<f64>,
+    succeeded: bool,
 }
 
 /// Nearest-rank percentile over an already-sorted, non-empty-checked slice.

@@ -104,6 +104,16 @@ export function revealStorageDir(): Promise<void> {
   return invoke<void>("reveal_storage_dir");
 }
 
+/** Paths per Monte Carlo run. Always concrete — the backend resolves "unset"
+ * to its own default, and clamps, so the frontend holds neither number. */
+export function getMonteCarloPaths(): Promise<number> {
+  return invoke<number>("get_monte_carlo_paths");
+}
+
+export function setMonteCarloPaths(paths: number): Promise<void> {
+  return invoke<void>("set_monte_carlo_paths", { paths });
+}
+
 /** Opens a folder picker and writes a timestamped copy of the whole plans
  * directory there. Resolves to the created folder's path, or null if the
  * user cancels the picker. */

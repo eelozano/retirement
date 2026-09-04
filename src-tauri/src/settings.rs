@@ -45,6 +45,11 @@ struct SettingsFile {
     /// `load_or_bootstrap` picks" (the first stored plan, or a fresh seed).
     #[serde(default)]
     active_plan_id: Option<String>,
+    /// Monte Carlo paths per run. `None` means `DEFAULT_MONTE_CARLO_PATHS`,
+    /// which is also what every settings.json written before this field
+    /// existed deserializes to.
+    #[serde(default)]
+    monte_carlo_paths: Option<u32>,
 }
 
 fn settings_path(config_dir: &Path) -> PathBuf {
@@ -106,6 +111,47 @@ pub fn set_active_plan_id(config_dir: &Path, id: &str) -> Result<(), String> {
     let mut settings = read(config_dir);
     settings.active_plan_id = Some(id.to_string());
     write(config_dir, &settings)
+}
+
+/// Monte Carlo paths per run when the user has not chosen. Raised from the
+/// 1,000 that was hardcoded in the frontend: at 1,000 the binomial standard
+/// error near a 90% success rate is about a full percentage point, so the
+/// headline could not honestly be stated to better than a couple of points.
+pub const DEFAULT_MONTE_CARLO_PATHS: u32 = 5_000;
+
+/// Hard ceiling, enforced here rather than only in the UI.
+///
+/// Monte Carlo re-runs on every edit with no progress or cancel. It no longer
+/// blocks the deterministic projection, so a slow run costs freshness in the
+/// success tile rather than responsiveness everywhere — but it still has to
+/// land within a few seconds to feel connected to the edit that caused it.
+/// 25,000 paths is ~1.7s in release against the seed plan; 100,000 would be
+/// north of six. Raise this once runs become on-demand and interruptible
+/// (#91).
+pub const MAX_MONTE_CARLO_PATHS: u32 = 25_000;
+
+/// Minimum: below this the success rate is too coarse to mean anything.
+pub const MIN_MONTE_CARLO_PATHS: u32 = 100;
+
+/// Paths per Monte Carlo run, resolved — callers never see the `None`, so
+/// the default lives here rather than being duplicated in the frontend.
+pub fn monte_carlo_paths(config_dir: &Path) -> u32 {
+    read(config_dir)
+        .monte_carlo_paths
+        .map(clamp_monte_carlo_paths)
+        .unwrap_or(DEFAULT_MONTE_CARLO_PATHS)
+}
+
+pub fn set_monte_carlo_paths(config_dir: &Path, paths: u32) -> Result<(), String> {
+    let mut settings = read(config_dir);
+    settings.monte_carlo_paths = Some(clamp_monte_carlo_paths(paths));
+    write(config_dir, &settings)
+}
+
+/// Clamped on the way in *and* on the way out: a settings.json hand-edited to
+/// 10,000,000 must not be able to hang the app.
+pub fn clamp_monte_carlo_paths(paths: u32) -> u32 {
+    paths.clamp(MIN_MONTE_CARLO_PATHS, MAX_MONTE_CARLO_PATHS)
 }
 
 #[cfg(test)]
@@ -211,6 +257,52 @@ mod tests {
         set_active_plan_id(&config.0, "sell-the-home").unwrap();
         set_plans_dir(&config.0, &PathBuf::from("/custom/plans")).unwrap();
         assert_eq!(active_plan_id(&config.0), Some("sell-the-home".to_string()));
+    }
+
+    #[test]
+    fn monte_carlo_paths_defaults_when_unset() {
+        let config = TempDir::new("mc-unset");
+        assert_eq!(monte_carlo_paths(&config.0), DEFAULT_MONTE_CARLO_PATHS);
+    }
+
+    #[test]
+    fn set_monte_carlo_paths_persists_and_is_read_back() {
+        let config = TempDir::new("mc-roundtrip");
+        set_monte_carlo_paths(&config.0, 10_000).unwrap();
+        assert_eq!(monte_carlo_paths(&config.0), 10_000);
+    }
+
+    #[test]
+    fn monte_carlo_paths_are_clamped_to_the_supported_range() {
+        let config = TempDir::new("mc-clamp");
+        set_monte_carlo_paths(&config.0, 10_000_000).unwrap();
+        assert_eq!(monte_carlo_paths(&config.0), MAX_MONTE_CARLO_PATHS);
+
+        set_monte_carlo_paths(&config.0, 0).unwrap();
+        assert_eq!(monte_carlo_paths(&config.0), MIN_MONTE_CARLO_PATHS);
+    }
+
+    #[test]
+    fn set_monte_carlo_paths_preserves_the_other_settings() {
+        let config = TempDir::new("mc-independent");
+        let chosen = PathBuf::from("/custom/plans");
+        set_plans_dir(&config.0, &chosen).unwrap();
+        set_active_plan_id(&config.0, "sell-the-home").unwrap();
+        set_monte_carlo_paths(&config.0, 10_000).unwrap();
+
+        assert_eq!(
+            effective_plans_dir(&config.0, &PathBuf::from("/default")),
+            chosen
+        );
+        assert_eq!(active_plan_id(&config.0), Some("sell-the-home".to_string()));
+    }
+
+    #[test]
+    fn set_plans_dir_preserves_monte_carlo_paths() {
+        let config = TempDir::new("mc-independent-2");
+        set_monte_carlo_paths(&config.0, 10_000).unwrap();
+        set_plans_dir(&config.0, &PathBuf::from("/custom/plans")).unwrap();
+        assert_eq!(monte_carlo_paths(&config.0), 10_000);
     }
 
     #[test]

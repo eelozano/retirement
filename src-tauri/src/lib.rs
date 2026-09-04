@@ -29,6 +29,8 @@ pub fn run() {
             commands::get_storage_info,
             commands::choose_storage_dir,
             commands::set_storage_dir,
+            commands::get_monte_carlo_paths,
+            commands::set_monte_carlo_paths,
             commands::reveal_storage_dir,
             commands::export_plans,
             commands::export_text_file,

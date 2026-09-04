@@ -45,4 +45,21 @@ describe("StatusBand", () => {
     );
     expect(screen.getByText("2 warnings")).toBeInTheDocument();
   });
+
+  // The solvent count used to be rounded independently of the failed count in
+  // planData, so at a rate like this the two roundings could disagree and the
+  // band would print a pair that doesn't add up to the path count.
+  it("reports a solvent count that complements the failed count exactly", () => {
+    const solvent = {
+      ...metrics,
+      successRate: 0.6665,
+      failedPaths: 1667,
+      nPaths: 5000,
+    } as unknown as HeadlineMetrics;
+
+    render(<StatusBand metrics={solvent} warnings={[]} />);
+    expect(
+      screen.getByText(/3,333 of 5,000 simulated paths stay solvent/),
+    ).toBeInTheDocument();
+  });
 });

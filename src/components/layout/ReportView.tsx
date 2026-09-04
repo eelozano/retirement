@@ -97,6 +97,12 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
               <h1>{plan.name}</h1>
               <p className="report-meta">
                 Generated {generated} · {basisLabel}
+                {/* A printed report outlives the session it came from, so it
+                    has to record the sample its success rate was measured
+                    against — the number changes with the path count. */}
+                {metrics.nPaths !== null && (
+                  <> · {metrics.nPaths.toLocaleString()} simulated paths</>
+                )}
               </p>
             </div>
             <div className="report-actions">
