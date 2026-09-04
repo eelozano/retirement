@@ -114,7 +114,7 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
                     · {metrics.nPaths.toLocaleString()} simulated paths
                     {/* A report is a record: a stale sample must be labelled
                         in the header, not only greyed on a tile. */}
-                    {metrics.successStale && " (run before the latest edit)"}
+                    {metrics.successStale && " (from before the latest change)"}
                   </>
                 )}
               </p>

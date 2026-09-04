@@ -82,9 +82,9 @@ export interface HeadlineMetrics {
   successMargin: number | null;
   /**
    * True when the Monte Carlo figures above were computed against an
-   * earlier version of the plan (or seed) than the one on screen — an edit
-   * landed in on-demand mode, or the run that would have refreshed them was
-   * cancelled. Every surface that prints them has to say so.
+   * earlier version of the plan, seed, or path count than the one on screen
+   * — an edit landed in on-demand mode, or the run that would have refreshed
+   * them was cancelled. Every surface that prints them has to say so.
    */
   successStale: boolean;
   /**

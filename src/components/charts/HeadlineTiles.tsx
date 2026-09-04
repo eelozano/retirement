@@ -122,7 +122,7 @@ export function HeadlineTiles(props: {
           <div className="tile-sub tile-run">
             <span>
               {m.successStale
-                ? "Computed before the latest edit."
+                ? "From before the latest change."
                 : "Simulation has not run yet."}
             </span>
             {props.monteCarlo && (

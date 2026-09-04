@@ -66,7 +66,7 @@ describe("StatusBand", () => {
   // Above the on-demand threshold an edit leaves the last sample on screen.
   // It is still worth stating, but never as if it described the plan as
   // edited.
-  it("says when the sample predates the latest edit", () => {
+  it("says when the sample predates the latest change", () => {
     const stale = {
       ...metrics,
       successRate: 0.9,
@@ -78,7 +78,7 @@ describe("StatusBand", () => {
     render(<StatusBand metrics={stale} warnings={[]} />);
     expect(
       screen.getByText(
-        /4,500 of 5,000 simulated paths stay solvent \(from before the latest edit\)\./,
+        /4,500 of 5,000 simulated paths stay solvent \(from before the latest change\)\./,
       ),
     ).toBeInTheDocument();
   });

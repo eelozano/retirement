@@ -16,7 +16,7 @@ export function StatusBand(props: {
   const depleting = m.depletionYear !== null;
   // A stale sample is still worth stating — it is the best figure there is —
   // but never as if it described the plan on screen.
-  const staleNote = m.successStale ? " (from before the latest edit)" : "";
+  const staleNote = m.successStale ? " (from before the latest change)" : "";
 
   return (
     <div

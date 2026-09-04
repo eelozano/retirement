@@ -1313,6 +1313,10 @@ button.remove:hover {
   font-size: var(--t-sm);
   color: var(--text-secondary);
   margin-top: auto;
+  /* Tall enough for the Run/Cancel button the success tile swaps in, so
+     starting or finishing a run never changes the tile's height. */
+  min-height: 24px;
+  padding-top: 3px;
 }
 .tile-bar {
   display: flex;
@@ -1877,6 +1881,7 @@ button.remove:hover {
   display: flex;
   align-items: center;
   gap: 10px;
+  padding-top: 0;
 }
 .tile-run > span:first-child {
   flex: 1;
