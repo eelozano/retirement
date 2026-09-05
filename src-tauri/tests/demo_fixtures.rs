@@ -75,6 +75,9 @@ fn demo_base() -> Plan {
         id: "base-plan".to_string(),
         schema_version: SCHEMA_VERSION,
         name: "Base plan".to_string(),
+        // Invented, and committed to the repo — exactly what the flag is
+        // for. See CLAUDE.md's privacy rule and `Plan::sample`.
+        sample: true,
         people: vec![
             Person {
                 id: ALEX.to_string(),

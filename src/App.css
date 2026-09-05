@@ -2291,3 +2291,130 @@ button.remove:hover {
   grid-column: 1 / -1;
   margin-top: 0;
 }
+
+/* Welcome screen — what a fresh install opens on, and where deleting the
+   last scenario returns to (#103). Deliberately not the app shell: there is
+   no plan yet, so there is nothing for the rail or the topbar to act on. */
+
+.welcome {
+  display: flex;
+  justify-content: center;
+  overflow-y: auto;
+  height: 100vh;
+}
+
+.welcome-inner {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  padding-bottom: 40px;
+}
+
+.welcome-header h1 {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 var(--sp-2);
+  color: var(--text-primary);
+}
+
+.welcome-lede {
+  margin: 0;
+  font-size: var(--t-body);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.welcome-card {
+  padding-bottom: var(--sp-4);
+}
+
+.welcome-note {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--t-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* One person's three fields, grouped so a two-person household reads as two
+   blocks rather than six loose rows. */
+.welcome-person {
+  border: 1px solid var(--border);
+  border-radius: var(--r-2);
+  padding: var(--sp-2) var(--sp-3) var(--sp-3);
+  margin: var(--sp-3) 0;
+  min-width: 0;
+}
+
+.welcome-person > legend {
+  padding: 0 var(--sp-2);
+  font-size: var(--t-xs);
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.welcome-problems {
+  margin: var(--sp-3) 0 0;
+  padding-left: var(--sp-5);
+  font-size: var(--t-sm);
+  line-height: 1.6;
+  color: var(--status-warn);
+}
+
+.welcome-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--sp-4);
+}
+
+.welcome-primary,
+.welcome-secondary {
+  font-size: var(--t-body);
+  padding: 7px 14px;
+  border-radius: var(--r-2);
+  cursor: pointer;
+}
+
+.welcome-primary {
+  border: 1px solid transparent;
+  background: var(--series-1);
+  color: #fff;
+}
+
+.welcome-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.welcome-secondary {
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-secondary);
+}
+
+.welcome-secondary:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--muted);
+}
+
+.welcome-primary:disabled,
+.welcome-secondary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Marks a plan whose numbers are invented, for as long as it exists. Sits
+   next to the (editable) plan name, because renaming the example must not be
+   enough to make it look like real finances. */
+.sample-badge {
+  flex: none;
+  font-size: var(--t-label);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: var(--r-1);
+  border: 1px solid var(--status-warn);
+  color: var(--status-warn);
+  white-space: nowrap;
+}

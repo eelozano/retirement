@@ -25,6 +25,7 @@ fn plan_with_two_lifespans() -> Plan {
         id: "mortality-test".to_string(),
         schema_version: SCHEMA_VERSION,
         name: "mortality-test".to_string(),
+        sample: false,
         people: vec![
             Person {
                 id: short.clone(),

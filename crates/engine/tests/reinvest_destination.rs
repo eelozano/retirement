@@ -97,6 +97,7 @@ fn plan(accounts: Vec<Account>, sweep_from_start: bool, reinvest_into: Option<&s
         id: "reinvest".to_string(),
         schema_version: SCHEMA_VERSION,
         name: "reinvest".to_string(),
+        sample: false,
         people: vec![Person {
             id: "p1".to_string(),
             name: "Retiree".to_string(),

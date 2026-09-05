@@ -1,6 +1,7 @@
 id: claim-social-security-at-62
 schema_version: 1
 name: Claim Social Security at 62
+sample: true
 people:
 - id: alex
   name: Alex
