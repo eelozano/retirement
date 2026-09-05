@@ -204,19 +204,34 @@ pub fn load_first(base: &Path) -> Result<Option<Plan>, String> {
     }
 }
 
-/// Writes a brand-new plan for `people` and returns it, with a fresh id
-/// derived from `name`. `start` is the plan's first simulated month, which
-/// the caller resolves from the clock.
-pub fn create_plan(
-    base: &Path,
+/// Gives `plan` a fresh id derived from its own name and writes it.
+///
+/// Validation is the caller's job and must happen *before* this: once it
+/// returns, the plan is on disk.
+fn store_new_plan(base: &Path, mut plan: Plan) -> Result<Plan, String> {
+    plan.id = generate_id(base, &plan.name);
+    save_plan(base, &plan)?;
+    Ok(plan)
+}
+
+/// Builds a brand-new plan for `people` — no accounts, no income, no
+/// spending. `start` is the plan's first simulated month, which the caller
+/// resolves from the clock.
+///
+/// Returned unsaved, so the caller validates before anything is written:
+/// `people` comes from the frontend, and a plan the engine would reject must
+/// not reach the plans directory.
+pub fn new_plan(
     name: &str,
     start: engine::model::YearMonth,
     people: Vec<engine::model::Person>,
-) -> Result<Plan, String> {
-    let mut plan = engine::presets::new_plan(name, start, people);
-    plan.id = generate_id(base, name);
-    save_plan(base, &plan)?;
-    Ok(plan)
+) -> Plan {
+    engine::presets::new_plan(name, start, people)
+}
+
+/// Writes a validated plan as a new one, under a fresh id.
+pub fn create_plan(base: &Path, plan: Plan) -> Result<Plan, String> {
+    store_new_plan(base, plan)
 }
 
 /// Writes a copy of the invented example household ([`engine::presets::seed_plan`])
@@ -224,7 +239,8 @@ pub fn create_plan(
 ///
 /// The stored plan keeps `sample: true`, so the UI labels it as an example
 /// for as long as it exists and it is never mistaken for the user's own
-/// numbers.
+/// numbers. No validation step: this plan is a compile-time constant of the
+/// engine's, and `seed_plan_is_valid` already pins it.
 pub fn create_sample_plan(base: &Path) -> Result<Plan, String> {
     let mut plan = engine::presets::seed_plan();
     // Renamed on the way out rather than in `seed_plan` itself, which is the
@@ -232,9 +248,7 @@ pub fn create_sample_plan(base: &Path) -> Result<Plan, String> {
     // matters because it is what the scenario switcher and an exported
     // report show, where the `sample` badge does not reach.
     plan.name = SAMPLE_PLAN_NAME.to_string();
-    plan.id = generate_id(base, &plan.name);
-    save_plan(base, &plan)?;
-    Ok(plan)
+    store_new_plan(base, plan)
 }
 
 /// What a loaded example household is called on disk and in the switcher.
@@ -480,7 +494,11 @@ mod tests {
             retirement: YearMonth::new(2055, 4),
             life_expectancy_age: 95,
         }];
-        let plan = create_plan(&base.0, "My plan", YearMonth::new(2026, 1), people).unwrap();
+        let plan = create_plan(
+            &base.0,
+            new_plan("My plan", YearMonth::new(2026, 1), people),
+        )
+        .unwrap();
 
         assert_eq!(plan.id, "my-plan");
         assert!(!plan.sample, "the user's own plan is not an example");
@@ -492,6 +510,33 @@ mod tests {
 
         // Persisted, not just returned.
         assert_eq!(load_plan(&base.0, "my-plan").unwrap().name, "My plan");
+    }
+
+    #[test]
+    fn new_plan_writes_nothing_so_it_can_be_validated_first() {
+        let base = TempBase::new("new-unsaved");
+        // A person the engine rejects: retirement before birth. The command
+        // layer validates between `new_plan` and `create_plan`, so this must
+        // never reach the plans directory — a plan that fails validation
+        // would fail to load on every launch after it.
+        let people = vec![engine::model::Person {
+            id: "sam".to_string(),
+            name: "Sam".to_string(),
+            birth: YearMonth::new(1990, 4),
+            retirement: YearMonth::new(1980, 4),
+            life_expectancy_age: 95,
+        }];
+        let plan = new_plan("Backwards", YearMonth::new(2026, 1), people);
+
+        assert!(
+            !plan.validate().is_empty(),
+            "the caller has something to reject"
+        );
+        assert!(list_plans(&base.0).unwrap().is_empty());
+        assert!(
+            !plans_dir(&base.0).exists(),
+            "building a plan touched no files"
+        );
     }
 
     #[test]

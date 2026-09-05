@@ -196,9 +196,12 @@ pub fn create_plan(
         })
         .collect();
 
-    let plan = storage::create_plan(&base, &name, new_plan_start(), people)?;
+    // Validate before anything is written: `people` came from the frontend,
+    // and a plan the engine would reject must not reach the plans directory
+    // where it would fail to load on every launch after this.
+    let plan = storage::new_plan(&name, new_plan_start(), people);
     require_valid(&plan)?;
-    Ok(plan)
+    storage::create_plan(&base, plan)
 }
 
 /// Writes a copy of the invented example household and returns it — the

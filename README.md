@@ -165,9 +165,15 @@ launch it from Applications like any other app.
 
 ### First launch
 
-The app bootstraps a seed plan on first run, so you land on a populated
-projection rather than an empty form. Change the numbers to yours; every edit
-re-projects and autosaves. Nothing is sent anywhere.
+The app starts empty. You are asked for your household — names, birth dates,
+target retirement dates — and it creates a plan holding just that; accounts,
+income and spending are yours to add under Inputs. Every edit re-projects and
+autosaves. Nothing is sent anywhere.
+
+If you would rather see a finished plan before building your own, the welcome
+screen also offers an invented example household. It stays labelled **Example**
+for as long as it exists, and you can delete it whenever you like — including
+when it is the only plan you have.
 
 Your plans live outside the app bundle, so rebuilding and replacing the app
 later never touches your data.
