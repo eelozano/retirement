@@ -64,15 +64,38 @@ schedule.](docs/screenshots/accounts.png)
 
 ## Get it running
 
-**There is no prebuilt download.** The releases page has no `.dmg` attached —
-it's a changelog, not a distribution. Getting the app means building it from
-source, which is about four commands once the toolchain is in place.
+Two ways in: download the `.dmg` attached to the latest release, or build it
+from source. The download is the short path but is Apple Silicon only.
+Building is about four commands once the toolchain is in place, and works on
+any Mac.
 
 **Built and tested on macOS (Apple Silicon).** See
 [Other platforms](#other-platforms) before you start if you're on Linux or
 Windows — you can run it, but not package it as configured.
 
-### 1. Install the toolchain
+### Option A — download the release
+
+Take the `.dmg` from the [latest
+release](https://github.com/eelozano/retirement/releases/latest), open it, and
+drag **Retirement Planner** to Applications.
+
+The attached build is `aarch64` — **Apple Silicon only.** On an Intel Mac,
+build from source instead.
+
+The build is unsigned, so macOS quarantines it on download and then refuses to
+open it, reporting that the app "is damaged and can't be opened." It isn't
+damaged. Clear the quarantine flag once:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Retirement Planner.app"
+```
+
+It opens normally from then on. [A note on signing](#a-note-on-signing)
+explains what's going on there.
+
+### Option B — build from source
+
+#### 1. Install the toolchain
 
 You need four things. Check what you already have:
 
@@ -111,7 +134,7 @@ Any of those that error, install:
   corepack enable
   ```
 
-### 2. Build and install the app
+#### 2. Build and install the app
 
 ```bash
 git clone https://github.com/eelozano/retirement.git
@@ -131,7 +154,7 @@ which is the usual place people go looking for it.
 Open the `.dmg` and drag **Retirement Planner** to Applications. That's it —
 launch it from Applications like any other app.
 
-### 3. First launch
+### First launch
 
 The app bootstraps a seed plan on first run, so you land on a populated
 projection rather than an empty form. Change the numbers to yours; every edit
@@ -143,20 +166,30 @@ later never touches your data.
 ### A note on signing
 
 The build is unsigned — there's no Apple Developer account behind this. It's
-ad-hoc signed by the linker, with no Developer ID and no notarization.
+ad-hoc signed by the linker, with no Developer ID and no notarization. That
+goes for the `.dmg` on the releases page as much as for one you build
+yourself.
 
-An app **you build yourself** is not quarantined, so it opens normally; you do
-not need to do anything about Gatekeeper. The quarantine flag is attached by
-the thing that *downloads* a file, so it only becomes an issue if a built
-`.dmg` travels between machines — AirDropped, downloaded, copied from another
-Mac. In that case macOS refuses to open it, and you clear the flag once:
+The quarantine flag is attached by whatever *downloads* a file, so which case
+you're in depends on how the app reached you:
 
-```bash
-xattr -dr com.apple.quarantine "/Applications/Retirement Planner.app"
-```
+- **Downloaded from the releases page** — or AirDropped, or copied from
+  another Mac: quarantined. macOS refuses to open it and calls it damaged.
+  Clear the flag once and it opens normally from then on:
 
-If you built locally and run that anyway, it reports that there's no such
-attribute. That's the expected result, not a problem.
+  ```bash
+  xattr -dr com.apple.quarantine "/Applications/Retirement Planner.app"
+  ```
+
+- **Built on the machine you run it on**: not quarantined, so it opens
+  normally and there's nothing to do about Gatekeeper. Run the command anyway
+  and it reports no such attribute — the expected result, not a problem.
+
+The Control-click → Open trick you may remember doesn't apply: current macOS
+routes unidentified-developer apps through System Settings → Privacy &
+Security → **Open Anyway**, and an ad-hoc-signed app tends to report itself as
+damaged rather than offering that button at all. Removing the quarantine
+attribute is the route that works.
 
 ## Troubleshooting
 
@@ -179,7 +212,8 @@ build. Let it finish.
 Linux or Windows, see below.
 
 **"Retirement Planner is damaged and can't be opened"** — a quarantined
-`.dmg` that came from another machine. See [A note on signing](#a-note-on-signing).
+`.dmg`, downloaded from the releases page or carried from another machine. It
+isn't damaged. See [A note on signing](#a-note-on-signing).
 
 **Node version errors during `pnpm install`** — the project pins Node 22 in
 `.nvmrc`. Run `nvm use` in the repo.
