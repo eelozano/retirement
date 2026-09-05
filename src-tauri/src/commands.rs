@@ -240,15 +240,71 @@ pub struct MonteCarloProgress {
 /// run is only a couple of ticks long.
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(150);
 
+/// Takes the single run slot for `run_id`, cancelling whatever held it. One
+/// slot for both Monte Carlo commands, deliberately: a comparison batch and
+/// the Plan screen's own run would otherwise compete for the same rayon pool,
+/// each making the other look slow. The cost is that opening Scenarios
+/// supersedes the active plan's run, which the store then shows as stale.
+fn claim_slot(state: &tauri::State<'_, MonteCarloState>, run_id: u32) -> Arc<RunControl> {
+    let control = Arc::new(RunControl::new());
+    if let Some((_, previous)) = state.0.lock().unwrap().replace((run_id, control.clone())) {
+        previous.cancel();
+    }
+    control
+}
+
+/// Releases the slot, but only if it is still ours: a newer run may already
+/// have replaced it, and that one's handle must stay reachable.
+fn release_slot(state: &tauri::State<'_, MonteCarloState>, run_id: u32) {
+    let mut slot = state.0.lock().unwrap();
+    if matches!(&*slot, Some((id, _)) if *id == run_id) {
+        *slot = None;
+    }
+}
+
+/// Runs `work` on this thread while a scoped ticker samples `control` and
+/// feeds `on_progress`. The engine itself never sees the channel — it only
+/// increments its own counter, which is what lets a batch of scenarios share
+/// one climbing number (see `run_monte_carlos`).
+///
+/// A scoped thread rather than a tokio timer: the runtime's `time` feature is
+/// not otherwise needed, and a ticker that ends with the scope cannot outlive
+/// the run it reports on.
+fn with_progress<T>(
+    control: &RunControl,
+    run_id: u32,
+    total: u32,
+    on_progress: Channel<MonteCarloProgress>,
+    work: impl FnOnce() -> T,
+) -> T {
+    let done = AtomicBool::new(false);
+    std::thread::scope(|scope| {
+        scope.spawn(|| {
+            while !done.load(Ordering::Relaxed) {
+                std::thread::sleep(PROGRESS_INTERVAL);
+                if done.load(Ordering::Relaxed) {
+                    break;
+                }
+                let _ = on_progress.send(MonteCarloProgress {
+                    run_id,
+                    completed: control.completed(),
+                    total,
+                });
+            }
+        });
+        let result = work();
+        done.store(true, Ordering::Relaxed);
+        result
+    })
+}
+
 /// Monte Carlo run: N stochastic paths in parallel, returning a success rate
 /// and per-period net-worth percentiles — or `None` if the run was cancelled,
 /// which is not an error: the caller asked for it and keeps its last result.
 ///
 /// Async, with the engine on a blocking thread, so rayon's work never sits
 /// on the IPC thread and the window stays live for the duration. Starting a
-/// run cancels the one before it. Progress is sampled from the engine's
-/// counter on a timer and sent down `on_progress`; the engine itself never
-/// sees the channel.
+/// run cancels the one before it.
 ///
 /// The path count arrives from the frontend, so it is clamped here as well as
 /// in `settings::set_monte_carlo_paths` — this command is stateless and will
@@ -267,46 +323,85 @@ pub async fn run_monte_carlo(
         ..config
     };
 
-    let control = Arc::new(RunControl::new());
-    if let Some((_, previous)) = state.0.lock().unwrap().replace((run_id, control.clone())) {
-        previous.cancel();
-    }
-
-    let worker = control.clone();
+    let worker = claim_slot(&state, run_id);
+    let control = worker.clone();
     let outcome = tauri::async_runtime::spawn_blocking(move || {
-        let done = AtomicBool::new(false);
         let total = config.n_paths;
-        // A scoped thread rather than a tokio timer: the runtime's `time`
-        // feature is not otherwise needed, and a ticker that ends with the
-        // scope cannot outlive the run it reports on.
-        std::thread::scope(|scope| {
-            scope.spawn(|| {
-                while !done.load(Ordering::Relaxed) {
-                    std::thread::sleep(PROGRESS_INTERVAL);
-                    if done.load(Ordering::Relaxed) {
-                        break;
-                    }
-                    let _ = on_progress.send(MonteCarloProgress {
-                        run_id,
-                        completed: worker.completed(),
-                        total,
-                    });
-                }
-            });
-            let result = engine::run_monte_carlo_with(&plan, &config, &worker);
-            done.store(true, Ordering::Relaxed);
-            result
+        with_progress(&control, run_id, total, on_progress, || {
+            engine::run_monte_carlo_with(&plan, &config, &control)
         })
     })
     .await
     .map_err(|e| format!("Monte Carlo worker failed: {e}"))?;
 
-    // Release the slot only if it is still ours: a newer run may already
-    // have replaced it, and that one's handle must stay reachable.
-    let mut slot = state.0.lock().unwrap();
-    if matches!(&*slot, Some((id, _)) if *id == run_id) {
-        *slot = None;
-    }
+    release_slot(&state, run_id);
+    Ok(outcome.ok())
+}
+
+/// Monte Carlo across several scenarios in one round-trip — the comparison
+/// view's counterpart to `run_projections`, and the reason the Scenarios
+/// table can show probability of success at all.
+///
+/// Per-scenario `Result`, like `run_projections`: one invalid scenario gets
+/// its own error and the rest of the table still fills in. The outer `Option`
+/// is the batch's cancellation, exactly as in `run_monte_carlo` — a cancel
+/// abandons the whole batch, since a table half-measured against a superseded
+/// selection is worse than the previous one.
+///
+/// Every scenario runs at the same `config`, seed included. That is the point:
+/// common random numbers mean two scenarios are measured against the same
+/// draws, so the *difference* between their success rates is far less noisy
+/// than either rate's own sampling margin.
+///
+/// Scenarios run one after another rather than in parallel — each already
+/// saturates rayon across its own paths — and share one `RunControl`, whose
+/// counter never resets. That is what makes batch progress a single climbing
+/// number rather than a bar that restarts per scenario.
+#[tauri::command]
+pub async fn run_monte_carlos(
+    state: tauri::State<'_, MonteCarloState>,
+    plans: Vec<Plan>,
+    config: MonteCarloConfig,
+    run_id: u32,
+    on_progress: Channel<MonteCarloProgress>,
+) -> Result<Option<Vec<Result<MonteCarloResult, String>>>, String> {
+    let config = MonteCarloConfig {
+        n_paths: settings::clamp_monte_carlo_paths(config.n_paths),
+        ..config
+    };
+
+    // Validated up front so the path total can exclude the scenarios that
+    // will never run: a progress bar whose ceiling counts work nobody is
+    // doing would stop short of it and look stuck.
+    let validated: Vec<Result<Plan, String>> = plans
+        .into_iter()
+        .map(|plan| require_valid(&plan).map(|()| plan))
+        .collect();
+    let total = config
+        .n_paths
+        .saturating_mul(validated.iter().filter(|p| p.is_ok()).count() as u32);
+
+    let worker = claim_slot(&state, run_id);
+    let control = worker.clone();
+    let outcome = tauri::async_runtime::spawn_blocking(move || {
+        with_progress(&control, run_id, total, on_progress, || {
+            validated
+                .into_iter()
+                .map(|plan| match plan {
+                    // An invalid scenario is this scenario's error, not the
+                    // batch's: `Ok(Err(_))` keeps its row and its message.
+                    Err(message) => Ok(Err(message)),
+                    Ok(plan) => engine::run_monte_carlo_with(&plan, &config, &control).map(Ok),
+                })
+                // Short-circuits on the first `Cancelled`, which is the whole
+                // batch giving up rather than one scenario failing.
+                .collect::<Result<Vec<_>, _>>()
+        })
+    })
+    .await
+    .map_err(|e| format!("Monte Carlo worker failed: {e}"))?;
+
+    release_slot(&state, run_id);
     Ok(outcome.ok())
 }
 

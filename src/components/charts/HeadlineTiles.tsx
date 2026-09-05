@@ -1,4 +1,4 @@
-import { currencyCompact } from "../../lib/format";
+import { currencyCompact, successMarginPercent, successPercent } from "../../lib/format";
 import type { MonteCarloRun } from "../../store/planStore";
 import { successTone } from "./monteCarloData";
 import type { HeadlineMetrics } from "./planData";
@@ -6,34 +6,6 @@ import type { HeadlineMetrics } from "./planData";
 // Zone 1 — the three numbers that answer "are we still on track" with nothing
 // clicked. Probability of success sits first and widest; it used to be two
 // clicks deep behind a mode toggle.
-
-/**
- * The success rate at the precision its sample supports, and the margin that
- * says how much that is.
- *
- * A rate measured from N paths carries sampling error of roughly `margin`, so
- * printing a first decimal when the margin is half a point wide advertises
- * precision that isn't there. Below half a point the decimal is meaningful
- * and is kept.
- */
-function pct(rate: number, margin: number | null): string {
-  const value = rate * 100;
-  const marginPts = (margin ?? 0) * 100;
-  const decimals = marginPts >= 0.5 ? 0 : 1;
-  // Round toward the honest side: 99.96% should not read as 100%.
-  if (value >= 100 - 0.5 * 10 ** -decimals && value < 100) {
-    return `${(100 - 10 ** -decimals).toFixed(decimals)}%`;
-  }
-  return `${value.toFixed(decimals)}%`;
-}
-
-/** The ± that follows the headline, at the same precision as the headline. */
-function marginPct(margin: number): string {
-  const marginPts = margin * 100;
-  const value = marginPts.toFixed(marginPts >= 0.5 ? 0 : 1);
-  // Only exactly one point is singular — "±0.4 pts" is right, "±1 pts" isn't.
-  return `±${value} ${value === "1" ? "pt" : "pts"}`;
-}
 
 /** The live controls on the success tile. Absent in the printable report,
  * where the tile is a record rather than a control surface. */
@@ -67,13 +39,15 @@ export function HeadlineTiles(props: {
           <>
             <div className="tile-hero-row">
               <span className={`tile-hero stat-${tone}`}>
-                {pct(m.successRate, m.successMargin)}
+                {successPercent(m.successRate, m.successMargin)}
               </span>
               <span className="tile-aside">
                 {/* The margin is always shown, including at 100%: the number
                     is a sample, and how big a sample is the whole reason the
                     path count is a setting. */}
-                {m.successMargin !== null && <>{marginPct(m.successMargin)} · </>}
+                {m.successMargin !== null && (
+                  <>{successMarginPercent(m.successMargin)} · </>
+                )}
                 of {m.nPaths?.toLocaleString()} paths
               </span>
             </div>

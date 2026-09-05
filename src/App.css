@@ -926,6 +926,94 @@ button.remove:hover {
   font-weight: 600;
 }
 
+/* Which run a column came from. Without it, "Net worth at plan end" beside
+   "p10 at end" reads as one set of numbers rather than a single path next to
+   the 10th percentile of thousands. */
+.comparison-group {
+  text-align: center !important;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.comparison-table thead th[rowspan] {
+  vertical-align: bottom;
+}
+
+.comparison-success {
+  line-height: 1.35;
+}
+
+/* The margin sits under the rate rather than beside it: at five scenarios the
+   row is already wide, and the ± is context, not a second number to scan. */
+.comparison-margin {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Outstanding, not missing: a cell whose run is still going reads differently
+   from one whose run failed, which shows an em dash instead. */
+.comparison-pending {
+  display: inline-block;
+  width: 32px;
+  height: 8px;
+  vertical-align: middle;
+  border-radius: 4px;
+  background: var(--surface-3);
+  animation: comparison-pending-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes comparison-pending-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .comparison-pending {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+.compare-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.compare-controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.compare-controls label:has(input:disabled) {
+  opacity: 0.5;
+}
+
+.compare-run {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .delta-positive {
   color: var(--status-good);
 }
