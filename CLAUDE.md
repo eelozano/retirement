@@ -57,6 +57,11 @@ caution at all; see `.claude/skills/run-app/SKILL.md`.
 - Releases use a `0.x` scheme (`v0.1`, `v0.2`, …). Bump `package.json`,
   `Cargo.toml` (`workspace.package.version`), and `src-tauri/tauri.conf.json`
   together — all three, or none — then tag `v0.N` on `main`.
+- Every release carries the built `.dmg` as an asset: `pnpm app:build`, then
+  `gh release create v0.N --generate-notes <dmg>`. It is unsigned and Apple
+  Silicon only, and installing from the download has not been tested on a
+  clean machine — say so in the notes. Building from source stays a supported
+  path, and README documents both.
 
 ## Dev commands
 
@@ -86,7 +91,7 @@ ts-rs output would make the CI drift check fail permanently.
 
 ## Status
 
-V1 shipped; the app is released and in real use (`v0.4`). Current and planned
+V1 shipped; the app is released and in real use (`v0.5`). Current and planned
 work lives in GitHub issues, not in this file — `gh issue list`.
 
 Design intent for work not yet built is in `docs/ARCHITECTURE.md`: which
