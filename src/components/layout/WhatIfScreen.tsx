@@ -67,6 +67,16 @@ const DRAFT_ID = "draft";
  * out of a live control. */
 const SETTLE_MS = 220;
 
+/** Whether two versions of the same scenario differ in anything the draft is
+ * built from. A rename comes through as a new plan object like any other
+ * edit, but it moves no number — and "the plan changed while this was open"
+ * over a typo in the title is a false alarm. */
+function changedBeyondName(before: Plan, after: Plan): boolean {
+  return (
+    JSON.stringify({ ...before, name: "" }) !== JSON.stringify({ ...after, name: "" })
+  );
+}
+
 /** The value once it has stopped changing for `ms`. */
 function useSettled<T>(value: T, ms: number): T {
   const [settled, setSettled] = useState(value);
@@ -201,7 +211,7 @@ export function WhatIfScreen() {
       setOverrides(BASELINE);
       setNameEdited(false);
       setDrift(false);
-    } else if (!isBaseline(overrides)) {
+    } else if (!isBaseline(overrides) && changedBeyondName(previous, plan)) {
       setDrift(true);
     }
   }, [plan, overrides]);
@@ -637,7 +647,12 @@ export function WhatIfScreen() {
             )}
           </div>
 
-          <ComparisonChart rows={chartRows} series={series} showBand={bandOn} />
+          <ComparisonChart
+            rows={chartRows}
+            series={series}
+            showBand={bandOn}
+            bandLabel="What-if: 10th–90th percentile"
+          />
           <ComparisonTable rows={summary} monteCarloPending={run !== null} />
         </div>
 

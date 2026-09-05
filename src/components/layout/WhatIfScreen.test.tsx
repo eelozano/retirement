@@ -219,6 +219,55 @@ describe("save as scenario", () => {
   });
 });
 
+describe("the saved plan moving underneath", () => {
+  it("says so when an edit lands while a knob is off its rest position", async () => {
+    render(<WhatIfScreen />);
+    drag("Spending", 0.9);
+    await settle();
+
+    const edited = structuredClone(plan);
+    edited.assumptions.inflation = 0.04;
+    await act(async () => {
+      usePlanStore.setState({ plan: edited });
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(/changed while this was open/);
+    // Rebuilt from the new plan, same knobs.
+    const draft = vi.mocked(api.runProjection).mock.lastCall?.[0];
+    expect(draft?.assumptions.inflation).toBe(0.04);
+    expect(draft?.streams[0]?.annual_amount).toBeCloseTo(72_000, 6);
+  });
+
+  it("stays quiet for a rename, which moves no number", async () => {
+    render(<WhatIfScreen />);
+    drag("Spending", 0.9);
+    await settle();
+
+    await act(async () => {
+      usePlanStore.setState({ plan: { ...structuredClone(plan), name: "Base plan v2" } });
+    });
+
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("resets the knobs when the scenario itself changes", async () => {
+    render(<WhatIfScreen />);
+    drag("Spending", 0.9);
+    await settle();
+
+    await act(async () => {
+      usePlanStore.setState({
+        plan: { ...structuredClone(plan), id: "other-plan", name: "Other plan" },
+      });
+    });
+    await settle();
+
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    const draft = vi.mocked(api.runProjection).mock.lastCall?.[0];
+    expect(draft?.streams[0]?.annual_amount).toBe(80_000);
+  });
+});
+
 describe("the run control", () => {
   it("runs both sides in one batch, at one seed", async () => {
     render(<WhatIfScreen />);

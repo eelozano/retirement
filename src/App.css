@@ -2133,7 +2133,7 @@ button.remove:hover {
    knobs go back on top. */
 .what-if {
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  grid-template-columns: minmax(250px, 290px) minmax(0, 1fr);
   grid-template-rows: auto auto;
   align-items: start;
 }
@@ -2255,6 +2255,14 @@ button.remove:hover {
   background: var(--surface-2);
   border-radius: var(--r-1);
   padding: 3px 8px;
+}
+
+/* Eight columns beside a knob column is tight at a laptop width. The table
+   scrolls rather than clipping either way, but a column of numbers that has
+   to be scrolled to is a column that doesn't get read. */
+.what-if .comparison-table th,
+.what-if .comparison-table td {
+  padding: 8px 9px;
 }
 
 .what-if-basis {
