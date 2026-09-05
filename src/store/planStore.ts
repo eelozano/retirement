@@ -143,6 +143,11 @@ interface PlanStore {
   /** Branches the active scenario off into a new one under `newName`, and
    * switches to it. */
   duplicateActive: (newName: string) => Promise<void>;
+  /** Branches, with the copy modified on the way out: duplicate, apply
+   * `mutate`, persist, switch. The one path by which a What-if hypothetical
+   * reaches disk — asked for by name, never on the sandbox's own edit path
+   * (see `src/lib/whatIf.ts`). */
+  promoteToScenario: (newName: string, mutate: (draft: Plan) => void) => Promise<void>;
   deleteScenario: (id: string) => Promise<void>;
   /** Restores the active plan to a prior snapshot and re-activates it. */
   restoreSnapshot: (timestamp: string) => Promise<void>;
@@ -207,9 +212,13 @@ async function startMonteCarlo(
   if (!current()) return;
 
   if (result === null) {
-    // Cancelled — by `cancelMonteCarlo`, which has already marked the
-    // previous result stale. Just clear the in-flight state.
-    set({ monteCarloRun: null });
+    // Cancelled, and not by a newer run of our own — that case returned
+    // above, superseded. So either the user pressed Cancel (which has already
+    // marked the previous result stale) or another screen claimed the
+    // backend's single run slot: the What-if sandbox and the comparison view
+    // both do, routinely. Either way what is on screen is not what was asked
+    // for, so say so rather than leave a figure looking current.
+    set({ monteCarloStale: get().monteCarlo !== null, monteCarloRun: null });
   } else if (result === "failed") {
     set({ monteCarlo: null, monteCarloStale: false, monteCarloRun: null });
   } else if (get().plan === plan) {
@@ -218,6 +227,42 @@ async function startMonteCarlo(
     // An edit landed during the run and, in auto mode, is about to start
     // another. Drop this result rather than show it against the wrong plan.
     set({ monteCarloRun: null });
+  }
+}
+
+/** Copies the active scenario to `newName`, optionally modifying the copy
+ * before it is written, and switches to it.
+ *
+ * Shared by `duplicateActive` and `promoteToScenario` because the two differ
+ * only in that one step: a plain duplicate is already on disk as the backend
+ * wrote it, while a promoted hypothetical needs one save of the mutated copy
+ * before it is activated. */
+async function branch(
+  set: (partial: Partial<PlanStore>) => void,
+  get: () => PlanStore,
+  newName: string,
+  mutate?: (draft: Plan) => void,
+): Promise<void> {
+  const current = get().plan;
+  if (!current) return;
+  await flushPendingSave(get);
+  try {
+    const copy = await duplicatePlan(current.id, newName);
+    let plan = copy;
+    if (mutate) {
+      plan = structuredClone(copy);
+      mutate(plan);
+      // The copy's identity belongs to the file the backend just wrote.
+      // `mutate` is a recipe over plan *content* and has no business moving
+      // the plan it is applied to.
+      plan.id = copy.id;
+      plan.name = copy.name;
+      await savePlan(plan);
+    }
+    set({ scenarios: await listPlans() });
+    await activate(set, get, plan);
+  } catch (e) {
+    set({ error: String(e) });
   }
 }
 
@@ -386,18 +431,9 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
     }
   },
 
-  duplicateActive: async (newName) => {
-    const current = get().plan;
-    if (!current) return;
-    await flushPendingSave(get);
-    try {
-      const copy = await duplicatePlan(current.id, newName);
-      set({ scenarios: await listPlans() });
-      await activate(set, get, copy);
-    } catch (e) {
-      set({ error: String(e) });
-    }
-  },
+  duplicateActive: (newName) => branch(set, get, newName),
+
+  promoteToScenario: (newName, mutate) => branch(set, get, newName, mutate),
 
   deleteScenario: async (id) => {
     try {

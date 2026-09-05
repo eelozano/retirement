@@ -160,6 +160,63 @@ describe("duplicateActive", () => {
   });
 });
 
+describe("promoteToScenario", () => {
+  it("applies the recipe to the copy, saves it, and switches to it", async () => {
+    const base = makePlan({ id: "base-plan", name: "Base plan" });
+    const copy = makePlan({ id: "spend-less", name: "Spend less" });
+
+    usePlanStore.setState({ plan: base, projection, scenarios: [] });
+    vi.mocked(api.duplicatePlan).mockResolvedValue(copy);
+    vi.mocked(api.savePlan).mockResolvedValue(undefined);
+    vi.mocked(api.listPlans).mockResolvedValue([
+      { id: "base-plan", name: "Base plan" },
+      { id: "spend-less", name: "Spend less" },
+    ]);
+    vi.mocked(api.runProjection).mockResolvedValue(projection);
+    vi.mocked(api.setActivePlan).mockResolvedValue(undefined);
+
+    await usePlanStore.getState().promoteToScenario("Spend less", (draft) => {
+      draft.assumptions.inflation = 0.05;
+    });
+
+    expect(api.duplicatePlan).toHaveBeenCalledWith("base-plan", "Spend less");
+    expect(api.savePlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "spend-less",
+        assumptions: expect.objectContaining({ inflation: 0.05 }),
+      }),
+    );
+    expect(usePlanStore.getState().plan?.id).toBe("spend-less");
+    expect(usePlanStore.getState().plan?.assumptions.inflation).toBe(0.05);
+    // The scenario it was promoted from is untouched — that is the whole
+    // point of promoting rather than editing.
+    expect(base.assumptions.inflation).toBe(0.03);
+  });
+
+  it("keeps the copy's identity whatever the recipe does to it", async () => {
+    const base = makePlan({ id: "base-plan", name: "Base plan" });
+    const copy = makePlan({ id: "spend-less", name: "Spend less" });
+
+    usePlanStore.setState({ plan: base, projection, scenarios: [] });
+    vi.mocked(api.duplicatePlan).mockResolvedValue(copy);
+    vi.mocked(api.savePlan).mockResolvedValue(undefined);
+    vi.mocked(api.listPlans).mockResolvedValue([]);
+    vi.mocked(api.runProjection).mockResolvedValue(projection);
+    vi.mocked(api.setActivePlan).mockResolvedValue(undefined);
+
+    await usePlanStore.getState().promoteToScenario("Spend less", (draft) => {
+      draft.id = "base-plan";
+      draft.name = "Base plan";
+    });
+
+    // A recipe that reaches for the id must not be able to write over the
+    // plan it was branched from.
+    expect(api.savePlan).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "spend-less", name: "Spend less" }),
+    );
+  });
+});
+
 describe("deleteScenario", () => {
   it("switches to another scenario when the active one is deleted", async () => {
     const base = makePlan({ id: "base-plan" });

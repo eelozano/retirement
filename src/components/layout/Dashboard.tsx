@@ -9,6 +9,7 @@ import { ReportMenu } from "./ReportMenu";
 import { ReportView } from "./ReportView";
 import { ScenariosScreen } from "./ScenariosScreen";
 import { StorageSettings } from "./StorageSettings";
+import { WhatIfScreen } from "./WhatIfScreen";
 
 // Application shell: rail on the left, then a header and one destination.
 //
@@ -145,6 +146,8 @@ export function Dashboard() {
             <GrowthScreen />
           ) : destination === "inputs" ? (
             <InputsScreen section={inputsSection} onSectionChange={setInputsSection} />
+          ) : destination === "whatif" ? (
+            <WhatIfScreen />
           ) : destination === "scenarios" ? (
             <ScenariosScreen />
           ) : (
