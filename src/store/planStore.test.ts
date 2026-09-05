@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { emptyDiagnostics } from "../test/fixtures";
+import { diagnostics } from "../test/fixtures";
 import type { MonteCarloResult } from "../types/generated/MonteCarloResult";
 import type { Plan } from "../types/generated/Plan";
 import type { Projection } from "../types/generated/Projection";
@@ -64,7 +64,7 @@ function makePlan(overrides: Partial<Plan>): Plan {
 const projection: Projection = { snapshots: [], warnings: [], streams: [] };
 
 function mcResult(success_rate: number, n_paths: number): MonteCarloResult {
-  return { n_paths, success_rate, percentiles: [], diagnostics: emptyDiagnostics() };
+  return { n_paths, success_rate, percentiles: [], diagnostics: diagnostics() };
 }
 
 /** A promise whose resolution this test controls, so a run can be held open
