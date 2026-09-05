@@ -51,6 +51,26 @@ impl SimConfig {
         }
         (months / self.period.months()) as usize + 1
     }
+
+    /// Index of the first simulated period that begins *at or after*
+    /// `month` — the first period a change dated `month` covers in full,
+    /// with no proration stub — clamped to 0 for a month at or before the
+    /// plan start. Not bounded by the plan's length: a month past the end
+    /// maps to an index past the last period, and the caller checks.
+    ///
+    /// Differs from `first_period_after` exactly when `month` falls on a
+    /// period start, which for an annual plan is any January date: that
+    /// period *is* the first full one, and the strict form would skip it.
+    /// The frontend's `firstFullPeriodAtOrAfter` mirrors this definition, so
+    /// anything measured "at retirement" on both sides names the same year.
+    pub fn first_full_period_at_or_after(&self, month: YearMonth) -> usize {
+        let months = self.start.months_until(month);
+        if months <= 0 {
+            return 0;
+        }
+        let per = self.period.months();
+        ((months + per - 1) / per) as usize
+    }
 }
 
 pub type PlanId = String;
@@ -172,7 +192,39 @@ impl<'de> Deserialize<'de> for Plan {
 
 #[cfg(test)]
 mod tests {
+    use super::{PeriodLength, SimConfig, YearMonth};
     use crate::presets::seed_plan;
+
+    #[test]
+    fn first_full_period_at_or_after_is_inclusive_on_a_period_start() {
+        let config = SimConfig {
+            start: YearMonth::new(2026, 1),
+            period: PeriodLength::Year,
+            display_real_dollars: false,
+        };
+        // A month at or before the start clamps to period 0.
+        assert_eq!(
+            config.first_full_period_at_or_after(YearMonth::new(2020, 6)),
+            0
+        );
+        assert_eq!(
+            config.first_full_period_at_or_after(YearMonth::new(2026, 1)),
+            0
+        );
+        // Mid-period: that period is a stub, the next is the first full one.
+        assert_eq!(
+            config.first_full_period_at_or_after(YearMonth::new(2038, 8)),
+            13
+        );
+        assert_eq!(config.first_period_after(YearMonth::new(2038, 8)), 13);
+        // On a period start the two helpers part ways: inclusive here,
+        // strict there.
+        assert_eq!(
+            config.first_full_period_at_or_after(YearMonth::new(2039, 1)),
+            13
+        );
+        assert_eq!(config.first_period_after(YearMonth::new(2039, 1)), 14);
+    }
 
     /// A plan file written before #28 has no `life_expectancy_age` on any
     /// person — only the household-wide `assumptions.plan_end_age`.
