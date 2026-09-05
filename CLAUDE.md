@@ -59,7 +59,8 @@ caution at all; see `.claude/skills/run-app/SKILL.md`.
   together — all three, or none — then tag `v0.N` on `main`.
 - Every release carries the built `.dmg` as an asset: `pnpm app:build`, then
   `gh release create v0.N --generate-notes <dmg>`. It is unsigned and Apple
-  Silicon only — say so in the notes. Building from source stays a supported
+  Silicon only, and installing from the download has not been tested on a
+  clean machine — say so in the notes. Building from source stays a supported
   path, and README documents both.
 
 ## Dev commands

@@ -65,15 +65,24 @@ schedule.](docs/screenshots/accounts.png)
 ## Get it running
 
 Two ways in: download the `.dmg` attached to the latest release, or build it
-from source. The download is the short path but is Apple Silicon only.
-Building is about four commands once the toolchain is in place, and works on
-any Mac.
+from source. **Building is the path that's actually been exercised** — it's
+how the app is developed and run every day, it works on any Mac, and it's
+about four commands once the toolchain is in place. The download is shorter,
+but it is Apple Silicon only and the install steps for it are written from how
+macOS is documented to behave rather than from a run-through on a clean
+machine.
 
 **Built and tested on macOS (Apple Silicon).** See
 [Other platforms](#other-platforms) before you start if you're on Linux or
 Windows — you can run it, but not package it as configured.
 
 ### Option A — download the release
+
+> **This path hasn't been tested.** The app has never actually been installed
+> from a downloaded `.dmg` on a Mac that didn't build it, so treat the steps
+> below as expected-to-work rather than verified. If anything doesn't match
+> what you see, [build from source](#option-b--build-from-source) — that's the
+> route that's known to work.
 
 Take the `.dmg` from the [latest
 release](https://github.com/eelozano/retirement/releases/latest), open it, and
