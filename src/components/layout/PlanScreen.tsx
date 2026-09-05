@@ -15,6 +15,7 @@ import {
   milestones,
   yearDetail,
 } from "../charts/planData";
+import { WhyPathsFail } from "../charts/WhyPathsFail";
 import { YearBalances } from "../charts/YearBalances";
 import { YearInspector } from "../charts/YearInspector";
 import { StatusBand } from "./StatusBand";
@@ -256,6 +257,15 @@ export function PlanScreen(props: { onOpenCashFlow: () => void }) {
                 percentiles={bandOn ? activeFan : null}
               />
             </section>
+
+            {/* Zone 2b — always open, never collapsed: the card exists to be
+                read, and a summary line that has to be clicked open is the
+                same nothing the screen had before. */}
+            <WhyPathsFail
+              result={monteCarlo}
+              depletionYear={depletionYear}
+              stale={monteCarloStale}
+            />
 
             <section className="milestones" aria-label="Milestones">
               {stones.map((m) => (

@@ -6,6 +6,7 @@ import type { Plan } from "../../types/generated/Plan";
 import type { Projection } from "../../types/generated/Projection";
 import type { YearMonth } from "../../types/generated/YearMonth";
 import { MAX_SERIES, OTHER_KEY, type SeriesDef } from "./chartData";
+import { failureFindings } from "./whyPathsFailData";
 
 // Derivations for the Plan screen's headline, milestones, and year inspector.
 // Everything here reads fields that already exist on PeriodSnapshot or
@@ -67,7 +68,12 @@ export interface HeadlineMetrics {
   /** Fraction of paths that never deplete, or null before the first run. */
   successRate: number | null;
   nPaths: number | null;
-  /** Paths that ran dry — the complement of the success rate. */
+  /**
+   * Paths that ran dry. The exact count the engine put in the diagnostics,
+   * not the success rate multiplied back out: the rate is a rounded ratio,
+   * and reconstructing a count from it can print a figure that does not add
+   * up against the path total.
+   */
   failedPaths: number | null;
   /**
    * Half-width of the 95% confidence interval on `successRate`, as a
@@ -96,13 +102,15 @@ export interface HeadlineMetrics {
    */
   p10AtEnd: number | null;
   /**
-   * First year the median path is at zero, or null if it never is.
+   * The year half the failed paths have run dry by — the nearest-rank median
+   * over `diagnostics.depletion_histogram`, so "half of them by this year" is
+   * literally what it reports.
    *
-   * Also a substitute: there are no per-path depletion years to take a
-   * median of, so this is "the year p50 hits zero" and must be worded that
-   * way rather than as a median depletion year.
+   * Null when no path failed. This used to be the year the p50 *line* hit
+   * zero, which is a different statistic entirely: the median path's balance,
+   * not the median failure's date.
    */
-  medianZeroYear: number | null;
+  medianFailureYear: number | null;
   /** Deterministic depletion year for the plan itself, or null. */
   depletionYear: number | null;
   /**
@@ -210,7 +218,7 @@ export function headlineMetrics(
   monteCarloStale = false,
 ): HeadlineMetrics {
   const lastPct = monteCarlo?.percentiles[monteCarlo.percentiles.length - 1];
-  const medianZero = monteCarlo?.percentiles.find((p) => p.p50 <= 0);
+  const diagnostics = monteCarlo ? failureFindings(monteCarlo) : null;
 
   // The earliest retirement is the one that puts the portfolio under load.
   const firstRetirement = plan.people
@@ -230,15 +238,13 @@ export function headlineMetrics(
   return {
     successRate: monteCarlo?.success_rate ?? null,
     nPaths: monteCarlo?.n_paths ?? null,
-    failedPaths: monteCarlo
-      ? Math.round((1 - monteCarlo.success_rate) * monteCarlo.n_paths)
-      : null,
+    failedPaths: monteCarlo ? (monteCarlo.diagnostics.failed?.n ?? 0) : null,
     successMargin: monteCarlo
       ? successMargin(monteCarlo.success_rate, monteCarlo.n_paths)
       : null,
     successStale: monteCarlo !== null && monteCarloStale,
     p10AtEnd: lastPct ? lastPct.p10 / basis(lastPct, realDollars) : null,
-    medianZeroYear: medianZero?.period_start.year ?? null,
+    medianFailureYear: diagnostics?.timing.medianYear ?? null,
     depletionYear,
     coverYears,
     coverYear: atRetirement?.period_start.year ?? null,

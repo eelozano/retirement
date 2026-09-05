@@ -142,8 +142,8 @@ export function HeadlineTiles(props: {
             ) : m.failedPaths && m.failedPaths > 0 ? (
               <>
                 {m.failedPaths.toLocaleString()} paths run dry
-                {m.medianZeroYear !== null && (
-                  <> — the median path reaches zero in {m.medianZeroYear}</>
+                {m.medianFailureYear !== null && (
+                  <> — half of them by {m.medianFailureYear}</>
                 )}
                 .
               </>
