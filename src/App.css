@@ -2125,3 +2125,169 @@ button.remove:hover {
     gap: var(--sp-4);
   }
 }
+
+/* ── What-if sandbox ──────────────────────────────────────────────────── */
+/* A knob column and a readout, side by side: the point of the screen is
+   watching the numbers move as a slider moves, which is lost the moment the
+   readout is below the fold. Under 1100px the numbers win the width and the
+   knobs go back on top. */
+.what-if {
+  display: grid;
+  grid-template-columns: minmax(250px, 290px) minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: start;
+}
+
+.what-if-knobs {
+  grid-row: 1 / span 2;
+  position: sticky;
+  top: 0;
+}
+
+@media (max-width: 1100px) {
+  .what-if {
+    display: flex;
+  }
+
+  .what-if-knobs {
+    position: static;
+  }
+}
+
+.knob-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-bottom: 8px;
+}
+
+.knob-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.knob-head label {
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+}
+
+/* The figure, not the slider position, is what the reader takes away — mono
+   so it doesn't reflow as it climbs, and only inked once it has left the
+   saved plan's value behind. */
+.knob-value {
+  font-family: var(--font-num);
+  font-size: var(--t-sm);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.knob-value.knob-moved {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.knob-track {
+  position: relative;
+}
+
+.knob-track input[type="range"] {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--focus);
+}
+
+.knob-track input[type="range"]:disabled {
+  opacity: 0.4;
+}
+
+/* Where the saved plan sits on this knob's range. Without it a slider shows
+   a value; with it, a change. */
+.knob-baseline {
+  position: absolute;
+  top: 100%;
+  width: 1px;
+  height: 5px;
+  background: var(--axis);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.knob-hint {
+  font-size: var(--t-xs);
+  color: var(--muted);
+  margin: 8px 0 0;
+  line-height: 1.4;
+}
+
+.what-if-note {
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+
+/* Inside a card, so it drops the page-level banner's margins. */
+.what-if-drift {
+  margin: 0 0 14px;
+  border: 1px solid var(--status-warn);
+  color: var(--status-warn);
+}
+
+.what-if .banner.critical {
+  margin: 0 0 12px;
+}
+
+.what-if-changes {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 0;
+}
+
+.what-if-changes li {
+  font-size: var(--t-xs);
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  border-radius: var(--r-1);
+  padding: 3px 8px;
+}
+
+/* Eight columns beside a knob column is tight at a laptop width. The table
+   scrolls rather than clipping either way, but a column of numbers that has
+   to be scrolled to is a column that doesn't get read. */
+.what-if .comparison-table th,
+.what-if .comparison-table td {
+  padding: 8px 9px;
+}
+
+.what-if-basis {
+  font-size: var(--t-xs);
+  color: var(--muted);
+}
+
+/* The one control on this screen that writes a file, kept at the bottom and
+   spelled out — everything above it is free to play with, and this is not. */
+.what-if-promote {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--grid);
+}
+
+.what-if-promote label {
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+}
+
+.what-if-promote .knob-hint {
+  grid-column: 1 / -1;
+  margin-top: 0;
+}

@@ -13,12 +13,37 @@ import { currencyCompact } from "../../lib/format";
 import { ChartTooltip } from "./ChartTooltip";
 import type { CompareRow, CompareSeriesDef } from "./compareData";
 
+/** The scenario lines only. The band is drawn as a transparent riser plus a
+ * height, so left alone it contributes two rows to the tooltip: one printing
+ * the raw `bandBase` key, and one printing p90 minus p10 as though it were a
+ * balance. It is a shape to be seen, not a number to be read off — and
+ * recharts 3 ignores `tooltipType`, so the rows are dropped here. */
+function ComparisonTooltip(props: {
+  active?: boolean;
+  label?: string | number;
+  payload?: readonly { dataKey?: string | number; name?: string | number }[];
+}) {
+  return (
+    <ChartTooltip
+      active={props.active}
+      label={props.label}
+      payload={props.payload?.filter(
+        (row) => row.dataKey !== "bandBase" && row.dataKey !== "bandHeight",
+      )}
+    />
+  );
+}
+
 export function ComparisonChart(props: {
   rows: CompareRow[];
   series: CompareSeriesDef[];
-  /** Draw the base scenario's p10–p90 band behind the lines. Requires rows
-   * from `mergeActiveBand`; ignored otherwise. */
+  /** Draw one scenario's p10–p90 band behind the lines. Requires rows from
+   * `mergeActiveBand`; ignored otherwise. */
   showBand?: boolean;
+  /** Whose band it is. The comparison view shades the base scenario; the
+   * What-if sandbox shades the draft, which is the one being weighed. A band
+   * labelled with the wrong scenario is worse than no band. */
+  bandLabel?: string;
 }) {
   return (
     <ResponsiveContainer width="100%" height={320}>
@@ -40,7 +65,7 @@ export function ComparisonChart(props: {
           width={64}
         />
         <Tooltip
-          content={<ChartTooltip />}
+          content={<ComparisonTooltip />}
           cursor={{ stroke: "var(--axis)", strokeWidth: 1 }}
         />
         <Legend
@@ -67,7 +92,7 @@ export function ComparisonChart(props: {
             />
             <Area
               dataKey="bandHeight"
-              name="Base: 10th–90th percentile"
+              name={props.bandLabel ?? "Base: 10th–90th percentile"}
               stackId="compare-band"
               stroke="none"
               fill="var(--band)"
