@@ -1,8 +1,9 @@
 import {
+  Area,
   CartesianGrid,
+  ComposedChart,
   Legend,
   Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -15,10 +16,15 @@ import type { CompareRow, CompareSeriesDef } from "./compareData";
 export function ComparisonChart(props: {
   rows: CompareRow[];
   series: CompareSeriesDef[];
+  /** Draw the base scenario's p10–p90 band behind the lines. Requires rows
+   * from `mergeActiveBand`; ignored otherwise. */
+  showBand?: boolean;
 }) {
   return (
     <ResponsiveContainer width="100%" height={320}>
-      <LineChart data={props.rows} margin={{ top: 8, right: 16, bottom: 0, left: 8 }}>
+      {/* Composed rather than a plain LineChart so the band can be an Area
+          under the same axes as the scenario lines. */}
+      <ComposedChart data={props.rows} margin={{ top: 8, right: 16, bottom: 0, left: 8 }}>
         <CartesianGrid stroke="var(--grid)" vertical={false} />
         <XAxis
           dataKey="year"
@@ -45,6 +51,31 @@ export function ComparisonChart(props: {
             <span style={{ color: "var(--text-secondary)" }}>{value}</span>
           )}
         />
+        {/* A transparent riser to p10, then the band's height — the same
+            stacked-pair trick as the projection chart's fan, and drawn before
+            the lines so every scenario stays legible on top of it. */}
+        {props.showBand && (
+          <>
+            <Area
+              dataKey="bandBase"
+              stackId="compare-band"
+              stroke="none"
+              fill="none"
+              isAnimationActive={false}
+              activeDot={false}
+              legendType="none"
+            />
+            <Area
+              dataKey="bandHeight"
+              name="Base: 10th–90th percentile"
+              stackId="compare-band"
+              stroke="none"
+              fill="var(--band)"
+              isAnimationActive={false}
+              activeDot={false}
+            />
+          </>
+        )}
         {props.series.map((s) => (
           <Line
             key={s.key}
@@ -58,7 +89,7 @@ export function ComparisonChart(props: {
             isAnimationActive={false}
           />
         ))}
-      </LineChart>
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }
