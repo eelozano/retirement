@@ -5,7 +5,13 @@
 // decides placement: destinations live here, settings sit at the bottom, and
 // display options stayed in the header as a segmented control.
 
-export type Destination = "plan" | "cashflow" | "growth" | "inputs" | "scenarios";
+export type Destination =
+  | "plan"
+  | "cashflow"
+  | "growth"
+  | "inputs"
+  | "whatif"
+  | "scenarios";
 
 interface RailProps {
   active: Destination;
@@ -34,6 +40,15 @@ const ICON = {
       <circle cx="9" cy="7" r="2" fill="var(--surface-1)" />
       <circle cx="15" cy="12" r="2" fill="var(--surface-1)" />
       <circle cx="8" cy="17" r="2" fill="var(--surface-1)" />
+    </>
+  ),
+  // Two futures out of one point — the sandbox's whole proposition, and the
+  // one glyph here that is about a fork rather than a document.
+  whatif: (
+    <>
+      <path d="M3 12h6" />
+      <path d="M9 12c5 0 5-7 12-7" />
+      <path d="M9 12c5 0 5 7 12 7" />
     </>
   ),
   scenarios: (
@@ -127,6 +142,12 @@ export function Rail(props: RailProps) {
         icon={ICON.inputs}
         current={props.active === "inputs"}
         onClick={() => props.onNavigate("inputs")}
+      />
+      <RailButton
+        label="What-if"
+        icon={ICON.whatif}
+        current={props.active === "whatif"}
+        onClick={() => props.onNavigate("whatif")}
       />
       <RailButton
         label="Scenarios"
