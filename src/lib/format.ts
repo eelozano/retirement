@@ -29,3 +29,15 @@ export function rateToPercent(rate: number): string {
 export function percentToRate(percent: number): number {
   return percent / 100;
 }
+
+/**
+ * Stored decimal rate (0.025) → a display percent ("2.5%"), with a true minus
+ * sign rather than a hyphen so a negative return reads as a number and not as
+ * a list dash.
+ */
+export function ratePercent(rate: number, decimals = 1): string {
+  const rounded = (rate * 100).toFixed(decimals);
+  // Rounding can land on "-0.0"; a signed zero is noise, not information.
+  if (Number(rounded) === 0) return `${(0).toFixed(decimals)}%`;
+  return rounded.startsWith("-") ? `−${rounded.slice(1)}%` : `${rounded}%`;
+}

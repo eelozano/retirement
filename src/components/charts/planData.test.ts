@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emptyDiagnostics } from "../../test/fixtures";
+import { diagnostics, pathGroup } from "../../test/fixtures";
 import type { Account } from "../../types/generated/Account";
 import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
 import type { PeriodSnapshot } from "../../types/generated/PeriodSnapshot";
@@ -75,7 +75,7 @@ function mc(overrides: Partial<MonteCarloResult>): MonteCarloResult {
     n_paths: 1000,
     success_rate: 1,
     percentiles: [],
-    diagnostics: emptyDiagnostics(),
+    diagnostics: diagnostics(),
     ...overrides,
   };
 }
@@ -201,7 +201,7 @@ describe("headlineMetrics", () => {
     expect(m.coverYears).toBeNull();
   });
 
-  it("derives failed paths and the year the median path reaches zero", () => {
+  it("takes the failed count and the median failure year off the diagnostics", () => {
     const p = plan([person("a", 1980, 2030)], []);
     const proj = projection([snapshot({})]);
     const result = mc({
@@ -228,13 +228,27 @@ describe("headlineMetrics", () => {
           p90: 800,
         },
       ],
+      diagnostics: diagnostics({
+        depletion_histogram: [200, 420],
+        failed: pathGroup({ n: 620 }),
+      }),
     });
 
     const m = headlineMetrics(p, proj, result, null, false);
+    // The engine's exact count, not 1000 x (1 - 0.38) rounded back out.
     expect(m.failedPaths).toBe(620);
-    expect(m.medianZeroYear).toBe(2040);
+    // Half of 620 is 310, which the cumulative count first reaches in 2040 —
+    // not "the year p50 hits zero", which this used to report.
+    expect(m.medianFailureYear).toBe(2040);
     // p10 at the final period, nominal.
     expect(m.p10AtEnd).toBe(0);
+  });
+
+  it("reports zero failures rather than null when every path held", () => {
+    const p = plan([person("a", 1980, 2030)], []);
+    const m = headlineMetrics(p, projection([snapshot({})]), mc({}), null, false);
+    expect(m.failedPaths).toBe(0);
+    expect(m.medianFailureYear).toBeNull();
   });
 
   it("deflates the closing p10 when showing today's dollars", () => {

@@ -13,6 +13,7 @@ import { DataTable } from "../charts/DataTable";
 import { HeadlineTiles } from "../charts/HeadlineTiles";
 import { ProjectionChart } from "../charts/ProjectionChart";
 import { headlineMetrics } from "../charts/planData";
+import { WhyPathsFail } from "../charts/WhyPathsFail";
 import {
   ASSET_LABELS,
   FILING_STATUS_OPTIONS,
@@ -211,6 +212,21 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
             <h2>Headline</h2>
             <HeadlineTiles metrics={metrics} realDollars={realDollars} />
           </section>
+
+          {/* Same null test the card makes internally: `failed` is null
+              exactly when no path ran dry, and a heading over a card that
+              renders nothing is a heading over nothing. */}
+          {monteCarlo?.diagnostics.failed && (
+            <section className="report-section" aria-label="Why paths fail">
+              <h2>Why paths fail</h2>
+              <WhyPathsFail
+                result={monteCarlo}
+                depletionYear={depletionYear}
+                stale={monteCarloStale}
+                heading={false}
+              />
+            </section>
+          )}
 
           {series.length > 0 && (
             <section className="report-section" aria-label="Net worth and balances">
