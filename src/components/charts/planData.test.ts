@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { emptyDiagnostics } from "../../test/fixtures";
 import type { Account } from "../../types/generated/Account";
 import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
 import type { PeriodSnapshot } from "../../types/generated/PeriodSnapshot";
@@ -70,7 +71,13 @@ function plan(people: Person[], accounts: Account[]): Plan {
 }
 
 function mc(overrides: Partial<MonteCarloResult>): MonteCarloResult {
-  return { n_paths: 1000, success_rate: 1, percentiles: [], ...overrides };
+  return {
+    n_paths: 1000,
+    success_rate: 1,
+    percentiles: [],
+    diagnostics: emptyDiagnostics(),
+    ...overrides,
+  };
 }
 
 /**

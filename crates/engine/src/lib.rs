@@ -13,8 +13,9 @@ pub mod strategies;
 pub use model::{Plan, YearMonth};
 pub use sim::{
     run_monte_carlo as run_monte_carlo_sim, run_monte_carlo_with as run_monte_carlo_sim_with,
-    simulate, Cancelled, MonteCarloConfig, MonteCarloResult, PeriodPercentiles, PeriodSnapshot,
-    Projection, RunControl, SimWarning, StreamInfo,
+    simulate, Cancelled, MonteCarloConfig, MonteCarloDiagnostics, MonteCarloResult, PathGroupStats,
+    PeriodPercentiles, PeriodSnapshot, Projection, RunControl, SimWarning, Spread, StreamInfo,
+    EARLY_RETIREMENT_WINDOW_YEARS,
 };
 
 use model::FilingStatus;

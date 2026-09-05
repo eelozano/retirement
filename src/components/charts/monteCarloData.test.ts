@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { emptyDiagnostics } from "../../test/fixtures";
 import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
 import { fanRows, successTone } from "./monteCarloData";
 
@@ -6,6 +7,7 @@ function result(): MonteCarloResult {
   return {
     n_paths: 100,
     success_rate: 0.9,
+    diagnostics: emptyDiagnostics(),
     percentiles: [
       {
         period: 0,
