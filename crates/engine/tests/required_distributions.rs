@@ -107,6 +107,7 @@ impl Fixture {
             id: "rmd".to_string(),
             schema_version: SCHEMA_VERSION,
             name: "rmd".to_string(),
+            sample: false,
             people: vec![Person {
                 id: "p1".to_string(),
                 name: "Retiree".to_string(),

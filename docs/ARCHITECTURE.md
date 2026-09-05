@@ -461,7 +461,7 @@ tracked in GitHub issues (`gh issue list`), not here.
 
 **M1 — Engine core (pure Rust, no UI).** Domain model + presets; `simulate()` with FixedReturns/FlatTax/ProportionalDrawdown; seed scenario (Alex + Jordan, 3 accounts, salary/spending streams) as a fixture. Tests: golden-file projection snapshot, hand-computed 3-period micro-case, property tests (balances ≥ 0, cash conservation per period, depletion emits warning). *Done: `cargo test` proves the math.*
 
-**M2 — IPC + persistence.** Commands, storage layer, load-on-launch/save flows, seed plan bootstrap on first run. *Done: a plan round-trips through the app and a projection returns to the frontend.*
+**M2 — IPC + persistence.** Commands, storage layer, load-on-launch/save flows, seed plan bootstrap on first run (removed in #103: a fresh install now opens empty, and the example household is loaded on request). *Done: a plan round-trips through the app and a projection returns to the frontend.*
 
 **M3 — Dashboard UI.** Zustand store + debounced re-projection; input drawer (people, accounts w/ preset picker, streams, assumptions); Recharts stacked-area balances by account, net-worth line, summary stats (retirement-date net worth, depletion age if any); nominal/real toggle; responsive layout. *Done: editing any input live-updates the charts.*
 

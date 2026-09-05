@@ -26,6 +26,7 @@ fn base_plan(accounts: Vec<Account>) -> Plan {
         id: "account-types".to_string(),
         schema_version: SCHEMA_VERSION,
         name: "account-types".to_string(),
+        sample: false,
         people: vec![Person {
             id: person.clone(),
             name: "Saver".to_string(),

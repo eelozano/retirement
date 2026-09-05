@@ -64,6 +64,7 @@ fn staggered_household() -> Plan {
         id: "sweep".to_string(),
         schema_version: SCHEMA_VERSION,
         name: "sweep".to_string(),
+        sample: false,
         people: vec![
             Person {
                 id: "early".to_string(),

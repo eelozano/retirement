@@ -89,6 +89,17 @@ pub struct Plan {
     pub id: PlanId,
     pub schema_version: u32,
     pub name: String,
+    /// True for a plan created from the bundled example household
+    /// ([`crate::presets::seed_plan`]) rather than from the user's own
+    /// numbers, so the UI can label it as an example for as long as it
+    /// exists and it can never be mistaken for real finances (#103).
+    ///
+    /// Persistent and copied by duplication on purpose: a scenario branched
+    /// off the example is still the example's balances until the user
+    /// replaces them. `#[serde(default)]` so every plan written before this
+    /// field existed loads as the user's own, which is what it is.
+    #[serde(default)]
+    pub sample: bool,
     pub people: Vec<Person>,
     pub accounts: Vec<Account>,
     pub streams: Vec<CashFlowStream>,
@@ -163,6 +174,8 @@ struct PlanWire {
     id: PlanId,
     schema_version: u32,
     name: String,
+    #[serde(default)]
+    sample: bool,
     people: Vec<PersonWire>,
     accounts: Vec<Account>,
     streams: Vec<CashFlowStream>,
@@ -180,6 +193,7 @@ impl<'de> Deserialize<'de> for Plan {
             id: w.id,
             schema_version: w.schema_version,
             name: w.name,
+            sample: w.sample,
             people: w.people.into_iter().map(|p| p.resolve(fallback)).collect(),
             accounts: w.accounts,
             streams: w.streams,

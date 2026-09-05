@@ -16,6 +16,8 @@ vi.mock("../lib/api", () => ({
   setActivePlan: vi.fn(),
   duplicatePlan: vi.fn(),
   deletePlan: vi.fn(),
+  createPlan: vi.fn(),
+  createSamplePlan: vi.fn(),
   getPresets: vi.fn(),
   runMonteCarlo: vi.fn(),
   cancelMonteCarlo: vi.fn(),
@@ -32,6 +34,7 @@ function makePlan(overrides: Partial<Plan>): Plan {
     id: "base-plan",
     schema_version: 1,
     name: "Base plan",
+    sample: false,
     people: [],
     accounts: [],
     streams: [],
@@ -87,6 +90,7 @@ beforeEach(() => {
   usePlanStore.setState({
     scenarios: [],
     plan: null,
+    initialized: false,
     projection: null,
     monteCarlo: null,
     monteCarloPaths: null,
@@ -633,5 +637,145 @@ describe("Monte Carlo run control", () => {
     expect(usePlanStore.getState().monteCarlo).toBeNull();
     expect(usePlanStore.getState().monteCarloStale).toBe(false);
     expect(usePlanStore.getState().monteCarloRun).toBeNull();
+  });
+});
+
+// #103: a fresh install must not be handed an invented household, and a user
+// who deletes their last scenario must land somewhere rather than have one
+// resurrected.
+
+describe("a fresh install", () => {
+  /** Every call `init` fans out, with no plan on disk. */
+  function mockEmptyInstall() {
+    vi.mocked(api.listPlans).mockResolvedValue([]);
+    vi.mocked(api.loadPlan).mockResolvedValue(null);
+    vi.mocked(api.getPresets).mockResolvedValue(
+      null as unknown as Awaited<ReturnType<typeof api.getPresets>>,
+    );
+    vi.mocked(api.getMonteCarloPaths).mockResolvedValue(1000);
+    vi.mocked(api.getMonteCarloLimits).mockResolvedValue({
+      min_paths: 100,
+      max_paths: 100000,
+      auto_run_max_paths: 10000,
+    });
+  }
+
+  it("initializes with no plan, and does not invent one", async () => {
+    mockEmptyInstall();
+
+    await usePlanStore.getState().init();
+
+    const state = usePlanStore.getState();
+    expect(state.plan).toBeNull();
+    expect(state.initialized).toBe(true);
+    // Null is a destination, not a failure.
+    expect(state.error).toBeNull();
+    // Nothing was projected, saved, or written on the user's behalf.
+    expect(api.runProjection).not.toHaveBeenCalled();
+    expect(api.savePlan).not.toHaveBeenCalled();
+    expect(api.createPlan).not.toHaveBeenCalled();
+    expect(api.createSamplePlan).not.toHaveBeenCalled();
+  });
+
+  it("opens the plan the user describes, with nothing added to it", async () => {
+    mockEmptyInstall();
+    await usePlanStore.getState().init();
+
+    const created = makePlan({
+      id: "my-plan",
+      name: "My plan",
+      accounts: [],
+      streams: [],
+    });
+    vi.mocked(api.createPlan).mockResolvedValue(created);
+    vi.mocked(api.listPlans).mockResolvedValue([{ id: "my-plan", name: "My plan" }]);
+    vi.mocked(api.runProjection).mockResolvedValue(projection);
+    vi.mocked(api.setActivePlan).mockResolvedValue(undefined);
+    vi.mocked(api.runMonteCarlo).mockResolvedValue(mcResult(1, 1000));
+
+    const people = [
+      {
+        name: "Sam",
+        birth: { year: 1990, month: 4 },
+        retirement: { year: 2055, month: 4 },
+      },
+    ];
+    await usePlanStore.getState().createPlan("My plan", people);
+
+    expect(api.createPlan).toHaveBeenCalledWith("My plan", people);
+    const state = usePlanStore.getState();
+    expect(state.plan?.id).toBe("my-plan");
+    expect(state.plan?.sample).toBe(false);
+    expect(state.scenarios).toEqual([{ id: "my-plan", name: "My plan" }]);
+  });
+
+  it("keeps the example household marked as an example when loaded on purpose", async () => {
+    mockEmptyInstall();
+    await usePlanStore.getState().init();
+
+    const sample = makePlan({
+      id: "example-household",
+      name: "Example household",
+      sample: true,
+    });
+    vi.mocked(api.createSamplePlan).mockResolvedValue(sample);
+    vi.mocked(api.listPlans).mockResolvedValue([
+      { id: "example-household", name: "Example household" },
+    ]);
+    vi.mocked(api.runProjection).mockResolvedValue(projection);
+    vi.mocked(api.setActivePlan).mockResolvedValue(undefined);
+    vi.mocked(api.runMonteCarlo).mockResolvedValue(mcResult(1, 1000));
+
+    await usePlanStore.getState().loadSample();
+
+    expect(usePlanStore.getState().plan?.sample).toBe(true);
+  });
+});
+
+describe("deleteScenario", () => {
+  it("returns to having no plan when the last one is deleted", async () => {
+    const only = makePlan({ id: "only", name: "Only plan" });
+    usePlanStore.setState({
+      plan: only,
+      projection,
+      initialized: true,
+      scenarios: [{ id: "only", name: "Only plan" }],
+    });
+    vi.mocked(api.deletePlan).mockResolvedValue(undefined);
+    vi.mocked(api.listPlans).mockResolvedValue([]);
+
+    await usePlanStore.getState().deleteScenario("only");
+
+    const state = usePlanStore.getState();
+    expect(state.plan).toBeNull();
+    expect(state.projection).toBeNull();
+    expect(state.scenarios).toEqual([]);
+    expect(state.error).toBeNull();
+    // Emphatically not re-opened from a seed.
+    expect(api.loadPlanNamed).not.toHaveBeenCalled();
+  });
+
+  it("opens the next scenario when one remains", async () => {
+    const a = makePlan({ id: "a", name: "A" });
+    const b = makePlan({ id: "b", name: "B" });
+    usePlanStore.setState({
+      plan: a,
+      projection,
+      initialized: true,
+      scenarios: [
+        { id: "a", name: "A" },
+        { id: "b", name: "B" },
+      ],
+    });
+    vi.mocked(api.deletePlan).mockResolvedValue(undefined);
+    vi.mocked(api.listPlans).mockResolvedValue([{ id: "b", name: "B" }]);
+    vi.mocked(api.loadPlanNamed).mockResolvedValue(b);
+    vi.mocked(api.runProjection).mockResolvedValue(projection);
+    vi.mocked(api.setActivePlan).mockResolvedValue(undefined);
+    vi.mocked(api.runMonteCarlo).mockResolvedValue(mcResult(1, 1000));
+
+    await usePlanStore.getState().deleteScenario("a");
+
+    expect(usePlanStore.getState().plan?.id).toBe("b");
   });
 });

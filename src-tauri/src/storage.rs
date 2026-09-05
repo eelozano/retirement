@@ -57,7 +57,7 @@ fn iso_stamp_now() -> String {
 /// Filesystem-safe slug from a plan name ("Base plan" → "base-plan"). Used
 /// both to derive a stable `id` for pre-#6 plans that predate the `id`
 /// field, and as the human-readable starting point for a new plan's id.
-fn slugify(name: &str) -> String {
+pub(crate) fn slugify(name: &str) -> String {
     let slug: String = name
         .trim()
         .to_lowercase()
@@ -186,16 +186,73 @@ pub fn load_plan(base: &Path, id: &str) -> Result<Plan, String> {
     load_and_backfill_id(base, &plan_path(base, id))
 }
 
-/// Load the single V1 plan: the first stored plan, or bootstrap and persist
-/// the seed plan on first run.
-pub fn load_or_bootstrap(base: &Path) -> Result<Plan, String> {
-    if let Some(path) = plan_file_paths(base)?.first() {
-        return load_and_backfill_id(base, path);
+/// The first stored plan, or `None` when there are none.
+///
+/// `None` is a normal state, not a failure: it is what a fresh install looks
+/// like, and what the plans directory looks like again once the user deletes
+/// their last scenario. The frontend answers it with the welcome screen.
+///
+/// This used to bootstrap and persist [`engine::presets::seed_plan`] instead
+/// of returning `None`, which meant a new user's first screen was a complete
+/// projection for an invented household presented as their own (#103). An
+/// example household is now something the user asks for by name — see
+/// [`create_sample_plan`].
+pub fn load_first(base: &Path) -> Result<Option<Plan>, String> {
+    match plan_file_paths(base)?.first() {
+        Some(path) => load_and_backfill_id(base, path).map(Some),
+        None => Ok(None),
     }
-    let seed = engine::presets::seed_plan();
-    save_plan(base, &seed)?;
-    Ok(seed)
 }
+
+/// Gives `plan` a fresh id derived from its own name and writes it.
+///
+/// Validation is the caller's job and must happen *before* this: once it
+/// returns, the plan is on disk.
+fn store_new_plan(base: &Path, mut plan: Plan) -> Result<Plan, String> {
+    plan.id = generate_id(base, &plan.name);
+    save_plan(base, &plan)?;
+    Ok(plan)
+}
+
+/// Builds a brand-new plan for `people` — no accounts, no income, no
+/// spending. `start` is the plan's first simulated month, which the caller
+/// resolves from the clock.
+///
+/// Returned unsaved, so the caller validates before anything is written:
+/// `people` comes from the frontend, and a plan the engine would reject must
+/// not reach the plans directory.
+pub fn new_plan(
+    name: &str,
+    start: engine::model::YearMonth,
+    people: Vec<engine::model::Person>,
+) -> Plan {
+    engine::presets::new_plan(name, start, people)
+}
+
+/// Writes a validated plan as a new one, under a fresh id.
+pub fn create_plan(base: &Path, plan: Plan) -> Result<Plan, String> {
+    store_new_plan(base, plan)
+}
+
+/// Writes a copy of the invented example household ([`engine::presets::seed_plan`])
+/// under a fresh id, for a user who asked to load an example to look around.
+///
+/// The stored plan keeps `sample: true`, so the UI labels it as an example
+/// for as long as it exists and it is never mistaken for the user's own
+/// numbers. No validation step: this plan is a compile-time constant of the
+/// engine's, and `seed_plan_is_valid` already pins it.
+pub fn create_sample_plan(base: &Path) -> Result<Plan, String> {
+    let mut plan = engine::presets::seed_plan();
+    // Renamed on the way out rather than in `seed_plan` itself, which is the
+    // engine's test fixture and whose name the golden tests pin. The name
+    // matters because it is what the scenario switcher and an exported
+    // report show, where the `sample` badge does not reach.
+    plan.name = SAMPLE_PLAN_NAME.to_string();
+    store_new_plan(base, plan)
+}
+
+/// What a loaded example household is called on disk and in the switcher.
+pub const SAMPLE_PLAN_NAME: &str = "Example household";
 
 /// Deep-copies a stored plan under a new name and a freshly generated id.
 pub fn duplicate_plan(base: &Path, id: &str, new_name: &str) -> Result<Plan, String> {
@@ -348,6 +405,8 @@ pub fn cleanup(base: &Path) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    use engine::model::YearMonth;
+
     use super::*;
 
     struct TempBase(PathBuf);
@@ -370,12 +429,35 @@ mod tests {
         }
     }
 
+    /// Puts the example household on disk and returns it — what
+    /// `load_or_bootstrap` used to do implicitly, before a fresh install
+    /// stopped inventing one (#103). Tests below use it only to have *a*
+    /// plan to act on.
+    fn seed(base: &Path) -> Plan {
+        let plan = engine::presets::seed_plan();
+        save_plan(base, &plan).unwrap();
+        plan
+    }
+
     #[test]
-    fn bootstrap_then_roundtrip() {
+    fn a_fresh_install_has_no_plan() {
+        let base = TempBase::new("fresh");
+        assert!(
+            load_first(&base.0).unwrap().is_none(),
+            "a fresh install must not invent a household (#103)"
+        );
+        assert!(list_plans(&base.0).unwrap().is_empty());
+        // And reading it did not create one as a side effect.
+        assert!(!plans_dir(&base.0).exists());
+    }
+
+    #[test]
+    fn load_first_roundtrips_a_stored_plan() {
         let base = TempBase::new("roundtrip");
-        let plan = load_or_bootstrap(&base.0).unwrap();
-        assert_eq!(plan.name, "Base plan");
-        assert_eq!(plan.id, "base-plan");
+        let plan = seed(&base.0);
+        let loaded = load_first(&base.0).unwrap().expect("a plan is stored");
+        assert_eq!(loaded.name, "Base plan");
+        assert_eq!(loaded.id, "base-plan");
         let summaries = list_plans(&base.0).unwrap();
         assert_eq!(summaries.len(), 1);
         assert_eq!(summaries[0].id, "base-plan");
@@ -385,10 +467,99 @@ mod tests {
         edited.assumptions.inflation = 0.03;
         save_plan(&base.0, &edited).unwrap();
 
-        let reloaded = load_or_bootstrap(&base.0).unwrap();
+        let reloaded = load_first(&base.0).unwrap().expect("a plan is stored");
         assert_eq!(reloaded.assumptions.inflation, 0.03);
         // Previous version preserved as .bak.
         assert!(plans_dir(&base.0).join("base-plan.yaml.bak").exists());
+    }
+
+    #[test]
+    fn deleting_the_last_plan_returns_to_having_none() {
+        let base = TempBase::new("delete-last");
+        seed(&base.0);
+        delete_plan(&base.0, "base-plan").unwrap();
+        assert!(
+            load_first(&base.0).unwrap().is_none(),
+            "deleting the last plan leaves none, rather than resurrecting one"
+        );
+    }
+
+    #[test]
+    fn create_plan_writes_a_household_and_nothing_else() {
+        let base = TempBase::new("create");
+        let people = vec![engine::model::Person {
+            id: "sam".to_string(),
+            name: "Sam".to_string(),
+            birth: YearMonth::new(1990, 4),
+            retirement: YearMonth::new(2055, 4),
+            life_expectancy_age: 95,
+        }];
+        let plan = create_plan(
+            &base.0,
+            new_plan("My plan", YearMonth::new(2026, 1), people),
+        )
+        .unwrap();
+
+        assert_eq!(plan.id, "my-plan");
+        assert!(!plan.sample, "the user's own plan is not an example");
+        assert_eq!(plan.people.len(), 1);
+        assert!(plan.accounts.is_empty(), "no invented accounts");
+        assert!(plan.streams.is_empty(), "no invented income or spending");
+        assert!(plan.social_security.is_empty());
+        assert!(plan.validate().is_empty(), "and it is savable as-is");
+
+        // Persisted, not just returned.
+        assert_eq!(load_plan(&base.0, "my-plan").unwrap().name, "My plan");
+    }
+
+    #[test]
+    fn new_plan_writes_nothing_so_it_can_be_validated_first() {
+        let base = TempBase::new("new-unsaved");
+        // A person the engine rejects: retirement before birth. The command
+        // layer validates between `new_plan` and `create_plan`, so this must
+        // never reach the plans directory — a plan that fails validation
+        // would fail to load on every launch after it.
+        let people = vec![engine::model::Person {
+            id: "sam".to_string(),
+            name: "Sam".to_string(),
+            birth: YearMonth::new(1990, 4),
+            retirement: YearMonth::new(1980, 4),
+            life_expectancy_age: 95,
+        }];
+        let plan = new_plan("Backwards", YearMonth::new(2026, 1), people);
+
+        assert!(
+            !plan.validate().is_empty(),
+            "the caller has something to reject"
+        );
+        assert!(list_plans(&base.0).unwrap().is_empty());
+        assert!(
+            !plans_dir(&base.0).exists(),
+            "building a plan touched no files"
+        );
+    }
+
+    #[test]
+    fn create_sample_plan_names_itself_an_example_and_says_so_in_the_file() {
+        let base = TempBase::new("sample");
+        let plan = create_sample_plan(&base.0).unwrap();
+        assert_eq!(plan.name, SAMPLE_PLAN_NAME);
+        assert!(plan.sample);
+        // The flag survives the round trip, so the badge outlives this session.
+        let reloaded = load_plan(&base.0, &plan.id).unwrap();
+        assert!(reloaded.sample);
+        assert_eq!(reloaded.name, SAMPLE_PLAN_NAME);
+    }
+
+    #[test]
+    fn a_scenario_branched_off_the_example_is_still_the_example() {
+        let base = TempBase::new("sample-duplicate");
+        let sample = create_sample_plan(&base.0).unwrap();
+        let copy = duplicate_plan(&base.0, &sample.id, "What if we move").unwrap();
+        assert!(
+            copy.sample,
+            "a copy of invented balances is still invented balances"
+        );
     }
 
     #[test]
@@ -447,7 +618,7 @@ mod tests {
     #[test]
     fn duplicate_plan_gets_new_id_and_name() {
         let base = TempBase::new("duplicate");
-        load_or_bootstrap(&base.0).unwrap();
+        seed(&base.0);
 
         let copy = duplicate_plan(&base.0, "base-plan", "Sell the home").unwrap();
         assert_eq!(copy.name, "Sell the home");
@@ -465,7 +636,7 @@ mod tests {
     #[test]
     fn duplicate_plan_disambiguates_colliding_slug() {
         let base = TempBase::new("duplicate-collision");
-        load_or_bootstrap(&base.0).unwrap();
+        seed(&base.0);
 
         // Duplicating under a name that slugifies to an existing id must not
         // collide with (and overwrite) that plan's file.
@@ -480,7 +651,7 @@ mod tests {
     #[test]
     fn delete_plan_moves_file_to_trash_without_removing_it() {
         let base = TempBase::new("delete");
-        load_or_bootstrap(&base.0).unwrap();
+        seed(&base.0);
 
         delete_plan(&base.0, "base-plan").unwrap();
         assert!(list_plans(&base.0).unwrap().is_empty());
@@ -506,7 +677,7 @@ mod tests {
     #[test]
     fn snapshot_plan_captures_current_file_and_lists_newest_first() {
         let base = TempBase::new("snapshot-list");
-        load_or_bootstrap(&base.0).unwrap();
+        seed(&base.0);
 
         snapshot_plan(&base.0, "base-plan").unwrap();
         std::thread::sleep(std::time::Duration::from_millis(2));
@@ -521,7 +692,7 @@ mod tests {
     #[test]
     fn snapshot_plan_prunes_beyond_the_cap() {
         let base = TempBase::new("snapshot-prune");
-        load_or_bootstrap(&base.0).unwrap();
+        seed(&base.0);
 
         for _ in 0..(MAX_SNAPSHOTS_PER_PLAN + 5) {
             snapshot_plan(&base.0, "base-plan").unwrap();
@@ -537,7 +708,7 @@ mod tests {
     #[test]
     fn restore_snapshot_brings_back_prior_content_and_is_itself_undoable() {
         let base = TempBase::new("restore");
-        let original = load_or_bootstrap(&base.0).unwrap();
+        let original = seed(&base.0);
 
         // Snapshot the original state, then edit and save.
         snapshot_plan(&base.0, "base-plan").unwrap();
@@ -604,7 +775,7 @@ mod tests {
     #[test]
     fn export_plans_copies_the_whole_directory_timestamped() {
         let base = TempBase::new("export-source");
-        load_or_bootstrap(&base.0).unwrap();
+        seed(&base.0);
         snapshot_plan(&base.0, "base-plan").unwrap();
 
         let dest_parent = TempBase::new("export-dest");

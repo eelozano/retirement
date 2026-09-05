@@ -1,6 +1,7 @@
 id: retire-two-years-early
 schema_version: 1
 name: Retire two years early
+sample: true
 people:
 - id: alex
   name: Alex
