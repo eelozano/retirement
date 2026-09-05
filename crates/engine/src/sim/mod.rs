@@ -6,8 +6,9 @@ mod required_distributions;
 mod survivor;
 
 pub use monte_carlo::{
-    run_monte_carlo, run_monte_carlo_with, Cancelled, MonteCarloConfig, MonteCarloResult,
-    PeriodPercentiles, RunControl,
+    run_monte_carlo, run_monte_carlo_with, Cancelled, MonteCarloConfig, MonteCarloDiagnostics,
+    MonteCarloResult, PathGroupStats, PeriodPercentiles, RunControl, Spread,
+    EARLY_RETIREMENT_WINDOW_YEARS,
 };
 pub use projection::{PeriodSnapshot, Projection, SimWarning, StreamInfo};
 
