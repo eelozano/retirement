@@ -681,7 +681,12 @@ describe("a fresh install", () => {
     mockEmptyInstall();
     await usePlanStore.getState().init();
 
-    const created = makePlan({ id: "my-plan", name: "My plan", accounts: [], streams: [] });
+    const created = makePlan({
+      id: "my-plan",
+      name: "My plan",
+      accounts: [],
+      streams: [],
+    });
     vi.mocked(api.createPlan).mockResolvedValue(created);
     vi.mocked(api.listPlans).mockResolvedValue([{ id: "my-plan", name: "My plan" }]);
     vi.mocked(api.runProjection).mockResolvedValue(projection);
@@ -689,7 +694,11 @@ describe("a fresh install", () => {
     vi.mocked(api.runMonteCarlo).mockResolvedValue(mcResult(1, 1000));
 
     const people = [
-      { name: "Sam", birth: { year: 1990, month: 4 }, retirement: { year: 2055, month: 4 } },
+      {
+        name: "Sam",
+        birth: { year: 1990, month: 4 },
+        retirement: { year: 2055, month: 4 },
+      },
     ];
     await usePlanStore.getState().createPlan("My plan", people);
 
@@ -704,7 +713,11 @@ describe("a fresh install", () => {
     mockEmptyInstall();
     await usePlanStore.getState().init();
 
-    const sample = makePlan({ id: "example-household", name: "Example household", sample: true });
+    const sample = makePlan({
+      id: "example-household",
+      name: "Example household",
+      sample: true,
+    });
     vi.mocked(api.createSamplePlan).mockResolvedValue(sample);
     vi.mocked(api.listPlans).mockResolvedValue([
       { id: "example-household", name: "Example household" },
