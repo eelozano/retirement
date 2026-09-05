@@ -27,6 +27,7 @@ fn plan_with(contribution: ContributionRule, kind: AccountKind, plan_type: PlanT
         id: "modes".to_string(),
         schema_version: SCHEMA_VERSION,
         name: "modes".to_string(),
+        sample: false,
         people: vec![Person {
             id: person.clone(),
             name: "Saver".to_string(),

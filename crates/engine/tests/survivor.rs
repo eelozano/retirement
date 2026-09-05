@@ -28,6 +28,7 @@ fn household() -> Plan {
         id: "survivor-test".to_string(),
         schema_version: SCHEMA_VERSION,
         name: "survivor-test".to_string(),
+        sample: false,
         people: vec![
             person(
                 "first",

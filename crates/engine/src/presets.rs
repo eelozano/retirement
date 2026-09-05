@@ -376,8 +376,18 @@ pub fn presets() -> Presets {
     }
 }
 
-/// Starter plan bootstrapped on first run. Balances, salaries, and spending
-/// are editable placeholders — only the people and dates are real inputs.
+/// The invented example household — Alex and Jordan and their invented
+/// balances. It is the fixture every engine test projects against, and the
+/// plan the app writes when the user explicitly asks to load an example to
+/// look around.
+///
+/// It is **not** what a fresh install bootstraps: until #103 it was, and a
+/// new user's first screen was a complete projection for a household that
+/// does not exist, with nothing saying so. A new install now starts empty
+/// (see [`new_plan`]).
+///
+/// Per CLAUDE.md this household stays invented — it is public, committed,
+/// and screenshotted, and must never be seeded from anyone's real plan.
 pub fn seed_plan() -> Plan {
     let alex = "alex".to_string();
     let jordan = "jordan".to_string();
@@ -385,6 +395,7 @@ pub fn seed_plan() -> Plan {
         id: "base-plan".to_string(),
         schema_version: SCHEMA_VERSION,
         name: "Base plan".to_string(),
+        sample: true,
         people: vec![
             Person {
                 id: alex.clone(),
@@ -503,6 +514,33 @@ pub fn seed_plan() -> Plan {
         assumptions: default_assumptions(),
         sim_config: SimConfig {
             start: YearMonth::new(2026, 1),
+            period: PeriodLength::Year,
+            display_real_dollars: false,
+        },
+    }
+}
+
+/// An empty plan for a household the user has just described: their people,
+/// and nothing else. No accounts, no income, no spending — those are what
+/// the user is about to enter, and inventing placeholders for them is what
+/// [`seed_plan`] is for and what a *new* plan must never do (#103).
+///
+/// `start` is passed in rather than read from a clock: the engine is a pure
+/// library, so "now" is the adapter's call.
+pub fn new_plan(name: &str, start: YearMonth, people: Vec<Person>) -> Plan {
+    Plan {
+        // Assigned by the storage layer, which owns file-name uniqueness.
+        id: String::new(),
+        schema_version: SCHEMA_VERSION,
+        name: name.to_string(),
+        sample: false,
+        people,
+        accounts: Vec::new(),
+        streams: Vec::new(),
+        social_security: Vec::new(),
+        assumptions: default_assumptions(),
+        sim_config: SimConfig {
+            start,
             period: PeriodLength::Year,
             display_real_dollars: false,
         },

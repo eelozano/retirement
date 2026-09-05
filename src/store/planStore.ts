@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import {
   cancelMonteCarlo as cancelMonteCarloApi,
+  createPlan as createPlanApi,
+  createSamplePlan as createSamplePlanApi,
   deletePlan,
   duplicatePlan,
   getMonteCarloLimits,
@@ -10,6 +12,7 @@ import {
   loadPlan,
   loadPlanNamed,
   type MonteCarloLimits,
+  type NewPerson,
   type PlanSummary,
   setMonteCarloPaths as persistMonteCarloPaths,
   restoreSnapshot as restoreSnapshotApi,
@@ -90,7 +93,17 @@ function freshSeed(current: number): number {
 
 interface PlanStore {
   scenarios: PlanSummary[];
+  /** The open plan, or null when the user has none.
+   *
+   * Null is a real destination, not a loading state — `initialized`
+   * separates the two. A fresh install has no plan and shows the welcome
+   * screen; the app does not invent a household so the charts have
+   * something to draw (#103). */
   plan: Plan | null;
+  /** True once `init` has finished, however it finished. Until then a null
+   * `plan` only means "not read yet", and the shell shows Loading rather
+   * than the welcome screen. */
+  initialized: boolean;
   /** State-tax bracket prefills and other Rust-side defaults, fetched once
    * at startup so the frontend never duplicates them. */
   presets: Presets | null;
@@ -121,6 +134,12 @@ interface PlanStore {
   showMonteCarloBand: boolean;
 
   init: () => Promise<void>;
+  /** Creates a plan for `people` — no accounts, no income, no spending —
+   * and opens it. The "start from scratch" half of the welcome screen. */
+  createPlan: (name: string, people: NewPerson[]) => Promise<void>;
+  /** Writes a copy of the invented example household and opens it. The
+   * plan keeps `sample: true`, so it stays labelled as an example. */
+  loadSample: () => Promise<void>;
   /** Apply an edit to the plan; re-project and persist, debounced. */
   updatePlan: (mutate: (draft: Plan) => void) => void;
   setRealDollars: (real: boolean) => void;
@@ -304,6 +323,7 @@ async function activate(
 export const usePlanStore = create<PlanStore>((set, get) => ({
   scenarios: [],
   plan: null,
+  initialized: false,
   presets: null,
   projection: null,
   monteCarlo: null,
@@ -329,9 +349,35 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
         ]);
       // Set before activating: `activate` starts the first Monte Carlo run.
       set({ scenarios, presets, monteCarloPaths, monteCarloLimits });
+      // No plan is a fresh install, not a failure — the welcome screen takes
+      // it from here. Presets are still loaded, because the new-plan form
+      // needs them the moment the user starts filling it in.
+      if (plan) await activate(set, get, plan);
+      set({ initialized: true });
+    } catch (e) {
+      set({ error: String(e), initialized: true });
+    }
+  },
+
+  createPlan: async (name, people) => {
+    try {
+      const plan = await createPlanApi(name, people);
+      set({ scenarios: await listPlans(), error: null });
       await activate(set, get, plan);
     } catch (e) {
       set({ error: String(e) });
+      throw e;
+    }
+  },
+
+  loadSample: async () => {
+    try {
+      const plan = await createSamplePlanApi();
+      set({ scenarios: await listPlans(), error: null });
+      await activate(set, get, plan);
+    } catch (e) {
+      set({ error: String(e) });
+      throw e;
     }
   },
 
@@ -441,10 +487,26 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
       const scenarios = await listPlans();
       set({ scenarios });
       const current = get().plan;
-      if (current && current.id === id && scenarios[0]) {
-        const plan = await loadPlanNamed(scenarios[0].id);
-        await activate(set, get, plan);
+      if (!current || current.id !== id) return;
+      if (scenarios[0]) {
+        await activate(set, get, await loadPlanNamed(scenarios[0].id));
+        return;
       }
+      // That was the last one. Back to the welcome screen rather than
+      // resurrecting a plan the user just deleted — deleting the last
+      // scenario used to be refused outright (#103), which left anyone
+      // handed the example household unable to get rid of it.
+      clearTimeout(debounceTimer);
+      debounceTimer = undefined;
+      get().cancelMonteCarlo();
+      set({
+        plan: null,
+        projection: null,
+        projecting: false,
+        monteCarlo: null,
+        monteCarloStale: false,
+        error: null,
+      });
     } catch (e) {
       set({ error: String(e) });
     }

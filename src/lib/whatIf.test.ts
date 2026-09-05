@@ -17,6 +17,7 @@ import {
 const plan = {
   id: "base",
   name: "Base",
+  sample: false,
   people: [
     {
       id: "p1",

@@ -9,6 +9,7 @@ import { ReportMenu } from "./ReportMenu";
 import { ReportView } from "./ReportView";
 import { ScenariosScreen } from "./ScenariosScreen";
 import { StorageSettings } from "./StorageSettings";
+import { WelcomeScreen } from "./WelcomeScreen";
 import { WhatIfScreen } from "./WhatIfScreen";
 
 // Application shell: rail on the left, then a header and one destination.
@@ -33,6 +34,7 @@ export function Dashboard() {
   const scenarios = usePlanStore((s) => s.scenarios);
   const switchScenario = usePlanStore((s) => s.switchScenario);
   const updatePlan = usePlanStore((s) => s.updatePlan);
+  const initialized = usePlanStore((s) => s.initialized);
 
   const [destination, setDestination] = useState<Destination>("plan");
   // Lifted above InputsScreen so the selected sub-destination survives
@@ -42,6 +44,13 @@ export function Dashboard() {
   const [storageOpen, setStorageOpen] = useState(false);
   const [reportMenuOpen, setReportMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+
+  // No plan, and we have finished looking: a fresh install, or the user
+  // just deleted their last scenario. That is a destination, not a failure
+  // — the app does not invent a household to fill the screen (#103).
+  if (!plan && initialized) {
+    return <WelcomeScreen />;
+  }
 
   // A hard failure (nothing has ever loaded) has no shell to show yet.
   if (!plan || !projection) {
@@ -80,6 +89,14 @@ export function Dashboard() {
                 })
               }
             />
+            {/* Says so for as long as the plan exists, wherever it is
+                open — the numbers behind it are invented, and a rename
+                would otherwise be enough to lose that (#103). */}
+            {plan.sample && (
+              <span className="sample-badge" title="Invented data — not your finances">
+                Example
+              </span>
+            )}
             {scenarios.length > 1 && (
               <select
                 className="scenario-switcher"

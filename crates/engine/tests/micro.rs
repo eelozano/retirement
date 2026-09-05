@@ -44,6 +44,7 @@ fn micro_plan() -> Plan {
         id: "micro".to_string(),
         schema_version: SCHEMA_VERSION,
         name: "micro".to_string(),
+        sample: false,
         people: vec![Person {
             id: person.clone(),
             name: "Solo".to_string(),

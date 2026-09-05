@@ -7,6 +7,7 @@ import type { MonteCarloResult } from "../types/generated/MonteCarloResult";
 import type { Plan } from "../types/generated/Plan";
 import type { Presets } from "../types/generated/Presets";
 import type { Projection } from "../types/generated/Projection";
+import type { YearMonth } from "../types/generated/YearMonth";
 
 export function runProjection(plan: Plan): Promise<Projection> {
   return invoke<Projection>("run_projection", { plan });
@@ -100,8 +101,35 @@ export function getMonteCarloLimits(): Promise<MonteCarloLimits> {
   return invoke<MonteCarloLimits>("get_monte_carlo_limits");
 }
 
-export function loadPlan(): Promise<Plan> {
-  return invoke<Plan>("load_plan");
+/** The plan to open, or `null` when the user has none — a fresh install, or
+ * one where every scenario has been deleted. Null is a normal state the
+ * welcome screen answers, not an error: the app no longer invents a
+ * household to have something to show (#103). */
+export function loadPlan(): Promise<Plan | null> {
+  return invoke<Plan | null>("load_plan");
+}
+
+/** One person as the new-plan form collects them. A command-only input
+ * shape (src-tauri/src/commands.rs), hand-declared like StorageInfo — the
+ * generated `Person` carries an id and a life expectancy the form does not
+ * ask for and the backend derives. */
+export interface NewPerson {
+  name: string;
+  birth: YearMonth;
+  retirement: YearMonth;
+}
+
+/** Creates a plan holding just this household: no accounts, no income, no
+ * spending. The "start from scratch" half of the welcome screen. */
+export function createPlan(name: string, people: NewPerson[]): Promise<Plan> {
+  return invoke<Plan>("create_plan", { name, people });
+}
+
+/** Writes a copy of the invented example household and returns it — the
+ * "load an example to look around" half of the welcome screen. The plan it
+ * returns has `sample: true`, and keeps it. */
+export function createSamplePlan(): Promise<Plan> {
+  return invoke<Plan>("create_sample_plan");
 }
 
 export function loadPlanNamed(id: string): Promise<Plan> {

@@ -1,6 +1,7 @@
 id: leaner-retirement
 schema_version: 1
 name: Leaner retirement spending
+sample: true
 people:
 - id: alex
   name: Alex

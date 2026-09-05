@@ -48,6 +48,7 @@ const plan = {
   id: "base-plan",
   schema_version: 1,
   name: "Base plan",
+  sample: false,
   people: [
     {
       id: "p1",

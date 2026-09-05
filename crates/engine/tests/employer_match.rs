@@ -61,6 +61,7 @@ fn plan_with(accounts: Vec<Account>) -> Plan {
         id: "match".to_string(),
         schema_version: SCHEMA_VERSION,
         name: "match".to_string(),
+        sample: false,
         people: vec![Person {
             id: person.clone(),
             name: "Saver".to_string(),

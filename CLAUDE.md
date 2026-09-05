@@ -20,8 +20,13 @@ reported against without anyone's real finances. It is generated from
 `src-tauri/tests/demo_fixtures.rs`, which also asserts it still parses,
 validates, and simulates, so a schema change fails CI rather than rotting the
 fixtures. **Keep it invented.** The same rule covers `engine::presets::seed_plan`,
-which every new install bootstraps: both are public, and neither may be
-seeded from a real plan.
+the example household the welcome screen offers to load: both are public, and
+neither may be seeded from a real plan.
+
+A fresh install bootstraps *nothing* — it opens the welcome screen and the
+user either describes their household or asks for the example by name (#103).
+A plan written from `seed_plan` carries `Plan::sample`, which persists and
+survives a rename, so invented balances stay labelled as invented.
 
 `pnpm demo` runs the app against a throwaway copy of those fixtures instead of
 the real plans directory — it sets `RETIREMENT_DATA_DIR`, which relocates

@@ -18,7 +18,19 @@ export type Plan = {
  * plans saved before scenario support (#6) load with an empty id; the
  * storage layer backfills it once from the pre-#6 filename slug.
  */
-id: string, schema_version: number, name: string, people: Array<Person>, accounts: Array<Account>, streams: Array<CashFlowStream>, 
+id: string, schema_version: number, name: string, 
+/**
+ * True for a plan created from the bundled example household
+ * ([`crate::presets::seed_plan`]) rather than from the user's own
+ * numbers, so the UI can label it as an example for as long as it
+ * exists and it can never be mistaken for real finances (#103).
+ *
+ * Persistent and copied by duplication on purpose: a scenario branched
+ * off the example is still the example's balances until the user
+ * replaces them. `#[serde(default)]` so every plan written before this
+ * field existed loads as the user's own, which is what it is.
+ */
+sample: boolean, people: Array<Person>, accounts: Array<Account>, streams: Array<CashFlowStream>, 
 /**
  * `#[serde(default)]` so plans saved before this field existed load as
  * empty, same migration precedent as

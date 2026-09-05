@@ -1,6 +1,7 @@
 id: base-plan
 schema_version: 1
 name: Base plan
+sample: true
 people:
 - id: alex
   name: Alex

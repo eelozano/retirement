@@ -29,6 +29,7 @@ fn plan_with(
         id: "ss-test".to_string(),
         schema_version: SCHEMA_VERSION,
         name: "ss-test".to_string(),
+        sample: false,
         people: vec![Person {
             id: owner.clone(),
             name: "Solo".to_string(),

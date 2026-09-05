@@ -96,16 +96,19 @@ pub fn run_projection(plan: Plan) -> Result<Projection, String> {
     Ok(engine::run_deterministic(&plan))
 }
 
-/// Load the current plan, bootstrapping the seed plan on first run. Before
-/// bootstrapping, checks for legacy pre-#13 JSON plans and migrates them
-/// into the new location as YAML — a one-shot, copy-forward check, not
-/// permanent dual-format support.
+/// Load the current plan, or `None` when the user has none. Before looking,
+/// checks for legacy pre-#13 JSON plans and migrates them into the new
+/// location as YAML — a one-shot, copy-forward check, not permanent
+/// dual-format support.
 ///
 /// If a scenario was chosen as active in a previous session, it's loaded
-/// directly; otherwise falls back to `load_or_bootstrap`'s default (first
-/// stored plan, or a fresh seed).
+/// directly; otherwise falls back to the first stored plan.
+///
+/// `None` means a fresh install (or a user who deleted every scenario), and
+/// the frontend shows the welcome screen. It deliberately does **not** mean
+/// "invent a household": bootstrapping the example plan here was #103.
 #[tauri::command]
-pub fn load_plan(app: tauri::AppHandle) -> Result<Plan, String> {
+pub fn load_plan(app: tauri::AppHandle) -> Result<Option<Plan>, String> {
     let base = plans_base_dir(&app)?;
     if !storage::plans_dir(&base).exists() {
         let legacy_plans = legacy_data_dir(&app)?.join("plans");
@@ -116,12 +119,98 @@ pub fn load_plan(app: tauri::AppHandle) -> Result<Plan, String> {
     storage::cleanup(&base)?;
     if let Some(id) = settings::active_plan_id(&config_dir(&app)?) {
         if let Ok(plan) = storage::load_plan(&base, &id) {
-            return Ok(plan);
+            return Ok(Some(plan));
         }
         // Active plan was deleted or moved out from under us — fall through
         // to the default rather than erroring the whole app out.
     }
-    storage::load_or_bootstrap(&base)
+    storage::load_first(&base)
+}
+
+/// First simulated month for a plan created today: January of the current
+/// year.
+///
+/// January rather than this month because periods are annual and the tax
+/// model is a calendar-year model — a September start would make every
+/// "year" straddle two tax years, with contribution limits and brackets
+/// applying to neither. It also matches every plan the app has ever
+/// written, the example household included.
+///
+/// The cost is that a plan started late in the year projects its first
+/// period from a January that has mostly already happened, against balances
+/// entered today. `sim_config.start` has no editor yet, so that is not
+/// something the user can currently adjust.
+fn new_plan_start() -> engine::model::YearMonth {
+    engine::model::YearMonth::new(time::OffsetDateTime::now_utc().year(), 1)
+}
+
+/// One person as the new-plan form collects them. A command-only input
+/// shape, hand-declared here like `PlanSummary` and `StorageInfo`:
+/// `engine::model::Person` deserializes only through a private wire struct,
+/// and the form has no business supplying an id or a life expectancy —
+/// those are derived below.
+#[derive(serde::Deserialize)]
+pub struct NewPerson {
+    name: String,
+    birth: engine::model::YearMonth,
+    retirement: engine::model::YearMonth,
+}
+
+/// Creates a plan for a household the user has just described: their people,
+/// and nothing else — no accounts, no income, no spending.
+///
+/// This is the path #103 was missing. Before it, `duplicate_plan` was the
+/// only way to make a scenario, so "start fresh" meant editing someone
+/// else's numbers down and hoping you caught them all.
+#[tauri::command]
+pub fn create_plan(
+    app: tauri::AppHandle,
+    name: String,
+    people: Vec<NewPerson>,
+) -> Result<Plan, String> {
+    if people.is_empty() {
+        return Err("A plan needs at least one person.".to_string());
+    }
+    let base = plans_base_dir(&app)?;
+    let life_expectancy_age = engine::presets::default_assumptions().plan_end_age;
+    let mut ids = HashSet::new();
+    let people = people
+        .into_iter()
+        .enumerate()
+        .map(|(i, p)| {
+            // Same shape as a person id the seed plan uses ("alex"), so a
+            // hand-edited plan file stays readable. Falls back to the index
+            // when two people share a name, or a name has no usable letters.
+            let mut id = storage::slugify(&p.name);
+            if id == "plan" || !ids.insert(id.clone()) {
+                id = format!("person-{}", i + 1);
+                ids.insert(id.clone());
+            }
+            engine::model::Person {
+                id,
+                name: p.name,
+                birth: p.birth,
+                retirement: p.retirement,
+                life_expectancy_age,
+            }
+        })
+        .collect();
+
+    // Validate before anything is written: `people` came from the frontend,
+    // and a plan the engine would reject must not reach the plans directory
+    // where it would fail to load on every launch after this.
+    let plan = storage::new_plan(&name, new_plan_start(), people);
+    require_valid(&plan)?;
+    storage::create_plan(&base, plan)
+}
+
+/// Writes a copy of the invented example household and returns it — the
+/// "load an example to look around" half of the welcome screen. The plan
+/// carries `sample: true` so the UI labels it as an example for as long as
+/// it exists.
+#[tauri::command]
+pub fn create_sample_plan(app: tauri::AppHandle) -> Result<Plan, String> {
+    storage::create_sample_plan(&plans_base_dir(&app)?)
 }
 
 /// Saves a plan, snapshotting its pre-edit state into history first — but
@@ -181,15 +270,16 @@ pub fn duplicate_plan(app: tauri::AppHandle, id: String, new_name: String) -> Re
     storage::duplicate_plan(&plans_base_dir(&app)?, &id, &new_name)
 }
 
-/// Removes a scenario. Never the last one — a plan-less app has nothing to
-/// show.
+/// Removes a scenario — including the last one, which returns the app to the
+/// welcome screen.
+///
+/// Refusing the last delete (as this did before #103) meant a user handed the
+/// example household on first run could not get rid of it without first
+/// duplicating it. Deletion is still not destruction: the file moves to
+/// `.trash` either way.
 #[tauri::command]
 pub fn delete_plan(app: tauri::AppHandle, id: String) -> Result<(), String> {
-    let base = plans_base_dir(&app)?;
-    if storage::list_plans(&base)?.len() <= 1 {
-        return Err("Can't delete the only scenario.".to_string());
-    }
-    storage::delete_plan(&base, &id)
+    storage::delete_plan(&plans_base_dir(&app)?, &id)
 }
 
 /// A plan's snapshot history, newest first, for the restore UI in Storage

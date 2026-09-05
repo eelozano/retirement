@@ -20,6 +20,8 @@ pub fn run() {
             commands::cancel_monte_carlo,
             commands::get_monte_carlo_limits,
             commands::load_plan,
+            commands::create_plan,
+            commands::create_sample_plan,
             commands::load_plan_named,
             commands::save_plan,
             commands::list_plans,

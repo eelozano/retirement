@@ -49,9 +49,13 @@ export function ScenariosScreen() {
                   Switch
                 </button>
               )}
+              {/* Enabled even for the last scenario: refusing that (#103)
+                  left anyone handed the example household unable to get rid
+                  of it. Deleting the last one returns to the welcome screen,
+                  and the file moves to .trash either way. */}
               <button
                 type="button"
-                disabled={busy || scenarios.length <= 1}
+                disabled={busy}
                 onClick={() => run(() => deleteScenario(s.id))}
               >
                 Delete
