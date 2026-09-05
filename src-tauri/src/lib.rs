@@ -16,6 +16,7 @@ pub fn run() {
             commands::run_projection,
             commands::run_projections,
             commands::run_monte_carlo,
+            commands::run_monte_carlos,
             commands::cancel_monte_carlo,
             commands::get_monte_carlo_limits,
             commands::load_plan,

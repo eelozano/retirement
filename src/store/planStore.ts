@@ -68,6 +68,16 @@ export interface MonteCarloRun {
  * has since been superseded. Not in the store: nothing renders it. */
 let lastRunId = 0;
 
+/** The next run id, from the one counter every caller shares.
+ *
+ * Shared deliberately: the backend keeps a single run slot (see
+ * `claim_slot`), so the comparison view's batch and this store's runs cancel
+ * one another by id. Two counters could hand out the same id to two
+ * different runs, and a Cancel would then stop the wrong one. */
+export function nextRunId(): number {
+  return ++lastRunId;
+}
+
 /** A fresh `u32` seed that is not the one in use. `Math.random` is fine:
  * this is a sampling seed, not a secret. */
 function freshSeed(current: number): number {
@@ -177,7 +187,7 @@ async function startMonteCarlo(
 ): Promise<void> {
   const n_paths = get().monteCarloPaths;
   if (n_paths === null) return;
-  const runId = ++lastRunId;
+  const runId = nextRunId();
   const seed = get().monteCarloSeed;
   set({ monteCarloRun: { runId, completed: 0, total: n_paths } });
 

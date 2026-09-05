@@ -54,6 +54,34 @@ export function runMonteCarlo(
   });
 }
 
+/** One entry per scenario, in request order — same shape and same reasoning
+ * as `ProjectionResult`: an invalid scenario gets its own Err rather than
+ * blanking the comparison. */
+export type MonteCarloResultEntry = { Ok: MonteCarloResult } | { Err: string };
+
+/** Monte Carlo across several scenarios for the comparison table, at one
+ * shared config — seed included, so the scenarios are measured against the
+ * same draws and their *differences* are comparable.
+ *
+ * Resolves to `null` if the batch was cancelled or superseded, exactly as
+ * `runMonteCarlo` does. Progress is aggregated across the batch: one climbing
+ * count over every scenario's paths, not a bar that restarts per scenario. */
+export function runMonteCarlos(
+  plans: Plan[],
+  config: MonteCarloConfig,
+  runId: number,
+  onProgress: (progress: MonteCarloProgress) => void,
+): Promise<MonteCarloResultEntry[] | null> {
+  const channel = new Channel<MonteCarloProgress>();
+  channel.onmessage = onProgress;
+  return invoke<MonteCarloResultEntry[] | null>("run_monte_carlos", {
+    plans,
+    config,
+    runId,
+    onProgress: channel,
+  });
+}
+
 /** Stops the run with this id if it is still the one in flight; a no-op for
  * a run that has already finished or been superseded. */
 export function cancelMonteCarlo(runId: number): Promise<void> {
