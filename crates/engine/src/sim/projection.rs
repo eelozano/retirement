@@ -137,8 +137,18 @@ pub struct PeriodSnapshot {
     /// produced but that a balance-only snapshot would otherwise discard.
     pub growth: f64,
     pub net_worth: f64,
-    /// Cumulative inflation factor at period start: divide any nominal value
-    /// in this snapshot by it to get simulation-start (today's) dollars.
+    /// Cumulative inflation factor at period **start**: divide any nominal
+    /// value in this snapshot by it to get simulation-start (today's)
+    /// dollars.
+    ///
+    /// Exact for the flows (`income`, `expenses`, and the rest), which are
+    /// grown by the same exponent. `balances` and `net_worth` are
+    /// end-of-period figures, so a real-dollar balance carries one year of
+    /// inflation this does not remove — about 2.5% at the default
+    /// assumption, uniformly across the projection. Scenario deltas,
+    /// depletion years and success rates are unaffected. A documented
+    /// convention rather than a second field; see "Time conventions" in
+    /// `docs/ARCHITECTURE.md`.
     pub deflator: f64,
 }
 

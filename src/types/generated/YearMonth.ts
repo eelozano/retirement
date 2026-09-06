@@ -4,9 +4,11 @@
  * A calendar month, the engine's native time unit.
  *
  * All plan dates (births, retirements, stream boundaries) are `YearMonth`s.
- * The simulation iterates over abstract periods (annual in V1, monthly in
- * V2), but because every date is already month-resolved, switching period
- * length is a config change rather than a schema migration.
+ * The simulation iterates over calendar-year periods and prorates each
+ * boundary within its year by month, so "retires Aug 2038" is exact rather
+ * than rounded to a year. Month-resolved dates do *not* make monthly
+ * periods a config change — see "Time conventions" in
+ * `docs/ARCHITECTURE.md`.
  */
 export type YearMonth = { year: number, 
 /**
