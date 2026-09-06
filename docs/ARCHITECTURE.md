@@ -5,7 +5,7 @@ tracked in `CLAUDE.md`; update both when the design evolves.
 
 ## Context
 
-A local, privacy-first retirement projection tool (ProjectionLab/Boldin-inspired). Stack: Tauri (React/TypeScript frontend + Rust backend). Philosophy: **simple V1 MVP, modular for V2** — deterministic annual projections now, but data models and Rust traits designed so Monte Carlo, tax brackets, ordered drawdown, and monthly resolution slot in without refactoring core state.
+A local, privacy-first retirement projection tool (ProjectionLab/Boldin-inspired). Stack: Tauri (React/TypeScript frontend + Rust backend). Philosophy: **simple V1 MVP, modular for V2** — deterministic annual projections now, but data models and Rust traits designed so Monte Carlo, tax brackets, and ordered drawdown slot in without refactoring core state.
 
 **Foundational decisions:**
 - Engine simulates in **nominal dollars**; UI offers a today's-dollars (real) display toggle.
@@ -19,7 +19,7 @@ A local, privacy-first retirement projection tool (ProjectionLab/Boldin-inspired
 
 1. **Pure engine crate, zero Tauri deps.** The simulation engine lives in `crates/engine` as a plain Rust library; `src-tauri` is a thin adapter (commands + file I/O). This makes the engine unit-testable with `cargo test`, keeps Monte Carlo threading (rayon) isolated from the Tauri runtime, and leaves a future WASM compile path open.
 2. **One source of truth for types.** Rust structs derive `serde` + **`ts-rs`** to generate TypeScript interfaces into `src/types/generated/`. Hand-maintaining parallel TS/Rust models is the biggest silent-drift risk in a Tauri app. (`ts-rs` over `tauri-specta`: simpler, stable, no macro coupling to Tauri v2 command signatures; revisit specta if we later want typed `invoke` bindings.)
-3. **Month-native time, year-stepped V1.** All dates are a `YearMonth` type (year + month, comparable as month index). The engine iterates over abstract *periods*; V1 config sets period = 1 year. Moving to monthly resolution later is a config change + finer-grained stream proration, not a schema migration. This also makes "born Aug 1983, retires Aug 2038" exact instead of rounded to years.
+3. **Month-native time, year-stepped.** All dates are a `YearMonth` type (year + month, comparable as month index), so "born Aug 1983, retires Aug 2038" is exact instead of rounded to years. The engine iterates over abstract *periods*, and every period is a calendar year; boundaries are prorated within it by month. The original claim that monthly resolution would be "a config change, not a schema migration" is withdrawn: `PeriodLength::Month` still exists in the schema, but the tax model, contribution limits, the filing-status switch and RMDs are all calendar-year rules that would have to be aggregated across periods first. See "Time conventions" under the engine section.
 4. **Engine as a pure function.** `simulate(&Plan, &dyn ReturnModel, &dyn TaxModel, &dyn DrawdownStrategy) -> Projection`. No mutable global state; each run owns its state. Monte Carlo in V2 = run the same function N times with a seeded stochastic `ReturnModel`, parallelized with rayon — embarrassingly parallel by construction.
 5. **Strategy traits from day 1, one impl each in V1.** `ReturnModel` (V1: `FixedReturns`), `TaxModel` (V1: `FlatTax`), `DrawdownStrategy` (V1: `Proportional`). V2 adds `MonteCarloReturns`, `HistoricalSequence`, `BracketTax`, `OrderedDrawdown` as new impls behind the same traits.
 6. **Track cost basis in taxable accounts from day 1** even though flat tax ignores it — V2 capital-gains modeling needs the ledger history, and retrofitting basis tracking into an engine that's been mutating balances is painful.
@@ -252,7 +252,7 @@ pub enum AssetClass { UsEquity, IntlEquity, GlobalEquity, UsBonds }
 
 pub struct SimConfig {
     pub start: YearMonth,
-    pub period: PeriodLength,        // Year (V1) | Month (V2) — engine iterates periods
+    pub period: PeriodLength,        // Year. Month is in the schema, not supported — see Time conventions
     pub display_real_dollars: bool,  // UI hint; engine always outputs nominal + deflator
 }
 // The Monte Carlo band toggle on the chart is session-only by design (see
@@ -342,6 +342,19 @@ The scalar totals are enough to show *how much* moved each year and nothing abou
 
 `withdrawal_taxes` is the one split of `taxes` the snapshot can honestly claim. The period's dollars meet the progressive schedule as a single stack (#54), and the drawdown reports what its gross-up *added* over the bill on base income; that addition is recorded, and nothing further is allocated. The engine never decides that "salary paid the tax", and the cash-flow composition diagram built on these fields is a hub for that reason — every inflow pools in the household and flows out from there. Employer match is deliberately outside the `income = outflow + surplus` identity, so it is not a flow in that diagram either.
 
+#### Time conventions
+
+Every timing bug shipped so far (#29, #43, #50, #78, #92, and the survivor work in #34) came from a consumer re-deriving "which year does this belong to" on its own. The engine has one answer to each of these questions; this is the list, so a reviewer can hold a change against it.
+
+- **Periods are calendar years.** `new_plan_start` in the adapter puts every plan's start at January of its creation year, so period *n* is one calendar year and `PeriodContext::year` is a tax year. That a plan created in September still projects a full first year against balances entered today is #106.
+- **Boundaries are month-exact and end-exclusive.** A retirement dated 2038-08 means August is the first retired month: a salary ending `AtRetirement` pays January through July (7/12), spending starting there pays the other 5/12, and the two always sum to a whole year. A death at `month_at_age(life_expectancy_age)` works the same way. `overlap_fraction` in `sim/mod.rs` is the one proration primitive; every stream, contribution entry, working share and the survivor step-down goes through it.
+- **Two words for the year a boundary falls in.** The *stub year* is the calendar year containing the boundary, prorated; the *first full year* is the first period starting at or after it. `SimConfig::first_full_period_at_or_after` returns the latter and is what "at retirement" figures use, so a stub year is never read as a full year of spending (#29). `SimConfig::first_period_after` is strict and exists for one case: the survivor tax switch, where the year of the death still files jointly and the *next* period is the first that does not. The frontend mirrors only the inclusive helper; the Plan screen still names both years "retirement" on different tiles, which is #107.
+- **Statutory ages are "age attained during the calendar year"**, `year - birth.year`. Catch-up tiers, the SECURE 2.0 60–63 tier and the RMD beginning age all use it, which is the statutory rule.
+- **Growth, tax and RMDs are whole-period operations.** Growth applies to twelve months of post-flow balance no matter when in the year a flow landed; tax is one pass over the year's totals (#54); the RMD divides the prior period's closing balance.
+- **The deflator is the price level at the period's start**, `(1 + inflation)^years_elapsed`. Income and expenses are grown by the same exponent, so they deflate exactly. Balances and `net_worth` are end-of-period figures, so a real-dollar balance carries one year of inflation the deflator does not remove, about 2.5% at the default assumption, uniformly across the projection. Scenario deltas, depletion years and success rates are unaffected. Kept as a documented convention rather than a second deflator field.
+- **The final period runs to December.** The horizon is `Plan::end_month`, the last survivor's death month, which is rarely January; the last period is the calendar year it falls in. Streams stop at the horizon, but that year's growth, tax and any required distribution are computed for the whole year, so "at plan end" figures include the months after the last death. Documented rather than fixed: it moves one figure, on one year, by a few percent. Fraction-scaled growth would make it exact and may fall out of #106.
+- **Monthly periods are not supported.** `PeriodLength::Month` stays in the schema so nothing migrates, but running it would apply annual brackets to one month of income, cut every contribution cap to a twelfth, switch filing status the month after a death, and compute RMDs on the prior month's balance. The claim that it was "a config change" is withdrawn above.
+
 #### The period pipeline (`sim/period.rs`)
 
 The loop was one 290-line body carrying ~10 mutable locals across six inlined steps, and the cost was not only length. With no shared picture of the period, the two places that reach for the tax model — the bill on stream income and the drawdown's gross-up — could not see each other, and drifted into taxing every period **twice**, adding the two results (#54). Against a progressive schedule that is strictly cheaper than one pass over the same dollars, and because the gross-up started from an empty `IncomeBreakdown` the provisional-income formula never saw a withdrawal, so no amount of drawdown could make a Social Security benefit taxable.
@@ -418,7 +431,7 @@ Employer money never passes through household cash, so it is `PeriodSnapshot::em
 
 #### Plan horizon (`Plan::end_month`)
 
-The projection runs to `max` over every person's `month_at_age(life_expectancy_age)` — the last survivor, not a single household age. `StreamBoundary::AtDeath(person)` resolves against that person's own figure. The household-wide `Assumptions::plan_end_age` it replaced survives only as the deserialization fallback for plans written before per-person expectancy existed.
+The projection runs to `max` over every person's `month_at_age(life_expectancy_age)` — the last survivor, not a single household age. `StreamBoundary::AtDeath(person)` resolves against that person's own figure. The household-wide `Assumptions::plan_end_age` it replaced survives only as the deserialization fallback for plans written before per-person expectancy existed. The last period is the calendar year that month falls in and runs to its December — see "The final period runs to December" under Time conventions.
 
 #### The survivor transition (`sim/survivor.rs`)
 

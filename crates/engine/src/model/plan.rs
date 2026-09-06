@@ -12,7 +12,11 @@ pub const SCHEMA_VERSION: u32 = 1;
 #[ts(export)]
 pub enum PeriodLength {
     Year,
-    /// V2: same loop at monthly resolution.
+    /// In the schema so nothing migrates; **not supported by the loop.**
+    /// Tax brackets, contribution limits, the survivor filing-status switch
+    /// and RMDs are all calendar-year rules that assume a period is a tax
+    /// year. Running monthly would apply annual brackets to a month's
+    /// income. See "Time conventions" in `docs/ARCHITECTURE.md`.
     Month,
 }
 
@@ -113,9 +117,15 @@ pub struct Plan {
 }
 
 impl Plan {
-    /// The month after the last simulated period: the max over every
-    /// person's own `life_expectancy_age` — the projection runs to the last
-    /// survivor rather than a single household age.
+    /// The month the horizon ends: the max over every person's own
+    /// `life_expectancy_age` — the projection runs to the last survivor
+    /// rather than a single household age.
+    ///
+    /// Not the end of the last period. Streams stop here, but the last
+    /// period is the calendar year this month falls in and runs to its
+    /// December, so that year's growth, tax and required distribution
+    /// cover the whole year. A documented convention (see "Time
+    /// conventions" in `docs/ARCHITECTURE.md`), not an oversight.
     pub fn end_month(&self) -> YearMonth {
         self.people
             .iter()
