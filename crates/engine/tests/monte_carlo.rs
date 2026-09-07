@@ -120,6 +120,7 @@ fn zero_volatility_matches_deterministic() {
     let tax = BracketTax {
         filing_status: plan.assumptions.filing_status,
         state_tax: plan.assumptions.state_tax.clone(),
+        inflation: plan.assumptions.inflation,
     };
     let result = run_monte_carlo_sim(
         &plan,
@@ -375,6 +376,7 @@ fn tax_for(plan: &Plan) -> BracketTax {
     BracketTax {
         filing_status: plan.assumptions.filing_status,
         state_tax: plan.assumptions.state_tax.clone(),
+        inflation: plan.assumptions.inflation,
     }
 }
 
@@ -470,6 +472,7 @@ fn higher_volatility_widens_the_fan() {
     let tax = BracketTax {
         filing_status: plan.assumptions.filing_status,
         state_tax: plan.assumptions.state_tax.clone(),
+        inflation: plan.assumptions.inflation,
     };
     let months = plan.sim_config.period.months();
     let config = MonteCarloConfig {
@@ -514,6 +517,7 @@ fn net_worth_never_goes_negative() {
     let tax = BracketTax {
         filing_status: plan.assumptions.filing_status,
         state_tax: plan.assumptions.state_tax.clone(),
+        inflation: plan.assumptions.inflation,
     };
     let result = run_monte_carlo_sim(
         &plan,
@@ -555,25 +559,25 @@ fn fold_reproduces_pre_refactor_output() {
         },
     );
 
-    assert_eq!(result.success_rate, 0.745);
+    assert_eq!(result.success_rate, 0.805);
     assert_eq!(result.percentiles.len(), 58);
 
     let at = |i: usize| &result.percentiles[i];
 
     assert_eq!(at(0).p10, 626751.4776252601);
     assert_eq!(at(12).p10, 2031389.8270239325);
-    assert_eq!(at(38).p10, 16595.174591872736);
+    assert_eq!(at(38).p10, 685521.0019532992);
     assert_eq!(at(57).p10, 0.0);
 
     assert_eq!(at(0).p50, 762556.4549689445);
     assert_eq!(at(12).p50, 3213900.8128613797);
-    assert_eq!(at(38).p50, 6639330.651474725);
-    assert_eq!(at(57).p50, 10304220.924875783);
+    assert_eq!(at(38).p50, 7373661.181726994);
+    assert_eq!(at(57).p50, 13641209.842750408);
 
     assert_eq!(at(0).p90, 868644.9166317225);
     assert_eq!(at(12).p90, 4965592.984084475);
-    assert_eq!(at(38).p90, 25760238.28534736);
-    assert_eq!(at(57).p90, 78211766.53865191);
+    assert_eq!(at(38).p90, 27083819.892219543);
+    assert_eq!(at(57).p90, 85572360.53923939);
 }
 
 /// The observed form must not change the answer: progress counting and the
@@ -667,6 +671,7 @@ fn cancel_mid_run_short_circuits_the_sweep() {
     let tax = BracketTax {
         filing_status: plan.assumptions.filing_status,
         state_tax: plan.assumptions.state_tax.clone(),
+        inflation: plan.assumptions.inflation,
     };
 
     let result = run_monte_carlo_sim_with(

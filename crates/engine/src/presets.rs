@@ -125,7 +125,7 @@ pub const CONTRIBUTION_LIMITS: ContributionLimits = ContributionLimits {
 /// Modelling the rounding matters because it is what makes a limit sit still
 /// for a few years and then step — smooth exponential growth would drift
 /// away from the real schedule.
-fn index_to(base: f64, increment: f64, years: f64, inflation: f64) -> f64 {
+pub(crate) fn index_to(base: f64, increment: f64, years: f64, inflation: f64) -> f64 {
     let indexed = base * (1.0 + inflation).powf(years);
     (indexed / increment).floor() * increment
 }
