@@ -15,6 +15,26 @@ export function currency(value: number): string {
   return wholeCurrency.format(value);
 }
 
+const SHORT_MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+/** A stored `YearMonth` as prose: `{ year: 2026, month: 9 }` → "Sep 2026". */
+export function yearMonth(value: { year: number; month: number }): string {
+  return `${SHORT_MONTHS[value.month - 1] ?? value.month} ${value.year}`;
+}
+
 /** $1.3M-style figure for stat tiles and axis ticks. */
 export function currencyCompact(value: number): string {
   return compactCurrency.format(value);

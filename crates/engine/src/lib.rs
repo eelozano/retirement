@@ -21,6 +21,14 @@ pub use sim::{
 use model::FilingStatus;
 use strategies::{BracketTax, FixedReturns, ProportionalDrawdown, StochasticReturns, SurvivorTax};
 
+/// What a return model scales its annual rates to. A period is a calendar
+/// year by construction (#106) — the loop lays its grid on calendar
+/// boundaries and does not read `SimConfig::period` at all — so this is 12
+/// rather than the schema's unsupported `PeriodLength`. A stub first period
+/// takes its share of the year's return inside the loop, where the
+/// period's `fraction` is known; a return model has no way to know it.
+const MONTHS_PER_PERIOD: i64 = 12;
+
 /// The plan's tax model, with the household's filing status switching to
 /// Single after the first death (#34).
 ///
@@ -56,10 +64,7 @@ fn tax_model(plan: &Plan) -> SurvivorTax {
 /// bracket tax, proportional drawdown — all read from the plan's
 /// assumptions.
 pub fn run_deterministic(plan: &Plan) -> Projection {
-    let returns = FixedReturns::new(
-        &plan.assumptions.asset_returns,
-        plan.sim_config.period.months(),
-    );
+    let returns = FixedReturns::new(&plan.assumptions.asset_returns, MONTHS_PER_PERIOD);
     simulate(plan, &returns, &tax_model(plan), &ProportionalDrawdown, 0)
 }
 
@@ -100,7 +105,7 @@ fn stochastic_returns(plan: &Plan, config: &MonteCarloConfig) -> StochasticRetur
     StochasticReturns::new(
         &plan.assumptions.asset_returns,
         &plan.assumptions.asset_volatility,
-        plan.sim_config.period.months(),
+        MONTHS_PER_PERIOD,
         config.seed as u64,
     )
 }

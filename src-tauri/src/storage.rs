@@ -241,8 +241,14 @@ pub fn create_plan(base: &Path, plan: Plan) -> Result<Plan, String> {
 /// for as long as it exists and it is never mistaken for the user's own
 /// numbers. No validation step: this plan is a compile-time constant of the
 /// engine's, and `seed_plan_is_valid` already pins it.
-pub fn create_sample_plan(base: &Path) -> Result<Plan, String> {
+///
+/// `start` is the copy's first simulated month, resolved from the clock by
+/// the caller. `seed_plan` hard-codes January 2026 because the golden file
+/// pins it; shipping that date would give anyone loading the example in a
+/// later year a plan that starts in the past (#106).
+pub fn create_sample_plan(base: &Path, start: engine::model::YearMonth) -> Result<Plan, String> {
     let mut plan = engine::presets::seed_plan();
+    plan.sim_config.start = start;
     // Renamed on the way out rather than in `seed_plan` itself, which is the
     // engine's test fixture and whose name the golden tests pin. The name
     // matters because it is what the scenario switcher and an exported
@@ -542,9 +548,13 @@ mod tests {
     #[test]
     fn create_sample_plan_names_itself_an_example_and_says_so_in_the_file() {
         let base = TempBase::new("sample");
-        let plan = create_sample_plan(&base.0).unwrap();
+        let start = engine::model::YearMonth::new(2031, 9);
+        let plan = create_sample_plan(&base.0, start).unwrap();
         assert_eq!(plan.name, SAMPLE_PLAN_NAME);
         assert!(plan.sample);
+        // The example is dated from the day it was loaded, not from
+        // whichever January `seed_plan` was written against (#106).
+        assert_eq!(plan.sim_config.start, start);
         // The flag survives the round trip, so the badge outlives this session.
         let reloaded = load_plan(&base.0, &plan.id).unwrap();
         assert!(reloaded.sample);
@@ -554,7 +564,7 @@ mod tests {
     #[test]
     fn a_scenario_branched_off_the_example_is_still_the_example() {
         let base = TempBase::new("sample-duplicate");
-        let sample = create_sample_plan(&base.0).unwrap();
+        let sample = create_sample_plan(&base.0, engine::model::YearMonth::new(2026, 1)).unwrap();
         let copy = duplicate_plan(&base.0, &sample.id, "What if we move").unwrap();
         assert!(
             copy.sample,

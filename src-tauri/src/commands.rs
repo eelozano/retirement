@@ -127,21 +127,24 @@ pub fn load_plan(app: tauri::AppHandle) -> Result<Option<Plan>, String> {
     storage::load_first(&base)
 }
 
-/// First simulated month for a plan created today: January of the current
-/// year.
+/// First simulated month for a plan created today: **this** month.
 ///
-/// January rather than this month because periods are annual and the tax
-/// model is a calendar-year model — a September start would make every
-/// "year" straddle two tax years, with contribution limits and brackets
-/// applying to neither. It also matches every plan the app has ever
-/// written, the example household included.
+/// It used to be January of the current year, on the reasoning that periods
+/// are annual and the tax model is a calendar-year model. The periods are
+/// still calendar years — the engine lays its grid on January boundaries
+/// and opens with a prorated stub — but the start is now the month the
+/// household actually sat down, because that is the month their balances
+/// are from. A plan created in September no longer applies a full year of
+/// salary, contributions, spending and growth to balances that are already
+/// eight months into it (#106).
 ///
-/// The cost is that a plan started late in the year projects its first
-/// period from a January that has mostly already happened, against balances
-/// entered today. `sim_config.start` has no editor yet, so that is not
-/// something the user can currently adjust.
+/// UTC rather than local time: `time`'s local offset needs a feature flag
+/// and is unsound in a multi-threaded process. The two can disagree only on
+/// the first or last day of a month, and only by one month on a figure the
+/// user can see named on the Plan screen.
 fn new_plan_start() -> engine::model::YearMonth {
-    engine::model::YearMonth::new(time::OffsetDateTime::now_utc().year(), 1)
+    let now = time::OffsetDateTime::now_utc();
+    engine::model::YearMonth::new(now.year(), u8::from(now.month()))
 }
 
 /// One person as the new-plan form collects them. A command-only input
@@ -210,7 +213,7 @@ pub fn create_plan(
 /// it exists.
 #[tauri::command]
 pub fn create_sample_plan(app: tauri::AppHandle) -> Result<Plan, String> {
-    storage::create_sample_plan(&plans_base_dir(&app)?)
+    storage::create_sample_plan(&plans_base_dir(&app)?, new_plan_start())
 }
 
 /// Saves a plan, snapshotting its pre-edit state into history first — but

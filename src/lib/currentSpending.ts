@@ -124,6 +124,12 @@ export function currentSpendingEstimate(
     // has no successor and is never a full year of anything here.
     const periodEnd = snapshots[i + 1]?.period_start;
     if (!periodEnd || !atOrAfter(retirement, periodEnd)) break;
+    // …and only if it is a whole year. Period 0 of a plan started in
+    // September is a four-month stub (#106), and reading its surplus as
+    // annual spending would seed the retirement estimate at a third of
+    // what the household actually lives on. A period is a calendar year
+    // exactly when it starts in January.
+    if (s.period_start.month !== 1) continue;
 
     const annualAmount = (s.surplus + s.expenses - s.required_distributions) / s.deflator;
     if (annualAmount > 0) found = { annualAmount, year: s.period_start.year };
