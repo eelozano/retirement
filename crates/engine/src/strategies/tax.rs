@@ -1,4 +1,5 @@
 use crate::model::{bracket_tax, FilingStatus, StateTaxProfile, TaxBracket};
+use crate::presets::index_to;
 use crate::strategies::PeriodIndex;
 
 /// Income for one period, split by character. `ordinary` covers wages and
@@ -50,10 +51,13 @@ impl TaxModel for FlatTax {
 
 /// Federal ordinary-income brackets, standard deduction, and long-term
 /// capital-gains brackets by filing status. 2025 tax year (standard
-/// deduction reflects the One Big Beautiful Bill Act's July 2025 increase).
+/// deduction reflects the One Big Beautiful Bill Act's July 2025 increase),
+/// treated as the figures in force at simulation start (period 0) and
+/// indexed forward from there by `BracketTax` — see `indexed_federal_amount`.
 /// Fixed in code — unlike state tax, federal law is uniform across users, so
-/// there's no per-plan editing surface for it; update these constants when
-/// the IRS publishes new inflation adjustments.
+/// there's no per-plan editing surface for it; re-basis these constants
+/// every few years against the latest published IRS table, since indexing
+/// from a stale basis compounds the same drift this module exists to fix.
 mod federal {
     use super::{FilingStatus, TaxBracket};
 
@@ -155,6 +159,68 @@ fn federally_taxable_social_security(
     (tier1 + tier2).min(0.85 * benefit)
 }
 
+/// The federal ordinary brackets, standard deduction and LTCG brackets round
+/// to this increment as they index. $25, not the $50 the IRS uses for a
+/// *joint* return: every constant in `federal` below is already an exact
+/// multiple of $25 for both filing statuses (Married figures split evenly
+/// at $50; Single figures — `$11,925`, `$48,475`, `$250,525` — are the real
+/// published thresholds and only divide evenly at $25). Flooring to $50
+/// instead would clip those Single thresholds down before any inflation had
+/// run, moving `years == 0` off the actual current-year table.
+const FEDERAL_ROUNDING: f64 = 25.0;
+
+/// `base` indexed forward by `years` at `inflation`, rounded to
+/// [`FEDERAL_ROUNDING`] — the same `(1 + inflation)^years` convention
+/// `ContributionLimits::annual_limit` applies to statutory contribution
+/// caps, reused via `presets::index_to`.
+fn indexed_federal_amount(base: f64, years: f64, inflation: f64) -> f64 {
+    index_to(base, FEDERAL_ROUNDING, years, inflation)
+}
+
+/// A federal bracket schedule with every finite `up_to` indexed; rates are
+/// untouched and the unbounded top bracket has nothing to index.
+fn indexed_federal_brackets(
+    brackets: &[TaxBracket],
+    years: f64,
+    inflation: f64,
+) -> Vec<TaxBracket> {
+    brackets
+        .iter()
+        .map(|bracket| TaxBracket {
+            up_to: bracket
+                .up_to
+                .map(|v| indexed_federal_amount(v, years, inflation)),
+            rate: bracket.rate,
+        })
+        .collect()
+}
+
+/// `base` scaled by the same `(1 + inflation)^years` factor, with no floor
+/// to a step increment. State schedules (`state_tax_data`) are approximate
+/// presets or a user's own hand-edited figures, not a table with a known
+/// statutory rounding rule — California's real `$11,079` first rung is not
+/// a multiple of any round number. Flooring an arbitrary state figure to an
+/// invented increment would silently clip it at `years == 0`, the same
+/// failure a $50 federal floor would have caused; scaling without a floor
+/// still indexes the schedule (#105's actual bug), just without the
+/// step-not-drift realism `index_to` gives the federal table.
+fn scaled_state_amount(base: f64, years: f64, inflation: f64) -> f64 {
+    base * (1.0 + inflation).powf(years)
+}
+
+/// A state bracket schedule scaled the same way as `scaled_state_amount`.
+fn scaled_state_brackets(brackets: &[TaxBracket], years: f64, inflation: f64) -> Vec<TaxBracket> {
+    brackets
+        .iter()
+        .map(|bracket| TaxBracket {
+            up_to: bracket
+                .up_to
+                .map(|v| scaled_state_amount(v, years, inflation)),
+            rate: bracket.rate,
+        })
+        .collect()
+}
+
 /// Federal + state tax from real bracket tables (#9), replacing the V1 flat
 /// rate. Ordinary income and capital gains are taxed federally via their own
 /// bracket schedules (gains stacked on top of ordinary taxable income, the
@@ -166,31 +232,55 @@ fn federally_taxable_social_security(
 pub struct BracketTax {
     pub filing_status: FilingStatus,
     pub state_tax: StateTaxProfile,
+    /// The plan's assumed inflation rate. Indexes the federal brackets, the
+    /// federal standard deduction, and the state schedule forward from
+    /// simulation start (`period` 0) the same way `ContributionLimits`
+    /// indexes statutory contribution caps — otherwise a fixed nominal
+    /// table taxes a household's flat *real* income at a rising *nominal*
+    /// rate as the projection runs (#105). The federal figures floor to a
+    /// round increment as they index (`indexed_federal_amount`), stepping
+    /// the way the real statutory table does; the state figures scale by
+    /// the same factor with no floor (`scaled_state_amount`), since they
+    /// carry no such round increment to step to. The Social Security
+    /// provisional-income thresholds are the one federal figure this does
+    /// not touch: they are fixed by statute and have not moved since 1993.
+    /// State indexing is a default a per-state override could turn off in
+    /// the future — some states do not index — but that flag is out of
+    /// scope here.
+    pub inflation: f64,
 }
 
 impl TaxModel for BracketTax {
-    fn tax(&self, income: &IncomeBreakdown, _period: PeriodIndex) -> TaxResult {
+    fn tax(&self, income: &IncomeBreakdown, period: PeriodIndex) -> TaxResult {
         let status = self.filing_status;
+        let years = period as f64;
+        let inflation = self.inflation;
+
         let taxable_ss =
             federally_taxable_social_security(income.ordinary, income.social_security, status);
         let federal_ordinary_income = (income.ordinary + taxable_ss).max(0.0);
 
-        let std_deduction = federal::standard_deduction(status);
+        let std_deduction =
+            indexed_federal_amount(federal::standard_deduction(status), years, inflation);
         let taxable_ordinary = (federal_ordinary_income - std_deduction).max(0.0);
-        let federal_ordinary_tax =
-            bracket_tax(taxable_ordinary, &federal::ordinary_brackets(status));
+        let ordinary_brackets =
+            indexed_federal_brackets(&federal::ordinary_brackets(status), years, inflation);
+        let federal_ordinary_tax = bracket_tax(taxable_ordinary, &ordinary_brackets);
 
         // Capital gains stack on top of ordinary taxable income: tax the
         // combined total through the LTCG schedule, then back out the
         // portion attributable to ordinary income alone.
         let gains = income.capital_gains.max(0.0);
-        let ltcg_brackets = federal::ltcg_brackets(status);
+        let ltcg_brackets =
+            indexed_federal_brackets(&federal::ltcg_brackets(status), years, inflation);
         let federal_gains_tax = bracket_tax(taxable_ordinary + gains, &ltcg_brackets)
             - bracket_tax(taxable_ordinary, &ltcg_brackets);
 
-        let state_base =
-            (income.ordinary + income.capital_gains - self.state_tax.standard_deduction).max(0.0);
-        let state_tax = bracket_tax(state_base, &self.state_tax.brackets);
+        let state_std_deduction =
+            scaled_state_amount(self.state_tax.standard_deduction, years, inflation);
+        let state_base = (income.ordinary + income.capital_gains - state_std_deduction).max(0.0);
+        let state_brackets = scaled_state_brackets(&self.state_tax.brackets, years, inflation);
+        let state_tax = bracket_tax(state_base, &state_brackets);
 
         TaxResult {
             tax: federal_ordinary_tax + federal_gains_tax + state_tax,
@@ -248,6 +338,7 @@ mod tests {
         let tax = BracketTax {
             filing_status: FilingStatus::Single,
             state_tax: StateTaxProfile::none(),
+            inflation: 0.0,
         };
         let result = tax.tax(
             &IncomeBreakdown {
@@ -264,6 +355,7 @@ mod tests {
         let tax = BracketTax {
             filing_status: FilingStatus::Single,
             state_tax: StateTaxProfile::none(),
+            inflation: 0.0,
         };
         // taxable = 100_000 - 15_750 = 84_250, spanning 10/12/22% brackets.
         // 11_925*10% + (48_475-11_925)*12% + (84_250-48_475)*22%
@@ -283,6 +375,7 @@ mod tests {
         let tax = BracketTax {
             filing_status: FilingStatus::Single,
             state_tax: StateTaxProfile::none(),
+            inflation: 0.0,
         };
         // Ordinary alone (40k - 15,750 = 24,250 taxable) stays under the
         // 48,350 0%-LTCG ceiling; gains stack from 24,250 to 74,250 taxable,
@@ -351,6 +444,7 @@ mod tests {
                 }],
                 standard_deduction: 5_000.0,
             },
+            inflation: 0.0,
         };
         let result = tax.tax(
             &IncomeBreakdown {
@@ -368,10 +462,12 @@ mod tests {
             household: BracketTax {
                 filing_status: FilingStatus::MarriedFilingJointly,
                 state_tax: StateTaxProfile::none(),
+                inflation: 0.0,
             },
             survivor: BracketTax {
                 filing_status: FilingStatus::Single,
                 state_tax: StateTaxProfile::none(),
+                inflation: 0.0,
             },
             survivor_from,
         }
@@ -392,12 +488,14 @@ mod tests {
         let expected_joint = BracketTax {
             filing_status: FilingStatus::MarriedFilingJointly,
             state_tax: StateTaxProfile::none(),
+            inflation: 0.0,
         }
         .tax(&income, 4)
         .tax;
         let expected_single = BracketTax {
             filing_status: FilingStatus::Single,
             state_tax: StateTaxProfile::none(),
+            inflation: 0.0,
         }
         .tax(&income, 5)
         .tax;
@@ -431,6 +529,149 @@ mod tests {
             tax.tax(&income, 99).tax,
             tax.tax(&income, 0).tax,
             "status never changes",
+        );
+    }
+
+    /// #105: a household with flat *real* income pays the same *real* tax
+    /// whether that income lands in year 0 or year 25, once brackets and
+    /// the standard deduction index with inflation. Before the fix, the
+    /// same real income drifted into ever-higher nominal brackets against a
+    /// standard deduction that never grew — this is the bracket-creep bug
+    /// the indexing exists to close. A small tolerance accounts for the $25
+    /// rounding `indexed_federal_amount` applies.
+    #[test]
+    fn flat_real_income_pays_the_same_real_tax_decades_apart() {
+        let inflation = 0.03;
+        let tax = BracketTax {
+            filing_status: FilingStatus::Single,
+            state_tax: StateTaxProfile::none(),
+            inflation,
+        };
+        let real_income = 150_000.0;
+        let price_level_at_25 = (1.0 + inflation).powi(25);
+
+        let tax_at_year_0 = tax
+            .tax(
+                &IncomeBreakdown {
+                    ordinary: real_income,
+                    ..Default::default()
+                },
+                0,
+            )
+            .tax;
+        let nominal_tax_at_year_25 = tax
+            .tax(
+                &IncomeBreakdown {
+                    ordinary: real_income * price_level_at_25,
+                    ..Default::default()
+                },
+                25,
+            )
+            .tax;
+        let real_tax_at_year_25 = nominal_tax_at_year_25 / price_level_at_25;
+
+        assert!(
+            (real_tax_at_year_25 - tax_at_year_0).abs() < 100.0,
+            "real tax should hold roughly flat: year 0 {tax_at_year_0}, year 25 (real) {real_tax_at_year_25}"
+        );
+    }
+
+    /// The Social Security provisional-income thresholds are fixed by
+    /// statute (#105) — unlike the ordinary brackets and standard
+    /// deduction, which index every period, the dollar amount of a benefit
+    /// that becomes taxable must not move just because the bracket schedule
+    /// taxing it has indexed.
+    #[test]
+    fn ordinary_brackets_and_deduction_index_but_social_security_thresholds_do_not() {
+        let status = FilingStatus::Single;
+        let inflation = 0.03;
+        let years = 30.0;
+        let tax = BracketTax {
+            filing_status: status,
+            state_tax: StateTaxProfile::none(),
+            inflation,
+        };
+        let income = IncomeBreakdown {
+            ordinary: 60_000.0,
+            social_security: 20_000.0,
+            ..Default::default()
+        };
+
+        // Computed with the *unindexed* statutory thresholds, matching what
+        // `BracketTax::tax` must still use internally.
+        let taxable_ss = federally_taxable_social_security(60_000.0, 20_000.0, status);
+        let std_deduction =
+            indexed_federal_amount(federal::standard_deduction(status), years, inflation);
+        let taxable_ordinary = (60_000.0 + taxable_ss - std_deduction).max(0.0);
+        let expected = bracket_tax(
+            taxable_ordinary,
+            &indexed_federal_brackets(&federal::ordinary_brackets(status), years, inflation),
+        );
+
+        assert_close(
+            tax.tax(&income, 30).tax,
+            expected,
+            "year-30 tax should use indexed brackets/deduction over the fixed SS-taxable amount",
+        );
+    }
+
+    /// The state schedule indexes too, by default (#105) — scaled by the
+    /// same compounding factor as federal, though without federal's $25
+    /// floor, since a state's own figures carry no known round increment.
+    #[test]
+    fn state_bracket_and_deduction_index_with_inflation() {
+        let inflation = 0.03;
+        let years = 10.0;
+        let state_tax = StateTaxProfile {
+            state: crate::model::StateCode::Other,
+            brackets: vec![
+                TaxBracket {
+                    up_to: Some(10_000.0),
+                    rate: 0.03,
+                },
+                TaxBracket {
+                    up_to: None,
+                    rate: 0.06,
+                },
+            ],
+            standard_deduction: 2_000.0,
+        };
+        let tax = BracketTax {
+            filing_status: FilingStatus::Single,
+            state_tax: state_tax.clone(),
+            inflation,
+        };
+        let income = IncomeBreakdown {
+            ordinary: 15_750.0, // exactly the *unindexed* federal standard deduction
+            ..Default::default()
+        };
+
+        let indexed_deduction = scaled_state_amount(state_tax.standard_deduction, years, inflation);
+        let indexed_state_brackets = scaled_state_brackets(&state_tax.brackets, years, inflation);
+        assert!(
+            indexed_deduction > state_tax.standard_deduction,
+            "sanity: nonzero inflation over 10 years must raise the deduction"
+        );
+
+        let federal_std_deduction = indexed_federal_amount(
+            federal::standard_deduction(FilingStatus::Single),
+            years,
+            inflation,
+        );
+        assert!(
+            federal_std_deduction > 15_750.0,
+            "sanity: the indexed federal deduction must have grown past this income, \
+             so the federal share of the expected total below is exactly 0"
+        );
+        let expected_state = bracket_tax(
+            (15_750.0 - indexed_deduction).max(0.0),
+            &indexed_state_brackets,
+        );
+
+        assert_close(
+            tax.tax(&income, 10).tax,
+            expected_state,
+            "state tax should use the indexed state schedule and deduction",
         );
     }
 }
