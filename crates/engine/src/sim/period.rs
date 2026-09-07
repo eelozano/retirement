@@ -32,8 +32,8 @@ use crate::strategies::{
 };
 
 use super::{
-    contributions, growth_factor, overlap_fraction, required_distributions, PeriodSnapshot,
-    ResolvedContribution, ResolvedStream, SimWarning, StreamSource,
+    compound, contributions, growth_factor, overlap_fraction, required_distributions,
+    PeriodSnapshot, ResolvedContribution, ResolvedStream, SimWarning, StreamSource,
 };
 
 /// The warnings collected over a run, deduplicated on push.
@@ -140,7 +140,9 @@ pub(super) struct PeriodContext {
     /// Years from the simulation start to this period's start; the exponent
     /// every compounding assumption is raised to.
     pub years_elapsed: f64,
-    /// Share of a year this period covers (1.0 for annual periods).
+    /// Share of a year this period covers. 1.0 for every period but a
+    /// stub period 0 — a plan that starts in September opens with 4/12 —
+    /// and what every annual figure the period touches is scaled by.
     pub fraction: f64,
     pub inflation: f64,
 }
@@ -267,7 +269,7 @@ pub(super) fn run(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) -
     accrue_streams(run, ctx, &mut period);
     contribute(run, ctx, &mut period, state);
     distribute(run, ctx, &mut period, state);
-    accrue_interest(run, &mut period, state);
+    accrue_interest(run, ctx, &mut period, state);
     settle(run, ctx, &mut period, state);
     period.growth += grow(run, ctx, state);
     state.prior_balances = Some(state.accounts.iter().map(|a| a.balance).collect());
@@ -440,7 +442,12 @@ fn distribute(
 /// `base_income` for the period's one tax pass, not a second one; runs
 /// after `distribute` so a forced distribution redeposited into this same
 /// account this period does not itself earn interest before it has arrived.
-fn accrue_interest(run: &RunContext, period: &mut PeriodState, state: &mut RunState) {
+fn accrue_interest(
+    run: &RunContext,
+    ctx: &PeriodContext,
+    period: &mut PeriodState,
+    state: &mut RunState,
+) {
     for (idx, account) in run.plan.accounts.iter().enumerate() {
         if account.kind != AccountKind::Savings {
             continue;
@@ -448,7 +455,10 @@ fn accrue_interest(run: &RunContext, period: &mut PeriodState, state: &mut RunSt
         let AllocationRef::Cash(rate) = &account.allocation else {
             continue;
         };
-        let rate = *rate;
+        // Scaled to the period for the same reason `grow` is: this is the
+        // savings account's whole return, and a stub period earns its own
+        // months of it.
+        let rate = compound(*rate, ctx.fraction);
         let balance = &mut state.accounts[idx].balance;
         if *balance <= 0.0 || rate <= 0.0 {
             continue;
@@ -589,7 +599,10 @@ fn grow(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) -> f64 {
         };
         let balance = &mut state.accounts[idx].balance;
         let pre = *balance;
-        *balance *= 1.0 + rate;
+        // Scaled to the period, not to the calendar year: a stub first
+        // period (a plan that starts in September) earns its own months of
+        // return and no more.
+        *balance *= 1.0 + compound(rate, ctx.fraction);
         growth += *balance - pre;
     }
     growth

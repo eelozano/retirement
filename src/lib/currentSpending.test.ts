@@ -157,6 +157,37 @@ describe("currentSpendingEstimate", () => {
     expect(estimate).toEqual({ annualAmount: 65_000, year: 2026 });
   });
 
+  it("skips a stub first period rather than reading four months as a year", () => {
+    // A plan written in September opens with a four-month period (#106):
+    // a third of the pay, a third of the tax, a third of the surplus.
+    // Read as an annual figure it would seed retirement spending at a
+    // third of what this household actually lives on.
+    const household = plan([person("solo", { year: 2029, month: 1 })]);
+    const stub = snapshot(2026, {
+      period_start: { year: 2026, month: 9 },
+      income: 33_333,
+      contributions: 5_000,
+      taxes: 6_666,
+      surplus: 21_667,
+    });
+
+    expect(
+      currentSpendingEstimate(
+        household,
+        projection([stub, workingYear(2027), workingYear(2028), snapshot(2029)]),
+      ),
+    ).toEqual({ annualAmount: 65_000, year: 2028 });
+
+    // And with no whole working year to fall back on there is no estimate
+    // at all, which is the right answer rather than a third of one.
+    expect(
+      currentSpendingEstimate(
+        plan([person("solo", { year: 2027, month: 3 })]),
+        projection([stub, snapshot(2027)]),
+      ),
+    ).toBeNull();
+  });
+
   it("has nothing to offer when the projection starts after retirement", () => {
     const household = plan([person("solo", { year: 2020, month: 1 })]);
 

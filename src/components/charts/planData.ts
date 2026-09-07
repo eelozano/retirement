@@ -201,12 +201,20 @@ function sameMonth(a: YearMonth, b: YearMonth): boolean {
  * First snapshot whose period lies entirely at or after `date` — i.e. the
  * first period a stream starting at `date` covers in full, with no
  * proration stub. Relies on `projection.snapshots` being chronological.
+ *
+ * Mirrors `SimConfig::first_full_period_at_or_after`, stub clause included:
+ * a period is a whole calendar year exactly when it starts in January, and
+ * period 0 of a plan started mid-year is not one (#106). Without that test,
+ * a household already retired when they wrote a September plan would have
+ * its "at retirement" figures read off a four-month stub.
  */
 function firstFullPeriodAtOrAfter(
   projection: Projection,
   date: YearMonth,
 ): PeriodSnapshot | undefined {
-  return projection.snapshots.find((s) => atOrAfter(s.period_start, date));
+  return projection.snapshots.find(
+    (s) => s.period_start.month === 1 && atOrAfter(s.period_start, date),
+  );
 }
 
 export function headlineMetrics(
