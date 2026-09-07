@@ -81,6 +81,14 @@ conversion or a bracket-filling withdrawal is built on.
 field has an obvious home in it. Real work, but cost rather than risk — none of
 these entries needs a breaking schema change.
 
+That holds because the household split (issue #109) lands before any of
+these. Each entry below now has two homes to write into rather than one: a
+fact you read off a statement — a loan balance, a property value — goes on
+the household with a dated observation, and a choice or an assumption — an
+appreciation rate, a sale year — goes on the scenario. Both are additive to
+their file. An entry that puts an observation on the scenario side, or a
+scenario variable on the household, is the mistake to look for in review.
+
 **Difficulty, roughly.** Low: G (ordered drawdown), and the vocabulary half of C
 (healthcare). Medium: A (liabilities), B (real estate), E (long-term care), F
 (historical backtesting — medium only if the inflation question is answered
@@ -95,7 +103,8 @@ whether an IRMAA threshold or a §121 exclusion is right. Each entry should land
 with hand-computed micro-cases in the style of `strategies/tax.rs`'s test
 module, where the arithmetic is checkable by reading.
 
-**Suggested order.** A → B (real estate needs a mortgage). C → D (IRMAA needs
+**Suggested order.** #109 (the household split) before A and B, so their
+facts are born on the household. A → B (real estate needs a mortgage). C → D (IRMAA needs
 Medicare enrollment; C also gives E its boundary). G before H (conversions are
 much less interesting under a proportional drawdown). F is independent.
 
@@ -177,6 +186,25 @@ unconditionally (`strategies/tax.rs`), so a deductible-interest field will
 overstate the benefit for most households — say so in the UI rather than
 modeling itemization.
 
+### Where it lives
+
+**Build after the household split.** A liability is almost entirely a
+household fact: `balance` is an observation refreshed from a statement,
+with the same dated list an account balance has; `rate`, `term` or
+`payment`, and whether the interest is deductible are read off the loan
+document and do not vary between scenarios. `owner` and `name` are
+identity. Nothing in the scope above is scenario policy, since extra
+payments and payoff strategies are deliberately out of scope; when they
+arrive they are the scenario half, keyed by liability id exactly as
+`AccountPolicy` is keyed by account id.
+
+Consequences: the refresh screen (#111) lists liabilities beside accounts
+for free; `net_worth` in a scenario comparison subtracts the same debt from
+every scenario, so the comparison keeps measuring policy; and the
+plan-versus-actual data (entry **I**) covers payoff progress without
+anything extra. Built before the split, every one of these would have to be
+re-homed and the household file migrated a second time.
+
 ---
 
 ## B — Real estate: an appreciating asset the drawdown must not be able to sell
@@ -243,6 +271,24 @@ mortgages, HELOCs, and property-tax reassessment rules. Each is a real thing;
 none is needed for a first version to be useful. A reverse mortgage in
 particular deserves its own entry, because it is a liability that accrues rather
 than amortizes.
+
+### Where it lives
+
+**Build after the household split.** A property splits the way an account
+does. On the household: `value` and cost basis as dated observations (a
+home value is the balance you refresh least often and argue about most,
+which is exactly why the previous figure and its date should be beside the
+field), the `LiabilityId` of its mortgage, and whether it is the primary
+residence for the §121 question. On the scenario: `appreciation` (an
+assumption, and one a "housing flat for a decade" scenario wants to vary),
+the sale event and its year, and where the proceeds land. Carrying costs
+and rental income are streams and already scenario-side; if they become
+fields on `Property` instead, those fields are the scenario half.
+
+The rent-versus-buy comparison the entry already declines to build stays
+declined, and gets easier: two scenarios of one household, one with the
+property's sale and the other with a rent stream, against the same
+observed balances.
 
 ---
 
@@ -649,3 +695,62 @@ that flatters conversions. Name it in the warning text, not just in a comment.
 of scope.** This entry makes conversions *expressible*. Searching over them is a
 different problem, and it probably belongs to the scenario layer — which already
 compares up to five plans — rather than inside the simulation loop.
+
+---
+
+# Tracking
+
+## I — Plan versus actual: the refresh ledger can say whether the assumptions were right, and nothing reads it
+
+> **Depends on #109 and #111.** Deliberately unscheduled until a year of
+> refreshes exists to design against.
+
+### Scope
+
+Chart what each account actually did against what the projection said it
+would do, refresh by refresh, and roll that up to net worth: the progress
+view ProjectionLab and Boldin lead with.
+
+### Problem
+
+After #111, every refresh appends a dated observation per account and
+keeps an unpruned copy of the household as it stood before, under
+`plans/.refreshes/`. That is the whole dataset a plan-versus-actual view
+needs, and the app records it so that the choice to build the view can be
+made later without having lost the data. Today nothing reads either.
+
+### Design decisions to settle
+
+**Which projection is "the plan".** The pre-refresh copy taken at each
+refresh is one honest baseline: it says what the projection was the last
+time the household looked. A pinned "plan of record" that the user names
+and that survives refreshes is the other, and answers "am I on the plan I
+made in 2026", which the rolling baseline cannot. Probably both, with the
+pin as a later addition; decide which the first version shows.
+
+**Basis.** A March projection is in March start-dollars; a December
+observation is nominal; the deflator's base moves with every refresh.
+Compare nominal to nominal, and say so on the chart. Do not offer the
+real-dollar toggle on this view until the basis question has an answer
+that does not shift under the reader.
+
+**Granularity.** Projections are annual and observations land at arbitrary
+months. Interpolate the projected balance within the year for the
+comparison point, and label it as interpolated, or compare only at
+year-ends and accept a sparse chart. Recommend interpolation with the
+label.
+
+**Which scenario's projection.** Facts are shared, so "actual" is the same
+for every scenario, but the projection differs per scenario. Compare
+against the scenario that was active at the time of the refresh (recorded
+in the pre-refresh copy), and name it.
+
+**What it is for.** The one question worth designing the copy around is
+"was the return assumption fair for us": the realised nominal return per
+account between observations, contributions netted out, against
+`asset_returns` for its allocation. Everything else on the view is context
+for that number.
+
+**Out of scope:** reconciling transactions, importing statements, and any
+automatic adjustment of assumptions from actuals. The app shows the gap; the
+household decides what to do about it.
