@@ -1,4 +1,5 @@
 import { atOrAfter, isWorkingPeriod } from "../../lib/currentSpending";
+import { yearBoundary } from "../../lib/yearBoundary";
 import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
 import type { PeriodSnapshot } from "../../types/generated/PeriodSnapshot";
 import type { Person } from "../../types/generated/Person";
@@ -281,12 +282,21 @@ export function milestones(
   realDollars: boolean,
 ): Milestone[] {
   const out: Milestone[] = plan.people.map((person) => {
-    const s = snapshotForYear(projection, person.retirement.year);
+    const { stubYear, firstFullYear } = yearBoundary(person.retirement);
+    const s = snapshotForYear(projection, stubYear);
+    const age = stubYear - person.birth.year;
     return {
       key: person.id,
       label: `At ${person.name}'s retirement`,
       value: s ? s.net_worth / basis(s, realDollars) : null,
-      sub: `${person.retirement.year} · age ${person.retirement.year - person.birth.year}`,
+      // A mid-year retirement's stub year is not a full year of it, so the
+      // value shown — net worth at that year's end — needs to say which
+      // year it is: the first full year (age `firstFullYear`) would be a
+      // different, later figure.
+      sub:
+        stubYear === firstFullYear
+          ? `${stubYear} · age ${age}`
+          : `end of ${stubYear} · age ${age}`,
     };
   });
 
@@ -362,8 +372,13 @@ export interface BalanceRow {
 export interface PersonYear {
   name: string;
   age: number;
-  /** Retired, dead, or neither — death wins, since it ends the rest. */
-  status: "retired" | "dies" | "died" | null;
+  /**
+   * Retired, retiring, dead, or neither — death wins, since it ends the
+   * rest. `retires` is the stub year a mid-year retirement falls in (the
+   * same status death gets in its own stub year, `dies`); a January
+   * retirement has no stub, so it is `retired` from that year on.
+   */
+  status: "retired" | "retires" | "dies" | "died" | null;
 }
 
 export interface YearDetail {
@@ -513,6 +528,7 @@ export function yearDetail(
     netWorth: s.net_worth / d,
     ages: plan.people.map((p) => {
       const death = deathMonth(p);
+      const { stubYear, firstFullYear } = yearBoundary(p.retirement);
       return {
         name: p.name,
         age: year - p.birth.year,
@@ -521,9 +537,11 @@ export function yearDetail(
             ? "died"
             : year === death.year
               ? "dies"
-              : year >= p.retirement.year
+              : year >= firstFullYear
                 ? "retired"
-                : null,
+                : year === stubYear
+                  ? "retires"
+                  : null,
       };
     }),
     flows,

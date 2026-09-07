@@ -397,6 +397,29 @@ describe("milestones", () => {
     expect(end.critical).toBe(true);
   });
 
+  it("labels the retirement milestone's stub year plainly when it is January", () => {
+    const p = plan([person("a", 1980, 2038, 1)], []);
+    const proj = projection([
+      snapshot({ period_start: { year: 2038, month: 1 }, net_worth: 900 }),
+    ]);
+
+    const [retirement] = milestones(p, proj, null, false);
+    expect(retirement.sub).toBe("2038 · age 58");
+  });
+
+  it("marks the retirement milestone's stub year as 'end of' when retirement is mid-year", () => {
+    // A mid-year retirement's stub year is not a full year of it, so the
+    // net worth shown — read at that year's end — needs to say so; the
+    // first full year (2039) would be a different figure entirely.
+    const p = plan([person("a", 1980, 2038, 8)], []);
+    const proj = projection([
+      snapshot({ period_start: { year: 2038, month: 1 }, net_worth: 900 }),
+    ]);
+
+    const [retirement] = milestones(p, proj, null, false);
+    expect(retirement.sub).toBe("end of 2038 · age 58");
+  });
+
   it("names the plan-end age in the plan-end milestone's sub-text", () => {
     const p = plan([person("a", 1980, 2030, 1, 90)], []);
     const proj = projection([
@@ -560,6 +583,37 @@ describe("yearDetail", () => {
     const retired = yearDetail(p, proj, 2030, seriesDefs(p), false);
     expect(retired?.leftOverLabel).toBe("Left over");
     expect(retired?.spendingNote).toBeNull();
+  });
+
+  it("agrees with the leftover label in a single-earner's retirement year", () => {
+    // Retiring in August: the calendar year it happens in is a stub — part
+    // working, part retired — for both the ages panel and the surplus
+    // label. Before this, the ages panel called that year "retired" while
+    // the label right beside it still said "Current spending".
+    const p = plan([person("a", 1980, 2038, 8)], []);
+    const proj = projection([
+      snapshot({ period_start: { year: 2038, month: 1 }, surplus: 50_000 }),
+      snapshot({ period_start: { year: 2039, month: 1 }, surplus: 5_000 }),
+    ]);
+
+    const stub = yearDetail(p, proj, 2038, [], false);
+    expect(stub?.ages[0].status).toBe("retires");
+    expect(stub?.leftOverLabel).toBe("Current spending");
+
+    const fullYear = yearDetail(p, proj, 2039, [], false);
+    expect(fullYear?.ages[0].status).toBe("retired");
+    expect(fullYear?.leftOverLabel).toBe("Left over");
+  });
+
+  it("has no stub year for a January retirement — retired from that year on", () => {
+    const p = plan([person("a", 1980, 2038, 1)], []);
+    const proj = projection([
+      snapshot({ period_start: { year: 2038, month: 1 }, surplus: 5_000 }),
+    ]);
+
+    const detail = yearDetail(p, proj, 2038, [], false);
+    expect(detail?.ages[0].status).toBe("retired");
+    expect(detail?.leftOverLabel).toBe("Left over");
   });
 
   it("buckets accounts past the palette into Other, matching the chart stack", () => {
