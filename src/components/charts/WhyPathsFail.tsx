@@ -100,7 +100,9 @@ function TimingFindingBlock(props: { timing: TimingFinding; textId: string }) {
             {t.inLastDecade && <>, in the plan's last decade</>}.{" "}
           </>
         )}
-        {t.retirementYear !== null && <>Retirement begins {t.retirementYear}.</>}
+        {t.retirementYear !== null && (
+          <>First full year of retirement: {t.retirementYear}.</>
+        )}
       </>
     );
 

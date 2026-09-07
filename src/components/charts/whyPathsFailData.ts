@@ -51,6 +51,9 @@ export interface TimingFinding {
   late: number;
   shape: "early" | "late" | "mixed" | "unanchored";
   windowYears: number;
+  /** The first full year of retirement — see `yearBoundary` in
+   * `src/lib/yearBoundary.ts` — not the stub year retirement itself falls
+   * in, which the engine's `retirement_period` already skips past. */
   retirementYear: number | null;
   /** Last year of the early window, clamped into the horizon. */
   windowEndYear: number | null;
