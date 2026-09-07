@@ -168,7 +168,13 @@ export function Dashboard() {
           ) : destination === "scenarios" ? (
             <ScenariosScreen />
           ) : (
-            <PlanScreen onOpenCashFlow={() => setDestination("cashflow")} />
+            <PlanScreen
+              onOpenCashFlow={() => setDestination("cashflow")}
+              onOpenAccounts={() => {
+                setDestination("inputs");
+                setInputsSection("accounts");
+              }}
+            />
           )}
         </div>
       </div>

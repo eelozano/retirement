@@ -1324,6 +1324,28 @@ button.remove:hover {
 .status-spacer {
   flex: 1;
 }
+.status-asof {
+  font-size: var(--t-xs);
+  white-space: nowrap;
+}
+.status-asof-warning {
+  color: var(--status-warn);
+}
+.status-asof-stale {
+  color: var(--status-critical);
+  font-weight: 600;
+}
+.status-asof-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .status-warnings {
   font-family: var(--font-num);
   font-size: var(--t-xs);

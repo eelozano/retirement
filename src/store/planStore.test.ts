@@ -11,6 +11,7 @@ vi.mock("../lib/api", () => ({
   listPlans: vi.fn(),
   loadPlan: vi.fn(),
   loadPlanNamed: vi.fn(),
+  getHousehold: vi.fn(() => Promise.resolve(null)),
   runProjection: vi.fn(),
   savePlan: vi.fn(),
   setActivePlan: vi.fn(),
@@ -91,6 +92,7 @@ beforeEach(() => {
   usePlanStore.setState({
     scenarios: [],
     plan: null,
+    household: null,
     initialized: false,
     projection: null,
     monteCarlo: null,

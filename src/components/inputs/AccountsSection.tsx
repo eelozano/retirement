@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { currency } from "../../lib/format";
+import { currency, yearMonth } from "../../lib/format";
 import { usePlanStore } from "../../store/planStore";
 import type { AllocationRef } from "../../types/generated/AllocationRef";
+import type { YearMonth } from "../../types/generated/YearMonth";
 import {
   contributionSummary,
   defaultContribution,
@@ -52,6 +53,7 @@ function allocationLabel(allocation: AllocationRef): string {
 export function AccountsSection() {
   const plan = usePlanStore((s) => s.plan);
   const presets = usePlanStore((s) => s.presets);
+  const household = usePlanStore((s) => s.household);
   const updatePlan = usePlanStore((s) => s.updatePlan);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const editorRef = useRef<HTMLFieldSetElement>(null);
@@ -71,6 +73,18 @@ export function AccountsSection() {
   // removed) rather than leaving the editor empty.
   const selected = accounts.find((a) => a.id === selectedId) ?? accounts[0] ?? null;
   const selectedIndex = selected ? accounts.findIndex((a) => a.id === selected.id) : -1;
+
+  // The household's own reading of this account's last balance, not the
+  // plan's start date — a partially refreshed household can have accounts
+  // at different ages (#111). Falls back to the plan's start for an account
+  // the household hasn't fetched yet (still loading, or added this session
+  // and not yet saved).
+  const accountAsOf = (accountId: string): YearMonth => {
+    const observations = household?.accounts.find(
+      (a) => a.id === accountId,
+    )?.observations;
+    return observations?.[observations.length - 1]?.as_of ?? plan.sim_config.start;
+  };
 
   const addAccount = () => {
     const id = `account-${Date.now()}`;
@@ -116,6 +130,7 @@ export function AccountsSection() {
                   <th>Allocation</th>
                   <th>Contributing</th>
                   <th className="num">Balance</th>
+                  <th>As of</th>
                 </tr>
               </thead>
               <tbody>
@@ -149,6 +164,7 @@ export function AccountsSection() {
                     <td>{allocationLabel(account.allocation)}</td>
                     <td>{contributionSummary(account)}</td>
                     <td className="num">{currency(account.balance)}</td>
+                    <td>{yearMonth(accountAsOf(account.id))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -271,7 +287,7 @@ export function AccountsSection() {
             />
           )}
           <NumberField
-            label="Balance today ($)"
+            label={`Balance as of ${yearMonth(accountAsOf(selected.id))} ($)`}
             value={selected.balance}
             onChange={(balance) =>
               updatePlan((d) => {

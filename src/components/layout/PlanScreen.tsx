@@ -26,7 +26,10 @@ import { StatusBand } from "./StatusBand";
 //   2  projection + year inspector
 //   3  supporting detail, below the fold
 
-export function PlanScreen(props: { onOpenCashFlow: () => void }) {
+export function PlanScreen(props: {
+  onOpenCashFlow: () => void;
+  onOpenAccounts: () => void;
+}) {
   const plan = usePlanStore((s) => s.plan);
   const projection = usePlanStore((s) => s.projection);
   const monteCarlo = usePlanStore((s) => s.monteCarlo);
@@ -130,7 +133,12 @@ export function PlanScreen(props: { onOpenCashFlow: () => void }) {
 
   return (
     <main className={`plan-screen ${projecting ? "refreshing" : ""}`}>
-      <StatusBand metrics={metrics} warnings={warnings} />
+      <StatusBand
+        metrics={metrics}
+        warnings={warnings}
+        asOf={plan.sim_config.start}
+        onOpenAccounts={props.onOpenAccounts}
+      />
 
       <div className="plan-scroll">
         <HeadlineTiles
