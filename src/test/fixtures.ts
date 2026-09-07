@@ -1,3 +1,4 @@
+import type { PlanSummary } from "../lib/api";
 import type { MonteCarloDiagnostics } from "../types/generated/MonteCarloDiagnostics";
 import type { PathGroupStats } from "../types/generated/PathGroupStats";
 import type { Spread } from "../types/generated/Spread";
@@ -38,6 +39,27 @@ export function diagnostics(
     failed: null,
     succeeded: null,
     median_withdrawal_rate_at_retirement: null,
+    ...overrides,
+  };
+}
+
+/**
+ * One row of the scenario switcher. Defaults put every scenario in one
+ * household called "My household", which is the ordinary case and the one
+ * most tests mean; pass `household_id`/`household_name` when the test is
+ * about two households (#109).
+ */
+export function planSummary(
+  id: string,
+  name: string,
+  overrides: Partial<PlanSummary> = {},
+): PlanSummary {
+  return {
+    id,
+    name,
+    household_id: "my-household",
+    household_name: "My household",
+    sample: false,
     ...overrides,
   };
 }

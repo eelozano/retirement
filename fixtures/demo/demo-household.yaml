@@ -1,0 +1,841 @@
+schema_version: 2
+id: demo-household
+name: Demo household
+sample: true
+as_of:
+  year: 2026
+  month: 1
+people:
+- id: alex
+  name: Alex
+  birth:
+    year: 1979
+    month: 4
+- id: jordan
+  name: Jordan
+  birth:
+    year: 1981
+    month: 9
+accounts:
+- id: joint-brokerage
+  owner: alex
+  kind: Taxable
+  plan_type: None
+  name: Joint brokerage
+  allocation: Aggressive
+  observations:
+  - as_of:
+      year: 2026
+      month: 1
+    balance: 120000.0
+    cost_basis: 88000.0
+- id: alex-401k
+  owner: alex
+  kind: TraditionalPreTax
+  plan_type: EmployerPlan
+  name: Alex 401(k)
+  allocation: Aggressive
+  observations:
+  - as_of:
+      year: 2026
+      month: 1
+    balance: 340000.0
+    cost_basis: null
+- id: jordan-403b
+  owner: jordan
+  kind: TraditionalPreTax
+  plan_type: EmployerPlan
+  name: Jordan 403(b)
+  allocation: Moderate
+  observations:
+  - as_of:
+      year: 2026
+      month: 1
+    balance: 210000.0
+    cost_basis: null
+- id: jordan-roth-ira
+  owner: jordan
+  kind: Roth
+  plan_type: Ira
+  name: Jordan Roth IRA
+  allocation: Aggressive
+  observations:
+  - as_of:
+      year: 2026
+      month: 1
+    balance: 65000.0
+    cost_basis: null
+- id: alex-roth-ira
+  owner: alex
+  kind: Roth
+  plan_type: Ira
+  name: Alex Roth IRA
+  allocation: Aggressive
+  observations:
+  - as_of:
+      year: 2026
+      month: 1
+    balance: 0.0
+    cost_basis: null
+- id: alex-hsa
+  owner: alex
+  kind: Hsa
+  plan_type: Hsa
+  name: Alex HSA
+  allocation: Moderate
+  observations:
+  - as_of:
+      year: 2026
+      month: 1
+    balance: 18000.0
+    cost_basis: null
+- id: emergency-savings
+  owner: jordan
+  kind: Savings
+  plan_type: None
+  name: Emergency savings
+  allocation: Conservative
+  observations:
+  - as_of:
+      year: 2026
+      month: 1
+    balance: 35000.0
+    cost_basis: null
+social_security:
+- id: alex-social-security
+  owner: alex
+  benefit_at_fra: 42000.0
+  full_retirement_age: 67
+- id: jordan-social-security
+  owner: jordan
+  benefit_at_fra: 34000.0
+  full_retirement_age: 67
+scenarios:
+- id: base-plan
+  name: Base plan
+  display_real_dollars: false
+  people:
+    alex:
+      retirement:
+        year: 2042
+        month: 4
+      life_expectancy_age: 88
+    jordan:
+      retirement:
+        year: 2044
+        month: 9
+      life_expectancy_age: 91
+  accounts:
+    alex-401k:
+      contributions:
+      - id: alex-401k-contribution
+        rule: !PercentOfSalary
+          percent: 0.1
+          step_up:
+            points_per_year: 0.01
+            cap: 0.15
+        start: PlanStart
+        end: !AtRetirement alex
+      employer_match:
+        tiers:
+        - employee_percent: 0.03
+          match_percent: 1.0
+        - employee_percent: 0.02
+          match_percent: 0.5
+        destination: PreTax
+    alex-hsa:
+      contributions:
+      - id: alex-hsa-contribution
+        rule: FederalMaximum
+        start: PlanStart
+        end: !AtRetirement alex
+      employer_match: null
+    alex-roth-ira:
+      contributions:
+      - id: alex-roth-ira-contribution
+        rule: FederalMaximum
+        start: !Date
+          year: 2029
+          month: 1
+        end: !AtRetirement alex
+      employer_match: null
+    emergency-savings:
+      contributions:
+      - id: emergency-savings-contribution
+        rule: !FlatAmount
+          amount: 0.0
+          growth: None
+        start: PlanStart
+        end: !AtRetirement jordan
+      employer_match: null
+    joint-brokerage:
+      contributions:
+      - id: joint-brokerage-contribution
+        rule: !FlatAmount
+          amount: 6000.0
+          growth: None
+        start: PlanStart
+        end: !AtRetirement alex
+      - id: joint-brokerage-contribution-2027
+        rule: !FlatAmount
+          amount: 8400.0
+          growth: None
+        start: !Date
+          year: 2027
+          month: 1
+        end: !AtRetirement alex
+      employer_match: null
+    jordan-403b:
+      contributions:
+      - id: jordan-403b-contribution
+        rule: !PercentOfSalary
+          percent: 0.08
+          step_up: null
+        start: PlanStart
+        end: !AtRetirement jordan
+      employer_match:
+        tiers:
+        - employee_percent: 0.04
+          match_percent: 0.5
+        destination: PreTax
+    jordan-roth-ira:
+      contributions:
+      - id: jordan-roth-ira-contribution
+        rule: FederalMaximum
+        start: PlanStart
+        end: !AtRetirement jordan
+      employer_match: null
+  social_security:
+    alex-social-security:
+      claiming_age: 70
+      cola_override: null
+    jordan-social-security:
+      claiming_age: 67
+      cola_override: null
+  streams:
+  - id: alex-salary
+    name: Alex salary
+    owner: alex
+    direction: Income
+    annual_amount: 145000.0
+    start: PlanStart
+    end: !AtRetirement alex
+    growth: Inflation
+    survivor_percentage: null
+  - id: jordan-salary
+    name: Jordan salary
+    owner: jordan
+    direction: Income
+    annual_amount: 105000.0
+    start: PlanStart
+    end: !AtRetirement jordan
+    growth: Inflation
+    survivor_percentage: null
+  - id: spending-working
+    name: Household spending (working)
+    owner: null
+    direction: Expense
+    annual_amount: 150000.0
+    start: PlanStart
+    end: !AtRetirement alex
+    growth: Inflation
+    survivor_percentage: null
+  - id: spending-retired
+    name: Household spending (retired)
+    owner: null
+    direction: Expense
+    annual_amount: 145000.0
+    start: !AtRetirement alex
+    end: PlanEnd
+    growth: Inflation
+    survivor_percentage: null
+  - id: healthcare-bridge
+    name: Pre-Medicare health insurance
+    owner: null
+    direction: Expense
+    annual_amount: 26000.0
+    start: !AtRetirement alex
+    end: !Date
+      year: 2044
+      month: 4
+    growth: Inflation
+    survivor_percentage: null
+  - id: jordan-pension
+    name: Jordan pension
+    owner: jordan
+    direction: Income
+    annual_amount: 18000.0
+    start: !AtRetirement jordan
+    end: PlanEnd
+    growth: None
+    survivor_percentage: 0.5
+  assumptions:
+    inflation: 0.025
+    asset_returns:
+      UsEquity: 0.08
+      IntlEquity: 0.075
+      GlobalEquity: 0.078
+      UsBonds: 0.04
+    filing_status: MarriedFilingJointly
+    state_tax:
+      state: Colorado
+      brackets:
+      - up_to: null
+        rate: 0.044
+      standard_deduction: 0.0
+    plan_end_age: 95
+    sweep_surplus_from: !AtRetirement alex
+    survivor_expense_factor: 0.75
+    social_security_cola: 0.025
+    asset_volatility:
+      UsEquity: 0.18
+      IntlEquity: 0.2
+      GlobalEquity: 0.17
+      UsBonds: 0.06
+    reinvest_into: joint-brokerage
+- id: retire-two-years-early
+  name: Retire two years early
+  display_real_dollars: false
+  people:
+    alex:
+      retirement:
+        year: 2040
+        month: 4
+      life_expectancy_age: 88
+    jordan:
+      retirement:
+        year: 2042
+        month: 9
+      life_expectancy_age: 91
+  accounts:
+    alex-401k:
+      contributions:
+      - id: alex-401k-contribution
+        rule: !PercentOfSalary
+          percent: 0.1
+          step_up:
+            points_per_year: 0.01
+            cap: 0.15
+        start: PlanStart
+        end: !AtRetirement alex
+      employer_match:
+        tiers:
+        - employee_percent: 0.03
+          match_percent: 1.0
+        - employee_percent: 0.02
+          match_percent: 0.5
+        destination: PreTax
+    alex-hsa:
+      contributions:
+      - id: alex-hsa-contribution
+        rule: FederalMaximum
+        start: PlanStart
+        end: !AtRetirement alex
+      employer_match: null
+    alex-roth-ira:
+      contributions:
+      - id: alex-roth-ira-contribution
+        rule: FederalMaximum
+        start: !Date
+          year: 2029
+          month: 1
+        end: !AtRetirement alex
+      employer_match: null
+    emergency-savings:
+      contributions:
+      - id: emergency-savings-contribution
+        rule: !FlatAmount
+          amount: 0.0
+          growth: None
+        start: PlanStart
+        end: !AtRetirement jordan
+      employer_match: null
+    joint-brokerage:
+      contributions:
+      - id: joint-brokerage-contribution
+        rule: !FlatAmount
+          amount: 6000.0
+          growth: None
+        start: PlanStart
+        end: !AtRetirement alex
+      - id: joint-brokerage-contribution-2027
+        rule: !FlatAmount
+          amount: 8400.0
+          growth: None
+        start: !Date
+          year: 2027
+          month: 1
+        end: !AtRetirement alex
+      employer_match: null
+    jordan-403b:
+      contributions:
+      - id: jordan-403b-contribution
+        rule: !PercentOfSalary
+          percent: 0.08
+          step_up: null
+        start: PlanStart
+        end: !AtRetirement jordan
+      employer_match:
+        tiers:
+        - employee_percent: 0.04
+          match_percent: 0.5
+        destination: PreTax
+    jordan-roth-ira:
+      contributions:
+      - id: jordan-roth-ira-contribution
+        rule: FederalMaximum
+        start: PlanStart
+        end: !AtRetirement jordan
+      employer_match: null
+  social_security:
+    alex-social-security:
+      claiming_age: 70
+      cola_override: null
+    jordan-social-security:
+      claiming_age: 67
+      cola_override: null
+  streams:
+  - id: alex-salary
+    name: Alex salary
+    owner: alex
+    direction: Income
+    annual_amount: 145000.0
+    start: PlanStart
+    end: !AtRetirement alex
+    growth: Inflation
+    survivor_percentage: null
+  - id: jordan-salary
+    name: Jordan salary
+    owner: jordan
+    direction: Income
+    annual_amount: 105000.0
+    start: PlanStart
+    end: !AtRetirement jordan
+    growth: Inflation
+    survivor_percentage: null
+  - id: spending-working
+    name: Household spending (working)
+    owner: null
+    direction: Expense
+    annual_amount: 150000.0
+    start: PlanStart
+    end: !AtRetirement alex
+    growth: Inflation
+    survivor_percentage: null
+  - id: spending-retired
+    name: Household spending (retired)
+    owner: null
+    direction: Expense
+    annual_amount: 145000.0
+    start: !AtRetirement alex
+    end: PlanEnd
+    growth: Inflation
+    survivor_percentage: null
+  - id: healthcare-bridge
+    name: Pre-Medicare health insurance
+    owner: null
+    direction: Expense
+    annual_amount: 26000.0
+    start: !AtRetirement alex
+    end: !Date
+      year: 2044
+      month: 4
+    growth: Inflation
+    survivor_percentage: null
+  - id: jordan-pension
+    name: Jordan pension
+    owner: jordan
+    direction: Income
+    annual_amount: 18000.0
+    start: !AtRetirement jordan
+    end: PlanEnd
+    growth: None
+    survivor_percentage: 0.5
+  assumptions:
+    inflation: 0.025
+    asset_returns:
+      UsEquity: 0.08
+      IntlEquity: 0.075
+      GlobalEquity: 0.078
+      UsBonds: 0.04
+    filing_status: MarriedFilingJointly
+    state_tax:
+      state: Colorado
+      brackets:
+      - up_to: null
+        rate: 0.044
+      standard_deduction: 0.0
+    plan_end_age: 95
+    sweep_surplus_from: !AtRetirement alex
+    survivor_expense_factor: 0.75
+    social_security_cola: 0.025
+    asset_volatility:
+      UsEquity: 0.18
+      IntlEquity: 0.2
+      GlobalEquity: 0.17
+      UsBonds: 0.06
+    reinvest_into: joint-brokerage
+- id: claim-social-security-at-62
+  name: Claim Social Security at 62
+  display_real_dollars: false
+  people:
+    alex:
+      retirement:
+        year: 2042
+        month: 4
+      life_expectancy_age: 88
+    jordan:
+      retirement:
+        year: 2044
+        month: 9
+      life_expectancy_age: 91
+  accounts:
+    alex-401k:
+      contributions:
+      - id: alex-401k-contribution
+        rule: !PercentOfSalary
+          percent: 0.1
+          step_up:
+            points_per_year: 0.01
+            cap: 0.15
+        start: PlanStart
+        end: !AtRetirement alex
+      employer_match:
+        tiers:
+        - employee_percent: 0.03
+          match_percent: 1.0
+        - employee_percent: 0.02
+          match_percent: 0.5
+        destination: PreTax
+    alex-hsa:
+      contributions:
+      - id: alex-hsa-contribution
+        rule: FederalMaximum
+        start: PlanStart
+        end: !AtRetirement alex
+      employer_match: null
+    alex-roth-ira:
+      contributions:
+      - id: alex-roth-ira-contribution
+        rule: FederalMaximum
+        start: !Date
+          year: 2029
+          month: 1
+        end: !AtRetirement alex
+      employer_match: null
+    emergency-savings:
+      contributions:
+      - id: emergency-savings-contribution
+        rule: !FlatAmount
+          amount: 0.0
+          growth: None
+        start: PlanStart
+        end: !AtRetirement jordan
+      employer_match: null
+    joint-brokerage:
+      contributions:
+      - id: joint-brokerage-contribution
+        rule: !FlatAmount
+          amount: 6000.0
+          growth: None
+        start: PlanStart
+        end: !AtRetirement alex
+      - id: joint-brokerage-contribution-2027
+        rule: !FlatAmount
+          amount: 8400.0
+          growth: None
+        start: !Date
+          year: 2027
+          month: 1
+        end: !AtRetirement alex
+      employer_match: null
+    jordan-403b:
+      contributions:
+      - id: jordan-403b-contribution
+        rule: !PercentOfSalary
+          percent: 0.08
+          step_up: null
+        start: PlanStart
+        end: !AtRetirement jordan
+      employer_match:
+        tiers:
+        - employee_percent: 0.04
+          match_percent: 0.5
+        destination: PreTax
+    jordan-roth-ira:
+      contributions:
+      - id: jordan-roth-ira-contribution
+        rule: FederalMaximum
+        start: PlanStart
+        end: !AtRetirement jordan
+      employer_match: null
+  social_security:
+    alex-social-security:
+      claiming_age: 62
+      cola_override: null
+    jordan-social-security:
+      claiming_age: 62
+      cola_override: null
+  streams:
+  - id: alex-salary
+    name: Alex salary
+    owner: alex
+    direction: Income
+    annual_amount: 145000.0
+    start: PlanStart
+    end: !AtRetirement alex
+    growth: Inflation
+    survivor_percentage: null
+  - id: jordan-salary
+    name: Jordan salary
+    owner: jordan
+    direction: Income
+    annual_amount: 105000.0
+    start: PlanStart
+    end: !AtRetirement jordan
+    growth: Inflation
+    survivor_percentage: null
+  - id: spending-working
+    name: Household spending (working)
+    owner: null
+    direction: Expense
+    annual_amount: 150000.0
+    start: PlanStart
+    end: !AtRetirement alex
+    growth: Inflation
+    survivor_percentage: null
+  - id: spending-retired
+    name: Household spending (retired)
+    owner: null
+    direction: Expense
+    annual_amount: 145000.0
+    start: !AtRetirement alex
+    end: PlanEnd
+    growth: Inflation
+    survivor_percentage: null
+  - id: healthcare-bridge
+    name: Pre-Medicare health insurance
+    owner: null
+    direction: Expense
+    annual_amount: 26000.0
+    start: !AtRetirement alex
+    end: !Date
+      year: 2044
+      month: 4
+    growth: Inflation
+    survivor_percentage: null
+  - id: jordan-pension
+    name: Jordan pension
+    owner: jordan
+    direction: Income
+    annual_amount: 18000.0
+    start: !AtRetirement jordan
+    end: PlanEnd
+    growth: None
+    survivor_percentage: 0.5
+  assumptions:
+    inflation: 0.025
+    asset_returns:
+      UsEquity: 0.08
+      IntlEquity: 0.075
+      GlobalEquity: 0.078
+      UsBonds: 0.04
+    filing_status: MarriedFilingJointly
+    state_tax:
+      state: Colorado
+      brackets:
+      - up_to: null
+        rate: 0.044
+      standard_deduction: 0.0
+    plan_end_age: 95
+    sweep_surplus_from: !AtRetirement alex
+    survivor_expense_factor: 0.75
+    social_security_cola: 0.025
+    asset_volatility:
+      UsEquity: 0.18
+      IntlEquity: 0.2
+      GlobalEquity: 0.17
+      UsBonds: 0.06
+    reinvest_into: joint-brokerage
+- id: leaner-retirement
+  name: Leaner retirement spending
+  display_real_dollars: false
+  people:
+    alex:
+      retirement:
+        year: 2042
+        month: 4
+      life_expectancy_age: 88
+    jordan:
+      retirement:
+        year: 2044
+        month: 9
+      life_expectancy_age: 91
+  accounts:
+    alex-401k:
+      contributions:
+      - id: alex-401k-contribution
+        rule: !PercentOfSalary
+          percent: 0.1
+          step_up:
+            points_per_year: 0.01
+            cap: 0.15
+        start: PlanStart
+        end: !AtRetirement alex
+      employer_match:
+        tiers:
+        - employee_percent: 0.03
+          match_percent: 1.0
+        - employee_percent: 0.02
+          match_percent: 0.5
+        destination: PreTax
+    alex-hsa:
+      contributions:
+      - id: alex-hsa-contribution
+        rule: FederalMaximum
+        start: PlanStart
+        end: !AtRetirement alex
+      employer_match: null
+    alex-roth-ira:
+      contributions:
+      - id: alex-roth-ira-contribution
+        rule: FederalMaximum
+        start: !Date
+          year: 2029
+          month: 1
+        end: !AtRetirement alex
+      employer_match: null
+    emergency-savings:
+      contributions:
+      - id: emergency-savings-contribution
+        rule: !FlatAmount
+          amount: 0.0
+          growth: None
+        start: PlanStart
+        end: !AtRetirement jordan
+      employer_match: null
+    joint-brokerage:
+      contributions:
+      - id: joint-brokerage-contribution
+        rule: !FlatAmount
+          amount: 6000.0
+          growth: None
+        start: PlanStart
+        end: !AtRetirement alex
+      - id: joint-brokerage-contribution-2027
+        rule: !FlatAmount
+          amount: 8400.0
+          growth: None
+        start: !Date
+          year: 2027
+          month: 1
+        end: !AtRetirement alex
+      employer_match: null
+    jordan-403b:
+      contributions:
+      - id: jordan-403b-contribution
+        rule: !PercentOfSalary
+          percent: 0.08
+          step_up: null
+        start: PlanStart
+        end: !AtRetirement jordan
+      employer_match:
+        tiers:
+        - employee_percent: 0.04
+          match_percent: 0.5
+        destination: PreTax
+    jordan-roth-ira:
+      contributions:
+      - id: jordan-roth-ira-contribution
+        rule: FederalMaximum
+        start: PlanStart
+        end: !AtRetirement jordan
+      employer_match: null
+  social_security:
+    alex-social-security:
+      claiming_age: 70
+      cola_override: null
+    jordan-social-security:
+      claiming_age: 67
+      cola_override: null
+  streams:
+  - id: alex-salary
+    name: Alex salary
+    owner: alex
+    direction: Income
+    annual_amount: 145000.0
+    start: PlanStart
+    end: !AtRetirement alex
+    growth: Inflation
+    survivor_percentage: null
+  - id: jordan-salary
+    name: Jordan salary
+    owner: jordan
+    direction: Income
+    annual_amount: 105000.0
+    start: PlanStart
+    end: !AtRetirement jordan
+    growth: Inflation
+    survivor_percentage: null
+  - id: spending-working
+    name: Household spending (working)
+    owner: null
+    direction: Expense
+    annual_amount: 150000.0
+    start: PlanStart
+    end: !AtRetirement alex
+    growth: Inflation
+    survivor_percentage: null
+  - id: spending-retired
+    name: Household spending (retired)
+    owner: null
+    direction: Expense
+    annual_amount: 120000.0
+    start: !AtRetirement alex
+    end: PlanEnd
+    growth: Inflation
+    survivor_percentage: null
+  - id: healthcare-bridge
+    name: Pre-Medicare health insurance
+    owner: null
+    direction: Expense
+    annual_amount: 26000.0
+    start: !AtRetirement alex
+    end: !Date
+      year: 2044
+      month: 4
+    growth: Inflation
+    survivor_percentage: null
+  - id: jordan-pension
+    name: Jordan pension
+    owner: jordan
+    direction: Income
+    annual_amount: 18000.0
+    start: !AtRetirement jordan
+    end: PlanEnd
+    growth: None
+    survivor_percentage: 0.5
+  assumptions:
+    inflation: 0.025
+    asset_returns:
+      UsEquity: 0.08
+      IntlEquity: 0.075
+      GlobalEquity: 0.078
+      UsBonds: 0.04
+    filing_status: MarriedFilingJointly
+    state_tax:
+      state: Colorado
+      brackets:
+      - up_to: null
+        rate: 0.044
+      standard_deduction: 0.0
+    plan_end_age: 95
+    sweep_surplus_from: !AtRetirement alex
+    survivor_expense_factor: 0.75
+    social_security_cola: 0.025
+    asset_volatility:
+      UsEquity: 0.18
+      IntlEquity: 0.2
+      GlobalEquity: 0.17
+      UsBonds: 0.06
+    reinvest_into: joint-brokerage
