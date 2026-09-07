@@ -11,6 +11,7 @@ import { ACCOUNT_TYPE_OPTIONS, accountTypeByValue, accountTypeFor } from "./acco
 import { ContributionCard } from "./ContributionCard";
 import { EmployerMatchFields } from "./EmployerMatchFields";
 import { NumberField, PercentField, SelectField, TextField } from "./fields";
+import { FACT_VS_POLICY } from "./shared";
 
 /** A sensible starting rate for a newly-typed Savings account. */
 const DEFAULT_SAVINGS_RATE = 0.02;
@@ -162,6 +163,7 @@ export function AccountsSection() {
       {selected && (
         <fieldset className="input-card" key={selected.id} ref={editorRef}>
           <legend>Editing: {selected.name || "Untitled account"}</legend>
+          <p className="field-hint">{FACT_VS_POLICY.account}</p>
           <TextField
             label="Name"
             value={selected.name}

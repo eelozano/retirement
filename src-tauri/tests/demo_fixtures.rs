@@ -7,8 +7,13 @@
 //!
 //! The plans are defined here in Rust and the YAML under `fixtures/demo/`
 //! is generated from them, so the fixtures cannot drift from the schema
-//! without this test failing. To re-generate after an intentional schema
-//! change:
+//! without this test failing. Since #109 that is **one file**,
+//! `demo-household.yaml`: one household's facts plus the four scenarios
+//! branched from it, which is exactly what the split claims — the four
+//! plans below differ only in retirement dates, claiming ages and a
+//! spending amount, and share every balance. This test proves it, by
+//! decomposing all four and asserting the households they produce agree.
+//! To re-generate after an intentional schema change:
 //!
 //! ```text
 //! UPDATE_FIXTURES=1 cargo test -p retirement --test demo_fixtures
@@ -19,10 +24,11 @@
 
 use engine::model::PeriodLength;
 use engine::model::{
-    Account, AccountKind, AllocationRef, CashFlowStream, Contribution, ContributionRule,
-    EmployerMatch, FilingStatus, GrowthRule, MatchDestination, MatchTier, Person, Plan, PlanType,
-    SimConfig, SocialSecurityBenefit, StateCode, StepUp, StreamBoundary, StreamDirection,
-    YearMonth, SCHEMA_VERSION,
+    compose, decompose, empty_household, Account, AccountKind, AllocationRef, CashFlowStream,
+    Contribution, ContributionRule, EmployerMatch, FilingStatus, GrowthRule, Household,
+    HouseholdFile, MatchDestination, MatchTier, Person, Plan, PlanType, SimConfig,
+    SocialSecurityBenefit, StateCode, StepUp, StreamBoundary, StreamDirection, YearMonth,
+    SCHEMA_VERSION,
 };
 use engine::presets::{default_assumptions, presets};
 use std::fs;
@@ -30,6 +36,16 @@ use std::path::PathBuf;
 
 fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../fixtures/demo")
+}
+
+/// The one committed file. Named after the household rather than a
+/// scenario, because that is what it holds — `storage` names a household
+/// file by the household's id.
+const HOUSEHOLD_ID: &str = "demo-household";
+const HOUSEHOLD_NAME: &str = "Demo household";
+
+fn fixture_path() -> PathBuf {
+    fixtures_dir().join(format!("{HOUSEHOLD_ID}.yaml"))
 }
 
 const ALEX: &str = "alex";
@@ -379,6 +395,37 @@ fn demo_plans() -> Vec<Plan> {
     vec![base, retire_early, claim_early, leaner]
 }
 
+/// The four plans, split into the one household they describe and the four
+/// scenarios that differ. Every plan must decompose to the *same* household
+/// — that is the claim #109 makes about this fixture, and asserting it here
+/// is what keeps the claim true as the demo grows.
+fn demo_household_file() -> HouseholdFile {
+    let plans = demo_plans();
+    let skeleton = empty_household(
+        HOUSEHOLD_ID.to_string(),
+        HOUSEHOLD_NAME.to_string(),
+        plans[0].sim_config.start,
+    );
+
+    let mut household: Option<Household> = None;
+    let mut scenarios = Vec::new();
+    for plan in &plans {
+        let (facts, scenario) = decompose(plan, &skeleton);
+        match &household {
+            None => household = Some(facts),
+            Some(first) => assert_eq!(
+                &facts, first,
+                "scenario {:?} disagrees with the household about a fact — \
+                 a balance is not a scenario variable (#109)",
+                plan.id
+            ),
+        }
+        scenarios.push(scenario);
+    }
+
+    HouseholdFile::new(household.expect("at least one demo plan"), scenarios)
+}
+
 #[test]
 fn demo_fixtures_match_committed_yaml() {
     let dir = fixtures_dir();
@@ -387,55 +434,63 @@ fn demo_fixtures_match_committed_yaml() {
         fs::create_dir_all(&dir).expect("creating fixtures dir");
     }
 
-    for plan in demo_plans() {
-        let path = dir.join(format!("{}.yaml", plan.id));
-        let actual = serde_yaml_ng::to_string(&plan).expect("plan serializes to YAML");
+    let path = fixture_path();
+    let actual =
+        serde_yaml_ng::to_string(&demo_household_file()).expect("household serializes to YAML");
 
-        if update {
-            fs::write(&path, &actual).expect("writing fixture");
-            continue;
+    if update {
+        fs::write(&path, &actual).expect("writing fixture");
+        // The four-files-per-household layout is gone; leave none behind.
+        for plan in demo_plans() {
+            let _ = fs::remove_file(dir.join(format!("{}.yaml", plan.id)));
         }
+        return;
+    }
 
-        let expected = fs::read_to_string(&path).unwrap_or_else(|e| {
-            panic!(
-                "demo fixture {} missing ({e}) — regenerate with \
-                 UPDATE_FIXTURES=1 cargo test -p retirement --test demo_fixtures",
-                path.display()
-            )
-        });
-        assert_eq!(
-            actual,
-            expected,
-            "demo fixture {} is stale — regenerate with \
+    let expected = fs::read_to_string(&path).unwrap_or_else(|e| {
+        panic!(
+            "demo fixture {} missing ({e}) — regenerate with \
              UPDATE_FIXTURES=1 cargo test -p retirement --test demo_fixtures",
             path.display()
-        );
-    }
+        )
+    });
+    assert_eq!(
+        actual,
+        expected,
+        "demo fixture {} is stale — regenerate with \
+         UPDATE_FIXTURES=1 cargo test -p retirement --test demo_fixtures",
+        path.display()
+    );
 }
 
 #[test]
-fn committed_demo_fixtures_load_validate_and_simulate() {
+fn committed_demo_fixture_loads_composes_validates_and_simulates() {
     // Guards the thing that actually matters at runtime: that the app can
-    // open these files. Reads the YAML from disk rather than the in-memory
-    // plans, so a hand-edit to a fixture is caught too.
-    for plan in demo_plans() {
-        let path = fixtures_dir().join(format!("{}.yaml", plan.id));
-        let yaml = fs::read_to_string(&path).unwrap_or_else(|_| {
-            panic!(
-                "demo fixture {} missing — regenerate with \
-                 UPDATE_FIXTURES=1 cargo test -p retirement --test demo_fixtures",
-                path.display()
-            )
-        });
+    // open this file. Reads the YAML from disk rather than the in-memory
+    // household, so a hand-edit to the fixture is caught too.
+    let path = fixture_path();
+    let yaml = fs::read_to_string(&path).unwrap_or_else(|_| {
+        panic!(
+            "demo fixture {} missing — regenerate with \
+             UPDATE_FIXTURES=1 cargo test -p retirement --test demo_fixtures",
+            path.display()
+        )
+    });
 
-        let loaded: Plan = serde_yaml_ng::from_str(&yaml)
-            .unwrap_or_else(|e| panic!("{} does not parse as a Plan: {e}", path.display()));
+    let file: HouseholdFile = serde_yaml_ng::from_str(&yaml)
+        .unwrap_or_else(|e| panic!("{} does not parse as a household: {e}", path.display()));
+    assert_eq!(file.schema_version, SCHEMA_VERSION);
+    assert_eq!(file.scenarios.len(), demo_plans().len());
 
-        let errors = loaded.validate();
+    for scenario in &file.scenarios {
+        let plan = compose(&file.household(), scenario)
+            .unwrap_or_else(|e| panic!("scenario {:?} does not compose: {e}", scenario.id));
+
+        let errors = plan.validate();
         assert!(
             errors.is_empty(),
-            "{} does not validate: {}",
-            path.display(),
+            "scenario {:?} does not validate: {}",
+            scenario.id,
             errors
                 .into_iter()
                 .map(|e| e.message)
@@ -443,13 +498,51 @@ fn committed_demo_fixtures_load_validate_and_simulate() {
                 .join("; ")
         );
 
-        let projection = engine::run_deterministic(&loaded);
+        let projection = engine::run_deterministic(&plan);
         assert!(
             !projection.snapshots.is_empty(),
-            "{} simulated to an empty projection",
-            path.display()
+            "scenario {:?} simulated to an empty projection",
+            scenario.id
         );
     }
+}
+
+/// Every scenario composes back to exactly the plan it was written as: the
+/// split loses nothing.
+#[test]
+fn every_demo_scenario_round_trips_through_compose() {
+    let file = demo_household_file();
+    for plan in demo_plans() {
+        let scenario = file
+            .scenario(&plan.id)
+            .unwrap_or_else(|| panic!("the household holds a scenario {:?}", plan.id));
+        let composed = compose(&file.household(), scenario).expect("composes");
+        assert_eq!(
+            serde_yaml_ng::to_string(&composed).unwrap(),
+            serde_yaml_ng::to_string(&plan).unwrap(),
+            "scenario {:?} did not survive the round trip",
+            plan.id
+        );
+    }
+}
+
+/// Seven accounts and four scenarios are seven balances, not twenty-eight.
+#[test]
+fn the_household_writes_each_balance_once() {
+    let file = demo_household_file();
+    assert_eq!(file.accounts.len(), 7);
+    for account in &file.accounts {
+        assert_eq!(
+            account.observations.len(),
+            1,
+            "account {:?} carries more than the one reading it was written with",
+            account.id
+        );
+    }
+    // And no scenario holds a balance of its own: the policy maps carry
+    // contributions and matches, and nothing else.
+    let yaml = serde_yaml_ng::to_string(&file.scenarios).unwrap();
+    assert!(!yaml.contains("balance"), "a scenario wrote down a balance");
 }
 
 #[test]
@@ -461,6 +554,6 @@ fn demo_plan_ids_are_unique() {
     assert_eq!(
         count,
         ids.len(),
-        "demo plan ids collide, so files overwrite"
+        "demo scenario ids collide, so scenarios overwrite"
     );
 }

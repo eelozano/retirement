@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use engine::model::Plan;
+use engine::model::{Household, Plan};
 use engine::presets::Presets;
 use engine::{MonteCarloConfig, MonteCarloResult, Projection, RunControl};
 use serde::Serialize;
@@ -97,12 +97,15 @@ pub fn run_projection(plan: Plan) -> Result<Projection, String> {
 }
 
 /// Load the current plan, or `None` when the user has none. Before looking,
-/// checks for legacy pre-#13 JSON plans and migrates them into the new
-/// location as YAML — a one-shot, copy-forward check, not permanent
-/// dual-format support.
+/// runs the two one-shot, copy-forward migrations: legacy pre-#13 JSON
+/// plans into the new location as YAML, and version-1 files — one
+/// self-contained plan each — into version-2 households (#109). Neither is
+/// permanent dual-format support; both are no-ops once they have run.
 ///
 /// If a scenario was chosen as active in a previous session, it's loaded
-/// directly; otherwise falls back to the first stored plan.
+/// directly; otherwise falls back to the first stored scenario. The active
+/// id also decides whose balances a migrated household keeps, which is why
+/// it is read before the migration rather than after.
 ///
 /// `None` means a fresh install (or a user who deleted every scenario), and
 /// the frontend shows the welcome screen. It deliberately does **not** mean
@@ -116,8 +119,10 @@ pub fn load_plan(app: tauri::AppHandle) -> Result<Option<Plan>, String> {
             migrate::migrate_json_dir_to_yaml(&legacy_plans, &base)?;
         }
     }
+    let active = settings::active_plan_id(&config_dir(&app)?);
+    migrate::migrate_v1_plans(&base, active.as_deref())?;
     storage::cleanup(&base)?;
-    if let Some(id) = settings::active_plan_id(&config_dir(&app)?) {
+    if let Some(id) = active {
         if let Ok(plan) = storage::load_plan(&base, &id) {
             return Ok(Some(plan));
         }
@@ -236,10 +241,23 @@ pub fn save_plan(
     storage::save_plan(&base, &plan)
 }
 
+/// One row of the scenario switcher: the scenario, and the household whose
+/// balances it projects. A command-only response shape, hand-declared like
+/// `StorageInfo` — the storage layer's `PlanSummary` is not a ts-rs domain
+/// type.
 #[derive(Serialize)]
 pub struct PlanSummary {
     id: String,
     name: String,
+    /// Which household this scenario belongs to. Scenarios of one household
+    /// share every balance, so the switcher groups by it rather than
+    /// presenting a flat list in which "Base plan" and "Base plan" mean two
+    /// different families.
+    household_id: String,
+    household_name: String,
+    /// The household's example flag, so a row can be badged without loading
+    /// the scenario behind it.
+    sample: bool,
 }
 
 #[tauri::command]
@@ -249,8 +267,20 @@ pub fn list_plans(app: tauri::AppHandle) -> Result<Vec<PlanSummary>, String> {
         .map(|s| PlanSummary {
             id: s.id,
             name: s.name,
+            household_id: s.household_id,
+            household_name: s.household_name,
+            sample: s.sample,
         })
         .collect())
+}
+
+/// The household behind a scenario: its facts, and the month its balances
+/// are as of. The `Plan` a scenario composes to carries the balances
+/// themselves, but not how old they are — that lives here, and is what the
+/// as-of cue reads (#110).
+#[tauri::command]
+pub fn get_household(app: tauri::AppHandle, id: String) -> Result<Household, String> {
+    storage::load_household(&plans_base_dir(&app)?, &id)
 }
 
 /// Loads a specific scenario by id, e.g. when switching in the scenario
@@ -266,8 +296,10 @@ pub fn set_active_plan(app: tauri::AppHandle, id: String) -> Result<(), String> 
     settings::set_active_plan_id(&config_dir(&app)?, &id)
 }
 
-/// Creates a new scenario as a deep copy of an existing one under a new
-/// name, so the user can branch off the base plan without losing it.
+/// Branches a new scenario off an existing one under a new name, so the
+/// user can explore an alternative without losing the original. It copies
+/// the scenario's *policy* only: the household's balances are shared, not
+/// duplicated, so the two scenarios cannot drift apart on a fact (#109).
 #[tauri::command]
 pub fn duplicate_plan(app: tauri::AppHandle, id: String, new_name: String) -> Result<Plan, String> {
     storage::duplicate_plan(&plans_base_dir(&app)?, &id, &new_name)
@@ -278,8 +310,9 @@ pub fn duplicate_plan(app: tauri::AppHandle, id: String, new_name: String) -> Re
 ///
 /// Refusing the last delete (as this did before #103) meant a user handed the
 /// example household on first run could not get rid of it without first
-/// duplicating it. Deletion is still not destruction: the file moves to
-/// `.trash` either way.
+/// duplicating it. Deletion is still not destruction: deleting a household's
+/// last scenario moves its whole file to `.trash`, and deleting any other
+/// leaves the household's facts where they are.
 #[tauri::command]
 pub fn delete_plan(app: tauri::AppHandle, id: String) -> Result<(), String> {
     storage::delete_plan(&plans_base_dir(&app)?, &id)
@@ -292,9 +325,12 @@ pub fn list_snapshots(app: tauri::AppHandle, id: String) -> Result<Vec<String>, 
     storage::list_snapshots(&plans_base_dir(&app)?, &id)
 }
 
-/// Restores a plan to a prior snapshot, itself snapshotting the pre-restore
-/// state first so restoring is undoable. Returns the restored plan so the
-/// caller can re-activate it without a second round-trip.
+/// Restores a **household** to a prior snapshot — its balances and every
+/// one of its scenarios together, since that is what one file holds —
+/// itself snapshotting the pre-restore state first so restoring is
+/// undoable. Returns the restored plan so the caller can re-activate it
+/// without a second round-trip; it is the scenario the caller was on, or
+/// the household's first if that scenario did not exist yet.
 #[tauri::command]
 pub fn restore_snapshot(
     app: tauri::AppHandle,

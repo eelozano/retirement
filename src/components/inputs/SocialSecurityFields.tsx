@@ -2,7 +2,7 @@ import { currency } from "../../lib/format";
 import { adjustmentFactor } from "../../lib/socialSecurity";
 import type { Plan } from "../../types/generated/Plan";
 import { CheckboxField, NumberField, PercentField, SelectField } from "./fields";
-import type { UpdatePlan } from "./shared";
+import { FACT_VS_POLICY, type UpdatePlan } from "./shared";
 
 const CLAIMING_AGES = Array.from({ length: 9 }, (_, i) => String(62 + i));
 
@@ -26,6 +26,7 @@ export function SocialSecurityFields(props: {
   return (
     <fieldset>
       <legend>Benefit {i + 1}</legend>
+      <p className="field-hint">{FACT_VS_POLICY.benefit}</p>
       <NumberField
         label="Benefit at full retirement age ($/yr, today's)"
         value={benefit.benefit_at_fra}

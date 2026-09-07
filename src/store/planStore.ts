@@ -168,7 +168,10 @@ interface PlanStore {
    * (see `src/lib/whatIf.ts`). */
   promoteToScenario: (newName: string, mutate: (draft: Plan) => void) => Promise<void>;
   deleteScenario: (id: string) => Promise<void>;
-  /** Restores the active plan to a prior snapshot and re-activates it. */
+  /** Restores the active plan's **household** to a prior snapshot and opens
+   * it. A snapshot is of the whole household — its balances and every
+   * scenario — so this can add scenarios back and take others away, and the
+   * scenario it returns is the one that was open only if it existed then. */
   restoreSnapshot: (timestamp: string) => Promise<void>;
 }
 
@@ -520,6 +523,10 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
     await flushPendingSave(get);
     try {
       const restored = await restoreSnapshotApi(current.id, timestamp);
+      // The switcher is refreshed before activating, not after: restoring a
+      // household restores its scenario *list* too, so one branched since
+      // the snapshot is gone and one deleted since is back.
+      set({ scenarios: await listPlans() });
       await activate(set, get, restored);
     } catch (e) {
       set({ error: String(e) });
