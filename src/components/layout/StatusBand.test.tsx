@@ -1,7 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ReadableWarning } from "../../lib/warnings";
+import type { YearMonth } from "../../types/generated/YearMonth";
 import type { HeadlineMetrics } from "../charts/planData";
 import { StatusBand } from "./StatusBand";
 
@@ -22,15 +23,41 @@ const warning: ReadableWarning = {
   detail: "Contributions were held to the limit.",
 };
 
+// "Now" is fixed so the as-of cue's months-ago count is deterministic.
+const NOW = new Date(2026, 8, 15); // Sep 2026
+
+function monthsAgo(n: number): YearMonth {
+  const total = NOW.getFullYear() * 12 + NOW.getMonth() - n;
+  return { year: Math.floor(total / 12), month: (total % 12) + 1 };
+}
+
+const noop = () => {};
+
 describe("StatusBand", () => {
   it("says so plainly when there is nothing to report", () => {
-    render(<StatusBand metrics={metrics} warnings={[]} />);
+    render(
+      <StatusBand
+        metrics={metrics}
+        warnings={[]}
+        asOf={monthsAgo(0)}
+        onOpenAccounts={noop}
+        now={NOW}
+      />,
+    );
     expect(screen.getByText("no warnings")).toBeInTheDocument();
     expect(screen.queryByRole("group")).not.toBeInTheDocument();
   });
 
   it("reveals the warning text on opening the disclosure", async () => {
-    render(<StatusBand metrics={metrics} warnings={[warning]} />);
+    render(
+      <StatusBand
+        metrics={metrics}
+        warnings={[warning]}
+        asOf={monthsAgo(0)}
+        onOpenAccounts={noop}
+        now={NOW}
+      />,
+    );
     const summary = screen.getByText("1 warning");
     expect(screen.getByText(warning.title)).not.toBeVisible();
 
@@ -41,7 +68,13 @@ describe("StatusBand", () => {
 
   it("pluralizes the count", () => {
     render(
-      <StatusBand metrics={metrics} warnings={[warning, { ...warning, key: "w1" }]} />,
+      <StatusBand
+        metrics={metrics}
+        warnings={[warning, { ...warning, key: "w1" }]}
+        asOf={monthsAgo(0)}
+        onOpenAccounts={noop}
+        now={NOW}
+      />,
     );
     expect(screen.getByText("2 warnings")).toBeInTheDocument();
   });
@@ -57,7 +90,15 @@ describe("StatusBand", () => {
       nPaths: 5000,
     } as unknown as HeadlineMetrics;
 
-    render(<StatusBand metrics={solvent} warnings={[]} />);
+    render(
+      <StatusBand
+        metrics={solvent}
+        warnings={[]}
+        asOf={monthsAgo(0)}
+        onOpenAccounts={noop}
+        now={NOW}
+      />,
+    );
     expect(
       screen.getByText(/3,333 of 5,000 simulated paths stay solvent/),
     ).toBeInTheDocument();
@@ -75,11 +116,76 @@ describe("StatusBand", () => {
       successStale: true,
     } as unknown as HeadlineMetrics;
 
-    render(<StatusBand metrics={stale} warnings={[]} />);
+    render(
+      <StatusBand
+        metrics={stale}
+        warnings={[]}
+        asOf={monthsAgo(0)}
+        onOpenAccounts={noop}
+        now={NOW}
+      />,
+    );
     expect(
       screen.getByText(
         /4,500 of 5,000 simulated paths stay solvent \(from before the latest change\)\./,
       ),
     ).toBeInTheDocument();
+  });
+
+  // Plain under three months, a warning tone from three, and the nudge to
+  // refresh from six (#110) — boundaries, not just interior samples.
+  describe("as-of staleness", () => {
+    it("reads plainly just under the warning threshold", () => {
+      render(
+        <StatusBand
+          metrics={metrics}
+          warnings={[]}
+          asOf={monthsAgo(2)}
+          onOpenAccounts={noop}
+          now={NOW}
+        />,
+      );
+      expect(screen.getByText(/Balances as of .* · 2 months ago/)).toHaveClass(
+        "status-asof-plain",
+      );
+      expect(
+        screen.queryByRole("button", { name: /Update balances/ }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("takes a warning tone exactly at three months", () => {
+      render(
+        <StatusBand
+          metrics={metrics}
+          warnings={[]}
+          asOf={monthsAgo(3)}
+          onOpenAccounts={noop}
+          now={NOW}
+        />,
+      );
+      expect(screen.getByText(/3 months ago/)).toHaveClass("status-asof-warning");
+      expect(
+        screen.queryByRole("button", { name: /Update balances/ }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("nudges a refresh exactly at six months", async () => {
+      const onOpenAccounts = vi.fn();
+      render(
+        <StatusBand
+          metrics={metrics}
+          warnings={[]}
+          asOf={monthsAgo(6)}
+          onOpenAccounts={onOpenAccounts}
+          now={NOW}
+        />,
+      );
+      expect(screen.getByText(/6 months ago/)).toHaveClass("status-asof-stale");
+      const link = screen.getByRole("button", {
+        name: "Update balances to bring the projection up to date",
+      });
+      await userEvent.click(link);
+      expect(onOpenAccounts).toHaveBeenCalledTimes(1);
+    });
   });
 });
