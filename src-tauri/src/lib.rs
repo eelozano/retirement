@@ -25,6 +25,7 @@ pub fn run() {
             commands::load_plan_named,
             commands::save_plan,
             commands::list_plans,
+            commands::get_household,
             commands::set_active_plan,
             commands::duplicate_plan,
             commands::delete_plan,

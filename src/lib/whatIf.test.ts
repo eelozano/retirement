@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Household } from "../types/generated/Household";
 import type { Plan } from "../types/generated/Plan";
 import {
   applyOverrides,
@@ -39,7 +40,11 @@ const plan = {
       id: "a1",
       owner: "p1",
       name: "403(b)",
+      kind: "TraditionalPreTax",
       plan_type: "EmployerPlan",
+      balance: 210_000,
+      cost_basis: null,
+      allocation: "Aggressive",
       contributions: [
         {
           id: "c1",
@@ -53,7 +58,11 @@ const plan = {
       id: "a2",
       owner: "p2",
       name: "IRA",
+      kind: "Roth",
       plan_type: "Ira",
+      balance: 65_000,
+      cost_basis: null,
+      allocation: "Moderate",
       contributions: [
         {
           id: "c2",
@@ -87,6 +96,16 @@ const plan = {
       annual_amount: 10_000,
     },
   ],
+  social_security: [
+    {
+      id: "ss1",
+      owner: "p1",
+      benefit_at_fra: 42_000,
+      full_retirement_age: 67,
+      claiming_age: 70,
+      cola_override: null,
+    },
+  ],
   assumptions: {
     inflation: 0.025,
     asset_returns: { UsEquity: 0.07, UsBonds: 0.03 },
@@ -99,6 +118,48 @@ function overrides(patch: Partial<WhatIfOverrides> = {}): WhatIfOverrides {
   return { ...BASELINE, ...patch };
 }
 
+/** The household half of a plan: exactly what `engine::model::decompose`
+ * puts on the `Household` rather than on the `Scenario` (#109).
+ *
+ * Typed as the generated `Household` minus the two fields a plan does not
+ * carry, so this cannot drift: adding a fact to the Rust struct fails the
+ * type check here until it is picked out below, and the invariant test then
+ * covers it too. */
+function facts(plan: Plan): Omit<Household, "id" | "name"> {
+  return {
+    sample: plan.sample,
+    as_of: plan.sim_config.start,
+    people: plan.people.map((p) => ({ id: p.id, name: p.name, birth: p.birth })),
+    accounts: plan.accounts.map((a) => ({
+      id: a.id,
+      owner: a.owner,
+      kind: a.kind,
+      plan_type: a.plan_type,
+      name: a.name,
+      allocation: a.allocation,
+      observations: [
+        { as_of: plan.sim_config.start, balance: a.balance, cost_basis: a.cost_basis },
+      ],
+    })),
+    social_security: plan.social_security.map((b) => ({
+      id: b.id,
+      owner: b.owner,
+      benefit_at_fra: b.benefit_at_fra,
+      full_retirement_age: b.full_retirement_age,
+    })),
+  };
+}
+
+/** Every knob, at a setting that moves it. */
+const EVERY_KNOB: [string, Partial<WhatIfOverrides>][] = [
+  ["retirement", { retirementShiftYears: { p1: -3, p2: 2 } }],
+  ["spending", { spendingMultiplier: 0.75 }],
+  ["returns", { returnShiftBp: -250 }],
+  ["volatility", { volatilityMultiplier: 1.8 }],
+  ["inflation", { inflationShiftBp: 300 }],
+  ["life expectancy", { lifeExpectancyShiftYears: 5 }],
+];
+
 describe("applyOverrides", () => {
   it("leaves the plan it was given untouched", () => {
     const before = structuredClone(plan);
@@ -108,6 +169,21 @@ describe("applyOverrides", () => {
 
   it("is the identity at rest", () => {
     expect(applyOverrides(plan, BASELINE)).toEqual(plan);
+  });
+
+  // The sandbox asks "what if we decided differently", never "what if we
+  // had different money". Every knob is policy, so none of them may move a
+  // household fact — and since the household is shared by every scenario,
+  // a knob that did would silently rewrite the others too if promoted.
+  it.each(EVERY_KNOB)("leaves every household fact alone: %s", (_name, patch) => {
+    const draft = applyOverrides(plan, overrides(patch));
+    expect(facts(draft)).toEqual(facts(plan));
+  });
+
+  it("leaves every household fact alone with every knob at once", () => {
+    const all: Partial<WhatIfOverrides> = {};
+    for (const [, patch] of EVERY_KNOB) Object.assign(all, patch);
+    expect(facts(applyOverrides(plan, overrides(all)))).toEqual(facts(plan));
   });
 
   it("shifts one person's retirement without moving the other's", () => {

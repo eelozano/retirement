@@ -2,7 +2,7 @@ import { usePlanStore } from "../../store/planStore";
 import { NumberField, TextField, YearMonthField } from "./fields";
 import { SocialSecurityFields } from "./SocialSecurityFields";
 import { StreamCard } from "./StreamCard";
-import { ownedBy } from "./shared";
+import { FACT_VS_POLICY, ownedBy } from "./shared";
 
 /**
  * One card per person, readable top to bottom as one story: dates, their
@@ -72,6 +72,7 @@ export function PeopleSection() {
         return (
           <div className="input-card person-card" key={person.id}>
             <div className="input-card-title">{person.name || `Person ${i + 1}`}</div>
+            <p className="field-hint">{FACT_VS_POLICY.person}</p>
             <TextField
               label="Name"
               value={person.name}

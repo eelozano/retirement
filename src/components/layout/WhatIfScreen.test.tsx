@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { planSummary } from "../../test/fixtures";
 import type { Plan } from "../../types/generated/Plan";
 import type { Projection } from "../../types/generated/Projection";
 
@@ -46,7 +47,7 @@ beforeAll(() => {
 
 const plan = {
   id: "base-plan",
-  schema_version: 1,
+  schema_version: 2,
   name: "Base plan",
   sample: false,
   people: [
@@ -127,7 +128,7 @@ beforeEach(() => {
     monteCarloPaths: 1000,
     monteCarloLimits: { min_paths: 100, max_paths: 100_000, auto_run_max_paths: 10_000 },
     monteCarloSeed: 1,
-    scenarios: [{ id: "base-plan", name: "Base plan" }],
+    scenarios: [planSummary("base-plan", "Base plan")],
     realDollars: false,
     error: null,
   });
@@ -185,8 +186,8 @@ describe("save as scenario", () => {
     vi.mocked(api.duplicatePlan).mockResolvedValue(copy);
     vi.mocked(api.savePlan).mockResolvedValue(undefined);
     vi.mocked(api.listPlans).mockResolvedValue([
-      { id: "base-plan", name: "Base plan" },
-      { id: "spend-less", name: "Spend less" },
+      planSummary("base-plan", "Base plan"),
+      planSummary("spend-less", "Spend less"),
     ]);
     vi.mocked(api.setActivePlan).mockResolvedValue(undefined);
 

@@ -2,6 +2,7 @@
 // from the ts-rs generated types — never hand-declare engine types here.
 
 import { Channel, invoke } from "@tauri-apps/api/core";
+import type { Household } from "../types/generated/Household";
 import type { MonteCarloConfig } from "../types/generated/MonteCarloConfig";
 import type { MonteCarloResult } from "../types/generated/MonteCarloResult";
 import type { Plan } from "../types/generated/Plan";
@@ -140,13 +141,34 @@ export function savePlan(plan: Plan): Promise<void> {
   return invoke<void>("save_plan", { plan });
 }
 
+/** One row of the scenario switcher. A command-only response shape
+ * (src-tauri/src/commands.rs), hand-declared like StorageInfo.
+ *
+ * Every scenario belongs to a household, and scenarios of one household
+ * share every balance — so the switcher groups by `household_id` rather
+ * than showing a flat list in which two families' "Base plan" sit side by
+ * side. `sample` is the household's, so a row can be badged as an example
+ * without loading the scenario behind it. */
 export interface PlanSummary {
   id: string;
   name: string;
+  household_id: string;
+  household_name: string;
+  sample: boolean;
 }
 
 export function listPlans(): Promise<PlanSummary[]> {
   return invoke<PlanSummary[]>("list_plans");
+}
+
+/** The household behind a scenario: its people, accounts, and the dated
+ * balance observations every scenario of that household projects from.
+ *
+ * The `Plan` a scenario loads as already carries the balances themselves;
+ * what only this has is how old they are — which is what the as-of cue on
+ * the Plan screen, the comparison and the report will read (#110). */
+export function getHousehold(scenarioId: string): Promise<Household> {
+  return invoke<Household>("get_household", { id: scenarioId });
 }
 
 export function setActivePlan(id: string): Promise<void> {

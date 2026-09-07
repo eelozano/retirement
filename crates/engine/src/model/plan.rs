@@ -4,9 +4,15 @@ use ts_rs::TS;
 use super::person::PersonWire;
 use super::{Account, Assumptions, CashFlowStream, Person, SocialSecurityBenefit, YearMonth};
 
-/// Bump when the Plan JSON layout changes incompatibly; the storage layer
+/// Bump when the persisted layout changes incompatibly; the storage layer
 /// migrates or rejects on mismatch.
-pub const SCHEMA_VERSION: u32 = 1;
+///
+/// Version 2 is the household split (#109): a file under `plans/` is a
+/// [`crate::model::HouseholdFile`] — one household's facts plus every
+/// scenario branched from them — rather than one self-contained `Plan`.
+/// `migrate::migrate_v1_plans` reads version-1 files with this same `Plan`
+/// deserializer and groups them into households.
+pub const SCHEMA_VERSION: u32 = 2;
 
 #[derive(Serialize, Deserialize, TS, Clone, Copy, Debug, PartialEq, Eq)]
 #[ts(export)]

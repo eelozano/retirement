@@ -303,10 +303,26 @@ numbers are live. They go stale between releases.
 
 ## Where your data lives
 
-Plans are one YAML file per plan, in `~/Documents/Retirement Planner/plans/` by
-default. You can move that folder anywhere from **Storage** inside the app; the
-chosen location is recorded in a small settings file in the OS config dir, and
-existing plans are copied forward when you change it.
+Your data is one YAML file per **household**, in
+`~/Documents/Retirement Planner/plans/` by default. A household file holds the
+facts — who you are, your accounts, and each balance with the month it is as
+of — plus every scenario you have branched from them. A scenario carries only
+what varies: retirement dates, contributions, spending, claiming ages.
+
+That means a balance is written down once, however many scenarios you keep.
+Correct it in one and it is corrected in all of them, because there was never
+more than one copy — which is also what makes comparing two scenarios honest,
+since they cannot differ on anything but the decisions you were comparing.
+
+You can move that folder anywhere from **Storage** inside the app; the chosen
+location is recorded in a small settings file in the OS config dir, and
+existing files are copied forward when you change it.
+
+If you used a version before this one, your existing plans are converted to
+households on first launch. Nothing is deleted: the old files move to
+`plans/.v1/` untouched, and if two of your scenarios disagreed about a fact,
+the app writes a `plans/migration-<date>.txt` listing what it kept and what it
+dropped.
 
 The files are plain YAML, deliberately readable and hand-editable outside the
 app. They are stored outside the repository on purpose — never commit them.
@@ -316,16 +332,18 @@ next to the repo.
 ### Backups
 
 Saves are atomic (write a temp file, then rename), and the previous version of
-each plan is kept alongside it as `.yaml.bak`. Because every edit autosaves,
-that slot is overwritten within seconds — it's crash protection, not a
-backup, and deleting a plan moves it into `plans/.trash/` rather than
-unlinking it.
+each household file is kept alongside it as `.yaml.bak`. Because every edit
+autosaves, that slot is overwritten within seconds — it's crash protection,
+not a backup. Deleting a scenario leaves the household where it is; deleting
+its last one moves the file into `plans/.trash/` rather than unlinking it.
 
 For an actual backup, the app keeps its own history: the first time you edit
-a plan in a session, it snapshots the pre-edit version into
-`plans/.history/<id>/`, capped at the last 20 snapshots per plan. **Storage**
-in the app lists a plan's snapshots by date and can restore one — restoring
-snapshots the current state first, so a restore is itself undoable.
+a household in a session, it snapshots the pre-edit version into
+`plans/.history/<household id>/`, capped at the last 20 snapshots per
+household. **Storage** in the app lists them by date and can restore one.
+A snapshot is of the whole household — the balances *and* every scenario — so
+restoring brings all of them back as they were; restoring snapshots the
+current state first, so it is itself undoable.
 
 None of that leaves this machine, though. Use **Export all plans…** in
 **Storage** to write a timestamped copy of the whole plans directory to a

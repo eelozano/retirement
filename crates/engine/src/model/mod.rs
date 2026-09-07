@@ -1,5 +1,6 @@
 mod account;
 mod assumptions;
+mod household;
 mod person;
 mod plan;
 mod social_security;
@@ -14,6 +15,11 @@ pub use account::{
 };
 pub(crate) use assumptions::default_asset_volatility;
 pub use assumptions::{AssetClass, Assumptions};
+pub use household::{
+    compose, decompose, empty_household, AccountPolicy, BenefitPolicy, ComposeError, Household,
+    HouseholdAccount, HouseholdBenefit, HouseholdFile, HouseholdId, HouseholdPerson, Observation,
+    PersonPolicy, Scenario,
+};
 pub use person::{Person, PersonId};
 pub use plan::{PeriodLength, Plan, PlanId, SimConfig, SCHEMA_VERSION};
 pub use social_security::{adjustment_factor, SocialSecurityBenefit, SocialSecurityBenefitId};

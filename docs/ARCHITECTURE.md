@@ -9,9 +9,9 @@ A local, privacy-first retirement projection tool (ProjectionLab/Boldin-inspired
 
 **Foundational decisions:**
 - Engine simulates in **nominal dollars**; UI offers a today's-dollars (real) display toggle.
-- Persistence: **YAML files** (one per plan) with `schema_version`, stored in a user-configurable path (default: OS Documents folder, changeable in-app under Storage); a small JSON settings file in the app-config dir records the chosen location. No SQLite, no cloud.
+- Persistence: **YAML files** (one per *household* since #109 — its facts plus every scenario branched from them) with `schema_version`, stored in a user-configurable path (default: OS Documents folder, changeable in-app under Storage); a small JSON settings file in the app-config dir records the chosen location. No SQLite, no cloud.
 - Income/expenses modeled as **generic dated cash-flow streams** (salary, retirement spending, contributions in V1; pensions fit the same shape, no schema change). Social Security is the exception: a first-class `SocialSecurityBenefit` (PIA + claiming age) resolved into a stream at simulate time, so claiming age stays interactively recomputable instead of a one-time manually-computed dollar entry.
-- **Single plan** in V1; file format is scenario-ready (a scenario = another plan file). V2 multi-scenario comparison (#6) builds on this directly: each `Plan` carries a stable `id` (files are keyed by it, not by the editable `name`); the storage/IPC layer supports listing, duplicating, deleting, and switching the active scenario; and a Compare view overlays net worth across up to 5 scenarios plus a summary table (net worth at plan end, delta vs. the active scenario, depletion year, lifetime taxes) — see `run_projections`, `src/components/charts/compareData.ts`, and `ComparisonView`.
+- **Single plan** in V1; file format is scenario-ready (a scenario was another plan file, and since #109 is another entry inside one household's file). V2 multi-scenario comparison (#6) builds on this directly: each scenario carries a stable `id` distinct from its editable `name`; the storage/IPC layer supports listing, duplicating, deleting, and switching the active scenario; and a Compare view overlays net worth across up to 5 scenarios plus a summary table (net worth at plan end, delta vs. the active scenario, depletion year, lifetime taxes) — see `run_projections`, `src/components/charts/compareData.ts`, and `ComparisonView`.
 
 ---
 
@@ -67,7 +67,8 @@ retirement/
 │       ├── src/
 │       │   ├── lib.rs             # simulate() entry, tax_model() assembly
 │       │   ├── model/             # plan, person, account, stream, assumptions,
-│       │   │                      # social_security, tax_profile, validation, year_month
+│       │   │                      # social_security, tax_profile, validation,
+│       │   │                      # year_month, household (facts/policy split)
 │       │   ├── sim/               # mod.rs (setup + the loop), period (the
 │       │   │                      # per-period steps), contributions,
 │       │   │                      # survivor, monte_carlo, projection
@@ -81,9 +82,9 @@ retirement/
 │   ├── src/
 │   │   ├── main.rs / lib.rs
 │   │   ├── commands.rs        # run_projection, load/save/list_plan, get_presets, storage settings
-│   │   ├── storage.rs         # YAML plan I/O (base dir passed in), atomic writes, schema_version
+│   │   ├── storage.rs         # YAML household I/O (base dir passed in), atomic writes, schema_version
 │   │   ├── settings.rs        # app-config-dir settings.json: user-chosen plans dir override
-│   │   └── migrate.rs         # copy-forward migration: legacy JSON, and relocation via Settings
+│   │   └── migrate.rs         # copy-forward migrations: legacy JSON, v1→v2 households, relocation
 │   └── tauri.conf.json
 ├── src/
 │   ├── App.tsx
@@ -119,6 +120,34 @@ pub struct Plan {
     pub assumptions: Assumptions,
     pub sim_config: SimConfig,
 }
+
+// --- The persisted shape (#109). `Plan` is what the engine simulates and what
+// crosses IPC; it is no longer what a file holds. A file holds one household's
+// facts plus every scenario branched from them, and `compose`/`decompose` are
+// the only road between the two. Nothing under `sim/` imports any of this.
+
+pub struct Household {          // written once, refreshed (#111), dated
+    pub id: HouseholdId, pub name: String, pub sample: bool,
+    pub as_of: YearMonth,       // the month the balances below are as of == every
+                                // scenario's sim_config.start
+    pub people: Vec<HouseholdPerson>,          // id, name, birth
+    pub accounts: Vec<HouseholdAccount>,       // + observations: Vec<Observation>, newest last
+    pub social_security: Vec<HouseholdBenefit>,// id, owner, benefit_at_fra, full_retirement_age
+}
+
+pub struct Observation { pub as_of: YearMonth, pub balance: f64, pub cost_basis: Option<f64> }
+
+pub struct Scenario {           // only what varies between branches
+    pub id: PlanId, pub name: String, pub display_real_dollars: bool,
+    pub people: BTreeMap<PersonId, PersonPolicy>,          // retirement, life_expectancy_age
+    pub accounts: BTreeMap<AccountId, AccountPolicy>,      // contributions, employer_match
+    pub social_security: BTreeMap<SocialSecurityBenefitId, BenefitPolicy>, // claiming_age, cola_override
+    pub streams: Vec<CashFlowStream>,
+    pub assumptions: Assumptions,
+}
+
+pub fn compose(&Household, &Scenario) -> Result<Plan, ComposeError>;
+pub fn decompose(&Plan, previous: &Household) -> (Household, Scenario);
 
 pub struct Person {
     pub id: PersonId,
@@ -347,7 +376,7 @@ The scalar totals are enough to show *how much* moved each year and nothing abou
 
 Every timing bug shipped so far (#29, #43, #50, #78, #92, and the survivor work in #34) came from a consumer re-deriving "which year does this belong to" on its own. The engine has one answer to each of these questions; this is the list, so a reviewer can hold a change against it.
 
-- **Periods are calendar years, and period 0 may be a stub.** Period *n* is calendar year `start.year + n`, truncated at the front for *n* = 0, so `PeriodContext::year` is always a tax year. `new_plan_start` in the adapter puts a plan's start at the month it was created, because that is the month its balances were observed; a plan written in September therefore opens with a four-month period whose `fraction` is 4/12, and January plans are unchanged (#106). Everything scaled by a period is scaled by that fraction — flows through `overlap_fraction`, contribution caps, the RMD, and the period's return, which is compounded to the fraction rather than applied whole. The start has no editor on purpose: it is the date the balances are from, and letting the two disagree would be this bug in a new place. Moving it is the refresh's job (#111).
+- **Periods are calendar years, and period 0 may be a stub.** Period *n* is calendar year `start.year + n`, truncated at the front for *n* = 0, so `PeriodContext::year` is always a tax year. `new_plan_start` in the adapter puts a plan's start at the month it was created, because that is the month its balances were observed; a plan written in September therefore opens with a four-month period whose `fraction` is 4/12, and January plans are unchanged (#106). Everything scaled by a period is scaled by that fraction — flows through `overlap_fraction`, contribution caps, the RMD, and the period's return, which is compounded to the fraction rather than applied whole. The start has no editor on purpose: it is the date the balances are from, and letting the two disagree would be this bug in a new place. Since #109 it is not even a per-plan field — it is the household's `as_of`, one date for one set of balances, which every scenario composes its `sim_config.start` from. Moving it is the refresh's job (#111).
 - **Boundaries are month-exact and end-exclusive.** A retirement dated 2038-08 means August is the first retired month: a salary ending `AtRetirement` pays January through July (7/12), spending starting there pays the other 5/12, and the two always sum to a whole year. A death at `month_at_age(life_expectancy_age)` works the same way. `overlap_fraction` in `sim/mod.rs` is the one proration primitive; every stream, contribution entry, working share and the survivor step-down goes through it.
 - **Two words for the year a boundary falls in.** The *stub year* is the calendar year containing the boundary, prorated; the *first full year* is the first period starting at or after it. `SimConfig::first_full_period_at_or_after` returns the latter and is what "at retirement" figures use, so a stub year is never read as a full year of spending (#29). It answers the same way about a stub *period 0*: a month at or before the plan start maps to period 0 only when the plan starts in January, so a household already retired when they wrote a September plan has its first full retirement year in period 1. `SimConfig::first_period_after` is strict and exists for one case: the survivor tax switch, where the year of the death still files jointly and the *next* period is the first that does not. The frontend mirrors the inclusive helper twice: `planData.ts`'s `firstFullPeriodAtOrAfter`, stub clause included, searches `projection.snapshots` directly for a case that needs it (a retirement predating the plan); everything else names a boundary's two years by calendar math alone, through `yearBoundary` in `src/lib/yearBoundary.ts`, since a real snapshot is not always in scope where a milestone or a year's status is labelled. The Plan screen's tiles (#107) each say which year they show: the milestone reads "end of `stubYear`" for a mid-year retirement, the year inspector's ages panel gets a `retires` status in the stub year (paralleling `dies`) and `retired` from the first full year, and the cover tile and "Why paths fail" card already read at the first full year.
 - **A stub period's tax is not scaled, and that is a decision.** `BracketTax` applies annual brackets and the whole standard deduction to whatever income a period holds, so a four-month period pays a lower effective rate than the household really pays on those months — in the world they are part of a full tax year. On the test household in `tests/mid_year_start.rs` the stub pays $2,191.50 on $40,000 (5.5%) where the full year pays $15,209 on $120,000 (12.7%), leaving $2,878.17 untaxed. Scaling the thresholds would need the period's fraction inside `TaxModel::tax`, which #105's struct-field approach for inflation indexing does not provide. Decided: document it and pin the figures with a test, so it is a stated choice rather than an oversight. It affects the one year the household is living through, and it is the same class of one-year convention as the final period running to December.
@@ -468,11 +497,13 @@ Frontend consumes `Projection` directly (generated types); the real-dollar toggl
 ### Tauri commands (`src-tauri/src/commands.rs`)
 
 - `run_projection(plan: Plan) -> Projection` — stateless; frontend sends full plan (small payload, ~KB). `run_projections(plans: Vec<Plan>) -> Vec<Result<Projection, String>>` does the same for N scenarios in one round-trip, for the comparison view (#6) — one entry per plan, so one invalid scenario doesn't blank the rest.
-- `save_plan(plan) / load_plan() / load_plan_named(id) / list_plans() -> Vec<PlanSummary>` — YAML in the resolved plans directory, keyed by each plan's stable `id` (not its editable `name`), atomic write + `.bak`, `schema_version` checked on load. `load_plan` loads the active scenario (see `set_active_plan`, falling back to the first stored plan or a fresh seed) and also runs the one-shot legacy-JSON migration check; plans saved before `id` existed are backfilled once from their pre-#6 filename slug.
-- `duplicate_plan(id, new_name) / delete_plan(id) / set_active_plan(id)` — scenario management: branch a new plan off an existing one (deep copy, fresh id), remove a scenario (moved aside as `.deleted`, never unlinked — refused for the last remaining scenario), and record which scenario loads on next launch.
+- `save_plan(plan) / load_plan() / load_plan_named(id) / list_plans() -> Vec<PlanSummary>` — every one still takes and returns a `Plan`; `storage` composes one out of its household on the way out and decomposes it back on the way in. YAML in the resolved plans directory, one file per household keyed by the household's stable `id`, atomic write + `.bak`, `schema_version` checked on load. Saving also fills siblings in: a scenario with no policy for an entity the save has gets a copy of the saved scenario's, and one for an entity the save no longer has is pruned — so an account opened in one scenario exists in all of them, at the policy it was opened with, and `compose` never has to invent a retirement date. `load_plan` loads the active scenario (see `set_active_plan`, falling back to the first stored one) and runs the two one-shot migrations: legacy JSON, then version-1 plan files into version-2 households (#109). A `PlanSummary` carries `household_id`, `household_name` and `sample` so the switcher can group by household without loading anything.
+- `get_household(id) -> Household` — the facts behind a scenario, including each balance's as-of date, which the `Plan` itself does not carry (#110).
+- `duplicate_plan(id, new_name) / delete_plan(id) / set_active_plan(id)` — scenario management: branch a new scenario off an existing one inside the same household (its *policy* is copied; the balances are shared, not duplicated), remove a scenario — its household's file moves to `.trash` when it was the last one, never unlinked — and record which scenario loads on next launch.
 - `run_monte_carlo(plan, MonteCarloConfig { n_paths, seed }, run_id, on_progress: Channel<MonteCarloProgress>) -> Option<MonteCarloResult>` — async; the same `simulate` over N seeded paths in parallel (rayon, on a blocking thread so the window stays live), returning per-period net-worth percentiles plus probability of success, or `None` if cancelled. Progress is sampled from the engine's `RunControl` counter on a timer and sent down the channel; the engine crate never sees Tauri. Starting a run cancels the one before it; `cancel_monte_carlo(run_id)` stops the current one by id. `get_monte_carlo_limits()` returns the clamp range and the path count above which the frontend runs on demand rather than after every edit (#91). `seed` is `u32`, not `u64`, so ts-rs emits a plain `number`: a `bigint` would not survive `JSON.stringify` across the IPC boundary.
 - `get_presets() -> Presets` — allocations, default assumptions, and the contribution-limit table, so defaults live in one place (Rust).
 - `engine_version() -> String` — the engine crate version, surfaced in the UI.
+- `list_snapshots(id) / restore_snapshot(id, timestamp)` — the snapshot history of the *household* holding scenario `id`, at `plans/.history/<household id>/`, capped at 20. A snapshot is the whole file, so a restore brings back the balances and every scenario together; the Storage settings copy says so.
 - `get_storage_info() / choose_storage_dir() / set_storage_dir(path) / reveal_storage_dir()` — the Storage settings surface: report the effective/default plans dir, open a native folder picker, persist a new location (copying existing plans forward), and reveal the folder in Finder/Explorer.
 
 ---
@@ -516,5 +547,5 @@ Repo-level `.claude/settings.json` will be added only if we later want shared ho
 
 - **Engine:** `cargo test -p engine` — golden files, micro-case with hand-checked arithmetic, property tests.
 - **Type sync:** ts-rs generation runs in build/CI; `tsc --noEmit` fails on drift.
-- **App:** `pnpm tauri dev` — edit inputs, watch charts update; save/reload plan; confirm the plan file exists in the resolved plans directory and nothing sensitive lands in the repo (`git status` clean of data).
+- **App:** `pnpm tauri dev` — edit inputs, watch charts update; save/reload plan; confirm the household file exists in the resolved plans directory and nothing sensitive lands in the repo (`git status` clean of data).
 - Each milestone lands via its own PR into `main` per the branch strategy above.

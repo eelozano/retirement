@@ -1,46 +1,67 @@
-//! YAML persistence for plans, chosen over JSON so a plan file is readable
-//! and hand-editable outside the app. PRIVACY: everything here writes only
-//! to the local plans directory; nothing leaves the machine.
+//! YAML persistence for households and the scenarios branched from them,
+//! chosen over JSON so a file is readable and hand-editable outside the app.
+//! PRIVACY: everything here writes only to the local plans directory;
+//! nothing leaves the machine.
+//!
+//! One file per **household** (#109), not per scenario: `plans/<household
+//! id>.yaml` holds the household's facts — people, accounts, balances as
+//! dated observations, the month they are as of — plus every scenario, each
+//! carrying only the policy that varies. The rest of the app still speaks
+//! `Plan`: every function here composes one on the way out and decomposes
+//! it on the way in, so a balance is written down once however many
+//! scenarios a household keeps.
 //!
 //! Functions take an explicit base directory so they are unit-testable
 //! without a Tauri runtime; commands.rs resolves the real, user-configurable
 //! base path (see settings.rs).
 
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use engine::model::{Plan, PlanId, SCHEMA_VERSION};
+use engine::model::{
+    compose, decompose, empty_household, Household, HouseholdFile, HouseholdId, Plan, PlanId,
+    Scenario, YearMonth, SCHEMA_VERSION,
+};
 
-/// One plan file per plan — a scenario is just another file, keyed by the
-/// plan's stable `id` (not its editable `name`) so renaming never moves the
-/// file.
+/// One file per household — every scenario the household keeps lives inside
+/// it, keyed by the household's stable `id` (not its editable `name`) so
+/// renaming never moves the file.
 pub fn plans_dir(base: &Path) -> PathBuf {
     base.join("plans")
 }
 
-fn plan_path(base: &Path, id: &str) -> PathBuf {
+fn household_path(base: &Path, id: &str) -> PathBuf {
     plans_dir(base).join(format!("{id}.yaml"))
 }
 
-/// Per-plan bounded snapshot history: `plans/.history/<id>/<timestamp>.yaml`.
-fn history_dir(base: &Path, id: &str) -> PathBuf {
-    plans_dir(base).join(".history").join(id)
+/// Per-household bounded snapshot history:
+/// `plans/.history/<household id>/<timestamp>.yaml`. A snapshot is the whole
+/// file, so a restore brings back the balances and every scenario together.
+fn history_dir(base: &Path, household_id: &str) -> PathBuf {
+    plans_dir(base).join(".history").join(household_id)
 }
 
-/// Where deleted plans and legacy `.yaml.deleted` files are relocated to,
-/// instead of lingering in the plans directory forever.
+/// Where deleted households and legacy `.yaml.deleted` files are relocated
+/// to, instead of lingering in the plans directory forever.
 fn trash_dir(base: &Path) -> PathBuf {
     plans_dir(base).join(".trash")
 }
 
-const MAX_SNAPSHOTS_PER_PLAN: usize = 20;
+/// Where version-1 (one-plan-per-file) documents are set aside by the
+/// household migration. Never deleted — see `migrate::migrate_v1_plans`.
+pub fn v1_dir(base: &Path) -> PathBuf {
+    plans_dir(base).join(".v1")
+}
+
+const MAX_SNAPSHOTS_PER_HOUSEHOLD: usize = 20;
 
 /// Filesystem-safe, lexically sortable UTC timestamp, e.g.
 /// `2026-09-01T14-23-45-123Z`. Millisecond resolution keeps rapid, automatic
 /// calls (a pre-restore snapshot immediately followed by another) from
 /// colliding on the same filename.
-fn iso_stamp_now() -> String {
+pub(crate) fn iso_stamp_now() -> String {
     let now = time::OffsetDateTime::now_utc();
     format!(
         "{:04}-{:02}-{:02}T{:02}-{:02}-{:02}-{:03}Z",
@@ -54,9 +75,8 @@ fn iso_stamp_now() -> String {
     )
 }
 
-/// Filesystem-safe slug from a plan name ("Base plan" → "base-plan"). Used
-/// both to derive a stable `id` for pre-#6 plans that predate the `id`
-/// field, and as the human-readable starting point for a new plan's id.
+/// Filesystem-safe slug from a name ("Base plan" → "base-plan"). Used
+/// for household file names and for person ids.
 pub(crate) fn slugify(name: &str) -> String {
     let slug: String = name
         .trim()
@@ -75,39 +95,72 @@ pub(crate) fn slugify(name: &str) -> String {
     }
 }
 
-/// A fresh, unique plan id derived from a name: the plain slug if that file
-/// doesn't already exist, else the slug disambiguated with a timestamp.
-/// Keeping the slug as the common case is deliberate — plan files are meant
-/// to stay human-readable and hand-editable outside the app.
+/// Every id already spoken for: household ids (which are file names) and
+/// scenario ids (which `settings.json` records as the active plan, and
+/// which the frontend passes back). One namespace, because a scenario id
+/// has to identify a scenario across every household on disk.
+pub(crate) fn taken_ids(base: &Path) -> BTreeSet<String> {
+    let mut taken = BTreeSet::new();
+    for path in household_file_paths(base).unwrap_or_default() {
+        if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+            taken.insert(stem.to_string());
+        }
+        if let Ok(file) = load_household_file(&path) {
+            taken.insert(file.id);
+            taken.extend(file.scenarios.into_iter().map(|s| s.id));
+        }
+    }
+    taken
+}
+
+/// A fresh id derived from a name: the plain slug if nothing has claimed it,
+/// else the slug disambiguated with a timestamp. Keeping the slug as the
+/// common case is deliberate — household files are meant to stay
+/// human-readable and hand-editable outside the app.
 pub fn generate_id(base: &Path, name: &str) -> String {
+    fresh_id(&taken_ids(base), name)
+}
+
+/// `generate_id` against an explicit set, for callers minting several ids
+/// before any of them is on disk (the household migration mints one per
+/// group). The `-2` tail is a belt-and-braces third step: two calls in the
+/// same nanosecond would otherwise agree.
+pub(crate) fn fresh_id(taken: &BTreeSet<String>, name: &str) -> String {
     let slug = slugify(name);
-    if !plan_path(base, &slug).exists() {
+    if !taken.contains(&slug) {
         return slug;
     }
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
-    format!("{slug}-{nanos}")
+    let stamped = format!("{slug}-{nanos}");
+    if !taken.contains(&stamped) {
+        return stamped;
+    }
+    (2..)
+        .map(|n| format!("{stamped}-{n}"))
+        .find(|id| !taken.contains(id))
+        .expect("an unused id")
 }
 
-/// Atomic save: write a temp file, keep the previous version as `.bak`,
-/// then rename into place so a crash never leaves a torn file.
-pub fn save_plan(base: &Path, plan: &Plan) -> Result<(), String> {
-    if plan.schema_version != SCHEMA_VERSION {
+/// Atomic write: a temp file, the previous version kept as `.bak`, then a
+/// rename into place so a crash never leaves a torn file.
+pub fn save_household_file(base: &Path, file: &HouseholdFile) -> Result<(), String> {
+    if file.schema_version != SCHEMA_VERSION {
         return Err(format!(
-            "plan schema version {} does not match supported version {}",
-            plan.schema_version, SCHEMA_VERSION
+            "household schema version {} does not match supported version {}",
+            file.schema_version, SCHEMA_VERSION
         ));
     }
-    if plan.id.trim().is_empty() {
-        return Err("plan is missing an id".to_string());
+    if file.id.trim().is_empty() {
+        return Err("household is missing an id".to_string());
     }
     let dir = plans_dir(base);
     fs::create_dir_all(&dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
 
-    let path = plan_path(base, &plan.id);
-    let yaml = serde_yaml_ng::to_string(plan).map_err(|e| format!("serializing plan: {e}"))?;
+    let path = household_path(base, &file.id);
+    let yaml = serde_yaml_ng::to_string(file).map_err(|e| format!("serializing household: {e}"))?;
 
     let tmp = path.with_extension("yaml.tmp");
     fs::write(&tmp, &yaml).map_err(|e| format!("writing {}: {e}", tmp.display()))?;
@@ -119,35 +172,22 @@ pub fn save_plan(base: &Path, plan: &Plan) -> Result<(), String> {
     Ok(())
 }
 
-pub fn load_plan_file(path: &Path) -> Result<Plan, String> {
+pub fn load_household_file(path: &Path) -> Result<HouseholdFile, String> {
     let yaml = fs::read_to_string(path).map_err(|e| format!("reading {}: {e}", path.display()))?;
-    let plan: Plan =
+    let file: HouseholdFile =
         serde_yaml_ng::from_str(&yaml).map_err(|e| format!("parsing {}: {e}", path.display()))?;
-    if plan.schema_version != SCHEMA_VERSION {
+    if file.schema_version != SCHEMA_VERSION {
         return Err(format!(
             "{} has schema version {}, this app supports {} — migration needed",
             path.display(),
-            plan.schema_version,
+            file.schema_version,
             SCHEMA_VERSION
         ));
     }
-    Ok(plan)
+    Ok(file)
 }
 
-/// Loads a plan file, backfilling a missing `id` (pre-#6 plans) from the
-/// filename slug — the same value `plan_path` used to key files by name
-/// before ids existed, so this never moves the file, only persists the id
-/// into it. One-shot per file: subsequent loads see `id` already set.
-fn load_and_backfill_id(base: &Path, path: &Path) -> Result<Plan, String> {
-    let mut plan = load_plan_file(path)?;
-    if plan.id.trim().is_empty() {
-        plan.id = slugify(&plan.name);
-        save_plan(base, &plan)?;
-    }
-    Ok(plan)
-}
-
-fn plan_file_paths(base: &Path) -> Result<Vec<PathBuf>, String> {
+fn household_file_paths(base: &Path) -> Result<Vec<PathBuf>, String> {
     let dir = plans_dir(base);
     if !dir.exists() {
         return Ok(Vec::new());
@@ -161,32 +201,79 @@ fn plan_file_paths(base: &Path) -> Result<Vec<PathBuf>, String> {
     Ok(paths)
 }
 
-/// Id and display name of every stored plan, alphabetical by name.
+/// Every household on disk, in file order. Files that fail to parse are
+/// skipped rather than failing the whole read — the same silent-skip policy
+/// `list_plans` has always had.
+fn households(base: &Path) -> Result<Vec<(PathBuf, HouseholdFile)>, String> {
+    Ok(household_file_paths(base)?
+        .into_iter()
+        .filter_map(|path| load_household_file(&path).ok().map(|file| (path, file)))
+        .collect())
+}
+
+/// The household holding scenario `id`.
+fn household_of(base: &Path, id: &str) -> Result<HouseholdFile, String> {
+    households(base)?
+        .into_iter()
+        .map(|(_, file)| file)
+        .find(|file| file.scenario(id).is_some())
+        .ok_or_else(|| format!("no scenario {id:?} in any household"))
+}
+
+fn compose_scenario(file: &HouseholdFile, id: &str) -> Result<Plan, String> {
+    let scenario = file
+        .scenario(id)
+        .ok_or_else(|| format!("household {:?} has no scenario {id:?}", file.id))?;
+    compose(&file.household(), scenario).map_err(|e| e.to_string())
+}
+
+/// Identity of one stored scenario, plus the household it belongs to.
 pub struct PlanSummary {
     pub id: PlanId,
     pub name: String,
+    pub household_id: HouseholdId,
+    pub household_name: String,
+    /// The household's `sample` flag, so the switcher can label an example
+    /// household's scenarios without loading each one.
+    pub sample: bool,
 }
 
+/// Every scenario of every household, households in file order and
+/// scenarios alphabetical by name within each.
 pub fn list_plans(base: &Path) -> Result<Vec<PlanSummary>, String> {
     let mut summaries = Vec::new();
-    for path in plan_file_paths(base)? {
-        if let Ok(plan) = load_and_backfill_id(base, &path) {
-            summaries.push(PlanSummary {
-                id: plan.id,
-                name: plan.name,
-            });
-        }
+    for (_, file) in households(base)? {
+        let mut group: Vec<PlanSummary> = file
+            .scenarios
+            .iter()
+            .map(|s| PlanSummary {
+                id: s.id.clone(),
+                name: s.name.clone(),
+                household_id: file.id.clone(),
+                household_name: file.name.clone(),
+                sample: file.sample,
+            })
+            .collect();
+        group.sort_by(|a, b| a.name.cmp(&b.name));
+        summaries.append(&mut group);
     }
-    summaries.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(summaries)
 }
 
-/// Loads a specific plan by id.
-pub fn load_plan(base: &Path, id: &str) -> Result<Plan, String> {
-    load_and_backfill_id(base, &plan_path(base, id))
+/// The household holding scenario `id` — the facts half, for the UI that
+/// says how old the balances are (#110).
+pub fn load_household(base: &Path, scenario_id: &str) -> Result<Household, String> {
+    Ok(household_of(base, scenario_id)?.household())
 }
 
-/// The first stored plan, or `None` when there are none.
+/// Loads one scenario as a `Plan`: its household's facts composed with its
+/// own policy.
+pub fn load_plan(base: &Path, id: &str) -> Result<Plan, String> {
+    let file = household_of(base, id)?;
+    compose_scenario(&file, id)
+}
+
+/// The first stored scenario, or `None` when there are none.
 ///
 /// `None` is a normal state, not a failure: it is what a fresh install looks
 /// like, and what the plans directory looks like again once the user deletes
@@ -198,20 +285,77 @@ pub fn load_plan(base: &Path, id: &str) -> Result<Plan, String> {
 /// example household is now something the user asks for by name — see
 /// [`create_sample_plan`].
 pub fn load_first(base: &Path) -> Result<Option<Plan>, String> {
-    match plan_file_paths(base)?.first() {
-        Some(path) => load_and_backfill_id(base, path).map(Some),
-        None => Ok(None),
+    for (_, file) in households(base)? {
+        if let Some(scenario) = file.scenarios.first() {
+            return compose_scenario(&file, &scenario.id).map(Some);
+        }
     }
+    Ok(None)
 }
 
-/// Gives `plan` a fresh id derived from its own name and writes it.
+/// Writes an edited plan back into its household.
 ///
-/// Validation is the caller's job and must happen *before* this: once it
-/// returns, the plan is on disk.
-fn store_new_plan(base: &Path, mut plan: Plan) -> Result<Plan, String> {
-    plan.id = generate_id(base, &plan.name);
-    save_plan(base, &plan)?;
-    Ok(plan)
+/// The facts go to the household — one copy, shared by every scenario — and
+/// the policy to this scenario. Siblings are then filled in: any scenario
+/// with no policy for an entity this save has receives a copy of this
+/// scenario's, and any policy for an entity this save does *not* have is
+/// pruned. So an account opened "at the federal maximum" in one scenario is
+/// at the federal maximum everywhere until someone edits it, an account
+/// deleted here is gone everywhere, and `compose` stays total without ever
+/// inventing a retirement date.
+pub fn save_plan(base: &Path, plan: &Plan) -> Result<(), String> {
+    if plan.schema_version != SCHEMA_VERSION {
+        return Err(format!(
+            "plan schema version {} does not match supported version {}",
+            plan.schema_version, SCHEMA_VERSION
+        ));
+    }
+    if plan.id.trim().is_empty() {
+        return Err("plan is missing an id".to_string());
+    }
+    let mut file = household_of(base, &plan.id)?;
+    let (household, scenario) = decompose(plan, &file.household());
+
+    for sibling in &mut file.scenarios {
+        if sibling.id == scenario.id {
+            continue;
+        }
+        fill_in(sibling, &scenario);
+    }
+    let slot = file
+        .scenarios
+        .iter_mut()
+        .find(|s| s.id == scenario.id)
+        .expect("household_of found this scenario");
+    *slot = scenario;
+
+    save_household_file(base, &HouseholdFile::new(household, file.scenarios))
+}
+
+/// Brings `sibling` into line with the household `saved` just described:
+/// entities it has no opinion about are copied from `saved`, and entities
+/// that no longer exist are dropped.
+pub(crate) fn fill_in(sibling: &mut Scenario, saved: &Scenario) {
+    sibling.people.retain(|id, _| saved.people.contains_key(id));
+    sibling
+        .accounts
+        .retain(|id, _| saved.accounts.contains_key(id));
+    sibling
+        .social_security
+        .retain(|id, _| saved.social_security.contains_key(id));
+
+    for (id, policy) in &saved.people {
+        sibling.people.entry(id.clone()).or_insert(policy.clone());
+    }
+    for (id, policy) in &saved.accounts {
+        sibling.accounts.entry(id.clone()).or_insert(policy.clone());
+    }
+    for (id, policy) in &saved.social_security {
+        sibling
+            .social_security
+            .entry(id.clone())
+            .or_insert(policy.clone());
+    }
 }
 
 /// Builds a brand-new plan for `people` — no accounts, no income, no
@@ -229,70 +373,117 @@ pub fn new_plan(
     engine::presets::new_plan(name, start, people)
 }
 
-/// Writes a validated plan as a new one, under a fresh id.
+/// Writes a validated plan as a new household with this one scenario in it.
+///
+/// The household takes the plan's own name, and its own id: a household
+/// created from scratch has exactly one scenario, so there is one name
+/// anyone has supplied and no reason for the file to be called something
+/// else. Both are editable later (#111), and every scenario branched from
+/// here gets its own id.
 pub fn create_plan(base: &Path, plan: Plan) -> Result<Plan, String> {
-    store_new_plan(base, plan)
+    store_new_household(base, plan)
 }
 
-/// Writes a copy of the invented example household ([`engine::presets::seed_plan`])
-/// under a fresh id, for a user who asked to load an example to look around.
+/// Writes a copy of the invented example household
+/// ([`engine::presets::seed_plan`]), for a user who asked to load an example
+/// to look around.
 ///
-/// The stored plan keeps `sample: true`, so the UI labels it as an example
-/// for as long as it exists and it is never mistaken for the user's own
-/// numbers. No validation step: this plan is a compile-time constant of the
-/// engine's, and `seed_plan_is_valid` already pins it.
+/// The stored household keeps `sample: true`, so the UI labels it as an
+/// example for as long as it exists and it is never mistaken for the user's
+/// own numbers. No validation step: this plan is a compile-time constant of
+/// the engine's, and `seed_plan_is_valid` already pins it.
 ///
-/// `start` is the copy's first simulated month, resolved from the clock by
-/// the caller. `seed_plan` hard-codes January 2026 because the golden file
-/// pins it; shipping that date would give anyone loading the example in a
-/// later year a plan that starts in the past (#106).
-pub fn create_sample_plan(base: &Path, start: engine::model::YearMonth) -> Result<Plan, String> {
+/// `as_of` is the month the (invented) balances are dated, resolved from the
+/// clock by the caller. `seed_plan` hard-codes January 2026 because the
+/// golden file pins it; shipping that date would give anyone loading the
+/// example in a later year a household whose balances are already in the
+/// past (#106).
+pub fn create_sample_plan(base: &Path, as_of: YearMonth) -> Result<Plan, String> {
     let mut plan = engine::presets::seed_plan();
-    plan.sim_config.start = start;
+    plan.sim_config.start = as_of;
     // Renamed on the way out rather than in `seed_plan` itself, which is the
     // engine's test fixture and whose name the golden tests pin. The name
     // matters because it is what the scenario switcher and an exported
     // report show, where the `sample` badge does not reach.
     plan.name = SAMPLE_PLAN_NAME.to_string();
-    store_new_plan(base, plan)
+    plan.sample = true;
+    store_new_household(base, plan)
 }
 
-/// What a loaded example household is called on disk and in the switcher.
+/// What a loaded example household — and its first scenario — are called on
+/// disk and in the switcher.
 pub const SAMPLE_PLAN_NAME: &str = "Example household";
 
-/// Deep-copies a stored plan under a new name and a freshly generated id.
-pub fn duplicate_plan(base: &Path, id: &str, new_name: &str) -> Result<Plan, String> {
-    let mut copy = load_plan(base, id)?;
-    copy.id = generate_id(base, new_name);
-    copy.name = new_name.to_string();
-    save_plan(base, &copy)?;
-    Ok(copy)
+/// Wraps `plan` in a new household under a fresh id and writes it. The
+/// household and its one scenario share that id: nothing has branched yet,
+/// and a file named after something other than the household it holds would
+/// only be harder to find by hand.
+///
+/// Validation is the caller's job and must happen *before* this: once it
+/// returns, the household is on disk.
+fn store_new_household(base: &Path, mut plan: Plan) -> Result<Plan, String> {
+    let id = generate_id(base, &plan.name);
+    plan.id = id.clone();
+    plan.schema_version = SCHEMA_VERSION;
+
+    let skeleton = empty_household(id, plan.name.clone(), plan.sim_config.start);
+    let (household, scenario) = decompose(&plan, &skeleton);
+    save_household_file(base, &HouseholdFile::new(household, vec![scenario]))?;
+    Ok(plan)
 }
 
-/// Removes a plan by moving its file into `.trash` rather than deleting it —
-/// the same never-actually-delete posture as the storage-relocation
-/// migration in `migrate.rs`, but landing outside the plans directory so
-/// deleted plans don't linger among the live ones.
+/// Branches a scenario: the same household facts, a copy of this scenario's
+/// policy, a new name and a fresh id. No balances are copied, because there
+/// were never two copies of them to begin with.
+pub fn duplicate_plan(base: &Path, id: &str, new_name: &str) -> Result<Plan, String> {
+    let mut file = household_of(base, id)?;
+    let mut copy = file
+        .scenario(id)
+        .ok_or_else(|| format!("no scenario {id:?}"))?
+        .clone();
+    copy.id = generate_id(base, new_name);
+    copy.name = new_name.to_string();
+    let plan = compose(&file.household(), &copy).map_err(|e| e.to_string())?;
+    file.scenarios.push(copy);
+    save_household_file(base, &file)?;
+    Ok(plan)
+}
+
+/// Removes a scenario. When it was the household's last, the whole file
+/// moves into `.trash` rather than being unlinked — the same
+/// never-actually-delete posture as the storage-relocation migration in
+/// `migrate.rs`, but landing outside the plans directory so deleted
+/// households don't linger among the live ones.
 pub fn delete_plan(base: &Path, id: &str) -> Result<(), String> {
-    let path = plan_path(base, id);
-    if !path.exists() {
+    let Ok(mut file) = household_of(base, id) else {
         return Ok(());
+    };
+    file.scenarios.retain(|s| s.id != id);
+    if !file.scenarios.is_empty() {
+        return save_household_file(base, &file);
     }
+
+    let path = household_path(base, &file.id);
     let dir = trash_dir(base);
     fs::create_dir_all(&dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
-    let dest = dir.join(format!("{id}-{}.yaml", iso_stamp_now()));
+    let dest = dir.join(format!("{}-{}.yaml", file.id, iso_stamp_now()));
     fs::rename(&path, &dest).map_err(|e| format!("removing {}: {e}", path.display()))
 }
 
-/// Copies a plan's current on-disk file into its bounded snapshot history,
-/// timestamped to now, then prunes down to `MAX_SNAPSHOTS_PER_PLAN`, oldest
-/// first. A no-op if the plan has no file yet — nothing to snapshot.
-pub fn snapshot_plan(base: &Path, id: &str) -> Result<(), String> {
-    let path = plan_path(base, id);
+/// Copies a household's current on-disk file into its bounded snapshot
+/// history, timestamped to now, then prunes down to
+/// `MAX_SNAPSHOTS_PER_HOUSEHOLD`, oldest first. Takes a *scenario* id,
+/// because that is what the caller has; a no-op if that scenario has no
+/// household on disk.
+pub fn snapshot_plan(base: &Path, scenario_id: &str) -> Result<(), String> {
+    let Ok(file) = household_of(base, scenario_id) else {
+        return Ok(());
+    };
+    let path = household_path(base, &file.id);
     if !path.exists() {
         return Ok(());
     }
-    let dir = history_dir(base, id);
+    let dir = history_dir(base, &file.id);
     fs::create_dir_all(&dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
     let dest = dir.join(format!("{}.yaml", iso_stamp_now()));
     fs::copy(&path, &dest).map_err(|e| format!("snapshotting {}: {e}", path.display()))?;
@@ -306,17 +497,20 @@ fn prune_history(dir: &Path) -> Result<(), String> {
         .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("yaml"))
         .collect();
     entries.sort();
-    while entries.len() > MAX_SNAPSHOTS_PER_PLAN {
+    while entries.len() > MAX_SNAPSHOTS_PER_HOUSEHOLD {
         let oldest = entries.remove(0);
         fs::remove_file(&oldest).map_err(|e| format!("pruning {}: {e}", oldest.display()))?;
     }
     Ok(())
 }
 
-/// A plan's snapshot timestamps, newest first — the stem of each
-/// `<timestamp>.yaml` file in its history folder.
-pub fn list_snapshots(base: &Path, id: &str) -> Result<Vec<String>, String> {
-    let dir = history_dir(base, id);
+/// The snapshot timestamps of the household holding `scenario_id`, newest
+/// first — the stem of each `<timestamp>.yaml` file in its history folder.
+pub fn list_snapshots(base: &Path, scenario_id: &str) -> Result<Vec<String>, String> {
+    let Ok(file) = household_of(base, scenario_id) else {
+        return Ok(Vec::new());
+    };
+    let dir = history_dir(base, &file.id);
     if !dir.exists() {
         return Ok(Vec::new());
     }
@@ -330,15 +524,29 @@ pub fn list_snapshots(base: &Path, id: &str) -> Result<Vec<String>, String> {
     Ok(stamps)
 }
 
-/// Restores a plan to how it looked at `timestamp`. Snapshots the plan's
-/// current state first — into the same bounded history — so restoring is
-/// itself undoable.
-pub fn restore_snapshot(base: &Path, id: &str, timestamp: &str) -> Result<Plan, String> {
-    let snapshot_path = history_dir(base, id).join(format!("{timestamp}.yaml"));
-    let plan = load_plan_file(&snapshot_path)?;
-    snapshot_plan(base, id)?;
-    save_plan(base, &plan)?;
-    Ok(plan)
+/// Restores a **household** to how it looked at `timestamp` — its balances
+/// and every one of its scenarios together, since that is what one file
+/// holds. Snapshots the current state first, into the same bounded history,
+/// so restoring is itself undoable.
+///
+/// Returns the scenario the caller was on, or the restored household's first
+/// if that scenario did not exist yet at `timestamp`.
+pub fn restore_snapshot(base: &Path, scenario_id: &str, timestamp: &str) -> Result<Plan, String> {
+    let current = household_of(base, scenario_id)?;
+    let snapshot_path = history_dir(base, &current.id).join(format!("{timestamp}.yaml"));
+    let restored = load_household_file(&snapshot_path)?;
+    snapshot_plan(base, scenario_id)?;
+    save_household_file(base, &restored)?;
+
+    let id = match restored.scenario(scenario_id) {
+        Some(_) => scenario_id.to_string(),
+        None => restored
+            .scenarios
+            .first()
+            .map(|s| s.id.clone())
+            .ok_or_else(|| "snapshot holds no scenarios".to_string())?,
+    };
+    compose_scenario(&restored, &id)
 }
 
 fn copy_dir_recursive(from: &Path, to: &Path) -> Result<(), String> {
@@ -411,7 +619,7 @@ pub fn cleanup(base: &Path) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use engine::model::YearMonth;
+    use engine::model::{ContributionRule, YearMonth};
 
     use super::*;
 
@@ -435,14 +643,19 @@ mod tests {
         }
     }
 
-    /// Puts the example household on disk and returns it — what
-    /// `load_or_bootstrap` used to do implicitly, before a fresh install
-    /// stopped inventing one (#103). Tests below use it only to have *a*
-    /// plan to act on.
+    /// Puts the example household on disk and returns the plan for its one
+    /// scenario — what `load_or_bootstrap` used to do implicitly, before a
+    /// fresh install stopped inventing one (#103). Tests below use it only
+    /// to have *a* household to act on.
     fn seed(base: &Path) -> Plan {
-        let plan = engine::presets::seed_plan();
-        save_plan(base, &plan).unwrap();
-        plan
+        create_plan(base, engine::presets::seed_plan()).unwrap()
+    }
+
+    fn account<'a>(plan: &'a Plan, id: &str) -> &'a engine::model::Account {
+        plan.accounts
+            .iter()
+            .find(|a| a.id == id)
+            .expect("the seed plan has this account")
     }
 
     #[test]
@@ -468,6 +681,8 @@ mod tests {
         assert_eq!(summaries.len(), 1);
         assert_eq!(summaries[0].id, "base-plan");
         assert_eq!(summaries[0].name, "Base plan");
+        assert_eq!(summaries[0].household_id, "base-plan");
+        assert_eq!(summaries[0].household_name, "Base plan");
 
         let mut edited = plan.clone();
         edited.assumptions.inflation = 0.03;
@@ -477,6 +692,158 @@ mod tests {
         assert_eq!(reloaded.assumptions.inflation, 0.03);
         // Previous version preserved as .bak.
         assert!(plans_dir(&base.0).join("base-plan.yaml.bak").exists());
+    }
+
+    /// The point of the whole split: seven accounts and four scenarios are
+    /// seven balances, not twenty-eight, and correcting one corrects it
+    /// everywhere.
+    #[test]
+    fn a_balance_is_written_once_and_shared_by_every_scenario() {
+        let base = TempBase::new("shared-balances");
+        let plan = seed(&base.0);
+        duplicate_plan(&base.0, &plan.id, "Retire early").unwrap();
+        duplicate_plan(&base.0, &plan.id, "Claim at 62").unwrap();
+        assert_eq!(
+            household_file_paths(&base.0).unwrap().len(),
+            1,
+            "three scenarios of one household are one file"
+        );
+
+        let mut edited = plan.clone();
+        edited
+            .accounts
+            .iter_mut()
+            .find(|a| a.id == "alex-401k")
+            .unwrap()
+            .balance = 411_000.0;
+        save_plan(&base.0, &edited).unwrap();
+
+        for summary in list_plans(&base.0).unwrap() {
+            let sibling = load_plan(&base.0, &summary.id).unwrap();
+            assert_eq!(
+                account(&sibling, "alex-401k").balance,
+                411_000.0,
+                "scenario {:?} still carries a stale copy",
+                summary.id
+            );
+        }
+    }
+
+    /// Policy is the half that does vary: editing a retirement date in one
+    /// scenario must not reach the others.
+    #[test]
+    fn policy_stays_in_the_scenario_that_changed_it() {
+        let base = TempBase::new("policy-isolated");
+        let plan = seed(&base.0);
+        let branch = duplicate_plan(&base.0, &plan.id, "Retire early").unwrap();
+
+        let mut edited = branch.clone();
+        edited.people[0].retirement = YearMonth::new(2035, 4);
+        save_plan(&base.0, &edited).unwrap();
+
+        assert_eq!(
+            load_plan(&base.0, &branch.id).unwrap().people[0].retirement,
+            YearMonth::new(2035, 4)
+        );
+        assert_eq!(
+            load_plan(&base.0, &plan.id).unwrap().people[0].retirement,
+            plan.people[0].retirement,
+            "the base scenario kept its own retirement date"
+        );
+    }
+
+    /// A new account opened in one scenario is a household fact, so it
+    /// appears in the siblings — and, having no policy of its own there
+    /// yet, at the policy it was opened with rather than at some default
+    /// nobody chose.
+    #[test]
+    fn a_new_account_fills_in_across_siblings_with_the_policy_it_was_opened_at() {
+        let base = TempBase::new("fill-in");
+        let plan = seed(&base.0);
+        let sibling = duplicate_plan(&base.0, &plan.id, "Retire early").unwrap();
+
+        let mut edited = plan.clone();
+        let mut opened = account(&plan, "jordan-roth").clone();
+        opened.id = "alex-roth-ira".to_string();
+        opened.name = "Alex Roth IRA".to_string();
+        opened.balance = 4_000.0;
+        opened.contributions[0].rule = ContributionRule::FederalMaximum;
+        edited.accounts.push(opened);
+        save_plan(&base.0, &edited).unwrap();
+
+        let reloaded = load_plan(&base.0, &sibling.id).unwrap();
+        let filled = account(&reloaded, "alex-roth-ira");
+        assert_eq!(filled.balance, 4_000.0);
+        assert_eq!(
+            filled.contributions[0].rule,
+            ContributionRule::FederalMaximum
+        );
+    }
+
+    /// The other half of fill-in: an account deleted in one scenario is
+    /// pruned from every sibling's policy, so `compose` never has to skip
+    /// an entity it has no facts for.
+    #[test]
+    fn a_deleted_account_is_pruned_from_every_sibling() {
+        let base = TempBase::new("prune");
+        let plan = seed(&base.0);
+        let sibling = duplicate_plan(&base.0, &plan.id, "Retire early").unwrap();
+
+        let mut edited = plan.clone();
+        edited.accounts.retain(|a| a.id != "jordan-roth");
+        save_plan(&base.0, &edited).unwrap();
+
+        let reloaded = load_plan(&base.0, &sibling.id).unwrap();
+        assert!(reloaded.accounts.iter().all(|a| a.id != "jordan-roth"));
+
+        let file = household_of(&base.0, &sibling.id).unwrap();
+        for scenario in &file.scenarios {
+            assert!(
+                !scenario.accounts.contains_key("jordan-roth"),
+                "scenario {:?} kept policy for an account that no longer exists",
+                scenario.id
+            );
+        }
+    }
+
+    /// The as-of month is one date for the household, so a scenario cannot
+    /// hold its own.
+    #[test]
+    fn every_scenario_starts_on_the_households_as_of_month() {
+        let base = TempBase::new("as-of");
+        let plan = seed(&base.0);
+        let sibling = duplicate_plan(&base.0, &plan.id, "Retire early").unwrap();
+
+        let mut edited = plan.clone();
+        edited.sim_config.start = YearMonth::new(2027, 9);
+        save_plan(&base.0, &edited).unwrap();
+
+        assert_eq!(
+            load_plan(&base.0, &sibling.id).unwrap().sim_config.start,
+            YearMonth::new(2027, 9)
+        );
+        assert_eq!(
+            load_household(&base.0, &sibling.id).unwrap().as_of,
+            YearMonth::new(2027, 9)
+        );
+    }
+
+    #[test]
+    fn balances_are_stored_as_dated_observations() {
+        let base = TempBase::new("observations");
+        let plan = seed(&base.0);
+        let household = load_household(&base.0, &plan.id).unwrap();
+        let stored = household
+            .accounts
+            .iter()
+            .find(|a| a.id == "alex-401k")
+            .unwrap();
+        assert_eq!(stored.observations.len(), 1);
+        assert_eq!(stored.current().unwrap().as_of, plan.sim_config.start);
+        assert_eq!(
+            stored.current().unwrap().balance,
+            account(&plan, "alex-401k").balance
+        );
     }
 
     #[test]
@@ -516,6 +883,10 @@ mod tests {
 
         // Persisted, not just returned.
         assert_eq!(load_plan(&base.0, "my-plan").unwrap().name, "My plan");
+        let household = load_household(&base.0, "my-plan").unwrap();
+        assert_eq!(household.name, "My plan");
+        assert!(!household.sample);
+        assert_eq!(household.as_of, YearMonth::new(2026, 1));
     }
 
     #[test]
@@ -548,23 +919,38 @@ mod tests {
     #[test]
     fn create_sample_plan_names_itself_an_example_and_says_so_in_the_file() {
         let base = TempBase::new("sample");
-        let start = engine::model::YearMonth::new(2031, 9);
-        let plan = create_sample_plan(&base.0, start).unwrap();
+        let as_of = YearMonth::new(2031, 9);
+        let plan = create_sample_plan(&base.0, as_of).unwrap();
         assert_eq!(plan.name, SAMPLE_PLAN_NAME);
         assert!(plan.sample);
         // The example is dated from the day it was loaded, not from
         // whichever January `seed_plan` was written against (#106).
-        assert_eq!(plan.sim_config.start, start);
+        assert_eq!(plan.sim_config.start, as_of);
         // The flag survives the round trip, so the badge outlives this session.
         let reloaded = load_plan(&base.0, &plan.id).unwrap();
         assert!(reloaded.sample);
         assert_eq!(reloaded.name, SAMPLE_PLAN_NAME);
+        // It is a fact about the household, and the switcher reads it from
+        // the summary rather than loading every scenario.
+        assert!(list_plans(&base.0).unwrap()[0].sample);
+    }
+
+    /// Two examples loaded in a row are two households, not one file
+    /// overwriting the other.
+    #[test]
+    fn loading_the_example_twice_makes_two_households() {
+        let base = TempBase::new("sample-twice");
+        let first = create_sample_plan(&base.0, YearMonth::new(2026, 1)).unwrap();
+        let second = create_sample_plan(&base.0, YearMonth::new(2026, 1)).unwrap();
+        assert_ne!(first.id, second.id);
+        assert_eq!(household_file_paths(&base.0).unwrap().len(), 2);
+        assert_eq!(list_plans(&base.0).unwrap().len(), 2);
     }
 
     #[test]
     fn a_scenario_branched_off_the_example_is_still_the_example() {
         let base = TempBase::new("sample-duplicate");
-        let sample = create_sample_plan(&base.0, engine::model::YearMonth::new(2026, 1)).unwrap();
+        let sample = create_sample_plan(&base.0, YearMonth::new(2026, 1)).unwrap();
         let copy = duplicate_plan(&base.0, &sample.id, "What if we move").unwrap();
         assert!(
             copy.sample,
@@ -575,24 +961,35 @@ mod tests {
     #[test]
     fn rejects_unknown_schema_version() {
         let base = TempBase::new("schema");
-        let mut plan = engine::presets::seed_plan();
-        save_plan(&base.0, &plan).unwrap();
+        let mut plan = seed(&base.0);
         plan.schema_version = 999;
         assert!(save_plan(&base.0, &plan).is_err());
 
-        let path = plan_path(&base.0, &plan.id);
+        let path = household_path(&base.0, "base-plan");
         let mangled = fs::read_to_string(&path)
             .unwrap()
-            .replace("schema_version: 1", "schema_version: 999");
+            .replace("schema_version: 2", "schema_version: 999");
         fs::write(&path, mangled).unwrap();
-        assert!(load_plan_file(&path).is_err());
+        assert!(load_household_file(&path).is_err());
     }
 
     #[test]
     fn rejects_plan_without_id() {
         let base = TempBase::new("no-id");
-        let mut plan = engine::presets::seed_plan();
+        let mut plan = seed(&base.0);
         plan.id = String::new();
+        assert!(save_plan(&base.0, &plan).is_err());
+    }
+
+    /// Saving a plan whose scenario is not in any household is an error
+    /// rather than a silently created file: the id came from somewhere, and
+    /// writing a second copy of the household under it is how balances
+    /// diverged in the first place.
+    #[test]
+    fn rejects_a_plan_belonging_to_no_household() {
+        let base = TempBase::new("orphan");
+        let mut plan = seed(&base.0);
+        plan.id = "not-a-scenario".to_string();
         assert!(save_plan(&base.0, &plan).is_err());
     }
 
@@ -604,29 +1001,7 @@ mod tests {
     }
 
     #[test]
-    fn backfills_id_for_legacy_plan_missing_it() {
-        let base = TempBase::new("legacy-id");
-        let mut plan = engine::presets::seed_plan();
-        plan.id = String::new();
-        // Legacy files were named after the slugified plan name.
-        let dir = plans_dir(&base.0);
-        fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("base-plan.yaml");
-        fs::write(&path, serde_yaml_ng::to_string(&plan).unwrap()).unwrap();
-
-        let loaded = load_plan(&base.0, "base-plan").unwrap();
-        assert_eq!(loaded.id, "base-plan");
-        // Backfill persisted, not just returned in memory.
-        let reloaded = load_plan_file(&path).unwrap();
-        assert_eq!(reloaded.id, "base-plan");
-
-        let summaries = list_plans(&base.0).unwrap();
-        assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].id, "base-plan");
-    }
-
-    #[test]
-    fn duplicate_plan_gets_new_id_and_name() {
+    fn duplicate_plan_gets_new_id_and_name_inside_the_same_household() {
         let base = TempBase::new("duplicate");
         seed(&base.0);
 
@@ -635,12 +1010,18 @@ mod tests {
         assert_eq!(copy.id, "sell-the-home");
         assert_ne!(copy.id, "base-plan");
 
-        // Original plan is untouched.
+        // Original scenario is untouched.
         let original = load_plan(&base.0, "base-plan").unwrap();
         assert_eq!(original.name, "Base plan");
 
         let summaries = list_plans(&base.0).unwrap();
         assert_eq!(summaries.len(), 2);
+        assert!(summaries.iter().all(|s| s.household_id == "base-plan"));
+        assert_eq!(
+            household_file_paths(&base.0).unwrap().len(),
+            1,
+            "branching a scenario writes no second file"
+        );
     }
 
     #[test]
@@ -649,7 +1030,7 @@ mod tests {
         seed(&base.0);
 
         // Duplicating under a name that slugifies to an existing id must not
-        // collide with (and overwrite) that plan's file.
+        // collide with (and overwrite) that scenario.
         let copy = duplicate_plan(&base.0, "base-plan", "Base plan").unwrap();
         assert_ne!(copy.id, "base-plan");
         assert!(copy.id.starts_with("base-plan-"));
@@ -659,21 +1040,35 @@ mod tests {
     }
 
     #[test]
-    fn delete_plan_moves_file_to_trash_without_removing_it() {
+    fn deleting_one_of_several_scenarios_keeps_the_household() {
+        let base = TempBase::new("delete-one");
+        seed(&base.0);
+        let copy = duplicate_plan(&base.0, "base-plan", "Retire early").unwrap();
+
+        delete_plan(&base.0, &copy.id).unwrap();
+
+        let summaries = list_plans(&base.0).unwrap();
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].id, "base-plan");
+        assert!(household_path(&base.0, "base-plan").exists());
+        assert!(!trash_dir(&base.0).exists(), "nothing was thrown away");
+    }
+
+    #[test]
+    fn deleting_the_last_scenario_moves_the_household_to_trash() {
         let base = TempBase::new("delete");
         seed(&base.0);
 
         delete_plan(&base.0, "base-plan").unwrap();
         assert!(list_plans(&base.0).unwrap().is_empty());
-        // No `.deleted` sibling left among the live plans...
-        assert!(!plans_dir(&base.0).join("base-plan.yaml.deleted").exists());
-        // ...it landed in .trash instead, timestamp-suffixed.
+        assert!(!household_path(&base.0, "base-plan").exists());
+        // It landed in .trash instead, timestamp-suffixed.
         let trash: Vec<_> = fs::read_dir(trash_dir(&base.0)).unwrap().collect();
         assert_eq!(trash.len(), 1);
         let name = trash[0].as_ref().unwrap().file_name();
         assert!(name.to_str().unwrap().starts_with("base-plan-"));
 
-        // Deleting an already-gone plan is a no-op, not an error.
+        // Deleting an already-gone scenario is a no-op, not an error.
         delete_plan(&base.0, "base-plan").unwrap();
     }
 
@@ -699,19 +1094,32 @@ mod tests {
         assert!(stamps[0] > stamps[1]);
     }
 
+    /// One history per household, so a snapshot taken from one scenario is
+    /// listed from its siblings too — which is what makes "restore brings
+    /// back every scenario" legible rather than surprising.
+    #[test]
+    fn snapshots_are_per_household_not_per_scenario() {
+        let base = TempBase::new("snapshot-household");
+        seed(&base.0);
+        let copy = duplicate_plan(&base.0, "base-plan", "Retire early").unwrap();
+
+        snapshot_plan(&base.0, "base-plan").unwrap();
+        assert_eq!(list_snapshots(&base.0, &copy.id).unwrap().len(), 1);
+    }
+
     #[test]
     fn snapshot_plan_prunes_beyond_the_cap() {
         let base = TempBase::new("snapshot-prune");
         seed(&base.0);
 
-        for _ in 0..(MAX_SNAPSHOTS_PER_PLAN + 5) {
+        for _ in 0..(MAX_SNAPSHOTS_PER_HOUSEHOLD + 5) {
             snapshot_plan(&base.0, "base-plan").unwrap();
             std::thread::sleep(std::time::Duration::from_millis(2));
         }
 
         assert_eq!(
             list_snapshots(&base.0, "base-plan").unwrap().len(),
-            MAX_SNAPSHOTS_PER_PLAN
+            MAX_SNAPSHOTS_PER_HOUSEHOLD
         );
     }
 
@@ -747,6 +1155,27 @@ mod tests {
         assert_eq!(stamps_after.len(), 2);
         let undo = restore_snapshot(&base.0, "base-plan", &stamps_after[0]).unwrap();
         assert_eq!(undo.assumptions.inflation, 0.09);
+    }
+
+    /// A restore is whole-household: the balances *and* every scenario come
+    /// back as they were, so a scenario branched after the snapshot is gone
+    /// again. The Storage settings copy says so.
+    #[test]
+    fn restore_snapshot_brings_back_every_scenario_of_the_household() {
+        let base = TempBase::new("restore-household");
+        seed(&base.0);
+        snapshot_plan(&base.0, "base-plan").unwrap();
+        let branched = duplicate_plan(&base.0, "base-plan", "Retire early").unwrap();
+        assert_eq!(list_plans(&base.0).unwrap().len(), 2);
+
+        let stamps = list_snapshots(&base.0, "base-plan").unwrap();
+        let restored = restore_snapshot(&base.0, &branched.id, &stamps[0]).unwrap();
+
+        assert_eq!(list_plans(&base.0).unwrap().len(), 1);
+        assert_eq!(
+            restored.id, "base-plan",
+            "the scenario we were on did not exist yet, so the first one opens"
+        );
     }
 
     #[test]

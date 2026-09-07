@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { diagnostics } from "../test/fixtures";
+import { diagnostics, planSummary } from "../test/fixtures";
 import type { MonteCarloResult } from "../types/generated/MonteCarloResult";
 import type { Plan } from "../types/generated/Plan";
 import type { Projection } from "../types/generated/Projection";
@@ -24,6 +24,7 @@ vi.mock("../lib/api", () => ({
   getMonteCarloPaths: vi.fn(),
   setMonteCarloPaths: vi.fn(),
   getMonteCarloLimits: vi.fn(),
+  restoreSnapshot: vi.fn(),
 }));
 
 import * as api from "../lib/api";
@@ -32,7 +33,7 @@ import { usePlanStore } from "./planStore";
 function makePlan(overrides: Partial<Plan>): Plan {
   return {
     id: "base-plan",
-    schema_version: 1,
+    schema_version: 2,
     name: "Base plan",
     sample: false,
     people: [],
@@ -150,8 +151,8 @@ describe("duplicateActive", () => {
     usePlanStore.setState({ plan: base, projection, scenarios: [] });
     vi.mocked(api.duplicatePlan).mockResolvedValue(copy);
     vi.mocked(api.listPlans).mockResolvedValue([
-      { id: "base-plan", name: "Base plan" },
-      { id: "sell-home", name: "Sell the home" },
+      planSummary("base-plan", "Base plan"),
+      planSummary("sell-home", "Sell the home"),
     ]);
     vi.mocked(api.runProjection).mockResolvedValue(projection);
     vi.mocked(api.setActivePlan).mockResolvedValue(undefined);
@@ -173,8 +174,8 @@ describe("promoteToScenario", () => {
     vi.mocked(api.duplicatePlan).mockResolvedValue(copy);
     vi.mocked(api.savePlan).mockResolvedValue(undefined);
     vi.mocked(api.listPlans).mockResolvedValue([
-      { id: "base-plan", name: "Base plan" },
-      { id: "spend-less", name: "Spend less" },
+      planSummary("base-plan", "Base plan"),
+      planSummary("spend-less", "Spend less"),
     ]);
     vi.mocked(api.runProjection).mockResolvedValue(projection);
     vi.mocked(api.setActivePlan).mockResolvedValue(undefined);
@@ -221,6 +222,41 @@ describe("promoteToScenario", () => {
   });
 });
 
+describe("restoreSnapshot", () => {
+  // A snapshot is of the whole household — its balances and every scenario —
+  // so restoring one restores the scenario *list* too (#109). A scenario
+  // branched since the snapshot is gone, and the backend hands back whichever
+  // scenario the household actually has.
+  it("refreshes the switcher and opens what the household came back as", async () => {
+    const branched = makePlan({ id: "retire-early", name: "Retire early" });
+    const restored = makePlan({ id: "base-plan", name: "Base plan" });
+
+    usePlanStore.setState({
+      plan: branched,
+      projection,
+      scenarios: [
+        planSummary("base-plan", "Base plan"),
+        planSummary("retire-early", "Retire early"),
+      ],
+    });
+    vi.mocked(api.restoreSnapshot).mockResolvedValue(restored);
+    vi.mocked(api.listPlans).mockResolvedValue([planSummary("base-plan", "Base plan")]);
+    vi.mocked(api.runProjection).mockResolvedValue(projection);
+    vi.mocked(api.setActivePlan).mockResolvedValue(undefined);
+
+    await usePlanStore.getState().restoreSnapshot("2026-09-01T10-00-00-000Z");
+
+    expect(api.restoreSnapshot).toHaveBeenCalledWith(
+      "retire-early",
+      "2026-09-01T10-00-00-000Z",
+    );
+    expect(usePlanStore.getState().scenarios.map((s) => s.id)).toEqual(["base-plan"]);
+    expect(usePlanStore.getState().plan?.id).toBe("base-plan");
+    // The plan on screen and the one recorded for next launch agree.
+    expect(api.setActivePlan).toHaveBeenCalledWith("base-plan");
+  });
+});
+
 describe("deleteScenario", () => {
   it("switches to another scenario when the active one is deleted", async () => {
     const base = makePlan({ id: "base-plan" });
@@ -230,13 +266,13 @@ describe("deleteScenario", () => {
       plan: base,
       projection,
       scenarios: [
-        { id: "base-plan", name: "Base plan" },
-        { id: "sell-home", name: "Sell the home" },
+        planSummary("base-plan", "Base plan"),
+        planSummary("sell-home", "Sell the home"),
       ],
     });
     vi.mocked(api.deletePlan).mockResolvedValue(undefined);
     vi.mocked(api.listPlans).mockResolvedValue([
-      { id: "sell-home", name: "Sell the home" },
+      planSummary("sell-home", "Sell the home"),
     ]);
     vi.mocked(api.loadPlanNamed).mockResolvedValue(sellHome);
     vi.mocked(api.runProjection).mockResolvedValue(projection);
@@ -254,12 +290,12 @@ describe("deleteScenario", () => {
       plan: base,
       projection,
       scenarios: [
-        { id: "base-plan", name: "Base plan" },
-        { id: "sell-home", name: "Sell the home" },
+        planSummary("base-plan", "Base plan"),
+        planSummary("sell-home", "Sell the home"),
       ],
     });
     vi.mocked(api.deletePlan).mockResolvedValue(undefined);
-    vi.mocked(api.listPlans).mockResolvedValue([{ id: "base-plan", name: "Base plan" }]);
+    vi.mocked(api.listPlans).mockResolvedValue([planSummary("base-plan", "Base plan")]);
 
     await usePlanStore.getState().deleteScenario("sell-home");
 
@@ -688,7 +724,7 @@ describe("a fresh install", () => {
       streams: [],
     });
     vi.mocked(api.createPlan).mockResolvedValue(created);
-    vi.mocked(api.listPlans).mockResolvedValue([{ id: "my-plan", name: "My plan" }]);
+    vi.mocked(api.listPlans).mockResolvedValue([planSummary("my-plan", "My plan")]);
     vi.mocked(api.runProjection).mockResolvedValue(projection);
     vi.mocked(api.setActivePlan).mockResolvedValue(undefined);
     vi.mocked(api.runMonteCarlo).mockResolvedValue(mcResult(1, 1000));
@@ -706,7 +742,7 @@ describe("a fresh install", () => {
     const state = usePlanStore.getState();
     expect(state.plan?.id).toBe("my-plan");
     expect(state.plan?.sample).toBe(false);
-    expect(state.scenarios).toEqual([{ id: "my-plan", name: "My plan" }]);
+    expect(state.scenarios).toEqual([planSummary("my-plan", "My plan")]);
   });
 
   it("keeps the example household marked as an example when loaded on purpose", async () => {
@@ -720,7 +756,7 @@ describe("a fresh install", () => {
     });
     vi.mocked(api.createSamplePlan).mockResolvedValue(sample);
     vi.mocked(api.listPlans).mockResolvedValue([
-      { id: "example-household", name: "Example household" },
+      planSummary("example-household", "Example household"),
     ]);
     vi.mocked(api.runProjection).mockResolvedValue(projection);
     vi.mocked(api.setActivePlan).mockResolvedValue(undefined);
@@ -739,7 +775,7 @@ describe("deleteScenario", () => {
       plan: only,
       projection,
       initialized: true,
-      scenarios: [{ id: "only", name: "Only plan" }],
+      scenarios: [planSummary("only", "Only plan")],
     });
     vi.mocked(api.deletePlan).mockResolvedValue(undefined);
     vi.mocked(api.listPlans).mockResolvedValue([]);
@@ -762,13 +798,10 @@ describe("deleteScenario", () => {
       plan: a,
       projection,
       initialized: true,
-      scenarios: [
-        { id: "a", name: "A" },
-        { id: "b", name: "B" },
-      ],
+      scenarios: [planSummary("a", "A"), planSummary("b", "B")],
     });
     vi.mocked(api.deletePlan).mockResolvedValue(undefined);
-    vi.mocked(api.listPlans).mockResolvedValue([{ id: "b", name: "B" }]);
+    vi.mocked(api.listPlans).mockResolvedValue([planSummary("b", "B")]);
     vi.mocked(api.loadPlanNamed).mockResolvedValue(b);
     vi.mocked(api.runProjection).mockResolvedValue(projection);
     vi.mocked(api.setActivePlan).mockResolvedValue(undefined);

@@ -1103,6 +1103,31 @@ button.remove:hover {
 }
 
 /* Scenarios destination */
+
+/* One block per household, because a scenario branches a household and
+   shares its balances (#109). The scroll lives on the wrapper so the
+   headings scroll with their scenarios rather than each list scrolling on
+   its own. */
+.scenario-households {
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 0 0 16px;
+}
+
+.scenario-household + .scenario-household {
+  margin-top: 16px;
+}
+
+.scenario-household h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
 .scenario-list {
   list-style: none;
   margin: 0 0 16px;
@@ -1121,6 +1146,14 @@ button.remove:hover {
 
 .scenario-list li:last-child {
   border-bottom: none;
+}
+
+/* Inside a household block the list is not the scrolling element — the
+   wrapper is, so the headings scroll with it. */
+.scenario-household .scenario-list {
+  max-height: none;
+  overflow: visible;
+  margin-bottom: 0;
 }
 
 .scenario-name {

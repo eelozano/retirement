@@ -215,6 +215,16 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
       )}
 
       <h3>Snapshot history</h3>
+      {/* A snapshot is of the whole household — its balances and every one of
+          its scenarios — because that is what one file holds since #109.
+          Restoring one therefore brings all of them back as they were, and a
+          scenario branched after the snapshot goes away again. Said here
+          because it is a change from the per-plan restore this used to be. */}
+      <p className="storage-badge">
+        A snapshot covers the whole household: the balances and every scenario as they
+        were at that moment. Restoring one brings all of them back — and, like every
+        restore, snapshots the current state first, so it is itself undoable.
+      </p>
       {plan && snapshots.length > 0 ? (
         <ul className="scenario-list">
           {snapshots.map((timestamp) => (
@@ -232,8 +242,8 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
         </ul>
       ) : (
         <p className="storage-badge">
-          No snapshots of "{plan?.name}" yet — one is captured the first time you edit it
-          each session.
+          No snapshots of this household yet — one is captured the first time you edit any
+          of its scenarios each session.
         </p>
       )}
 
