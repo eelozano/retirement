@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { exportReportPdf } from "../../lib/api";
 import { dateStamp, sanitizedPlanName } from "../../lib/exportFilename";
-import { rateToPercent } from "../../lib/format";
+import { rateToPercent, yearMonth } from "../../lib/format";
 import { depletionYear as computeDepletionYear } from "../../lib/projection";
 import { readableWarnings } from "../../lib/warnings";
 import { usePlanStore } from "../../store/planStore";
@@ -104,6 +104,12 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
           <header className="report-header">
             <div>
               <h1>{plan.name}</h1>
+              {/* A record of what the numbers were computed from, same as
+                  the comparison header — this outlives the balances editor
+                  it was read from (#110). */}
+              <p className="report-meta">
+                Balances as of {yearMonth(plan.sim_config.start)}
+              </p>
               <p className="report-meta">
                 Generated {generated} · {basisLabel}
                 {/* A printed report outlives the session it came from, so it

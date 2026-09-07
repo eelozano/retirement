@@ -7,6 +7,7 @@ import {
   runMonteCarlos,
   runProjections,
 } from "../../lib/api";
+import { yearMonth } from "../../lib/format";
 import { nextRunId, usePlanStore } from "../../store/planStore";
 import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
 import type { Plan } from "../../types/generated/Plan";
@@ -306,6 +307,12 @@ export function ComparisonView() {
       <p className="compare-hint">
         {activePlan.name} is the base — other scenarios are shown relative to it.
         {scenarios.length > MAX_COMPARE && ` Up to ${MAX_COMPARE} at a time.`}
+      </p>
+      {/* Every scenario compared here is a projection of the same household's
+          balances (#110) — a record of what the numbers were computed from,
+          same as the report header. */}
+      <p className="compare-hint">
+        Balances as of {yearMonth(activePlan.sim_config.start)}
       </p>
       <div className="compare-picker">
         {scenarios.map((s) => {

@@ -25,12 +25,14 @@ const plan = {
     { id: "p2", name: "Partner", retirement: { year: 2045, month: 1 } },
   ],
   accounts: [],
+  sim_config: { start: { year: 2025, month: 1 }, period: "Year" },
 } as unknown as Plan;
 
 beforeEach(() => {
   usePlanStore.setState({
     plan: structuredClone(plan),
     presets,
+    household: null,
     updatePlan: (recipe) =>
       usePlanStore.setState((s) => {
         const draft = structuredClone(s.plan) as Plan;
@@ -129,7 +131,7 @@ describe("AccountsSection", () => {
     await userEvent.selectOptions(screen.getByLabelText("Allocation"), "Aggressive");
     expect(currentAccount()?.allocation).toBe("Aggressive");
 
-    const balance = screen.getByLabelText("Balance today ($)");
+    const balance = screen.getByLabelText("Balance as of Jan 2025 ($)");
     await userEvent.clear(balance);
     await userEvent.type(balance, "5000");
     expect(currentAccount()?.balance).toBe(5000);
@@ -189,6 +191,71 @@ describe("AccountsSection", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Second" }));
     expect(screen.getByLabelText("Name")).toHaveValue("Second");
+  });
+
+  // A partially refreshed household can have accounts at different ages
+  // (#111) — the column has to read each row's own date, not one date for
+  // the whole table.
+  it("reads each account's own as-of date, falling back to the plan start for one the household hasn't seen", () => {
+    usePlanStore.setState((s) => ({
+      plan: {
+        ...(s.plan as Plan),
+        accounts: [
+          {
+            id: "a1",
+            owner: "p1",
+            kind: "Taxable",
+            name: "Old",
+            balance: 0,
+            cost_basis: 0,
+            allocation: "Moderate",
+            plan_type: "None",
+            contributions: [],
+            employer_match: null,
+          },
+          {
+            id: "a2",
+            owner: "p1",
+            kind: "Taxable",
+            name: "Unsaved",
+            balance: 0,
+            cost_basis: 0,
+            allocation: "Moderate",
+            plan_type: "None",
+            contributions: [],
+            employer_match: null,
+          },
+        ],
+      },
+      household: {
+        id: "h1",
+        name: "Household",
+        sample: false,
+        as_of: { year: 2025, month: 1 },
+        people: [],
+        accounts: [
+          {
+            id: "a1",
+            owner: "p1",
+            kind: "Taxable",
+            plan_type: "None",
+            name: "Old",
+            allocation: "Moderate",
+            observations: [
+              { as_of: { year: 2024, month: 6 }, balance: 0, cost_basis: 0 },
+            ],
+          },
+        ],
+        social_security: [],
+      } as unknown as ReturnType<typeof usePlanStore.getState>["household"],
+    }));
+    render(<AccountsSection />);
+
+    const rows = screen.getAllByRole("row");
+    expect(within(rows[1]).getByRole("cell", { name: "Jun 2024" })).toBeTruthy();
+    // "a2" has no entry in the household yet (added this session, not saved) —
+    // reads as the plan's own start date rather than blank.
+    expect(within(rows[2]).getByRole("cell", { name: "Jan 2025" })).toBeTruthy();
   });
 
   it("edits the contribution mode and amount on the account itself", async () => {

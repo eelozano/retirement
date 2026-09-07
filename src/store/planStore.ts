@@ -5,6 +5,7 @@ import {
   createSamplePlan as createSamplePlanApi,
   deletePlan,
   duplicatePlan,
+  getHousehold,
   getMonteCarloLimits,
   getMonteCarloPaths,
   getPresets,
@@ -21,6 +22,7 @@ import {
   savePlan,
   setActivePlan,
 } from "../lib/api";
+import type { Household } from "../types/generated/Household";
 import type { MonteCarloResult } from "../types/generated/MonteCarloResult";
 import type { Plan } from "../types/generated/Plan";
 import type { Presets } from "../types/generated/Presets";
@@ -100,6 +102,12 @@ interface PlanStore {
    * screen; the app does not invent a household so the charts have
    * something to draw (#103). */
   plan: Plan | null;
+  /** The active scenario's household: its facts, and the as-of dates the
+   * `Plan` itself does not carry (#110). Fetched off to the side of
+   * activation like Monte Carlo, so a slow read never holds up the
+   * projection; null until it lands, and while it is still that scenario's
+   * fetch in flight. */
+  household: Household | null;
   /** True once `init` has finished, however it finished. Until then a null
    * `plan` only means "not read yet", and the shell shows Loading rather
    * than the welcome screen. */
@@ -307,11 +315,23 @@ async function activate(
     // Session-only: always starts off, regardless of the persisted plan
     // value, so it never surprises with stale state from a prior session.
     showMonteCarloBand: false,
+    // Cleared for the same reason as `monteCarlo`: the outgoing household's
+    // as-of dates belong to a different scenario's screen.
+    household: null,
   });
   // Regardless of the on-demand threshold: opening a scenario is one run,
   // and it is what the path-count setting means. Cancel bounds the cost of
   // switching again mid-run.
   void startMonteCarlo(set, get, plan);
+  // Never rejects into the caller: a household fetch failing must not sour
+  // the projection, the same contract as Monte Carlo above. The as-of cue
+  // and the Accounts pane's per-account dates just stay unset.
+  getHousehold(plan.id)
+    .then((household) => {
+      // Superseded by a later switch while this was in flight.
+      if (get().plan === plan) set({ household });
+    })
+    .catch(() => {});
   try {
     const [projection] = await Promise.all([
       runProjection(plan),
@@ -326,6 +346,7 @@ async function activate(
 export const usePlanStore = create<PlanStore>((set, get) => ({
   scenarios: [],
   plan: null,
+  household: null,
   initialized: false,
   presets: null,
   projection: null,
