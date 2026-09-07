@@ -174,6 +174,7 @@ mod tests {
         BracketTax {
             filing_status: FilingStatus::MarriedFilingJointly,
             state_tax: StateTaxProfile::none(),
+            inflation: 0.0,
         }
     }
 

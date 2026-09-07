@@ -113,6 +113,7 @@ fn single_filer() -> BracketTax {
     BracketTax {
         filing_status: FilingStatus::Single,
         state_tax: StateTaxProfile::none(),
+        inflation: 0.0,
     }
 }
 

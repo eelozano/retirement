@@ -33,6 +33,7 @@ fn tax_model(plan: &Plan) -> SurvivorTax {
     let household = BracketTax {
         filing_status: plan.assumptions.filing_status,
         state_tax: plan.assumptions.state_tax.clone(),
+        inflation: plan.assumptions.inflation,
     };
     let survivor_from = match (plan.assumptions.filing_status, plan.first_death()) {
         (FilingStatus::MarriedFilingJointly, Some((month, _))) => {
@@ -44,6 +45,7 @@ fn tax_model(plan: &Plan) -> SurvivorTax {
         survivor: BracketTax {
             filing_status: FilingStatus::Single,
             state_tax: household.state_tax.clone(),
+            inflation: household.inflation,
         },
         household,
         survivor_from,
