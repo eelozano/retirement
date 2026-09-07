@@ -52,8 +52,8 @@ pub struct MonteCarloResult {
 
 /// Length of the "early retirement" window the diagnostics split on, in
 /// years — the conventional first-five-years framing of sequence-of-returns
-/// risk. In years rather than periods so a monthly plan (V2) measures the
-/// same stretch of retirement instead of the first five months.
+/// risk. Named in years because that is the framing; periods are calendar
+/// years, so it is also the window's length in periods.
 pub const EARLY_RETIREMENT_WINDOW_YEARS: u32 = 5;
 
 /// Nearest-rank p10 / p50 / p90 of one per-path statistic over a group of
@@ -341,8 +341,12 @@ impl DiagnosticsAnchor {
             .min()
             .map(|month| plan.sim_config.first_full_period_at_or_after(month))
             .filter(|&period| period < n_periods);
-        let window = (i64::from(EARLY_RETIREMENT_WINDOW_YEARS) * 12
-            / plan.sim_config.period.months()) as usize;
+        // Periods are calendar years, so years and periods are the same
+        // unit here. The window is measured from `retirement_period`, which
+        // is a whole year by construction, and a stub period 0 can only sit
+        // before it — so the window never counts a partial year as one of
+        // its five.
+        let window = EARLY_RETIREMENT_WINDOW_YEARS as usize;
         Self {
             retirement_period,
             window,

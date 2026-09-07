@@ -186,6 +186,31 @@ describe("headlineMetrics", () => {
     expect(m.coverYears).toBeCloseTo(20.4, 1);
   });
 
+  it("skips a stub period 0 for a household already retired when the plan was written", () => {
+    // A September plan opens with a four-month period (#106). Someone who
+    // retired in 2020 is retired throughout it, but its expenses are a
+    // third of a year — the same ~3x overstatement the stub retirement
+    // year above would cause, and the reason the Rust helper returns
+    // period 1 for any month at or before a mid-year start.
+    const p = plan([person("a", 1955, 2020)], []);
+    const proj = projection([
+      snapshot({
+        period_start: { year: 2026, month: 9 },
+        net_worth: 1_000_000,
+        expenses: 20_000,
+      }),
+      snapshot({
+        period_start: { year: 2027, month: 1 },
+        net_worth: 1_000_000,
+        expenses: 60_000,
+      }),
+    ]);
+
+    const m = headlineMetrics(p, proj, null, null, false);
+    expect(m.coverYear).toBe(2027);
+    expect(m.coverYears).toBeCloseTo(16.7, 1);
+  });
+
   it("falls back to null when no full retirement period is in the projection", () => {
     const p = plan([person("a", 1980, 2038, 12)], []);
     const proj = projection([

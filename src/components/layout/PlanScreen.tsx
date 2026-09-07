@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { currencyCompact } from "../../lib/format";
+import { currencyCompact, yearMonth } from "../../lib/format";
 import { depletionYear as computeDepletionYear } from "../../lib/projection";
 import { readableWarnings } from "../../lib/warnings";
 import { usePlanStore } from "../../store/planStore";
@@ -158,7 +158,16 @@ export function PlanScreen(props: { onOpenCashFlow: () => void }) {
                     else in the app. */}
                 <div className="card-head">
                   <h2>Net worth &amp; account balances</h2>
+                  {/* The start month, named rather than editable. It is the
+                      month the balances under Inputs were observed, and a
+                      plan started mid-year opens with a short first period
+                      — four months of income, growth and spending — which
+                      is legible only if the reader knows where it begins
+                      (#106). Moving it is the refresh's job, not an
+                      editor's: a start that disagreed with the balances
+                      would be the same bug in a new place. */}
                   <span className="card-note">
+                    Projection starts {yearMonth(plan.sim_config.start)} ·{" "}
                     {realDollars ? "today's dollars · deflated" : "nominal dollars"}
                   </span>
                   <span className="card-spacer" />

@@ -80,11 +80,9 @@ pub fn simulate(
     path_id: u64,
 ) -> Projection {
     let config = &plan.sim_config;
-    let period_months = config.period.months();
     let start = config.start;
     let end = plan.end_month();
-    let total_months = start.months_until(end).max(0);
-    let n_periods = (total_months as f64 / period_months as f64).ceil() as usize;
+    let n_periods = period_count(start, end);
 
     // Materialize Social Security benefits — including the survivor step-up
     // at the first death — and the reduced continuations of any stream with
@@ -229,14 +227,21 @@ pub fn simulate(
 
     let mut snapshots = Vec::with_capacity(n_periods);
     for period in 0..n_periods {
-        let period_start = start.add_months(period as i64 * period_months);
+        // Pure calendar arithmetic: period *n* is calendar year
+        // `start.year + n`, truncated at the front for *n* = 0. A plan that
+        // starts in September gets a four-month stub and then whole years,
+        // rather than a uniform Sep–Sep grid straddling two tax years each
+        // (#106). `PeriodContext::fraction` is what every annual figure —
+        // growth, contribution caps, the RMD — is scaled by, so the stub
+        // does not get a full year of anything.
+        let (period_start, period_end) = calendar_period(start, period);
         let ctx = PeriodContext {
             period,
             start: period_start,
-            end: start.add_months((period as i64 + 1) * period_months),
+            end: period_end,
             year: period_start.year,
-            years_elapsed: (period as f64 * period_months as f64) / 12.0,
-            fraction: period_months as f64 / 12.0,
+            years_elapsed: start.months_until(period_start) as f64 / 12.0,
+            fraction: period_start.months_until(period_end) as f64 / 12.0,
             inflation: plan.assumptions.inflation,
         };
         snapshots.push(period::run(&run, &ctx, &mut state));
@@ -254,6 +259,34 @@ pub fn simulate(
             })
             .collect(),
     }
+}
+
+/// How many periods the horizon `[start, end)` covers: one per calendar
+/// year it touches.
+///
+/// `end` is `Plan::end_month`, the last survivor's death month, and is
+/// exclusive — so a plan ending in January of a year does not open a period
+/// for that year. The last period is then the calendar year the final
+/// simulated month falls in, running to its December, which is the
+/// documented final-period convention.
+fn period_count(start: YearMonth, end: YearMonth) -> usize {
+    if end <= start {
+        return 0;
+    }
+    (end.add_months(-1).year - start.year + 1) as usize
+}
+
+/// The `[start, end)` months of period `n` on the calendar-year grid: the
+/// plan start through the following January for period 0, and whole calendar
+/// years after that.
+fn calendar_period(start: YearMonth, period: usize) -> (YearMonth, YearMonth) {
+    let january = |year: i32| YearMonth::new(year, 1);
+    let first = if period == 0 {
+        start
+    } else {
+        january(start.year + period as i32)
+    };
+    (first, january(start.year + period as i32 + 1))
 }
 
 fn resolve_boundary(
@@ -290,6 +323,25 @@ fn overlap_fraction(
     let overlap_end = period_end.min(window_end);
     let overlap = overlap_start.months_until(overlap_end).max(0);
     overlap as f64 / period_len as f64
+}
+
+/// A period's return, compounded to the share of a year the period actually
+/// covers — so a four-month stub earns four months of growth rather than a
+/// full year of it.
+///
+/// A whole period is returned untouched rather than raised to the power 1.0:
+/// the calendar-year grid is then bit-for-bit what it was before stub
+/// periods existed, which is what keeps the golden file still.
+///
+/// A rate at or below −100% — reachable only as a wild Monte Carlo draw —
+/// would leave a non-positive base, whose fractional power is `NaN`.
+/// Clamping reads it as a total loss, the only sane reading of it and a
+/// better one than the negative balance a whole period would produce.
+fn compound(rate: f64, fraction: f64) -> f64 {
+    if fraction == 1.0 {
+        return rate;
+    }
+    (1.0 + rate).max(0.0).powf(fraction) - 1.0
 }
 
 fn growth_factor(rule: GrowthRule, inflation: f64, years_elapsed: f64) -> f64 {
