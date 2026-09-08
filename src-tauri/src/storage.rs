@@ -32,7 +32,7 @@ pub fn plans_dir(base: &Path) -> PathBuf {
     base.join("plans")
 }
 
-fn household_path(base: &Path, id: &str) -> PathBuf {
+pub(crate) fn household_path(base: &Path, id: &str) -> PathBuf {
     plans_dir(base).join(format!("{id}.yaml"))
 }
 
@@ -212,7 +212,7 @@ fn households(base: &Path) -> Result<Vec<(PathBuf, HouseholdFile)>, String> {
 }
 
 /// The household holding scenario `id`.
-fn household_of(base: &Path, id: &str) -> Result<HouseholdFile, String> {
+pub(crate) fn household_of(base: &Path, id: &str) -> Result<HouseholdFile, String> {
     households(base)?
         .into_iter()
         .map(|(_, file)| file)
@@ -220,7 +220,7 @@ fn household_of(base: &Path, id: &str) -> Result<HouseholdFile, String> {
         .ok_or_else(|| format!("no scenario {id:?} in any household"))
 }
 
-fn compose_scenario(file: &HouseholdFile, id: &str) -> Result<Plan, String> {
+pub(crate) fn compose_scenario(file: &HouseholdFile, id: &str) -> Result<Plan, String> {
     let scenario = file
         .scenario(id)
         .ok_or_else(|| format!("household {:?} has no scenario {id:?}", file.id))?;

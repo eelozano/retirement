@@ -285,6 +285,15 @@ there — it just doesn't bundle an installer.
   survivor percentage.
 - **Monte Carlo simulation.** Runs the projection across many randomized return
   paths in parallel and charts the percentile fan plus probability of success.
+- **Update balances in one sitting.** A Refresh screen that takes every
+  balance off today's statements at once, dates them to the month you did it,
+  and moves the projection's start there — so the plan is about today rather
+  than about whenever you last looked. Balances you don't re-read keep their
+  own older date rather than being estimated forward, and every figure stated
+  in start dollars (a salary, a spending figure, a flat contribution) is
+  listed with what it would take to hold its purchasing power, to keep, grow
+  or retype. One refresh moves every scenario of the household, because they
+  all project from the same balances.
 - **Multi-scenario comparison.** Duplicate a plan to branch a scenario, then
   overlay net worth across up to five of them with a summary table (net worth
   at plan end, delta vs. the active scenario, depletion year, lifetime taxes).
@@ -336,6 +345,15 @@ each household file is kept alongside it as `.yaml.bak`. Because every edit
 autosaves, that slot is overwritten within seconds — it's crash protection,
 not a backup. Deleting a scenario leaves the household where it is; deleting
 its last one moves the file into `plans/.trash/` rather than unlinking it.
+
+Each balance carries the month it was read, so a household refreshed in
+December and left alone until March says so on screen rather than projecting
+March from December's numbers. **Update balances** does the whole sitting at
+once and moves the projection's start with it; before it rewrites anything it
+keeps a copy of the household as it stood in
+`plans/.refreshes/<household id>/<the month it is leaving>.yaml`. Those are
+never pruned — a few kilobytes each, one per refresh — because they are the
+record of what the plan said the last time you looked.
 
 For an actual backup, the app keeps its own history: the first time you edit
 a household in a session, it snapshots the pre-edit version into

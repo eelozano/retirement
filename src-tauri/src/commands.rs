@@ -15,7 +15,7 @@ use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 
-use crate::{migrate, settings, storage};
+use crate::{migrate, refresh, settings, storage};
 
 /// Plan ids already snapshotted into history this session, so the
 /// once-per-session pre-edit snapshot (see `save_plan`) fires on the first
@@ -338,6 +338,33 @@ pub fn restore_snapshot(
     timestamp: String,
 ) -> Result<Plan, String> {
     storage::restore_snapshot(&plans_base_dir(&app)?, &id, &timestamp)
+}
+
+/// Records a refresh: the balances the household has just re-read, dated to
+/// the month they sat down, with the projection's start moved there (#111).
+///
+/// Snapshots the pre-refresh household into `.history` on the same
+/// once-per-session gate as `save_plan`, so a refresh is one more "how the
+/// plan looked when I sat down" entry rather than a special kind of edit.
+/// The unpruned pre-refresh copy `refresh::refresh_household` keeps under
+/// `.refreshes/` is a different thing with a different purpose — see that
+/// module.
+///
+/// Returns the active scenario recomposed against the new facts, so the
+/// caller can open it without a second round-trip, exactly as
+/// `restore_snapshot` does.
+#[tauri::command]
+pub fn refresh_household(
+    app: tauri::AppHandle,
+    state: tauri::State<SnapshotState>,
+    request: refresh::RefreshRequest,
+) -> Result<Plan, String> {
+    let base = plans_base_dir(&app)?;
+    let first_save_this_session = state.0.lock().unwrap().insert(request.scenario_id.clone());
+    if first_save_this_session {
+        storage::snapshot_plan(&base, &request.scenario_id)?;
+    }
+    refresh::refresh_household(&base, &request, new_plan_start())
 }
 
 /// Projects several scenarios in one round-trip for the comparison view.

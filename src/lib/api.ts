@@ -192,6 +192,58 @@ export function restoreSnapshot(id: string, timestamp: string): Promise<Plan> {
   return invoke<Plan>("restore_snapshot", { id, timestamp });
 }
 
+/** One account's balance as read off a statement this sitting. `cost_basis`
+ * is taxable accounts only, exactly as on the account itself. */
+export interface AccountReading {
+  id: string;
+  balance: number;
+  cost_basis: number | null;
+}
+
+/** The one Social Security figure a statement restates. The full retirement
+ * age is fixed by birth year and is not a reading, so it is not sent. */
+export interface BenefitReading {
+  id: string;
+  benefit_at_fra: number;
+}
+
+/** Which start-dollar figure a `RateChange` is about. Serde's default
+ * externally-tagged enum shape, the same one `AllocationRef` and
+ * `StreamBoundary` use on the way out. */
+export type RateTarget =
+  | { Stream: { id: string } }
+  | { Contribution: { account: string; id: string } };
+
+/** One re-affirmed rate. `amount` is the final figure — kept, grown, or
+ * retyped — because the backend deliberately grows nothing on its own; see
+ * `grownRate`. */
+export interface RateChange {
+  target: RateTarget;
+  amount: number;
+  apply_to_siblings: boolean;
+}
+
+/** What the Refresh screen sends back (#111). A command-only input shape
+ * (src-tauri/src/refresh.rs), hand-declared like `NewPerson`.
+ *
+ * `accounts` carries every account the screen showed, changed or not: which
+ * ones actually gain a dated observation is decided in Rust by comparison,
+ * not asserted here. `rates` carries only the figures the user changed —
+ * keep is the default and needs no entry. */
+export interface RefreshRequest {
+  scenario_id: string;
+  as_of: YearMonth;
+  accounts: AccountReading[];
+  benefits: BenefitReading[];
+  rates: RateChange[];
+}
+
+/** Records a sitting and returns the active scenario recomposed against the
+ * refreshed facts, so the caller can open it without a second round-trip. */
+export function refreshHousehold(request: RefreshRequest): Promise<Plan> {
+  return invoke<Plan>("refresh_household", { request });
+}
+
 export function getPresets(): Promise<Presets> {
   return invoke<Presets>("get_presets");
 }

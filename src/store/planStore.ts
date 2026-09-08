@@ -16,6 +16,8 @@ import {
   type NewPerson,
   type PlanSummary,
   setMonteCarloPaths as persistMonteCarloPaths,
+  type RefreshRequest,
+  refreshHousehold as refreshHouseholdApi,
   restoreSnapshot as restoreSnapshotApi,
   runMonteCarlo,
   runProjection,
@@ -181,6 +183,14 @@ interface PlanStore {
    * scenario — so this can add scenarios back and take others away, and the
    * scenario it returns is the one that was open only if it existed then. */
   restoreSnapshot: (timestamp: string) => Promise<void>;
+  /** Records a refresh (#111): the balances the household has just re-read,
+   * dated to the month they sat down, with every scenario's start moved
+   * there. The scenario id is the open one and is filled in here.
+   *
+   * Rejects on a refused refresh (a month before the balances on file, a
+   * month that has not happened) so the screen can keep the user's typing
+   * and show why. */
+  refreshHousehold: (request: Omit<RefreshRequest, "scenario_id">) => Promise<void>;
 }
 
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -533,6 +543,30 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
       });
     } catch (e) {
       set({ error: String(e) });
+    }
+  },
+
+  refreshHousehold: async (request) => {
+    const current = get().plan;
+    if (!current) return;
+    // A debounced edit still in flight is about the *pre*-refresh plan, and
+    // would land after the refresh with the old start on it. Flush it first,
+    // exactly as switching and duplicating do.
+    await flushPendingSave(get);
+    try {
+      const refreshed = await refreshHouseholdApi({
+        ...request,
+        scenario_id: current.id,
+      });
+      set({ error: null });
+      // `activate` re-fetches the household, so the as-of cue and the
+      // Accounts pane's per-account dates land on the new ledger.
+      await activate(set, get, refreshed);
+    } catch (e) {
+      // Deliberately not stored as `error`: the screen has the request the
+      // user typed and is the right place to say what was refused, without
+      // a banner over every other screen they navigate to.
+      throw new Error(String(e));
     }
   },
 
