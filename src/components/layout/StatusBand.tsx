@@ -16,9 +16,10 @@ export function StatusBand(props: {
   /** The household's as-of date — the month its balances were last
    * observed, and therefore the month the projection starts (#106). */
   asOf: YearMonth;
-  /** Where "Update balances" sends the user. The Accounts pane until #111
-   * gives balances their own refresh destination. */
-  onOpenAccounts: () => void;
+  /** Where "Update balances" sends the user: the Refresh destination, where
+   * every balance is re-read in one sitting and the projection's start moves
+   * with them (#111). */
+  onOpenRefresh: () => void;
   /** The wall clock the "N months ago" count is measured against. Defaults
    * to the real time; a test passes a fixed instant instead of mocking
    * `Date` globally. */
@@ -82,7 +83,7 @@ export function StatusBand(props: {
             <button
               type="button"
               className="status-asof-link"
-              onClick={props.onOpenAccounts}
+              onClick={props.onOpenRefresh}
             >
               Update balances to bring the projection up to date
             </button>

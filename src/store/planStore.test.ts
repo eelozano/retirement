@@ -26,6 +26,7 @@ vi.mock("../lib/api", () => ({
   setMonteCarloPaths: vi.fn(),
   getMonteCarloLimits: vi.fn(),
   restoreSnapshot: vi.fn(),
+  refreshHousehold: vi.fn(),
 }));
 
 import * as api from "../lib/api";
@@ -256,6 +257,77 @@ describe("restoreSnapshot", () => {
     expect(usePlanStore.getState().plan?.id).toBe("base-plan");
     // The plan on screen and the one recorded for next launch agree.
     expect(api.setActivePlan).toHaveBeenCalledWith("base-plan");
+  });
+});
+
+describe("refreshHousehold", () => {
+  it("flushes a pending edit, then opens what the refresh composed", async () => {
+    const before = makePlan({ id: "base-plan" });
+    const after = makePlan({
+      id: "base-plan",
+      sim_config: {
+        start: { year: 2026, month: 12 },
+        period: "Year",
+        display_real_dollars: false,
+      },
+    });
+
+    usePlanStore.setState({ plan: before, projection, scenarios: [] });
+    vi.mocked(api.runProjection).mockResolvedValue(projection);
+    vi.mocked(api.savePlan).mockResolvedValue(undefined);
+    vi.mocked(api.setActivePlan).mockResolvedValue(undefined);
+    vi.mocked(api.refreshHousehold).mockResolvedValue(after);
+
+    // An edit whose 300ms debounce has not fired. It describes the plan as it
+    // was *before* the refresh, and would land on top of it with the old
+    // start still on it.
+    usePlanStore.getState().updatePlan((draft) => {
+      draft.name = "Edited";
+    });
+
+    await usePlanStore.getState().refreshHousehold({
+      as_of: { year: 2026, month: 12 },
+      accounts: [],
+      benefits: [],
+      rates: [],
+    });
+
+    expect(api.savePlan).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "base-plan", name: "Edited" }),
+    );
+    // The scenario id is the store's to supply — the screen does not know it.
+    expect(api.refreshHousehold).toHaveBeenCalledWith(
+      expect.objectContaining({ scenario_id: "base-plan" }),
+    );
+    expect(usePlanStore.getState().plan?.sim_config.start).toEqual({
+      year: 2026,
+      month: 12,
+    });
+    // Re-read, so the as-of cue and the per-account dates follow the ledger.
+    expect(api.getHousehold).toHaveBeenCalledWith("base-plan");
+  });
+
+  it("rejects to the screen rather than raising a banner over every other one", async () => {
+    usePlanStore.setState({ plan: makePlan({ id: "base-plan" }), projection });
+    vi.mocked(api.refreshHousehold).mockRejectedValue(
+      "June 2026 is before the balances on file",
+    );
+
+    await expect(
+      usePlanStore.getState().refreshHousehold({
+        as_of: { year: 2026, month: 6 },
+        accounts: [],
+        benefits: [],
+        rates: [],
+      }),
+    ).rejects.toThrow("before the balances on file");
+
+    expect(usePlanStore.getState().error).toBeNull();
+    // And nothing moved.
+    expect(usePlanStore.getState().plan?.sim_config.start).toEqual({
+      year: 2025,
+      month: 1,
+    });
   });
 });
 

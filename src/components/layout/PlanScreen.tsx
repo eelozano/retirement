@@ -29,6 +29,7 @@ import { StatusBand } from "./StatusBand";
 export function PlanScreen(props: {
   onOpenCashFlow: () => void;
   onOpenAccounts: () => void;
+  onOpenRefresh: () => void;
 }) {
   const plan = usePlanStore((s) => s.plan);
   const projection = usePlanStore((s) => s.projection);
@@ -137,7 +138,7 @@ export function PlanScreen(props: {
         metrics={metrics}
         warnings={warnings}
         asOf={plan.sim_config.start}
-        onOpenAccounts={props.onOpenAccounts}
+        onOpenRefresh={props.onOpenRefresh}
       />
 
       <div className="plan-scroll">

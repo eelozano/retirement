@@ -40,7 +40,7 @@ describe("StatusBand", () => {
         metrics={metrics}
         warnings={[]}
         asOf={monthsAgo(0)}
-        onOpenAccounts={noop}
+        onOpenRefresh={noop}
         now={NOW}
       />,
     );
@@ -54,7 +54,7 @@ describe("StatusBand", () => {
         metrics={metrics}
         warnings={[warning]}
         asOf={monthsAgo(0)}
-        onOpenAccounts={noop}
+        onOpenRefresh={noop}
         now={NOW}
       />,
     );
@@ -72,7 +72,7 @@ describe("StatusBand", () => {
         metrics={metrics}
         warnings={[warning, { ...warning, key: "w1" }]}
         asOf={monthsAgo(0)}
-        onOpenAccounts={noop}
+        onOpenRefresh={noop}
         now={NOW}
       />,
     );
@@ -95,7 +95,7 @@ describe("StatusBand", () => {
         metrics={solvent}
         warnings={[]}
         asOf={monthsAgo(0)}
-        onOpenAccounts={noop}
+        onOpenRefresh={noop}
         now={NOW}
       />,
     );
@@ -121,7 +121,7 @@ describe("StatusBand", () => {
         metrics={stale}
         warnings={[]}
         asOf={monthsAgo(0)}
-        onOpenAccounts={noop}
+        onOpenRefresh={noop}
         now={NOW}
       />,
     );
@@ -141,7 +141,7 @@ describe("StatusBand", () => {
           metrics={metrics}
           warnings={[]}
           asOf={monthsAgo(2)}
-          onOpenAccounts={noop}
+          onOpenRefresh={noop}
           now={NOW}
         />,
       );
@@ -159,7 +159,7 @@ describe("StatusBand", () => {
           metrics={metrics}
           warnings={[]}
           asOf={monthsAgo(3)}
-          onOpenAccounts={noop}
+          onOpenRefresh={noop}
           now={NOW}
         />,
       );
@@ -170,13 +170,13 @@ describe("StatusBand", () => {
     });
 
     it("nudges a refresh exactly at six months", async () => {
-      const onOpenAccounts = vi.fn();
+      const onOpenRefresh = vi.fn();
       render(
         <StatusBand
           metrics={metrics}
           warnings={[]}
           asOf={monthsAgo(6)}
-          onOpenAccounts={onOpenAccounts}
+          onOpenRefresh={onOpenRefresh}
           now={NOW}
         />,
       );
@@ -185,7 +185,7 @@ describe("StatusBand", () => {
         name: "Update balances to bring the projection up to date",
       });
       await userEvent.click(link);
-      expect(onOpenAccounts).toHaveBeenCalledTimes(1);
+      expect(onOpenRefresh).toHaveBeenCalledTimes(1);
     });
   });
 });
