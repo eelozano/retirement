@@ -10,6 +10,7 @@ export type Destination =
   | "cashflow"
   | "growth"
   | "inputs"
+  | "refresh"
   | "whatif"
   | "scenarios";
 
@@ -40,6 +41,18 @@ const ICON = {
       <circle cx="9" cy="7" r="2" fill="var(--surface-1)" />
       <circle cx="15" cy="12" r="2" fill="var(--surface-1)" />
       <circle cx="8" cy="17" r="2" fill="var(--surface-1)" />
+    </>
+  ),
+  // A statement and an arrow back round to it: the sitting where every
+  // figure is read again. Deliberately not a clock or a calendar — the
+  // destination is about re-reading the numbers, and the month is what the
+  // screen asks for, not what it is for.
+  refresh: (
+    <>
+      <path d="M6 3h9l4 4v14H6z" />
+      <path d="M15 3v4h4" />
+      <path d="M9 15a3.5 3.5 0 015.9-2.5M15 17a3.5 3.5 0 01-5.9 2.5" />
+      <path d="M9 11.5V15h3.5M15 20.5V17h-3.5" />
     </>
   ),
   // Two futures out of one point — the sandbox's whole proposition, and the
@@ -142,6 +155,12 @@ export function Rail(props: RailProps) {
         icon={ICON.inputs}
         current={props.active === "inputs"}
         onClick={() => props.onNavigate("inputs")}
+      />
+      <RailButton
+        label="Update balances"
+        icon={ICON.refresh}
+        current={props.active === "refresh"}
+        onClick={() => props.onNavigate("refresh")}
       />
       <RailButton
         label="What-if"

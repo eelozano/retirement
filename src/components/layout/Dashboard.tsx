@@ -5,6 +5,7 @@ import { CashFlowScreen } from "./CashFlowScreen";
 import { GrowthScreen } from "./GrowthScreen";
 import { PlanScreen } from "./PlanScreen";
 import { type Destination, Rail } from "./Rail";
+import { RefreshScreen } from "./RefreshScreen";
 import { ReportMenu } from "./ReportMenu";
 import { ReportView } from "./ReportView";
 import { ScenariosScreen } from "./ScenariosScreen";
@@ -163,6 +164,8 @@ export function Dashboard() {
             <GrowthScreen />
           ) : destination === "inputs" ? (
             <InputsScreen section={inputsSection} onSectionChange={setInputsSection} />
+          ) : destination === "refresh" ? (
+            <RefreshScreen />
           ) : destination === "whatif" ? (
             <WhatIfScreen />
           ) : destination === "scenarios" ? (
@@ -174,6 +177,7 @@ export function Dashboard() {
                 setDestination("inputs");
                 setInputsSection("accounts");
               }}
+              onOpenRefresh={() => setDestination("refresh")}
             />
           )}
         </div>

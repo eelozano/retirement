@@ -86,6 +86,28 @@ function BufferedNumberInput(props: {
   );
 }
 
+/**
+ * A bare buffered dollar input, for a table cell whose column header is
+ * already the label and where a wrapping `<label>` would only repeat it.
+ * Same buffering as every other numeric field here — see the module note.
+ */
+export function AmountInput(props: {
+  ariaLabel: string;
+  value: number;
+  onChange: (value: number) => void;
+  step?: number;
+}) {
+  return (
+    <BufferedNumberInput
+      ariaLabel={props.ariaLabel}
+      canonical={String(props.value)}
+      min={0}
+      step={props.step ?? 1000}
+      onCommit={props.onChange}
+    />
+  );
+}
+
 export function TextField(props: {
   label: string;
   value: string;

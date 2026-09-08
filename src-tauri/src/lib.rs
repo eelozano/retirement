@@ -2,6 +2,7 @@ mod commands;
 mod migrate;
 #[cfg(target_os = "macos")]
 mod pdf;
+mod refresh;
 mod settings;
 mod storage;
 
@@ -31,6 +32,7 @@ pub fn run() {
             commands::delete_plan,
             commands::list_snapshots,
             commands::restore_snapshot,
+            commands::refresh_household,
             commands::get_presets,
             commands::engine_version,
             commands::get_storage_info,

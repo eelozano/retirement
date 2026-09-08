@@ -2473,3 +2473,157 @@ button.remove:hover {
   color: var(--status-warn);
   white-space: nowrap;
 }
+
+/* --- Refresh: update every balance in one sitting (#111) ---------------- */
+
+/* Wider than the charts it sits among: this screen is a form read top to
+   bottom, and the tables inside it need the room.
+
+   `flex: none` and `position: relative` both keep the pane, rather than the
+   whole page, in charge of scrolling — this is the only screen whose single
+   card runs taller than the viewport, so it is the only one where either
+   matters. Without `flex: none` the lone child of a flex column is shrunk to
+   fit. Without `position: relative` the `.visually-hidden` legends inside it
+   resolve their containing block to the viewport, escape `.charts`'s
+   overflow, and stretch the document to their own static position — which
+   scrolls the rail and the header away with it. */
+.refresh-card {
+  flex: none;
+  position: relative;
+  max-width: 900px;
+  padding-bottom: var(--sp-4);
+}
+
+.refresh-when {
+  margin-bottom: var(--sp-3);
+}
+
+.refresh-people {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-5);
+  font-size: var(--t-sm);
+}
+
+.refresh-person-birth {
+  color: var(--muted);
+}
+
+/* The figure being replaced, sat beside the field replacing it — quieter
+   than the input so the eye lands on what is being typed. */
+.refresh-previous {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.refresh-rates {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.refresh-rates > li {
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--grid);
+}
+
+.refresh-rates > li:last-child {
+  border-bottom: 0;
+}
+
+.refresh-rate-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: var(--t-sm);
+}
+
+/* The name is the row's identity — it wraps mid-phrase ("Alex / salary")
+   if it is allowed to shrink against the qualifier beside it. */
+.refresh-rate-head strong {
+  flex: none;
+}
+
+/* The three answers on one line, so keeping, growing and retyping read as
+   the one choice they are rather than as three separate controls. */
+.refresh-rate-choice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-4);
+  border: 0;
+  margin: var(--sp-1) 0 0;
+  padding: 0;
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+}
+
+.refresh-rate-choice label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.refresh-rate-choice label:has(input:disabled) {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.refresh-rate-choice input[type="number"] {
+  width: 110px;
+  padding: 4px 8px;
+  font-size: var(--t-body);
+  color: var(--text-primary);
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: var(--r-1);
+  /* Pulled back against "It is now", which it completes. */
+  margin-left: calc(var(--sp-4) * -1 + var(--sp-2));
+}
+
+.refresh-rate-siblings {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--sp-1);
+  font-size: var(--t-xs);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.refresh-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.refresh-actions button {
+  font-size: var(--t-body);
+  padding: 7px 14px;
+  border-radius: var(--r-2);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.refresh-actions button:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.refresh-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.refresh-actions .field-hint {
+  flex-basis: auto;
+}
