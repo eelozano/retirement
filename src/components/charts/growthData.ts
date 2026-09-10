@@ -1,57 +1,98 @@
+import type { Plan } from "../../types/generated/Plan";
 import type { Projection } from "../../types/generated/Projection";
 
-// Growth: how much of net worth is money the household put in versus money
-// the market made on its own. `PeriodSnapshot.growth` is the engine's own
-// dollar figure for what `grow()` added each period (#61) — nominal, and
-// already reflecting every account's compounding, so summing it across
-// periods needs no reconstruction of contributions, withdrawals, or
-// reinvested surplus.
+// Growth: how much of the money in the accounts the household put there, and
+// how much the market made on its own. Four figures per year, on two scales —
+// what went in and what grew *this* year, and the running totals of both.
 //
-// `principal` is derived, not summed independently: `net_worth - growth` at
-// every period, in whichever basis is displayed. That keeps the two series
-// exactly additive back to net worth — the whole point of a stacked chart —
-// without having to re-derive "money put in" from contributions,
-// employer match, reinvested surplus, and withdrawals separately.
+// `PeriodSnapshot.growth` is the engine's own dollar figure for what `grow()`
+// added each period (#61) — nominal, and already reflecting every account's
+// compounding, so summing it needs no reconstruction. What went in is
+// `contributions + employer_match`: the household's own deposits plus the
+// employer's, which is what "money that arrived in the accounts" means even
+// though only the first half passes through household cash.
+//
+// The running totals open at the starting balance rather than at zero.
+// Without it the first year already shows growth outrunning contributions,
+// because the balance the household arrived with is doing the work — true,
+// and useless as a headline.
+//
+// Neither total is net of withdrawals, so after retirement they keep climbing
+// while the accounts are being spent down. `netWorth` is carried alongside for
+// exactly that reason: the gap that opens between it and the two totals is the
+// money that has left.
 
 export interface GrowthRow {
   year: number;
-  netWorth: number;
-  /** Cumulative market growth to date, in the displayed basis. */
+  /** Contributions plus employer match this year, in the displayed basis. */
+  added: number;
+  /** Market growth this year, in the displayed basis. */
   growth: number;
-  /** `netWorth - growth`: net contributions in, net of what was drawn out. */
-  principal: number;
+  /** Running total of `added`, opened at the starting balance. */
+  totalAdded: number;
+  /** Running total of `growth`. */
+  totalGrowth: number;
+  /** End-of-year net worth, in the displayed basis. */
+  netWorth: number;
 }
 
-export function growthRows(projection: Projection, realDollars: boolean): GrowthRow[] {
-  let cumulativeGrowth = 0;
+/**
+ * What the household started with: every account's balance as of the
+ * simulation start. Nominal at the start month, which is also today's
+ * dollars, so it needs no deflating in either basis.
+ */
+export function startingBalance(plan: Plan): number {
+  return plan.accounts.reduce((sum, account) => sum + account.balance, 0);
+}
+
+export function growthRows(
+  projection: Projection,
+  plan: Plan,
+  realDollars: boolean,
+): GrowthRow[] {
+  // Each year's flows are deflated by that year's own deflator and *then*
+  // accumulated, so a running total is the running sum of the bars above it
+  // and never falls in a year nothing went in. Deflating the nominal running
+  // total instead — the stacked chart's convention, which needed the two
+  // series to add back to net worth — would do both.
+  let totalAdded = startingBalance(plan);
+  let totalGrowth = 0;
   return projection.snapshots.map((s) => {
-    // Accumulate in nominal dollars, then apply this period's own basis to
-    // the running total and to net worth together — dividing both by the
-    // same divisor preserves `principal + growth === netWorth` exactly,
-    // which summing already-deflated per-period amounts would not.
-    cumulativeGrowth += s.growth;
     const d = realDollars ? s.deflator : 1;
-    const netWorth = s.net_worth / d;
-    const growth = cumulativeGrowth / d;
-    return { year: s.period_start.year, netWorth, growth, principal: netWorth - growth };
+    const added = (s.contributions + s.employer_match) / d;
+    const growth = s.growth / d;
+    totalAdded += added;
+    totalGrowth += growth;
+    return {
+      year: s.period_start.year,
+      added,
+      growth,
+      totalAdded,
+      totalGrowth,
+      netWorth: s.net_worth / d,
+    };
   });
 }
 
 export interface GrowthSummary {
   /** Cumulative growth at the end of the projection, in the displayed basis. */
   totalGrowth: number;
-  /** `totalGrowth / netWorth` at the last snapshot, or null with no snapshots. */
-  growthShare: number | null;
-  /** First year cumulative growth overtakes net contributions in, or null. */
+  /** Starting balance plus everything added, at the end of the projection. */
+  totalAdded: number;
+  /** Dollars grown per dollar in, or null when nothing has gone in. */
+  perDollar: number | null;
+  /** First year the running growth total overtakes what went in, or null. */
   crossoverYear: number | null;
 }
 
 export function growthSummary(rows: GrowthRow[]): GrowthSummary {
   const last = rows[rows.length - 1];
-  const crossover = rows.find((r) => r.growth > r.principal);
+  const crossover = rows.find((r) => r.totalGrowth > r.totalAdded);
+  const totalAdded = last?.totalAdded ?? 0;
   return {
-    totalGrowth: last?.growth ?? 0,
-    growthShare: last && last.netWorth !== 0 ? last.growth / last.netWorth : null,
+    totalGrowth: last?.totalGrowth ?? 0,
+    totalAdded,
+    perDollar: totalAdded > 0 ? (last?.totalGrowth ?? 0) / totalAdded : null,
     crossoverYear: crossover?.year ?? null,
   };
 }
