@@ -15,8 +15,8 @@ export function GrowthScreen() {
   const realDollars = usePlanStore((s) => s.realDollars);
 
   const rows = useMemo(
-    () => (projection ? growthRows(projection, realDollars) : []),
-    [projection, realDollars],
+    () => (projection && plan ? growthRows(projection, plan, realDollars) : []),
+    [projection, plan, realDollars],
   );
   const summary = useMemo(() => growthSummary(rows), [rows]);
 
@@ -35,8 +35,8 @@ export function GrowthScreen() {
             </div>
             <div className="tile-sub">
               {summary.crossoverYear !== null
-                ? "The first year compounding, not contributions, is the larger share of net worth."
-                : "Net contributions stay the larger share for the whole projection."}
+                ? "The first year compounding has added more than you and your employer ever did."
+                : "What you put in stays ahead of compounding for the whole projection."}
             </div>
           </div>
 
@@ -47,13 +47,13 @@ export function GrowthScreen() {
           </div>
 
           <div className="tile">
-            <span className="tile-label">Share of net worth</span>
+            <span className="tile-label">Grown per dollar in</span>
             <div className="tile-metric">
-              {summary.growthShare !== null
-                ? `${Math.round(summary.growthShare * 100)}%`
-                : "—"}
+              {summary.perDollar !== null ? `$${summary.perDollar.toFixed(2)}` : "—"}
             </div>
-            <div className="tile-sub">Grown rather than contributed, at plan end.</div>
+            <div className="tile-sub">
+              Per dollar you started with or added, by plan end.
+            </div>
           </div>
         </section>
 
@@ -62,7 +62,7 @@ export function GrowthScreen() {
             <h2>Contributions vs. growth</h2>
             <span className="card-note">{basisNote}</span>
             <span className="card-spacer" />
-            <span className="card-note">stacked to net worth</span>
+            <span className="card-note">totals are not net of withdrawals</span>
           </div>
           <GrowthChart rows={rows} plan={plan} />
         </section>

@@ -2690,3 +2690,51 @@ button.remove:hover {
 .refresh-actions .field-hint {
   flex-basis: auto;
 }
+
+/* Growth: two panels under one legend, sharing a year axis. */
+.growth-panels .chart-legend {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.growth-panels .chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.growth-panels .legend-key {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.growth-panels .legend-rule {
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--text-primary);
+  opacity: 0.35;
+}
+
+.chart-panel-label {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  padding-left: 72px;
+  margin: 14px 0 2px;
+}
+
+.growth-panels > .chart-panel-label:first-of-type {
+  margin-top: 6px;
+}
+
+/* Net worth is context, not one of the four figures — set it apart. */
+.chart-tooltip-row.chart-tooltip-aside {
+  border-top: 1px solid var(--border);
+  margin-top: 5px;
+  padding-top: 5px;
+}
