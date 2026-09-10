@@ -8,7 +8,12 @@ import {
   YearMonthField,
 } from "./fields";
 import type { UpdatePlan } from "./shared";
-import { boundaryOptions, boundaryToChoice, choiceToBoundary } from "./streamBoundary";
+import {
+  boundaryDateHint,
+  boundaryOptions,
+  boundaryToChoice,
+  choiceToBoundary,
+} from "./streamBoundary";
 
 /**
  * One `CashFlowStream`'s fields — used both for a person's own income/expense
@@ -76,6 +81,7 @@ export function StreamCard(props: {
         label="Starts"
         value={boundaryToChoice(stream.start)}
         options={boundaryOptions(plan, "start")}
+        tooltip={boundaryDateHint(stream.start, plan)}
         onChange={(choice) =>
           updatePlan((d) => {
             d.streams[i].start = choiceToBoundary(choice, d.streams[i].start);
@@ -97,6 +103,7 @@ export function StreamCard(props: {
         label="Ends"
         value={boundaryToChoice(stream.end)}
         options={boundaryOptions(plan, "end")}
+        tooltip={boundaryDateHint(stream.end, plan)}
         onChange={(choice) =>
           updatePlan((d) => {
             d.streams[i].end = choiceToBoundary(choice, d.streams[i].end);

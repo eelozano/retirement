@@ -16,7 +16,12 @@ import {
   YearMonthField,
 } from "./fields";
 import type { UpdatePlan } from "./shared";
-import { boundaryOptions, boundaryToChoice, choiceToBoundary } from "./streamBoundary";
+import {
+  boundaryDateHint,
+  boundaryOptions,
+  boundaryToChoice,
+  choiceToBoundary,
+} from "./streamBoundary";
 
 /**
  * One `Contribution` entry on an account: how much goes in, and over what
@@ -168,6 +173,7 @@ export function ContributionCard(props: {
         label="Starts"
         value={boundaryToChoice(entry.start)}
         options={boundaryOptions(plan, "start")}
+        tooltip={boundaryDateHint(entry.start, plan)}
         onChange={(choice) =>
           updatePlan((d) => {
             const target = d.accounts[i].contributions[e];
@@ -191,6 +197,7 @@ export function ContributionCard(props: {
         value={boundaryToChoice(entry.end)}
         options={boundaryOptions(plan, "end")}
         hint={contributionEndHint(account.plan_type)}
+        tooltip={boundaryDateHint(entry.end, plan)}
         onChange={(choice) =>
           updatePlan((d) => {
             const target = d.accounts[i].contributions[e];

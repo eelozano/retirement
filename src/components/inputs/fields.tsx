@@ -322,16 +322,52 @@ export function YearMonthField(props: {
   );
 }
 
+/**
+ * A small "i" badge that reveals `text` on hover or keyboard focus, for a
+ * fact worth surfacing right where a choice is made without spending a
+ * permanent line of vertical space on it (unlike `field-hint`, which is
+ * always visible and meant for longer, always-relevant explanation).
+ *
+ * A `<button>` so it is independently focusable and clickable without
+ * activating the `<label>` it typically sits inside; the click itself does
+ * nothing (`preventDefault`) — the tooltip is hover/focus-only — but
+ * `preventDefault` is also what stops the label's own default action
+ * (opening the control it labels) from firing as a side effect.
+ */
+export function InfoTooltip(props: { text: string }) {
+  return (
+    <span className="info-tooltip">
+      <button
+        type="button"
+        className="info-tooltip-trigger"
+        aria-label={`More info: ${props.text}`}
+        onClick={(e) => e.preventDefault()}
+      >
+        i
+      </button>
+      <span className="info-tooltip-bubble" role="tooltip">
+        {props.text}
+      </span>
+    </span>
+  );
+}
+
 export function SelectField<T extends string>(props: {
   label: string;
   value: T;
   options: readonly { value: T; label: string }[];
   onChange: (value: T) => void;
   hint?: string;
+  /** A fact shown on hover/focus of an "i" badge next to the label, rather
+   * than as a permanent line under the control — see `InfoTooltip`. */
+  tooltip?: string;
 }) {
   return (
     <label className={props.hint ? "field field-with-hint" : "field"}>
-      <span>{props.label}</span>
+      <span>
+        {props.label}
+        {props.tooltip && <InfoTooltip text={props.tooltip} />}
+      </span>
       <select
         // Named explicitly rather than relying on the wrapping label: a
         // hint lives inside the label too, and would otherwise become part

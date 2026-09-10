@@ -1,5 +1,7 @@
+import { yearMonth } from "../../lib/format";
 import type { Plan } from "../../types/generated/Plan";
 import type { StreamBoundary } from "../../types/generated/StreamBoundary";
+import type { YearMonth } from "../../types/generated/YearMonth";
 
 // Boundary editing: a select for the boundary kind plus a month input when a
 // concrete date is chosen. Person-relative options are labeled by name.
@@ -44,31 +46,57 @@ export function boundaryOptions(plan: Plan, edge: "start" | "end") {
   ];
 }
 
-const MONTH_ABBR = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
+/**
+ * The calendar month a person-relative boundary resolves to, so a reader
+ * doesn't have to hop to the People pane and read `retirement` (or do the
+ * birth-plus-life-expectancy arithmetic for `AtDeath`) by hand. Mirrors
+ * `resolve_boundary` in `sim/mod.rs` for these two arms. `undefined` for
+ * `PlanStart`/`PlanEnd`/`Date`, which are already self-evident, or if the
+ * named person no longer exists.
+ */
+export function boundaryResolvedDate(
+  b: StreamBoundary,
+  plan: Plan,
+): YearMonth | undefined {
+  if (typeof b !== "object") return undefined;
+  if ("AtRetirement" in b)
+    return plan.people.find((p) => p.id === b.AtRetirement)?.retirement;
+  if ("AtDeath" in b) {
+    const person = plan.people.find((p) => p.id === b.AtDeath);
+    if (!person) return undefined;
+    return {
+      year: person.birth.year + person.life_expectancy_age,
+      month: person.birth.month,
+    };
+  }
+  return undefined;
+}
 
 /**
- * A boundary as a clause — "plan start", "Jan 2027", "Alex retires" — so a
- * card with no name of its own can describe its window from its data.
+ * Text for an `InfoTooltip` next to the boundary select itself: "That's
+ * currently Jan 2043." on hover/focus of the "i" badge beside a "Alex
+ * retires" choice, so seeing when a spending or income window actually
+ * starts or ends doesn't require leaving the screen — or reading the
+ * People pane's `retirement` field and doing the math by hand.
+ */
+export function boundaryDateHint(b: StreamBoundary, plan: Plan): string | undefined {
+  const resolved = boundaryResolvedDate(b, plan);
+  return resolved ? `That's currently ${yearMonth(resolved)}.` : undefined;
+}
+
+/**
+ * A boundary as a clause — "plan start", "Jan 2027", "Alex retires (Jan
+ * 2043)" — so a card with no name of its own can describe its window from
+ * its data.
  */
 export function boundaryPhrase(b: StreamBoundary, plan: Plan): string {
   if (b === "PlanStart") return "plan start";
   if (b === "PlanEnd") return "plan end";
-  if ("Date" in b) return `${MONTH_ABBR[b.Date.month - 1]} ${b.Date.year}`;
+  if ("Date" in b) return yearMonth(b.Date);
   const retires = "AtRetirement" in b;
   const id = retires ? b.AtRetirement : b.AtDeath;
   const name = plan.people.find((p) => p.id === id)?.name || "the owner";
-  return retires ? `${name} retires` : `${name} dies`;
+  const resolved = boundaryResolvedDate(b, plan);
+  const suffix = resolved ? ` (${yearMonth(resolved)})` : "";
+  return `${retires ? `${name} retires` : `${name} dies`}${suffix}`;
 }

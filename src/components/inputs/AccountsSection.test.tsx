@@ -278,7 +278,7 @@ describe("AccountsSection", () => {
     // The window is untouched: the mode select edits the rule, not the dates.
     expect(currentAccount()?.contributions[0].end).toEqual({ AtRetirement: "p1" });
     expect(
-      screen.getByText("10% of salary from plan start until Solo retires"),
+      screen.getByText("10% of salary from plan start until Solo retires (Jan 2040)"),
     ).toBeTruthy();
 
     await userEvent.selectOptions(
@@ -338,7 +338,9 @@ describe("AccountsSection", () => {
     expect(currentAccount()?.contributions[0].start).toEqual({
       Date: { year: 2030, month: 3 },
     });
-    expect(screen.getByText("$0/yr from Mar 2030 until Solo retires")).toBeTruthy();
+    expect(
+      screen.getByText("$0/yr from Mar 2030 until Solo retires (Jan 2040)"),
+    ).toBeTruthy();
   });
 
   it("removes a contribution entry", async () => {
@@ -362,7 +364,9 @@ describe("AccountsSection", () => {
     await userEvent.selectOptions(screen.getByLabelText("Owner"), "p2");
 
     expect(currentAccount()?.contributions[0].end).toEqual({ AtRetirement: "p2" });
-    expect(screen.getByText("$0/yr from plan start until Partner retires")).toBeTruthy();
+    expect(
+      screen.getByText("$0/yr from plan start until Partner retires (Jan 2045)"),
+    ).toBeTruthy();
   });
 
   it("summarises what is going in, in the table, for each mode and for several entries", async () => {
