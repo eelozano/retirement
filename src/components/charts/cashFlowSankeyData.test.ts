@@ -194,6 +194,31 @@ describe("yearComposition", () => {
     expect(c?.empty).toBe(false);
   });
 
+  it("draws no unfunded shortfall from the float residue of an exactly covered year", () => {
+    // Covered to the cent, but the inflow nodes sum 5.8e-11 short of the
+    // outflows in binary floating point — under MIN_VALUE, so no shortfall.
+    const c = yearComposition(
+      plan,
+      projection([
+        snapshot({
+          income: 220_201.49,
+          income_by_stream: { salary: 220_201.49 },
+          withdrawals: { ira: 146_443.46 },
+          expenses: 285_361.67,
+          expenses_by_stream: { spending: 285_361.67 },
+          taxes: 54_383.47,
+          contributions: 26_899.81,
+          contributions_by_account: { brokerage: 26_899.81 },
+        }),
+      ]),
+      2040,
+      series,
+      false,
+    );
+    expect(c?.shortfall).toBe(0);
+    expect(keys(c as Composition, "in")).toEqual(["stream:salary", "withdrawal:ira"]);
+  });
+
   it("folds accounts past the series cap into Other, as the balance stack does", () => {
     const many = {
       ...plan,
