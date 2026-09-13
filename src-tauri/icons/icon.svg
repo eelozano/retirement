@@ -1,0 +1,14 @@
+<!-- Source for every icon in this directory and public/icon.png: render at 1024px and run `pnpm tauri icon`. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <clipPath id="tile">
+      <rect x="100" y="100" width="824" height="824" rx="185"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect x="100" y="100" width="824" height="824" fill="#fbf3e4"/>
+    <circle cx="560" cy="560" r="200" fill="#e0a52c"/>
+    <path d="M100,640 C300,560 540,620 924,520 L924,924 L100,924 Z" fill="#46a894"/>
+    <path d="M100,740 C360,660 620,780 924,670 L924,924 L100,924 Z" fill="#1f7a6a"/>
+  </g>
+</svg>
