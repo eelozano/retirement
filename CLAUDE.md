@@ -78,6 +78,11 @@ caution at all; see `.claude/skills/run-app/SKILL.md`.
   Silicon only, and installing from the download has not been tested on a
   clean machine — say so in the notes. Building from source stays a supported
   path, and README documents both.
+- Build the release with Xcode 26 or newer selected. The layered macOS 26 icon
+  (`src-tauri/icons/RetirementPlanner.icon`) compiles with Xcode 26's `actool`;
+  an older one makes Tauri log a line and fall back to the flat `icon.icns`
+  while the build stays green. Check that the built `.app` has
+  `Contents/Resources/Assets.car` before uploading the `.dmg`.
 
 ## Dev commands
 

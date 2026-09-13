@@ -1,4 +1,6 @@
-<!-- Source for every icon in this directory and public/icon.png: render at 1024px and run `pnpm tauri icon`. -->
+<!-- Source for the flat icons in this directory and public/icon.png: render at 1024px and run
+     `pnpm tauri icon`. RetirementPlanner.icon is the same drawing split into layers for macOS 26's
+     Default, Dark, Clear and Tinted styles; a change to one belongs in the other. -->
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
     <clipPath id="tile">
