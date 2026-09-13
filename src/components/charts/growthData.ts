@@ -8,9 +8,10 @@ import type { Projection } from "../../types/generated/Projection";
 // `PeriodSnapshot.growth` is the engine's own dollar figure for what `grow()`
 // added each period (#61) — nominal, and already reflecting every account's
 // compounding, so summing it needs no reconstruction. What went in is
-// `contributions + employer_match`: the household's own deposits plus the
-// employer's, which is what "money that arrived in the accounts" means even
-// though only the first half passes through household cash.
+// `contributions + employer_match + one_time_contributions`: the household's
+// own deposits, the employer's, and any lump sum from outside the plan — what
+// "money that arrived in the accounts" means, even though only the first of
+// them passes through household cash.
 //
 // The running totals open at the starting balance rather than at zero.
 // Without it the first year already shows growth outrunning contributions,
@@ -24,7 +25,8 @@ import type { Projection } from "../../types/generated/Projection";
 
 export interface GrowthRow {
   year: number;
-  /** Contributions plus employer match this year, in the displayed basis. */
+  /** Contributions, employer match and one-time contributions this year, in the
+   * displayed basis. */
   added: number;
   /** Market growth this year, in the displayed basis. */
   growth: number;
@@ -59,7 +61,7 @@ export function growthRows(
   let totalGrowth = 0;
   return projection.snapshots.map((s) => {
     const d = realDollars ? s.deflator : 1;
-    const added = (s.contributions + s.employer_match) / d;
+    const added = (s.contributions + s.employer_match + s.one_time_contributions) / d;
     const growth = s.growth / d;
     totalAdded += added;
     totalGrowth += growth;

@@ -7,11 +7,14 @@ import {
   contributionSummary,
   defaultContribution,
   NO_CONTRIBUTION,
+  newOneTimeContribution,
+  takesOutsideMoney,
 } from "./accountContribution";
 import { ACCOUNT_TYPE_OPTIONS, accountTypeByValue, accountTypeFor } from "./accountTypes";
 import { ContributionCard } from "./ContributionCard";
 import { EmployerMatchFields } from "./EmployerMatchFields";
 import { NumberField, PercentField, SelectField, TextField } from "./fields";
+import { OneTimeContributionCard } from "./OneTimeContributionCard";
 import { FACT_VS_POLICY } from "./shared";
 
 /** A sensible starting rate for a newly-typed Savings account. */
@@ -100,6 +103,7 @@ export function AccountsSection() {
         allocation: "Moderate",
         plan_type: "None",
         contributions: [defaultContribution({ id, owner })],
+        one_time_contributions: [],
         employer_match: null,
       });
     });
@@ -308,9 +312,10 @@ export function AccountsSection() {
           )}
           <div className="band">
             <p className="band-label">Contributions</p>
-            {selected.contributions.length === 0 && (
-              <p className="field-hint">Nothing goes into this account yet.</p>
-            )}
+            {selected.contributions.length === 0 &&
+              selected.one_time_contributions.length === 0 && (
+                <p className="field-hint">Nothing goes into this account yet.</p>
+              )}
             {selected.contributions.map((entry, entryIndex) => (
               <ContributionCard
                 key={entry.id}
@@ -329,6 +334,7 @@ export function AccountsSection() {
                   const account = d.accounts[selectedIndex];
                   account.contributions.push({
                     id: `contribution-${Date.now()}`,
+                    name: "",
                     rule: NO_CONTRIBUTION,
                     start: "PlanStart",
                     end: { AtRetirement: account.owner },
@@ -338,6 +344,34 @@ export function AccountsSection() {
             >
               Add contribution
             </button>
+            {/* Shown wherever there are entries — even on an account retyped to
+                one that can't take them, so validation's complaint has a card
+                to point at and the entry stays removable. Only an account that
+                can take money from outside the plan offers to add one. */}
+            {selected.one_time_contributions.map((entry, entryIndex) => (
+              <OneTimeContributionCard
+                key={`one-time:${entry.id}`}
+                plan={plan}
+                accountIndex={selectedIndex}
+                entryIndex={entryIndex}
+                updatePlan={updatePlan}
+              />
+            ))}
+            {takesOutsideMoney(selected) && (
+              <button
+                type="button"
+                className="add"
+                onClick={() =>
+                  updatePlan((d) => {
+                    d.accounts[selectedIndex].one_time_contributions.push(
+                      newOneTimeContribution(d),
+                    );
+                  })
+                }
+              >
+                Add one-time contribution
+              </button>
+            )}
           </div>
           {selected.plan_type === "EmployerPlan" && (
             <div className="band">

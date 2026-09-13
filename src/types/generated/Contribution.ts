@@ -13,10 +13,18 @@ import type { StreamBoundary } from "./StreamBoundary";
  * entries. Entries on one account sum; the statutory clamp still applies
  * per account and per person — see `sim::contributions`.
  *
- * Entries have an id (a React key, distinct within the account) and no
- * name: the UI describes one from its data.
+ * Entries have an id (a React key, distinct within the account) and an
+ * optional name. The UI describes an entry from its data either way, and
+ * shows a name beside that description rather than instead of it — so a
+ * name only ever says what the entry is *for*, and moving its dates cannot
+ * make the name wrong.
  */
-export type Contribution = { id: string, rule: ContributionRule, 
+export type Contribution = { id: string, 
+/**
+ * "Auto-invest", "Bonus sweep". Empty when unnamed, which is the
+ * default and what an entry written before names existed loads as.
+ */
+name: string, rule: ContributionRule, 
 /**
  * First month the entry contributes. `PlanStart` is the usual choice.
  */

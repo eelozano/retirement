@@ -15,6 +15,7 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     taxes: 0,
     contributions: 0,
     employer_match: 0,
+    one_time_contributions: 0,
     required_distributions: 0,
     surplus: 0,
     withdrawals: {},
@@ -33,6 +34,7 @@ const projection = (snapshots: PeriodSnapshot[]): Projection => ({
   snapshots,
   warnings: [],
   streams: [],
+  one_time: [],
 });
 
 function account(id: string, balance: number): Account {
@@ -46,6 +48,7 @@ function account(id: string, balance: number): Account {
     allocation: "Moderate",
     plan_type: "None",
     contributions: [],
+    one_time_contributions: [],
     employer_match: null,
   };
 }
@@ -71,6 +74,15 @@ describe("growthRows", () => {
       false,
     );
     expect(rows[0].added).toBe(400);
+  });
+
+  it("counts a one-time contribution as money in, though it never touched household cash", () => {
+    const rows = growthRows(
+      projection([snapshot({ contributions: 300, one_time_contributions: 350_000 })]),
+      plan(),
+      false,
+    );
+    expect(rows[0].added).toBe(350_300);
   });
 
   it("opens the running total at the starting balance, not at zero", () => {

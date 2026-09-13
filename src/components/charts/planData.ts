@@ -6,6 +6,7 @@ import type { Person } from "../../types/generated/Person";
 import type { Plan } from "../../types/generated/Plan";
 import type { Projection } from "../../types/generated/Projection";
 import type { YearMonth } from "../../types/generated/YearMonth";
+import { oneTimeName } from "../inputs/accountContribution";
 import { MAX_SERIES, OTHER_KEY, type SeriesDef } from "./chartData";
 import { failureFindings } from "./whyPathsFailData";
 
@@ -392,6 +393,13 @@ export interface YearDetail {
    * rather than in the middle of an equation it plays no part in.
    */
   growth: { value: number; critical: boolean };
+  /**
+   * One-time contributions that landed this year, beside growth for the same
+   * reason growth sits there: money from outside the plan never passes
+   * through household cash, so it explains net worth rather than joining the
+   * equation below. Empty in almost every year.
+   */
+  oneTime: { key: string; label: string; value: number }[];
   /** Income plus gross withdrawals: everything that reached the household. */
   moneyIn: number;
   /**
@@ -523,9 +531,21 @@ export function yearDetail(
     value: def.key === OTHER_KEY ? other : (byId.get(def.key) ?? 0),
   }));
 
+  // Named as the engine deposited them, rather than re-resolved here from the
+  // plan's dates: which year a retirement-dated sale lands in is the engine's
+  // answer to give.
+  const oneTime = projection.one_time
+    .filter((o) => o.period === s.period)
+    .map((o) => ({
+      key: `one-time:${o.account}:${o.id}`,
+      label: `${oneTimeName(o)} → ${plan.accounts.find((a) => a.id === o.account)?.name ?? o.account}`,
+      value: o.amount / d,
+    }));
+
   return {
     year,
     netWorth: s.net_worth / d,
+    oneTime,
     ages: plan.people.map((p) => {
       const death = deathMonth(p);
       const { stubYear, firstFullYear } = yearBoundary(p.retirement);
