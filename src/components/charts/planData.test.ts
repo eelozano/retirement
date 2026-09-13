@@ -568,6 +568,50 @@ describe("yearDetail", () => {
     expect(detail?.leftOverLabel).toBe("Shortfall");
   });
 
+  it("reads a year the drawdown exactly covered as no shortfall, not a red −$0", () => {
+    // Covered to the cent, but float addition leaves money in 5.8e-11 short of
+    // money out, which printed as "Shortfall −$0" in red.
+    const covered = {
+      period_start: { year: 2031, month: 1 },
+      income: 220_201.49,
+      withdrawals: { x: 146_443.46 },
+      expenses: 285_361.67,
+      taxes: 54_383.47,
+      contributions: 26_899.81,
+    };
+    expect(
+      covered.income +
+        covered.withdrawals.x -
+        (covered.expenses + covered.taxes + covered.contributions),
+    ).toBeLessThan(0);
+    const p = plan([person("a", 1980, 2030)], [account("x")]);
+
+    const detail = yearDetail(
+      p,
+      projection([snapshot(covered)]),
+      2031,
+      seriesDefs(p),
+      false,
+    );
+    expect(detail?.shortfall).toBe(false);
+    // `toBe` compares with `Object.is`, so this also rules out a negative
+    // zero, which prints as "−$0" too.
+    expect(detail?.leftOver).toBe(0);
+    expect(detail?.leftOverLabel).toBe("Left over");
+
+    // A gap the panel can actually print is still a shortfall.
+    const dollarShort = yearDetail(
+      p,
+      projection([snapshot({ ...covered, withdrawals: { x: 146_442.46 } })]),
+      2031,
+      seriesDefs(p),
+      false,
+    );
+    expect(dollarShort?.shortfall).toBe(true);
+    expect(dollarShort?.leftOver).toBeCloseTo(-1, 6);
+    expect(dollarShort?.leftOverLabel).toBe("Shortfall");
+  });
+
   it("calls the leftover current spending while anyone is still working", () => {
     const p = plan([person("a", 1980, 2030)], [account("x")]);
     const proj = projection([
