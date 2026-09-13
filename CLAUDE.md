@@ -83,6 +83,11 @@ caution at all; see `.claude/skills/run-app/SKILL.md`.
   an older one makes Tauri log a line and fall back to the flat `icon.icns`
   while the build stays green. Check that the built `.app` has
   `Contents/Resources/Assets.car` before uploading the `.dmg`.
+  - If bundling instead fails with `Failed to create app Assets.car: failed to
+    run actool`, the icon is usually fine and Xcode's `ibtoold` daemon is
+    wedged: running `actool` by hand shows an `NSPlaceholderArray` exception
+    even for a one-layer icon. `pkill -f ibtoold`, then build again; `actool`
+    starts a fresh daemon.
 
 ## Dev commands
 
