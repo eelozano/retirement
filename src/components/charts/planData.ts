@@ -23,6 +23,13 @@ function basis(s: { deflator: number }, realDollars: boolean): number {
 const Z_95 = 1.96;
 
 /**
+ * Half of the smallest amount the year inspector prints: `currency` shows
+ * whole dollars, so a leftover nearer zero than this reads as "$0" whatever
+ * its sign. Below it the leftover *is* zero — see `yearDetail`.
+ */
+const HALF_A_PRINTED_DOLLAR = 0.5;
+
+/**
  * Half-width of the 95% **Wilson score** interval on a success rate measured
  * from `n` paths.
  *
@@ -408,10 +415,15 @@ export interface YearDetail {
    * engine clamps `surplus` to zero in a depleted year, where the household
    * genuinely could not cover its outflows. The difference tells the truth
    * there; `surplus` would report a reassuring $0.
+   *
+   * Exactly zero within half a printed dollar of it. A drawdown that covers
+   * the year leaves the two sides equal only to within float residue, and a
+   * residue a hair below zero used to read as a red "Shortfall −$0".
    */
   leftOver: number;
   leftOverLabel: string;
-  /** `leftOver < 0` — the plan could not fund this year. */
+  /** `leftOver < 0` — the plan could not fund this year, by at least a
+   * printed dollar. */
   shortfall: boolean;
   balances: BalanceRow[];
   /**
@@ -512,7 +524,13 @@ export function yearDetail(
       .filter((f) => f.group === group && !f.subset)
       .reduce((sum, f) => sum + f.value, 0);
   const moneyIn = total("in");
-  const leftOver = moneyIn - total("out");
+  // The engine balanced these figures before handing them over: when a
+  // drawdown covers the year, its gross-up converges to within ~1e-9 of the
+  // need, so the two sides differ only by float residue — which can land a
+  // hair below zero. Anything the panel would print as $0 is zero, so an
+  // exactly covered year is neither a shortfall nor "−$0".
+  const residual = moneyIn - total("out");
+  const leftOver = Math.abs(residual) < HALF_A_PRINTED_DOLLAR ? 0 : residual;
 
   // Same bucketing as the chart stack, so the inspector and the areas can
   // never disagree about which accounts are shown.
