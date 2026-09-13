@@ -11,6 +11,7 @@ import {
   grownRate,
   listRates,
   monthsBetween,
+  oneTimeSkippedBy,
   type RateEntry,
   refreshMonths,
 } from "./refreshRates";
@@ -30,10 +31,14 @@ import {
 // - **Balances** are readings. Type the new one; the old one and its date
 //   stay beside it, and an account left alone keeps both. Nothing is rolled
 //   forward for an account nobody re-read.
-// - **Rates** — salary, spending, a flat contribution — are stated in the
-//   dollars of the month the plan starts, so moving the start re-states them
-//   without changing a digit. Every one is listed with what it would take to
-//   hold its purchasing power, and the default is to keep it as typed.
+// - **Rates** — salary, spending, a flat or one-time contribution — are
+//   stated in the dollars of the month the plan starts, so moving the start
+//   re-states them without changing a digit. Every one is listed with what it
+//   would take to hold its purchasing power, and the default is to keep it as
+//   typed.
+// - **One-time contributions** the new start moves past stop being counted:
+//   the money has either arrived, and is in a balance, or the event slipped.
+//   They are named, so which of the two it was is the household's call.
 //
 // Structure, not numbers: an account is added, renamed or removed on the
 // Inputs screen. A refresh is what the statements say.
@@ -116,6 +121,9 @@ function RefreshForm(props: { plan: Plan; household: Household }) {
   ).length;
 
   const elapsed = monthsBetween(household.as_of, asOf);
+  // One-time contributions this move carries the start past, which the
+  // projection will stop counting — named, so that it happens on purpose.
+  const skipped = oneTimeSkippedBy(plan, household.as_of, asOf);
   const inflation = plan.assumptions.inflation;
   // What a dollar of the old start's money is worth in the new start's —
   // the sentence the rates section has to make understandable.
@@ -293,6 +301,21 @@ function RefreshForm(props: { plan: Plan; household: Household }) {
             </table>
           </div>
         </div>
+
+        {skipped.length > 0 && (
+          <div className="band">
+            <p className="band-label">One-time contributions</p>
+            <p className="field-hint">
+              Starting the plan in {yearMonth(asOf)} moves it past{" "}
+              {skipped
+                .map((s) => `${s.name} (${yearMonth(s.month)}, into ${s.account})`)
+                .join(", ")}
+              , so the projection stops counting {skipped.length === 1 ? "it" : "them"}.
+              If the money has arrived, it belongs in the balances above; if not, give it
+              a later date on the Inputs screen.
+            </p>
+          </div>
+        )}
 
         {plan.social_security.length > 0 && (
           <div className="band band-social-security">

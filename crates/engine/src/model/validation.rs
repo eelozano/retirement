@@ -285,6 +285,80 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                 }
             }
         }
+        // One-time contributions: money from outside the plan. Every account
+        // but a brokerage or a savings account caps what can go in each year,
+        // and a lump sum held to that cap would silently lose the rest.
+        let takes_outside_money =
+            matches!(account.kind, AccountKind::Taxable | AccountKind::Savings);
+        for (j, entry) in account.one_time_contributions.iter().enumerate() {
+            let field = |leaf: &str| format!("accounts[{i}].one_time_contributions[{j}].{leaf}");
+            // Named in the message when it has a name: "House sale" says
+            // which entry far better than its position in a list does.
+            let (what, what_mid) = match entry.name.trim() {
+                "" => (
+                    "A one-time contribution".to_string(),
+                    "a one-time contribution".to_string(),
+                ),
+                name => (format!("\"{name}\""), format!("\"{name}\"")),
+            };
+            // One id space with the recurring entries above: the editor and
+            // the Refresh screen find an entry by its account and id.
+            if !seen_entry_ids.insert(entry.id.as_str()) {
+                errors.push(err(
+                    &field("id"),
+                    &format!(
+                        "\"{}\" has two contributions with the id \"{}\".",
+                        account.name, entry.id
+                    ),
+                ));
+            }
+            if !takes_outside_money {
+                errors.push(err(
+                    &format!("accounts[{i}].one_time_contributions[{j}]"),
+                    &format!(
+                        "{what} can't go into \"{}\" — it caps what can go in each year, so money from outside the plan can only land in a brokerage or savings account.",
+                        account.name
+                    ),
+                ));
+            }
+            if entry.amount < 0.0 {
+                errors.push(err(
+                    &field("amount"),
+                    &format!(
+                        "{what} into \"{}\" can't be a negative amount.",
+                        account.name
+                    ),
+                ));
+            }
+            match &entry.date {
+                // The plan start moves forward each time the balances are
+                // refreshed, past money the new balances already hold — so
+                // the same lump sum would land a second time.
+                StreamBoundary::PlanStart => errors.push(err(
+                    &field("date"),
+                    &format!(
+                        "{what} into \"{}\" needs a month or a retirement to land on — the plan start moves each time balances are refreshed.",
+                        account.name
+                    ),
+                )),
+                // The horizon is exclusive: nothing is projected at or after
+                // it, so this would never land.
+                StreamBoundary::PlanEnd => errors.push(err(
+                    &field("date"),
+                    &format!(
+                        "{what} into \"{}\" can't land at the plan end — nothing is projected after it.",
+                        account.name
+                    ),
+                )),
+                StreamBoundary::Date(date) => check_date(
+                    &mut errors,
+                    &field("date"),
+                    &format!("The date of {what_mid} into \"{}\"", account.name),
+                    *date,
+                ),
+                StreamBoundary::AtRetirement(_) | StreamBoundary::AtDeath(_) => {}
+            }
+        }
         if let Some(employer) = &account.employer_match {
             let field = format!("accounts[{i}].employer_match");
             if account.plan_type != PlanType::EmployerPlan {
@@ -738,6 +812,109 @@ mod tests {
                 .any(|e| e.field == "accounts[0].contributions[0].rule"),
             "the good entry is not blamed: {errors:?}"
         );
+    }
+
+    /// The seed plan with one well-formed lump sum on its taxable brokerage,
+    /// and that account's index.
+    fn plan_with_one_time(date: crate::model::StreamBoundary) -> (crate::model::Plan, usize) {
+        use crate::model::{GrowthRule, OneTimeContribution};
+        let mut plan = seed_plan();
+        let i = plan_index_of(&plan, "taxable-brokerage");
+        plan.accounts[i]
+            .one_time_contributions
+            .push(OneTimeContribution {
+                id: "house-sale".to_string(),
+                name: "House sale".to_string(),
+                amount: 350_000.0,
+                growth: GrowthRule::Inflation,
+                date,
+            });
+        (plan, i)
+    }
+
+    #[test]
+    fn accepts_a_one_time_contribution_into_a_brokerage() {
+        use crate::model::{StreamBoundary, YearMonth};
+        for date in [
+            StreamBoundary::Date(YearMonth::new(2040, 6)),
+            StreamBoundary::AtRetirement("alex".to_string()),
+        ] {
+            let (plan, _) = plan_with_one_time(date.clone());
+            assert!(
+                plan.validate().is_empty(),
+                "{date:?}: {:?}",
+                plan.validate()
+            );
+        }
+    }
+
+    /// Everything but a brokerage or a savings account caps what can go in
+    /// each year, so a lump sum from outside the plan can't land there.
+    #[test]
+    fn rejects_a_one_time_contribution_into_a_capped_account() {
+        use crate::model::{StreamBoundary, YearMonth};
+        let (mut plan, i) = plan_with_one_time(StreamBoundary::Date(YearMonth::new(2040, 6)));
+        let entry = plan.accounts[i].one_time_contributions.remove(0);
+        let k = plan_index_of(&plan, "alex-401k");
+        plan.accounts[k].one_time_contributions.push(entry);
+        let errors = plan.validate();
+        let error = errors
+            .iter()
+            .find(|e| e.field == format!("accounts[{k}].one_time_contributions[0]"))
+            .unwrap_or_else(|| panic!("a 401(k) can't take outside money: {errors:?}"));
+        assert!(
+            error.message.contains("\"House sale\""),
+            "{}",
+            error.message
+        );
+    }
+
+    #[test]
+    fn rejects_a_negative_one_time_contribution() {
+        use crate::model::{StreamBoundary, YearMonth};
+        let (mut plan, i) = plan_with_one_time(StreamBoundary::Date(YearMonth::new(2040, 6)));
+        plan.accounts[i].one_time_contributions[0].amount = -1.0;
+        assert!(plan
+            .validate()
+            .iter()
+            .any(|e| e.field == format!("accounts[{i}].one_time_contributions[0].amount")));
+    }
+
+    /// `PlanStart` would land again after every refresh, `PlanEnd` never
+    /// lands at all, and a nonsense month is caught like any other date.
+    #[test]
+    fn rejects_one_time_dates_that_cannot_land_exactly_once() {
+        use crate::model::{StreamBoundary, YearMonth};
+        for date in [
+            StreamBoundary::PlanStart,
+            StreamBoundary::PlanEnd,
+            StreamBoundary::Date(YearMonth {
+                year: 2040,
+                month: 13,
+            }),
+        ] {
+            let (plan, i) = plan_with_one_time(date.clone());
+            assert!(
+                plan.validate()
+                    .iter()
+                    .any(|e| e.field == format!("accounts[{i}].one_time_contributions[0].date")),
+                "{date:?} should be rejected: {:?}",
+                plan.validate()
+            );
+        }
+    }
+
+    /// Recurring and one-time entries share one id space on an account.
+    #[test]
+    fn catches_a_one_time_id_that_collides_with_a_recurring_one() {
+        use crate::model::{StreamBoundary, YearMonth};
+        let (mut plan, i) = plan_with_one_time(StreamBoundary::Date(YearMonth::new(2040, 6)));
+        let recurring = plan.accounts[i].contributions[0].id.clone();
+        plan.accounts[i].one_time_contributions[0].id = recurring;
+        assert!(plan
+            .validate()
+            .iter()
+            .any(|e| e.field == format!("accounts[{i}].one_time_contributions[0].id")));
     }
 
     fn plan_index_of(plan: &crate::model::Plan, account: &str) -> usize {

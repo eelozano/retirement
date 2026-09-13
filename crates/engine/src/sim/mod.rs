@@ -10,10 +10,11 @@ pub use monte_carlo::{
     MonteCarloResult, PathGroupStats, PeriodPercentiles, RunControl, Spread,
     EARLY_RETIREMENT_WINDOW_YEARS,
 };
-pub use projection::{PeriodSnapshot, Projection, SimWarning, StreamInfo};
+pub use projection::{OneTimeInfo, PeriodSnapshot, Projection, SimWarning, StreamInfo};
 
 use crate::model::{
-    Account, AccountKind, CashFlowStream, Contribution, GrowthRule, Plan, StreamBoundary, YearMonth,
+    Account, AccountKind, CashFlowStream, Contribution, GrowthRule, OneTimeContribution, Plan,
+    StreamBoundary, YearMonth,
 };
 use crate::strategies::{DrawdownStrategy, ReturnModel, TaxModel};
 
@@ -51,6 +52,16 @@ struct ResolvedContribution<'a> {
     end: YearMonth,
 }
 
+/// A one-time contribution with its date resolved to the month it lands in,
+/// already known to fall inside the horizon — ready for the period loop to
+/// deposit exactly once.
+struct ResolvedOneTime<'a> {
+    /// Index into `plan.accounts`.
+    account: usize,
+    entry: &'a OneTimeContribution,
+    month: YearMonth,
+}
+
 /// Runs one deterministic-or-stochastic simulation path over the plan.
 ///
 /// Pure function: no global state, `plan` is untouched, and all randomness
@@ -62,16 +73,19 @@ struct ResolvedContribution<'a> {
 ///    entries for the months they are active, clamp the account to the
 ///    owner's shared statutory limits for that year, then add the employer
 ///    match those deferrals earn — see `contributions`
-/// 3. force out each pre-tax account owner's required minimum distribution,
+/// 3. deposit any one-time contribution landing this period: money from
+///    outside the plan, which raises a balance without touching household
+///    cash, income or tax
+/// 4. force out each pre-tax account owner's required minimum distribution,
 ///    once they are past their RMD age — see `required_distributions`
-/// 4. tax ordinary income (gross income minus pre-tax deferrals, plus any
+/// 5. tax ordinary income (gross income minus pre-tax deferrals, plus any
 ///    required distribution), in a single pass over the whole period
-/// 5. reinvest the leftover in the taxable account — always for the forced
+/// 6. reinvest the leftover in the taxable account — always for the forced
 ///    distribution, and for ordinary surplus once the sweep boundary has
 ///    been reached — or draw down the shortfall (grossed up through the tax
 ///    model)
-/// 6. apply market growth to post-flow balances
-/// 7. snapshot
+/// 7. apply market growth to post-flow balances
+/// 8. snapshot
 pub fn simulate(
     plan: &Plan,
     returns: &dyn ReturnModel,
@@ -166,6 +180,33 @@ pub fn simulate(
         }
     }
 
+    // One-time contributions resolve the same way, to the one month each
+    // lands in. A month outside `[start, end)` is simply never deposited, and
+    // neither case is a mistake worth a warning: before the start is where a
+    // lump sum the refreshed balances already hold ends up, and the horizon
+    // is exclusive. An entry tied to a deleted person has no month at all,
+    // and says so exactly as a recurring entry does.
+    let mut resolved_one_time: Vec<ResolvedOneTime> = Vec::new();
+    for (idx, account) in plan.accounts.iter().enumerate() {
+        for entry in &account.one_time_contributions {
+            match resolve_boundary(plan, &entry.date, start, end) {
+                Some(month) if start <= month && month < end => {
+                    resolved_one_time.push(ResolvedOneTime {
+                        account: idx,
+                        entry,
+                        month,
+                    })
+                }
+                Some(_) => {}
+                None => state
+                    .warnings
+                    .push(SimWarning::ContributionBoundaryUnresolved {
+                        account: account.id.clone(),
+                    }),
+            }
+        }
+    }
+
     // When ordinary surplus starts being swept into the taxable account.
     // `None` means never — which is also what an unresolvable boundary
     // (a person deleted after it was chosen) falls back to, loudly: the
@@ -216,6 +257,7 @@ pub fn simulate(
         plan,
         streams: &resolved_streams,
         contributions: &resolved_contributions,
+        one_time: &resolved_one_time,
         sweep_from,
         reinvest_into,
         survivor_step_down,
@@ -258,6 +300,7 @@ pub fn simulate(
                 direction: r.stream.direction,
             })
             .collect(),
+        one_time: state.one_time,
     }
 }
 

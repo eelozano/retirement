@@ -30,8 +30,8 @@ use ts_rs::TS;
 
 use super::{
     Account, AccountId, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
-    EmployerMatch, PeriodLength, Person, PersonId, Plan, PlanId, PlanType, SimConfig,
-    SocialSecurityBenefit, SocialSecurityBenefitId, YearMonth, SCHEMA_VERSION,
+    EmployerMatch, OneTimeContribution, PeriodLength, Person, PersonId, Plan, PlanId, PlanType,
+    SimConfig, SocialSecurityBenefit, SocialSecurityBenefitId, YearMonth, SCHEMA_VERSION,
 };
 
 pub type HouseholdId = String;
@@ -135,11 +135,18 @@ pub struct PersonPolicy {
     pub life_expectancy_age: u8,
 }
 
-/// What a scenario decides about an account: what goes into it, and what
-/// the employer adds.
+/// What a scenario decides about an account: what goes into it — recurring
+/// entries and one-time lump sums — and what the employer adds.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct AccountPolicy {
     pub contributions: Vec<Contribution>,
+    /// Selling the house is a choice one scenario makes and another does
+    /// not, so it lives here rather than on the household.
+    /// `#[serde(default)]` so every household written before one-time
+    /// contributions existed loads with none, and `SCHEMA_VERSION` does not
+    /// move.
+    #[serde(default)]
+    pub one_time_contributions: Vec<OneTimeContribution>,
     pub employer_match: Option<EmployerMatch>,
 }
 
@@ -314,6 +321,7 @@ pub fn compose(household: &Household, scenario: &Scenario) -> Result<Plan, Compo
                 allocation: a.allocation.clone(),
                 plan_type: a.plan_type,
                 contributions: policy.contributions.clone(),
+                one_time_contributions: policy.one_time_contributions.clone(),
                 employer_match: policy.employer_match.clone(),
             })
         })
@@ -471,6 +479,7 @@ pub fn decompose(plan: &Plan, previous: &Household) -> (Household, Scenario) {
                     a.id.clone(),
                     AccountPolicy {
                         contributions: a.contributions.clone(),
+                        one_time_contributions: a.one_time_contributions.clone(),
                         employer_match: a.employer_match.clone(),
                     },
                 )
@@ -513,6 +522,7 @@ pub fn empty_household(id: HouseholdId, name: String, as_of: YearMonth) -> House
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::{GrowthRule, StreamBoundary};
     use crate::presets::seed_plan;
 
     fn split(plan: &Plan) -> (Household, Scenario) {
@@ -599,6 +609,45 @@ mod tests {
 
         let error = compose(&household, &scenario).expect_err("no retirement date to compose");
         assert!(error.message.contains(&person), "{}", error.message);
+    }
+
+    /// A lump sum from outside the plan is a choice one scenario makes, so it
+    /// lands on the scenario's policy and never on the household — and the
+    /// split loses nothing on the way back.
+    #[test]
+    fn a_one_time_contribution_is_scenario_policy() {
+        let mut plan = seed_plan();
+        let brokerage = plan
+            .accounts
+            .iter_mut()
+            .find(|a| a.kind == AccountKind::Taxable)
+            .expect("the seed plan has a taxable account");
+        let account_id = brokerage.id.clone();
+        brokerage.one_time_contributions.push(OneTimeContribution {
+            id: "house-sale".to_string(),
+            name: "House sale".to_string(),
+            amount: 350_000.0,
+            growth: GrowthRule::Inflation,
+            date: StreamBoundary::Date(YearMonth::new(2040, 6)),
+        });
+
+        let (household, scenario) = split(&plan);
+        assert!(
+            !serde_yaml_ng::to_string(&household)
+                .unwrap()
+                .contains("House sale"),
+            "a one-time contribution is policy, not a fact"
+        );
+        assert_eq!(
+            scenario.accounts[&account_id].one_time_contributions.len(),
+            1
+        );
+
+        let back = compose(&household, &scenario).expect("every entity has a policy");
+        assert_eq!(
+            serde_json::to_value(&back).unwrap(),
+            serde_json::to_value(&plan).unwrap()
+        );
     }
 
     #[test]

@@ -109,6 +109,16 @@ export function YearInspector(props: {
             {currency(Math.abs(detail.growth.value))}
           </span>
         </div>
+        {/* A lump sum from outside the plan explains net worth the way growth
+            does, and never passed through household cash either. */}
+        {detail.oneTime.map((row) => (
+          <div className="inspector-row" key={row.key}>
+            <span className="row-sign row-sign-add">+</span>
+            <span className="row-label">{row.label}</span>
+            <span className="row-leader" />
+            <span className="row-value">{currency(row.value)}</span>
+          </div>
+        ))}
       </div>
 
       {props.percentiles && (

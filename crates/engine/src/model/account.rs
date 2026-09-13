@@ -174,12 +174,19 @@ pub type ContributionId = String;
 /// entries. Entries on one account sum; the statutory clamp still applies
 /// per account and per person — see `sim::contributions`.
 ///
-/// Entries have an id (a React key, distinct within the account) and no
-/// name: the UI describes one from its data.
+/// Entries have an id (a React key, distinct within the account) and an
+/// optional name. The UI describes an entry from its data either way, and
+/// shows a name beside that description rather than instead of it — so a
+/// name only ever says what the entry is *for*, and moving its dates cannot
+/// make the name wrong.
 #[derive(Serialize, Deserialize, TS, Clone, Debug, PartialEq)]
 #[ts(export)]
 pub struct Contribution {
     pub id: ContributionId,
+    /// "Auto-invest", "Bonus sweep". Empty when unnamed, which is the
+    /// default and what an entry written before names existed loads as.
+    #[serde(default)]
+    pub name: String,
     pub rule: ContributionRule,
     /// First month the entry contributes. `PlanStart` is the usual choice.
     pub start: StreamBoundary,
@@ -199,11 +206,61 @@ impl Contribution {
     ) -> Self {
         Contribution {
             id: id.into(),
+            name: String::new(),
             rule,
             start: StreamBoundary::PlanStart,
             end: StreamBoundary::AtRetirement(owner.clone()),
         }
     }
+}
+
+/// A lump sum that arrives from outside the plan — the proceeds of a home
+/// sale, an inheritance — and lands in one account in one month.
+///
+/// Not a `Contribution` with a one-month window, and the difference is the
+/// point. A contribution is paid out of household cash: `settle` subtracts it
+/// from the period's income, and a year whose income cannot cover it sells
+/// investments to make up the difference, so a house sale entered that way
+/// would fund itself out of the portfolio instead of adding to it. These
+/// dollars never pass through household cash, exactly like the employer
+/// match: they raise one balance and touch nothing else — not income, not
+/// tax, not `contributions`, not surplus. See `sim::period::deposit_one_time`.
+///
+/// Only a brokerage (`Taxable`) or `Savings` account can receive one.
+/// Every other account caps what can go in each year, and a lump sum held to
+/// that cap would silently lose the rest, so validation refuses the
+/// combination rather than modelling a rollover.
+///
+/// Scenario policy, not a household fact: selling the house is a choice one
+/// branch makes and another does not, so it lives in `AccountPolicy` beside
+/// the recurring entries.
+#[derive(Serialize, Deserialize, TS, Clone, Debug, PartialEq)]
+#[ts(export)]
+pub struct OneTimeContribution {
+    /// Distinct within the account, across `contributions` and
+    /// `one_time_contributions` both: the editor and the Refresh screen find
+    /// an entry by its account and id.
+    pub id: ContributionId,
+    /// What the money is — "House sale". The only description a lump sum
+    /// has: a recurring entry explains itself by its rule and window, and
+    /// "$350,000 in April 2042" does not say why.
+    pub name: String,
+    /// What lands, net of everything the plan does not model — a mortgage
+    /// payoff, selling costs, tax on the gain. With `GrowthRule::Inflation`
+    /// it is in simulation-start dollars ("what we'd net if we sold today");
+    /// with `GrowthRule::None` it is the exact nominal figure.
+    pub amount: f64,
+    /// Grown from *plan* start to the start of the period it lands in — the
+    /// convention `CashFlowStream::annual_amount` and `FlatAmount::growth`
+    /// follow — so an `Inflation` amount deflates back to exactly the figure
+    /// typed.
+    pub growth: GrowthRule,
+    /// The month it lands: a specific month, or a person-relative boundary
+    /// so "when we retire" moves with the retirement date. Validation refuses
+    /// `PlanStart`, which a refresh moves forward past money the refreshed
+    /// balances already hold, so it would land twice; and `PlanEnd`, the
+    /// exclusive horizon, where nothing ever lands.
+    pub date: StreamBoundary,
 }
 
 /// The pre-dated-contributions `ContributionRule`: tuple-shaped, so it
@@ -320,9 +377,15 @@ pub struct Account {
     /// rather than granted per account — see `sim::contributions`.
     pub plan_type: PlanType,
     /// What goes into this account and when: dated entries that sum. Empty
-    /// means nothing is contributed. Every entry is the owner's own money;
-    /// the employer's share is `employer_match`.
+    /// means nothing is contributed. Every entry is the owner's own money,
+    /// paid out of household cash; the employer's share is `employer_match`,
+    /// and money from outside the plan is `one_time_contributions`.
     pub contributions: Vec<Contribution>,
+    /// Lump sums from outside the plan that land in this account — a home
+    /// sale, an inheritance. Unlike `contributions` they are not paid out of
+    /// household cash; see `OneTimeContribution`. Validation allows them
+    /// only on a `Taxable` or `Savings` account.
+    pub one_time_contributions: Vec<OneTimeContribution>,
     /// Employer match on this plan, if any. Matched dollars are employer
     /// money: they do not count against the employee elective-deferral
     /// limit, only against the much higher 415(c) annual-additions cap.
@@ -365,6 +428,9 @@ struct AccountWire {
     /// retired. Becomes a one-entry list with exactly those boundaries.
     #[serde(default)]
     contribution: Option<LegacyContributionRule>,
+    /// Plans written before one-time contributions existed load with none.
+    #[serde(default)]
+    one_time_contributions: Vec<OneTimeContribution>,
     /// `#[serde(default)]` so plans saved before #33 load with no match,
     /// unchanged — the same precedent as `social_security`.
     #[serde(default)]
@@ -436,6 +502,7 @@ impl From<AccountWire> for Account {
                 .plan_type
                 .unwrap_or_else(|| migrated_plan_type(w.kind, w.contribution_limit)),
             contributions,
+            one_time_contributions: w.one_time_contributions,
             employer_match: w.employer_match,
             id: w.id,
             owner: w.owner,
@@ -505,6 +572,7 @@ employer_match: null
             account.contributions,
             vec![Contribution {
                 id: "alex-401k-contribution".to_string(),
+                name: String::new(),
                 rule: ContributionRule::PercentOfSalary {
                     percent: 0.1,
                     step_up: None,
@@ -570,6 +638,33 @@ employer_match: null
                 growth: GrowthRule::None,
             }
         );
+    }
+
+    /// An account written before one-time contributions and contribution
+    /// names loads with neither: no lump sums, and every entry unnamed.
+    #[test]
+    fn an_account_written_before_one_time_contributions_loads_with_none() {
+        let yaml = "
+id: joint-brokerage
+owner: alex
+kind: Taxable
+name: Joint brokerage
+balance: 120000.0
+cost_basis: 88000.0
+allocation: Aggressive
+plan_type: None
+contributions:
+- id: joint-brokerage-contribution
+  rule: !FlatAmount
+    amount: 6000.0
+    growth: None
+  start: PlanStart
+  end: !AtRetirement alex
+employer_match: null
+";
+        let account: Account = serde_yaml_ng::from_str(yaml).expect("account parses");
+        assert!(account.one_time_contributions.is_empty());
+        assert_eq!(account.contributions[0].name, "");
     }
 
     /// The dated list wins over any older key left beside it.
@@ -654,6 +749,7 @@ employer_match: null
             plan_type: PlanType::Ira,
             contributions: vec![Contribution {
                 id: "a-contribution".into(),
+                name: "Roth from 2029".into(),
                 rule: ContributionRule::PercentOfSalary {
                     percent: 0.08,
                     step_up: None,
@@ -661,11 +757,40 @@ employer_match: null
                 start: StreamBoundary::Date(super::super::YearMonth::new(2029, 1)),
                 end: StreamBoundary::PlanEnd,
             }],
+            one_time_contributions: vec![],
             employer_match: None,
         };
         let json = serde_json::to_string(&account).unwrap();
         let back: Account = serde_json::from_str(&json).unwrap();
         assert_eq!(back.contributions, account.contributions);
         assert_eq!(back.plan_type, PlanType::Ira);
+    }
+
+    /// A one-time contribution round-trips whole: name, amount, growth rule
+    /// and a person-relative date.
+    #[test]
+    fn a_one_time_contribution_round_trips() {
+        let account = Account {
+            id: "brokerage".into(),
+            owner: "p1".into(),
+            kind: AccountKind::Taxable,
+            name: "Joint brokerage".into(),
+            balance: 1.0,
+            cost_basis: Some(1.0),
+            allocation: AllocationRef::Moderate,
+            plan_type: PlanType::None,
+            contributions: vec![],
+            one_time_contributions: vec![OneTimeContribution {
+                id: "house-sale".into(),
+                name: "House sale".into(),
+                amount: 350_000.0,
+                growth: GrowthRule::Inflation,
+                date: StreamBoundary::AtRetirement("p1".into()),
+            }],
+            employer_match: None,
+        };
+        let yaml = serde_yaml_ng::to_string(&account).unwrap();
+        let back: Account = serde_yaml_ng::from_str(&yaml).unwrap();
+        assert_eq!(back.one_time_contributions, account.one_time_contributions);
     }
 }

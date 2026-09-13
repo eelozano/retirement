@@ -11,7 +11,7 @@
 //!   keeps its older reading *and its older date*: no estimate is rolled
 //!   forward for it, now or later, because a stale number the app has
 //!   labelled as stale is honest and an invented one is not.
-//! - A **rate** — a salary, a spending figure, a flat contribution — is
+//! - A **rate** — a salary, a spending figure, a flat or one-time contribution — is
 //!   stated in start dollars. Moving the start forward re-denominates it
 //!   without changing a digit: an untouched $150,000 that meant January
 //!   dollars now means December dollars. So the screen shows every one of
@@ -31,7 +31,9 @@
 //! month the entry already resolved to, and the escalation is untouched.
 //! Streams need no equivalent — `PlanStart → AtRetirement` on a salary
 //! means "already running" either way, and `FlatAmount` growth is measured
-//! from the plan start regardless of the entry's own window.
+//! from the plan start regardless of the entry's own window. Nor does a
+//! one-time contribution: validation refuses one dated `PlanStart`, because
+//! moving the start would land the same money a second time.
 //!
 //! The engine is not involved and does not change: it reads `balance` as of
 //! `sim_config.start` exactly as it always has. What this module does is
@@ -122,16 +124,20 @@ pub struct RateChange {
     pub apply_to_siblings: bool,
 }
 
-/// Which start-dollar figure a [`RateChange`] is about. The two kinds the
-/// screen lists: a stream's annual amount, and a flat contribution's amount.
-/// Percent-of-salary and federal-maximum entries are intent and have no
-/// figure to re-affirm.
+/// Which start-dollar figure a [`RateChange`] is about. The kinds the screen
+/// lists: a stream's annual amount, a flat contribution's amount, and a
+/// one-time contribution's amount. Percent-of-salary and federal-maximum
+/// entries are intent and have no figure to re-affirm.
 #[derive(Deserialize, PartialEq, Eq, Clone)]
 pub enum RateTarget {
     Stream {
         id: StreamId,
     },
     Contribution {
+        account: AccountId,
+        id: ContributionId,
+    },
+    OneTimeContribution {
         account: AccountId,
         id: ContributionId,
     },
@@ -157,6 +163,13 @@ fn rate_of(scenario: &Scenario, target: &RateTarget) -> Option<f64> {
                 ContributionRule::FlatAmount { amount, .. } => Some(amount),
                 _ => None,
             }),
+        RateTarget::OneTimeContribution { account, id } => scenario
+            .accounts
+            .get(account)?
+            .one_time_contributions
+            .iter()
+            .find(|c| &c.id == id)
+            .map(|c| c.amount),
     }
 }
 
@@ -187,6 +200,18 @@ fn set_rate(scenario: &mut Scenario, target: &RateTarget, amount: f64) -> bool {
                 _ => false,
             }
         }
+        RateTarget::OneTimeContribution { account, id } => {
+            let Some(entry) = scenario.accounts.get_mut(account).and_then(|policy| {
+                policy
+                    .one_time_contributions
+                    .iter_mut()
+                    .find(|c| &c.id == id)
+            }) else {
+                return false;
+            };
+            entry.amount = amount;
+            true
+        }
     }
 }
 
@@ -195,6 +220,9 @@ fn describe(target: &RateTarget) -> String {
         RateTarget::Stream { id } => format!("stream {id:?}"),
         RateTarget::Contribution { account, id } => {
             format!("contribution {id:?} on account {account:?}")
+        }
+        RateTarget::OneTimeContribution { account, id } => {
+            format!("one-time contribution {id:?} on account {account:?}")
         }
     }
 }
@@ -429,7 +457,7 @@ fn month_name(date: YearMonth) -> String {
 
 #[cfg(test)]
 mod tests {
-    use engine::model::{compose, Contribution, GrowthRule, Plan, StepUp};
+    use engine::model::{compose, Contribution, GrowthRule, OneTimeContribution, Plan, StepUp};
 
     use super::*;
 
@@ -858,6 +886,58 @@ mod tests {
                     // The growth rule is intent and survives the re-affirm.
                     growth: GrowthRule::Inflation,
                 },
+                "{id}"
+            );
+        }
+    }
+
+    /// A one-time contribution's amount is a figure a sitting re-estimates —
+    /// a sale price most of all — and one in today's dollars is re-stated by
+    /// the move like any other rate. Its date and growth rule are untouched.
+    #[test]
+    fn a_one_time_contribution_is_a_rate_the_sitting_can_re_affirm() {
+        let base = TempBase::new("one-time-rate");
+        let sale = OneTimeContribution {
+            id: "house-sale".to_string(),
+            name: "House sale".to_string(),
+            amount: 350_000.0,
+            growth: GrowthRule::Inflation,
+            date: StreamBoundary::Date(YearMonth::new(2035, 6)),
+        };
+        let mut plan = household_plan();
+        plan.accounts
+            .iter_mut()
+            .find(|a| a.id == "taxable-brokerage")
+            .unwrap()
+            .one_time_contributions = vec![sale.clone()];
+        store(&base.0, plan);
+        storage::duplicate_plan(&base.0, "base-plan", "Agrees").unwrap();
+
+        let mut request = sitting("base-plan", YearMonth::new(2026, 12));
+        request.rates = vec![RateChange {
+            target: RateTarget::OneTimeContribution {
+                account: "taxable-brokerage".to_string(),
+                id: "house-sale".to_string(),
+            },
+            amount: 380_000.0,
+            apply_to_siblings: true,
+        }];
+        refresh_household(&base.0, &request, LATER).unwrap();
+
+        for id in ["base-plan", "agrees"] {
+            let plan = storage::load_plan(&base.0, id).unwrap();
+            let entries = &plan
+                .accounts
+                .iter()
+                .find(|a| a.id == "taxable-brokerage")
+                .unwrap()
+                .one_time_contributions;
+            assert_eq!(
+                entries,
+                &vec![OneTimeContribution {
+                    amount: 380_000.0,
+                    ..sale.clone()
+                }],
                 "{id}"
             );
         }

@@ -25,6 +25,7 @@ const plan = {
       balance: 150_000,
       cost_basis: 110_000,
       contributions: [],
+      one_time_contributions: [],
     },
     {
       id: "alex-401k",
@@ -33,6 +34,7 @@ const plan = {
       balance: 400_000,
       cost_basis: null,
       contributions: [],
+      one_time_contributions: [],
     },
   ],
   streams: [

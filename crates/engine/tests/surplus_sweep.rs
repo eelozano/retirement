@@ -101,6 +101,7 @@ fn staggered_household() -> Plan {
                 },
                 &"early".to_string(),
             )],
+            one_time_contributions: vec![],
             employer_match: None,
         }],
         streams: vec![

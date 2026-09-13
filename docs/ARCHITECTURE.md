@@ -142,7 +142,7 @@ pub struct Observation { pub as_of: YearMonth, pub balance: f64, pub cost_basis:
 pub struct Scenario {           // only what varies between branches
     pub id: PlanId, pub name: String, pub display_real_dollars: bool,
     pub people: BTreeMap<PersonId, PersonPolicy>,          // retirement, life_expectancy_age
-    pub accounts: BTreeMap<AccountId, AccountPolicy>,      // contributions, employer_match
+    pub accounts: BTreeMap<AccountId, AccountPolicy>,      // contributions, one-time contributions, employer_match
     pub social_security: BTreeMap<SocialSecurityBenefitId, BenefitPolicy>, // claiming_age, cola_override
     pub streams: Vec<CashFlowStream>,
     pub assumptions: Assumptions,
@@ -191,9 +191,20 @@ pub enum ContributionRule {
 // to one entry from PlanStart until AtRetirement(owner).
 pub struct Contribution {
     pub id: ContributionId,           // React key; distinct within the account
+    pub name: String,                 // optional; what it is for, shown beside the derived legend
     pub rule: ContributionRule,
     pub start: StreamBoundary,
     pub end: StreamBoundary,          // exclusive
+}
+
+// A lump sum from outside the plan — a house sale — landing once. Not paid out
+// of household cash, so not a Contribution; brokerage or savings accounts only.
+pub struct OneTimeContribution {
+    pub id: ContributionId,           // one id space with the account's `contributions`
+    pub name: String,                 // "House sale": the only description a lump sum has
+    pub amount: f64,                  // start dollars under Inflation, nominal under None
+    pub growth: GrowthRule,           // grown from plan start to the landing period's start
+    pub date: StreamBoundary,         // Date | AtRetirement | AtDeath — never PlanStart or PlanEnd
 }
 
 // Employer match, per account: a match belongs to one employer's plan
@@ -216,6 +227,7 @@ pub struct Account {
     pub allocation: AllocationRef,  // preset id or custom weights
     pub plan_type: PlanType,        // limit bucket; cap shared per person per year
     pub contributions: Vec<Contribution>,
+    pub one_time_contributions: Vec<OneTimeContribution>, // see "One-time contributions"
     pub employer_match: Option<EmployerMatch>,
 }
 
@@ -341,16 +353,18 @@ pub fn simulate(plan: &Plan, returns: &dyn ReturnModel, tax: &dyn TaxModel,
                 drawdown: &dyn DrawdownStrategy, path_id: u64) -> Projection;
 
 // Per-period loop, one function per step over PeriodState (sim/period.rs):
-//   accrue stream income → contributions (respect limits) → required
-//   minimum distributions (forced, once an owner is past their RMD age) →
-//   settle (tax the period's whole income in one pass, then reinvest the
-//   leftover or gross up a drawdown against that same income) → apply
-//   growth → snapshot.
+//   accrue stream income → contributions (respect limits) → one-time
+//   contributions (money from outside the plan, straight into an account)
+//   → required minimum distributions (forced, once an owner is past their
+//   RMD age) → settle (tax the period's whole income in one pass, then
+//   reinvest the leftover or gross up a drawdown against that same income)
+//   → apply growth → snapshot.
 
 pub struct PeriodSnapshot {
     pub period_start: YearMonth,
     pub balances: BTreeMap<AccountId, f64>,   // nominal
     pub income: f64, pub expenses: f64, pub taxes: f64, pub contributions: f64,
+    pub one_time_contributions: f64,          // outside money: outside the cash identity, like the match
     pub income_by_stream: BTreeMap<StreamId, f64>,        // sums to `income`
     pub expenses_by_stream: BTreeMap<StreamId, f64>,      // sums to `expenses`
     pub contributions_by_account: BTreeMap<AccountId, f64>, // sums to `contributions`
@@ -365,6 +379,7 @@ pub struct Projection {
     pub snapshots: Vec<PeriodSnapshot>,
     pub warnings: Vec<SimWarning>,   // e.g. DepletedFunds { period }, ContributionClamped
     pub streams: Vec<StreamInfo>,    // every stream the run accrued, synthesized ones included
+    pub one_time: Vec<OneTimeInfo>,  // each one-time contribution deposited: account, entry, period, amount
 }
 ```
 
@@ -384,6 +399,7 @@ Every timing bug shipped so far (#29, #43, #50, #78, #92, and the survivor work 
 - **A stub period's tax is not scaled, and that is a decision.** `BracketTax` applies annual brackets and the whole standard deduction to whatever income a period holds, so a four-month period pays a lower effective rate than the household really pays on those months — in the world they are part of a full tax year. On the test household in `tests/mid_year_start.rs` the stub pays $2,191.50 on $40,000 (5.5%) where the full year pays $15,209 on $120,000 (12.7%), leaving $2,878.17 untaxed. Scaling the thresholds would need the period's fraction inside `TaxModel::tax`, which #105's struct-field approach for inflation indexing does not provide. Decided: document it and pin the figures with a test, so it is a stated choice rather than an oversight. It affects the one year the household is living through, and it is the same class of one-year convention as the final period running to December.
 - **Statutory ages are "age attained during the calendar year"**, `year - birth.year`. Catch-up tiers, the SECURE 2.0 60–63 tier and the RMD beginning age all use it, which is the statutory rule.
 - **Growth, tax and RMDs are whole-period operations.** Growth applies to the whole period's post-flow balance no matter when in the period a flow landed — for a stub, that is the period's own months: `compound(rate, fraction)` raises the period's return to its share of a year. Tax is one pass over the period's totals (#54); the RMD divides the prior period's closing balance, and period 0 has no prior period so it never takes one.
+- **A one-time contribution lands once, in the period its month falls in**, and is grown to that period's start rather than to its month — the deflator's own exponent, so an amount typed in today's dollars reads back exactly in the real-dollar view. Like any other flow it then earns the whole period's return: $400,000 arriving in October at 7% is credited about $21,000 it did not earn that year. Documented rather than prorated, as for contributions. A month outside `[start, horizon)` never lands at all.
 - **The deflator is the price level at the period's start**, `(1 + inflation)^years_elapsed`. Income and expenses are grown by the same exponent, so they deflate exactly. Balances and `net_worth` are end-of-period figures, so a real-dollar balance carries one year of inflation the deflator does not remove, about 2.5% at the default assumption, uniformly across the projection. Scenario deltas, depletion years and success rates are unaffected. Kept as a documented convention rather than a second deflator field.
 - **The final period runs to December.** The horizon is `Plan::end_month`, the last survivor's death month, which is rarely January; the last period is the calendar year it falls in. Streams stop at the horizon, but that year's growth, tax and any required distribution are computed for the whole year, so "at plan end" figures include the months after the last death. Documented rather than fixed: it moves one figure, on one year, by a few percent. The fraction-scaled growth #106 added does *not* reach it — the last period is a whole calendar year by construction, so its fraction is 1; making the tail exact would mean truncating the final period the way period 0 is truncated, which is a separate change and not one anything currently needs.
 - **Monthly periods are not supported.** `PeriodLength::Month` stays in the schema so nothing migrates, but running it would apply annual brackets to one month of income, cut every contribution cap to a twelfth, switch filing status the month after a death, and compute RMDs on the prior month's balance. The claim that it was "a config change" is withdrawn above.
@@ -452,6 +468,24 @@ Both fields are `#[serde(default)]` members of the struct variants #78 introduce
 
 The demo household (#83) is the worked example of all three: the joint brokerage runs two overlapping entries that sum ($6,000/yr from plan start, plus $8,400/yr from January 2027), Alex's 401(k) steps up a point a year from 10% to 15%, and Alex's Roth IRA is an account with a zero balance and a `FederalMaximum` entry that does not open until 2029.
 
+#### One-time contributions (`sim/period.rs`)
+
+A house sale or an inheritance: money that arrives from outside the plan, once, into one account. It is deliberately **not** a `Contribution` with a one-month window. A contribution is paid out of household cash — `settle` subtracts it from the period's income, and a year whose income cannot cover it draws the difference from the portfolio — so a $350,000 sale entered that way would sell investments to fund itself and leave net worth roughly where it was. `OneTimeContribution` takes the employer match's shape instead. `deposit_one_time`, a step run right after `contribute`, adds the amount to the account's balance, and to its cost basis when the account is `Taxable`: these are after-tax dollars, and without basis a later withdrawal would tax them again as gain. It touches nothing else — not income, not tax, not `contributions`, not surplus — so the `income = outflow + surplus` identity is untouched, and `PeriodSnapshot::one_time_contributions` sits outside it beside `employer_match`.
+
+**Only a brokerage or savings account can receive one.** Every other account caps what can go in each year, and a lump sum held to that cap would silently lose the rest, so validation refuses the combination rather than modelling a rollover. Anything the money carried with it — tax on a gain beyond the §121 exclusion, a mortgage paid off at closing, selling costs — is the household's to net out before typing the amount, and the card says so.
+
+**The date is a `StreamBoundary`, narrowed by validation.** A specific month, or someone's retirement or death, so "sell when we retire" moves with the retirement date, in the What-if sandbox too. `PlanStart` is refused: the start moves forward at every refresh, past money the refreshed balances already hold, and the same sum would land again — the class of problem the `PlanStart` pin in `refresh.rs` exists for. `PlanEnd` is refused because the horizon is exclusive and nothing lands there. A month outside `[start, horizon)` is never deposited and raises no warning, since before the start is exactly where a sale ends up once it has happened and the balances holding it are refreshed; the editor says so in words, and the Refresh screen names any entry a new start is about to move past.
+
+**The amount follows the stream convention.** Under `GrowthRule::Inflation` it is in start dollars — "what we would net if we sold today" — grown by `growth_factor` to the start of the period it lands in. `None` is the exact nominal figure. New entries default to `Inflation`, unlike `FlatAmount`'s `None`: a standing transfer is a fixed number of dollars, but a sale years away is estimated from what the house would fetch now. Being a start-dollar figure, it is listed on the Refresh screen as a rate to keep, grow or retype (`RateTarget::OneTimeContribution`).
+
+**It is scenario policy.** Selling the house is a choice one branch makes and another does not, so the list lives on `AccountPolicy` beside the recurring entries — `#[serde(default)]`, so every household file written before it loads unchanged and `SCHEMA_VERSION` does not move.
+
+**The engine says what landed when.** `Projection::one_time` lists each deposit — account, entry, name, period, nominal amount — so the year inspector (which shows it beside market growth, the other figure that explains net worth without passing through household cash), the cash-flow notes and the CSV export never re-derive which year a retirement-dated sale falls in.
+
+**Names, and the #78 decision they reverse.** A one-time entry carries a `name`, because "$350,000 in April 2042" says when and how much but never why. Recurring entries gained an optional `name` at the same time. They were deliberately left unnamed when #78 dated them — a name would be one more thing to keep true after the dates change — but the legend still derives the rule and window and shows a name beside them rather than instead of them, so a name only ever says what the entry is for and moving its dates cannot make it wrong.
+
+**Known omissions.** The asset the money came from is not modelled before it is sold, so net worth jumps in the year a sale lands against a scenario that never counted the house; compare such scenarios on probability of success and depletion rather than on net worth. Backlog **B** is the full treatment — the property in net worth, its basis and the §121 exclusion, the mortgage — and its sale event should deposit through this path. The demo household's *Sell the house at retirement* scenario is the worked example, and its 2027 brokerage transfer is named *Car paid off*.
+
 #### Employer match (`sim/contributions.rs`)
 
 Tiers apply in order, each consuming the employee's deferral percentage until it runs out: `[{3%, 100%}, {2%, 50%}]` on an 8% deferral pays 3% + 1% = 4% of salary. The gate is the **person's** deferral percentage across all their employer plans, derived from what actually went in post-clamp — so a `FlatAmount` or `FederalMaximum` contribution still produces an effective percentage, and splitting deferrals between a Roth and a traditional 401(k) at one employer still earns one match on the combined figure.
@@ -501,7 +535,7 @@ Frontend consumes `Projection` directly (generated types); the real-dollar toggl
 - `run_projection(plan: Plan) -> Projection` — stateless; frontend sends full plan (small payload, ~KB). `run_projections(plans: Vec<Plan>) -> Vec<Result<Projection, String>>` does the same for N scenarios in one round-trip, for the comparison view (#6) — one entry per plan, so one invalid scenario doesn't blank the rest.
 - `save_plan(plan) / load_plan() / load_plan_named(id) / list_plans() -> Vec<PlanSummary>` — every one still takes and returns a `Plan`; `storage` composes one out of its household on the way out and decomposes it back on the way in. YAML in the resolved plans directory, one file per household keyed by the household's stable `id`, atomic write + `.bak`, `schema_version` checked on load. Saving also fills siblings in: a scenario with no policy for an entity the save has gets a copy of the saved scenario's, and one for an entity the save no longer has is pruned — so an account opened in one scenario exists in all of them, at the policy it was opened with, and `compose` never has to invent a retirement date. `load_plan` loads the active scenario (see `set_active_plan`, falling back to the first stored one) and runs the two one-shot migrations: legacy JSON, then version-1 plan files into version-2 households (#109). A `PlanSummary` carries `household_id`, `household_name` and `sample` so the switcher can group by household without loading anything.
 - `get_household(id) -> Household` — the facts behind a scenario, including each balance's as-of date, which the `Plan` itself does not carry (#110).
-- `refresh_household(request: RefreshRequest) -> Plan` — one sitting: the balances the household has just re-read, the month they read them, and the start-dollar rates they re-affirmed (#111). The whole of it is `src-tauri/src/refresh.rs`, and it is the only writer that moves `as_of`. In order: refuse a month before the balances on file or after this one; **append** a dated `Observation` for each account whose reading actually differs, leaving the rest at their own older dates (no estimate is rolled forward, now or later); replace each benefit's statement figure; **pin** every `PlanStart` contribution entry to `Date(old as_of)` before the start moves, so a `StepUp` that had escalated to 12% does not re-resolve to the new start and fall back to 10%; move `as_of`, which every scenario composes its `sim_config.start` from; write the re-affirmed rates into the active scenario and, where asked, into every sibling whose figure for the same target still matched; validate the composed plan; then copy the outgoing household whole into `plans/.refreshes/<household id>/<the month it is leaving>.yaml` and save. The pre-refresh copies are deliberately unpruned, unlike `.history` — they are the baseline a plan-versus-actual view would read (`docs/BACKLOG.md` **I**), recorded at the only moments that matter. Nothing here grows a figure on its own: the screen shows the inflation-grown number beside each rate and sends whichever one the user chose, so "keep" is the default and the honest act is typing the real one.
+- `refresh_household(request: RefreshRequest) -> Plan` — one sitting: the balances the household has just re-read, the month they read them, and the start-dollar rates they re-affirmed (#111). The whole of it is `src-tauri/src/refresh.rs`, and it is the only writer that moves `as_of`. In order: refuse a month before the balances on file or after this one; **append** a dated `Observation` for each account whose reading actually differs, leaving the rest at their own older dates (no estimate is rolled forward, now or later); replace each benefit's statement figure; **pin** every `PlanStart` contribution entry to `Date(old as_of)` before the start moves, so a `StepUp` that had escalated to 12% does not re-resolve to the new start and fall back to 10%; move `as_of`, which every scenario composes its `sim_config.start` from; write the re-affirmed rates — a stream's amount, a flat contribution's, a one-time contribution's — into the active scenario and, where asked, into every sibling whose figure for the same target still matched; validate the composed plan; then copy the outgoing household whole into `plans/.refreshes/<household id>/<the month it is leaving>.yaml` and save. The pre-refresh copies are deliberately unpruned, unlike `.history` — they are the baseline a plan-versus-actual view would read (`docs/BACKLOG.md` **I**), recorded at the only moments that matter. Nothing here grows a figure on its own: the screen shows the inflation-grown number beside each rate and sends whichever one the user chose, so "keep" is the default and the honest act is typing the real one.
 - `duplicate_plan(id, new_name) / delete_plan(id) / set_active_plan(id)` — scenario management: branch a new scenario off an existing one inside the same household (its *policy* is copied; the balances are shared, not duplicated), remove a scenario — its household's file moves to `.trash` when it was the last one, never unlinked — and record which scenario loads on next launch.
 - `run_monte_carlo(plan, MonteCarloConfig { n_paths, seed }, run_id, on_progress: Channel<MonteCarloProgress>) -> Option<MonteCarloResult>` — async; the same `simulate` over N seeded paths in parallel (rayon, on a blocking thread so the window stays live), returning per-period net-worth percentiles plus probability of success, or `None` if cancelled. Progress is sampled from the engine's `RunControl` counter on a timer and sent down the channel; the engine crate never sees Tauri. Starting a run cancels the one before it; `cancel_monte_carlo(run_id)` stops the current one by id. `get_monte_carlo_limits()` returns the clamp range and the path count above which the frontend runs on demand rather than after every edit (#91). `seed` is `u32`, not `u64`, so ts-rs emits a plain `number`: a `bigint` would not survive `JSON.stringify` across the IPC boundary.
 - `get_presets() -> Presets` — allocations, default assumptions, and the contribution-limit table, so defaults live in one place (Rust).

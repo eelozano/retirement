@@ -11,7 +11,7 @@ mod year_month;
 
 pub use account::{
     Account, AccountId, AccountKind, AllocationRef, Contribution, ContributionId, ContributionRule,
-    EmployerMatch, MatchDestination, MatchTier, PlanType, StepUp,
+    EmployerMatch, MatchDestination, MatchTier, OneTimeContribution, PlanType, StepUp,
 };
 pub(crate) use assumptions::default_asset_volatility;
 pub use assumptions::{AssetClass, Assumptions};

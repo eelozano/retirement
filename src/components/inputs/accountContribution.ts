@@ -1,12 +1,15 @@
-import { currency, rateToPercent } from "../../lib/format";
+import { currency, rateToPercent, yearMonth } from "../../lib/format";
 import type { Account } from "../../types/generated/Account";
 import type { Contribution } from "../../types/generated/Contribution";
 import type { ContributionRule } from "../../types/generated/ContributionRule";
 import type { EmployerMatch } from "../../types/generated/EmployerMatch";
+import type { OneTimeContribution } from "../../types/generated/OneTimeContribution";
 import type { Plan } from "../../types/generated/Plan";
 import type { PlanType } from "../../types/generated/PlanType";
 import type { Presets } from "../../types/generated/Presets";
-import { boundaryPhrase } from "./streamBoundary";
+import type { StreamBoundary } from "../../types/generated/StreamBoundary";
+import type { YearMonth } from "../../types/generated/YearMonth";
+import { boundaryPhrase, boundaryResolvedDate } from "./streamBoundary";
 
 // The contribution vocabulary — modes, rules, and the prose an unnamed
 // entry describes itself with. It is a property of the account's
@@ -74,6 +77,7 @@ export function defaultContribution(
 ): Contribution {
   return {
     id: `${account.id}-contribution`,
+    name: "",
     rule,
     start: "PlanStart",
     end: { AtRetirement: account.owner },
@@ -125,26 +129,118 @@ export function ruleSummary(rule: ContributionRule): string {
 }
 
 /**
- * What the accounts table shows in its Contributing column. Entries have no
- * names, so a single one is described by its rule and several are counted —
- * the editor below has the detail, and this column exists to answer "is
- * anything going in here?" while scanning the balance sheet.
+ * What the accounts table shows in its Contributing column. A single
+ * recurring entry is described by its rule and several are counted, and a
+ * one-time entry is named: "$6,000/yr + House sale". The editor below has
+ * the detail; this column exists to answer "is anything going in here?"
+ * while scanning the balance sheet.
  */
 export function contributionSummary(account: Account): string {
-  if (account.contributions.length === 0) return "—";
-  if (account.contributions.length > 1)
-    return `${account.contributions.length} schedules`;
-  return ruleSummary(account.contributions[0].rule);
+  const { contributions, one_time_contributions: oneTime } = account;
+  const parts: string[] = [];
+  if (contributions.length === 1) parts.push(ruleSummary(contributions[0].rule));
+  else if (contributions.length > 1) parts.push(`${contributions.length} schedules`);
+  if (oneTime.length === 1) parts.push(oneTimeName(oneTime[0]));
+  else if (oneTime.length > 1) parts.push(`${oneTime.length} one-time`);
+  return parts.length > 0 ? parts.join(" + ") : "—";
 }
 
 /**
- * An entry's card legend, derived rather than named: "$6,000/yr from Jan
- * 2027 until Alex retires". A name field would be one more thing to keep
- * true after the dates change.
+ * An entry's card legend: "$6,000/yr from Jan 2027 until Alex retires", led
+ * by the entry's name when it has one — "Car paid off · $8,400/yr from …".
+ * The derived part is always there, so a name only adds what the entry is
+ * for, and moving its dates cannot make the legend wrong.
  */
 export function contributionLegend(entry: Contribution, plan: Plan): string {
   const window = `from ${boundaryPhrase(entry.start, plan)} until ${boundaryPhrase(entry.end, plan)}`;
-  return `${ruleSummary(entry.rule)} ${window}`;
+  const described = `${ruleSummary(entry.rule)} ${window}`;
+  const name = entry.name.trim();
+  return name ? `${name} · ${described}` : described;
+}
+
+/**
+ * Whether an account can take money from outside the plan: only a brokerage
+ * or a savings account, since every other kind caps what can go in each
+ * year. Mirrors the destination rule in `engine::model::validation`.
+ */
+export function takesOutsideMoney(account: Pick<Account, "kind">): boolean {
+  return account.kind === "Taxable" || account.kind === "Savings";
+}
+
+/**
+ * A new one-time entry: nothing yet, in today's dollars, landing in January
+ * of the year after the plan starts. Today's dollars because a sale years
+ * off is estimated from what it would fetch now.
+ */
+export function newOneTimeContribution(plan: Plan): OneTimeContribution {
+  return {
+    id: `one-time-${Date.now()}`,
+    name: "",
+    amount: 0,
+    growth: "Inflation",
+    date: { Date: { year: plan.sim_config.start.year + 1, month: 1 } },
+  };
+}
+
+/** A one-time entry's name, or what to call it until it has one. */
+export function oneTimeName(entry: Pick<OneTimeContribution, "name">): string {
+  return entry.name.trim() || "One-time contribution";
+}
+
+/** "in Jun 2031", "when Alex retires (Apr 2042)". */
+function landingPhrase(date: StreamBoundary, plan: Plan): string {
+  const phrase = boundaryPhrase(date, plan);
+  if (typeof date !== "object") return `at ${phrase}`;
+  return "Date" in date ? `in ${phrase}` : `when ${phrase}`;
+}
+
+/**
+ * A one-time entry's card legend: "House sale · $350,000 in today's dollars
+ * when Alex retires (Apr 2042)". It leads with the name, because nothing
+ * else about a lump sum says why it is there, and it says when an amount is
+ * in today's dollars, since that figure lands as a larger nominal one.
+ */
+export function oneTimeLegend(entry: OneTimeContribution, plan: Plan): string {
+  const basis = entry.growth === "Inflation" ? " in today's dollars" : "";
+  return `${oneTimeName(entry)} · ${currency(entry.amount)}${basis} ${landingPhrase(entry.date, plan)}`;
+}
+
+/**
+ * The month a one-time entry lands: its date, or the retirement or death it
+ * is tied to. `undefined` for the plan's own start or end, which validation
+ * refuses, and for a person no longer in the plan.
+ */
+export function oneTimeMonth(
+  entry: Pick<OneTimeContribution, "date">,
+  plan: Plan,
+): YearMonth | undefined {
+  if (typeof entry.date === "object" && "Date" in entry.date) return entry.date.Date;
+  return boundaryResolvedDate(entry.date, plan);
+}
+
+/**
+ * Why a one-time entry won't be counted, or null when it will be. Its month
+ * falls before the projection starts — which is where a sale ends up once
+ * the balances holding it are refreshed — or at or after the last death,
+ * where the projection ends. The same window `simulate` deposits within.
+ */
+export function oneTimeNotCounted(entry: OneTimeContribution, plan: Plan): string | null {
+  const month = oneTimeMonth(entry, plan);
+  if (!month) return null;
+  const index = (m: YearMonth) => m.year * 12 + (m.month - 1);
+  const start = plan.sim_config.start;
+  if (index(month) < index(start)) {
+    return `${yearMonth(month)} is before the projection starts in ${yearMonth(start)}, so this isn't counted. If the money has already arrived, it belongs in the balance; if not, move its date.`;
+  }
+  const horizon = Math.max(
+    ...plan.people.map((p) =>
+      index({ year: p.birth.year + p.life_expectancy_age, month: p.birth.month }),
+    ),
+  );
+  if (plan.people.length > 0 && index(month) >= horizon) {
+    return `${yearMonth(month)} is after the projection ends, so this isn't counted.`;
+  }
+  return null;
 }
 
 /**

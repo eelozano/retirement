@@ -15,7 +15,7 @@ location and is git-ignored. Keep `.gitignore` covering both. Never add
 cloud/network dependencies for user data.
 
 The single deliberate exception is `fixtures/demo/demo-household.yaml` — one
-invented household and the four scenarios branched from it, committed so the
+invented household and the five scenarios branched from it, committed so the
 app can be run, screenshotted, and reported against without anyone's real
 finances. It is generated from `src-tauri/tests/demo_fixtures.rs`, which also
 asserts it still parses, composes, validates, and simulates, so a schema
@@ -85,7 +85,7 @@ caution at all; see `.claude/skills/run-app/SKILL.md`.
   `/tmp/retirement-demo` from `fixtures/demo/` and runs against that invented
   household, so no real financial data is ever on screen and you can add,
   edit and delete plans freely while testing. `pnpm demo:reset` returns it to
-  the one committed household and its four scenarios; `pnpm demo:seed` seeds
+  the one committed household and its five scenarios; `pnpm demo:seed` seeds
   without running.
 - `pnpm tauri dev` — run against your *real* plans (needs webkit2gtk/gtk3 on
   Linux). Only when you specifically need them — a bug that reproduces on no

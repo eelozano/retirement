@@ -27,6 +27,7 @@ const projection: Projection = {
       contributions: 20_000,
       contributions_by_account: { "acct-1": 20_000 },
       employer_match: 5_000,
+      one_time_contributions: 350_000,
       required_distributions: 0,
       surplus: 3_000,
       growth: 8_000,
@@ -35,6 +36,9 @@ const projection: Projection = {
     },
   ],
   warnings: [],
+  one_time: [
+    { account: "acct-2", id: "sale", name: "House sale", period: 0, amount: 350_000 },
+  ],
   streams: [
     { id: "salary", name: "Salary", direction: "Income" },
     { id: "spending", name: "Household spending", direction: "Expense" },
@@ -105,6 +109,20 @@ describe("buildProjectionCsv", () => {
     expect(at("Alex 403(b) contribution")).toBe("20000");
     // An account that received nothing still gets its column, as 0.
     expect(at("Taxable, Alex contribution")).toBe("0");
+  });
+
+  it("gives one-time contributions a total and a column each, after the match", () => {
+    const csv = buildProjectionCsv(plan, projection, false);
+    const header = splitCsv(headerLine(csv));
+    const cells = splitCsv(dataLines(csv)[0]);
+    const match = header.indexOf("Employer match");
+    expect(header.slice(match, match + 3)).toEqual([
+      "Employer match",
+      "One-time contributions",
+      "House sale (one-time)",
+    ]);
+    expect(cells[match + 1]).toBe("350000");
+    expect(cells[match + 2]).toBe("350000");
   });
 
   it("quotes an account name that contains a comma", () => {

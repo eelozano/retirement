@@ -51,6 +51,7 @@ fn account(id: &str, kind: AccountKind, contribution: ContributionRule) -> Accou
             contribution,
             &"p1".to_string(),
         )],
+        one_time_contributions: vec![],
         employer_match: None,
     }
 }

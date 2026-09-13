@@ -21,8 +21,20 @@ const presets = {
 
 const plan = {
   people: [
-    { id: "p1", name: "Solo", retirement: { year: 2040, month: 1 } },
-    { id: "p2", name: "Partner", retirement: { year: 2045, month: 1 } },
+    {
+      id: "p1",
+      name: "Solo",
+      birth: { year: 1975, month: 1 },
+      retirement: { year: 2040, month: 1 },
+      life_expectancy_age: 90,
+    },
+    {
+      id: "p2",
+      name: "Partner",
+      birth: { year: 1978, month: 1 },
+      retirement: { year: 2045, month: 1 },
+      life_expectancy_age: 90,
+    },
   ],
   accounts: [],
   sim_config: { start: { year: 2025, month: 1 }, period: "Year" },
@@ -46,6 +58,16 @@ function currentAccount() {
   return usePlanStore.getState().plan?.accounts[0];
 }
 
+/** The fieldset of the `index`th one-time contribution card. */
+function oneTimeCard(index = 0): HTMLElement {
+  const remove = screen.getAllByRole("button", { name: "Remove one-time contribution" })[
+    index
+  ];
+  const card = remove.closest("fieldset");
+  if (!card) throw new Error("the remove button sits outside a card");
+  return card;
+}
+
 async function addAccount() {
   await userEvent.click(screen.getByRole("button", { name: "Add account" }));
 }
@@ -60,11 +82,13 @@ describe("AccountsSection", () => {
     expect(currentAccount()?.contributions).toEqual([
       {
         id: expect.stringMatching(/-contribution$/),
+        name: "",
         rule: { FlatAmount: { amount: 0, growth: "None" } },
         start: "PlanStart",
         end: { AtRetirement: "p1" },
       },
     ]);
+    expect(currentAccount()?.one_time_contributions).toEqual([]);
     expect(screen.queryByLabelText("Plan type")).toBeNull();
     expect(screen.getByRole("button", { name: "New account" })).toHaveAttribute(
       "aria-current",
@@ -167,6 +191,7 @@ describe("AccountsSection", () => {
             allocation: "Moderate",
             plan_type: "None",
             contributions: [],
+            one_time_contributions: [],
             employer_match: null,
           },
           {
@@ -179,6 +204,7 @@ describe("AccountsSection", () => {
             allocation: "Moderate",
             plan_type: "None",
             contributions: [],
+            one_time_contributions: [],
             employer_match: null,
           },
         ],
@@ -211,6 +237,7 @@ describe("AccountsSection", () => {
             allocation: "Moderate",
             plan_type: "None",
             contributions: [],
+            one_time_contributions: [],
             employer_match: null,
           },
           {
@@ -223,6 +250,7 @@ describe("AccountsSection", () => {
             allocation: "Moderate",
             plan_type: "None",
             contributions: [],
+            one_time_contributions: [],
             employer_match: null,
           },
         ],
@@ -308,6 +336,7 @@ describe("AccountsSection", () => {
     expect(currentAccount()?.contributions).toHaveLength(2);
     expect(currentAccount()?.contributions[1]).toEqual({
       id: expect.stringMatching(/^contribution-/),
+      name: "",
       rule: { FlatAmount: { amount: 0, growth: "None" } },
       start: "PlanStart",
       end: { AtRetirement: "p1" },
@@ -485,6 +514,116 @@ describe("AccountsSection", () => {
     await userEvent.selectOptions(screen.getByLabelText("Type"), "roth_ira");
     expect(currentAccount()?.employer_match).toBeNull();
     expect(screen.queryByLabelText("Employer match")).toBeNull();
+  });
+
+  it("names a recurring contribution ahead of its derived description", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+
+    await userEvent.type(screen.getByLabelText("Name (optional)"), "Auto-invest");
+    expect(currentAccount()?.contributions[0].name).toBe("Auto-invest");
+    expect(
+      screen.getByText(
+        "Auto-invest · $0/yr from plan start until Solo retires (Jan 2040)",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("offers a one-time contribution only on an account that can take outside money", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+    const offer = () =>
+      screen.queryByRole("button", { name: "Add one-time contribution" });
+    expect(offer()).toBeTruthy();
+
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "employer_pretax");
+    expect(offer()).toBeNull();
+
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "savings");
+    expect(offer()).toBeTruthy();
+  });
+
+  it("adds a named one-time contribution in today's dollars, landing at a retirement", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add one-time contribution" }),
+    );
+    expect(currentAccount()?.one_time_contributions).toEqual([
+      {
+        id: expect.stringMatching(/^one-time-/),
+        name: "",
+        amount: 0,
+        growth: "Inflation",
+        // January of the year after the plan starts.
+        date: { Date: { year: 2026, month: 1 } },
+      },
+    ]);
+
+    await userEvent.type(within(oneTimeCard()).getByLabelText("Name"), "House sale");
+    const amount = within(oneTimeCard()).getByLabelText("Amount ($)");
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "350000");
+    await userEvent.selectOptions(
+      within(oneTimeCard()).getByLabelText("Lands"),
+      "Retirement:p1",
+    );
+
+    expect(currentAccount()?.one_time_contributions[0]).toMatchObject({
+      name: "House sale",
+      amount: 350000,
+      growth: "Inflation",
+      date: { AtRetirement: "p1" },
+    });
+    expect(
+      screen.getByText(
+        "House sale · $350,000 in today's dollars when Solo retires (Jan 2040)",
+      ),
+    ).toBeTruthy();
+    // The table names it beside the account's recurring entry.
+    expect(screen.getByRole("cell", { name: "$0/yr + House sale" })).toBeTruthy();
+  });
+
+  it("says when a one-time contribution falls before the projection, and removes it", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add one-time contribution" }),
+    );
+
+    const year = within(oneTimeCard()).getByLabelText("Landing month year");
+    await userEvent.clear(year);
+    await userEvent.type(year, "2024");
+    expect(
+      within(oneTimeCard()).getByText(
+        /Jan 2024 is before the projection starts in Jan 2025, so this isn't counted/,
+      ),
+    ).toBeTruthy();
+
+    await userEvent.click(
+      within(oneTimeCard()).getByRole("button", { name: "Remove one-time contribution" }),
+    );
+    expect(currentAccount()?.one_time_contributions).toEqual([]);
+  });
+
+  it("keeps a one-time contribution's date when the account changes hands", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add one-time contribution" }),
+    );
+    await userEvent.selectOptions(
+      within(oneTimeCard()).getByLabelText("Lands"),
+      "Retirement:p1",
+    );
+
+    await userEvent.selectOptions(screen.getByLabelText("Owner"), "p2");
+    // The recurring entry is paid from its owner's paycheck and follows them;
+    // a sale at Solo's retirement does not move because the account did.
+    expect(currentAccount()?.contributions[0].end).toEqual({ AtRetirement: "p2" });
+    expect(currentAccount()?.one_time_contributions[0].date).toEqual({
+      AtRetirement: "p1",
+    });
   });
 
   it("removes the selected account and clears the editor", async () => {

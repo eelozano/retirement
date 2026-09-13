@@ -25,6 +25,7 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     taxes: 0,
     contributions: 0,
     employer_match: 0,
+    one_time_contributions: 0,
     required_distributions: 0,
     surplus: 0,
     withdrawals: {},
@@ -43,7 +44,7 @@ function projection(
   snapshots: PeriodSnapshot[],
   warnings: Projection["warnings"] = [],
 ): Projection {
-  return { snapshots, warnings, streams: [] };
+  return { snapshots, warnings, streams: [], one_time: [] };
 }
 
 function person(
@@ -719,6 +720,47 @@ describe("yearDetail", () => {
     expect(yearDetail(full, proj, 2040, [], false)?.transition).toBe(
       "elder dies in 2040: filing status is Single from next year; household spending steps to 75%.",
     );
+  });
+
+  it("lists a one-time contribution beside growth, by name, and outside the cash totals", () => {
+    const p = plan([person("a", 1980, 2030)], [account("brokerage")]);
+    const proj: Projection = {
+      ...projection([
+        snapshot({
+          period: 0,
+          period_start: { year: 2030, month: 1 },
+          income: 100_000,
+          expenses: 60_000,
+          taxes: 20_000,
+          surplus: 20_000,
+        }),
+        snapshot({ period: 1, period_start: { year: 2031, month: 1 }, deflator: 2 }),
+      ]),
+      one_time: [
+        {
+          account: "brokerage",
+          id: "sale",
+          name: "House sale",
+          period: 1,
+          amount: 700_000,
+        },
+        { account: "brokerage", id: "gift", name: "", period: 0, amount: 10_000 },
+      ],
+    };
+
+    // Deflated like every other figure in the year it landed.
+    expect(yearDetail(p, proj, 2031, seriesDefs(p), true)?.oneTime).toEqual([
+      { key: "one-time:brokerage:sale", label: "House sale → brokerage", value: 350_000 },
+    ]);
+
+    const gift = yearDetail(p, proj, 2030, seriesDefs(p), false);
+    expect(gift?.oneTime.map((r) => r.label)).toEqual([
+      "One-time contribution → brokerage",
+    ]);
+    // Money from outside the plan is not a flow: the cash totals are untouched.
+    expect(gift?.flows.some((f) => f.key.startsWith("one-time"))).toBe(false);
+    expect(gift?.moneyIn).toBe(100_000);
+    expect(gift?.leftOver).toBe(20_000);
   });
 
   it("returns null for a year outside the projection", () => {

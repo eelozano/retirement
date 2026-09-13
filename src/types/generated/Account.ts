@@ -3,6 +3,7 @@ import type { AccountKind } from "./AccountKind";
 import type { AllocationRef } from "./AllocationRef";
 import type { Contribution } from "./Contribution";
 import type { EmployerMatch } from "./EmployerMatch";
+import type { OneTimeContribution } from "./OneTimeContribution";
 import type { PlanType } from "./PlanType";
 
 export type Account = { id: string, owner: string, kind: AccountKind, name: string, 
@@ -24,10 +25,18 @@ cost_basis: number | null, allocation: AllocationRef,
 plan_type: PlanType, 
 /**
  * What goes into this account and when: dated entries that sum. Empty
- * means nothing is contributed. Every entry is the owner's own money;
- * the employer's share is `employer_match`.
+ * means nothing is contributed. Every entry is the owner's own money,
+ * paid out of household cash; the employer's share is `employer_match`,
+ * and money from outside the plan is `one_time_contributions`.
  */
 contributions: Array<Contribution>, 
+/**
+ * Lump sums from outside the plan that land in this account — a home
+ * sale, an inheritance. Unlike `contributions` they are not paid out of
+ * household cash; see `OneTimeContribution`. Validation allows them
+ * only on a `Taxable` or `Savings` account.
+ */
+one_time_contributions: Array<OneTimeContribution>, 
 /**
  * Employer match on this plan, if any. Matched dollars are employer
  * money: they do not count against the employee elective-deferral

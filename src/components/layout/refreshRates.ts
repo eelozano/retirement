@@ -2,18 +2,19 @@ import type { RateTarget } from "../../lib/api";
 import type { GrowthRule } from "../../types/generated/GrowthRule";
 import type { Plan } from "../../types/generated/Plan";
 import type { YearMonth } from "../../types/generated/YearMonth";
+import { oneTimeMonth, oneTimeName } from "../inputs/accountContribution";
 import { boundaryPhrase } from "../inputs/streamBoundary";
 
 // Which figures in a scenario are **rates**, and what an untouched one means
 // once the projection's start has moved (#111).
 //
 // A rate is a figure stated in start dollars: a salary, a spending figure, a
-// flat contribution amount. Nothing about it changes when the household
-// refreshes, and that is exactly the problem — $150,000 that meant January
-// dollars now means December dollars, which is about 2% less at the default
-// inflation. So the Refresh screen lists every one of them and the user
-// keeps, grows, or retypes it. Keep is the default: raises are discrete, and
-// typing the new figure is the honest act.
+// flat or one-time contribution amount. Nothing about it changes when the
+// household refreshes, and that is exactly the problem — $150,000 that meant
+// January dollars now means December dollars, which is about 2% less at the
+// default inflation. So the Refresh screen lists every one of them and the
+// user keeps, grows, or retypes it. Keep is the default: raises are discrete,
+// and typing the new figure is the honest act.
 //
 // What is *not* listed is intent, which is not denominated in dollars of any
 // month and so cannot go stale: a percent of salary, a federal maximum, a
@@ -43,7 +44,8 @@ function ownerName(plan: Plan, owner: string | null): string {
 /**
  * Every start-dollar figure in `plan`, in the order the screen shows them:
  * income and expense streams first — the salary and the spending figure are
- * what a household actually re-reads — then flat contributions.
+ * what a household actually re-reads — then each account's flat and one-time
+ * contributions.
  *
  * Percent-of-salary and federal-maximum entries are deliberately absent.
  * They have no dollar figure to re-affirm: a percentage rides the salary it
@@ -67,22 +69,66 @@ export function listRates(plan: Plan): RateEntry[] {
       // A tagged union whose other arms are bare strings, so narrow on the
       // shape before reaching for the tag.
       if (typeof entry.rule === "string" || !("FlatAmount" in entry.rule)) continue;
+      const window = `${boundaryPhrase(entry.start, plan)} to ${boundaryPhrase(entry.end, plan)}`;
+      const name = entry.name.trim();
       rates.push({
         key: `contribution:${account.id}:${entry.id}`,
         target: { Contribution: { account: account.id, id: entry.id } },
-        label: `Into ${account.name}`,
-        // An entry has no name of its own, and an account can hold several.
-        // Its window is what tells them apart, so the row says it.
-        detail: `${ownerName(plan, account.owner)} · ${boundaryPhrase(
-          entry.start,
-          plan,
-        )} to ${boundaryPhrase(entry.end, plan)}`,
+        // A named entry is called what the household called it, and an
+        // unnamed one by where its money goes. Either way the window is in
+        // the detail: an account can hold several, and it tells them apart.
+        label: name || `Into ${account.name}`,
+        detail: name
+          ? `Into ${account.name} · ${window}`
+          : `${ownerName(plan, account.owner)} · ${window}`,
         amount: entry.rule.FlatAmount.amount,
         growth: entry.rule.FlatAmount.growth,
       });
     }
+    // A sale price or an inheritance is exactly the kind of figure a sitting
+    // re-estimates, and one in today's dollars is re-stated by the move like
+    // any other.
+    for (const entry of account.one_time_contributions) {
+      rates.push({
+        key: `one-time:${account.id}:${entry.id}`,
+        target: { OneTimeContribution: { account: account.id, id: entry.id } },
+        label: oneTimeName(entry),
+        detail: `One-time · into ${account.name} · ${boundaryPhrase(entry.date, plan)}`,
+        amount: entry.amount,
+        growth: entry.growth,
+      });
+    }
   }
   return rates;
+}
+
+/**
+ * One-time contributions a refresh dated `to` will stop counting: those
+ * landing from the balances on file (`from`) up to, but not including, the new
+ * start. Either the money has arrived — and belongs in the balances being
+ * typed — or the event slipped and needs a later date. The screen names them
+ * so that neither happens silently.
+ */
+export function oneTimeSkippedBy(
+  plan: Plan,
+  from: YearMonth,
+  to: YearMonth,
+): { key: string; name: string; account: string; month: YearMonth }[] {
+  const index = (m: YearMonth) => m.year * 12 + (m.month - 1);
+  return plan.accounts.flatMap((account) =>
+    account.one_time_contributions.flatMap((entry) => {
+      const month = oneTimeMonth(entry, plan);
+      if (!month || index(month) < index(from) || index(month) >= index(to)) return [];
+      return [
+        {
+          key: `${account.id}:${entry.id}`,
+          name: oneTimeName(entry),
+          account: account.name,
+          month,
+        },
+      ];
+    }),
+  );
 }
 
 /** Whole months from `from` to `to`, clamped at zero. */

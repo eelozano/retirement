@@ -69,6 +69,7 @@ fn micro_plan() -> Plan {
                 },
                 &person,
             )],
+            one_time_contributions: vec![],
             employer_match: None,
         }],
         streams: vec![
@@ -207,6 +208,7 @@ fn micro_plan_with_taxable_account() -> Plan {
             },
             &"p1".to_string(),
         )],
+        one_time_contributions: vec![],
         employer_match: None,
     });
     for stream in &mut plan.streams {
@@ -344,6 +346,7 @@ fn with_second_account(
             },
             &"p1".to_string(),
         )],
+        one_time_contributions: vec![],
         employer_match: None,
     });
     plan

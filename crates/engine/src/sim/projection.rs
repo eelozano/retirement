@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::model::{AccountId, StreamDirection, StreamId, YearMonth};
+use crate::model::{AccountId, ContributionId, StreamDirection, StreamId, YearMonth};
 
 /// Non-fatal issues surfaced by a simulation run.
 #[derive(Serialize, Deserialize, TS, Clone, Debug, PartialEq)]
@@ -115,6 +115,12 @@ pub struct PeriodSnapshot {
     /// Employer matching contributions deposited this period. Employer
     /// money: it raises balances without reducing household cash.
     pub employer_match: f64,
+    /// Money deposited this period from outside the plan — one-time
+    /// contributions such as a home sale's proceeds. Like `employer_match`
+    /// it raises balances without passing through household cash, so it is
+    /// not part of `contributions` and sits outside the income = outflow +
+    /// surplus identity. `Projection::one_time` names the entries.
+    pub one_time_contributions: f64,
     /// Gross required minimum distributions forced out of pre-tax accounts
     /// this period (#49). Part of `withdrawals`, not an addition to them:
     /// the forced share of the period's gross draw.
@@ -165,6 +171,30 @@ pub struct StreamInfo {
     pub direction: StreamDirection,
 }
 
+/// A one-time contribution as the engine actually deposited it: which entry,
+/// in which period, and how many nominal dollars. What the year inspector,
+/// the cash-flow notes and the CSV export label a lump sum with.
+///
+/// Listed by the engine rather than re-derived by each view, because "which
+/// year does this land in" is exactly the kind of question the Time
+/// conventions in `docs/ARCHITECTURE.md` keep in one place: a person-relative
+/// date resolves against a retirement a view would otherwise have to look
+/// up, and the amount has already been grown. An entry that never landed —
+/// dated before the plan starts, at or after the horizon, or tied to a person
+/// no longer in the plan — is not listed.
+#[derive(Serialize, Deserialize, TS, Clone, Debug, PartialEq)]
+#[ts(export)]
+pub struct OneTimeInfo {
+    pub account: AccountId,
+    /// The entry's id, distinct within `account`.
+    pub id: ContributionId,
+    pub name: String,
+    /// Index into `Projection::snapshots`.
+    pub period: usize,
+    /// Nominal dollars deposited, already grown by the entry's growth rule.
+    pub amount: f64,
+}
+
 /// Full result of one simulation path.
 #[derive(Serialize, Deserialize, TS, Clone, Debug)]
 #[ts(export)]
@@ -175,4 +205,8 @@ pub struct Projection {
     /// Social Security, then survivor continuations. A stream skipped with
     /// `UnknownPersonRef` is not listed, since it never accrued.
     pub streams: Vec<StreamInfo>,
+    /// Every one-time contribution the run deposited, in the order they
+    /// landed. Within a period their amounts sum to that snapshot's
+    /// `one_time_contributions`.
+    pub one_time: Vec<OneTimeInfo>,
 }

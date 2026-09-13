@@ -29,6 +29,7 @@
         "taxable-brokerage": 13333.333333333332
       },
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 19347.666666666664,
       "withdrawals": {},
@@ -65,6 +66,7 @@
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 38779.59798306986,
       "withdrawals": {},
@@ -101,6 +103,7 @@
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 41021.38793264658,
       "withdrawals": {},
@@ -137,6 +140,7 @@
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 42830.81013096275,
       "withdrawals": {},
@@ -173,6 +177,7 @@
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 44865.030384236845,
       "withdrawals": {},
@@ -209,6 +214,7 @@
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 47301.743643842725,
       "withdrawals": {},
@@ -245,6 +251,7 @@
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 49313.67473493876,
       "withdrawals": {},
@@ -281,6 +288,7 @@
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 45093.07910331224,
       "withdrawals": {},
@@ -317,6 +325,7 @@
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 47249.24358089504,
       "withdrawals": {},
@@ -353,6 +362,7 @@
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 49637.98717041746,
       "withdrawals": {},
@@ -389,6 +399,7 @@
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 51607.16184967781,
       "withdrawals": {},
@@ -425,6 +436,7 @@
         "taxable-brokerage": 40000.0
       },
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 52749.6533959198,
       "withdrawals": {},
@@ -461,6 +473,7 @@
         "taxable-brokerage": 23333.333333333336
       },
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 26608.398434197486,
       "withdrawals": {},
@@ -494,6 +507,7 @@
         "jordan-roth": 11500.0
       },
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -531,6 +545,7 @@
         "jordan-roth": 12000.0
       },
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -568,6 +583,7 @@
         "jordan-roth": 12000.0
       },
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -605,6 +621,7 @@
         "jordan-roth": 7350.000000000001
       },
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -638,6 +655,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -671,6 +689,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -704,6 +723,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -737,6 +757,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -770,6 +791,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -803,6 +825,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -836,6 +859,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -869,6 +893,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -902,6 +927,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -935,6 +961,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -970,6 +997,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -1005,6 +1033,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -1040,6 +1069,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -1075,6 +1105,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -1110,6 +1141,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 0.0,
       "surplus": 0.0,
       "withdrawals": {
@@ -1145,6 +1177,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 151666.91087514893,
       "surplus": 0.0,
       "withdrawals": {
@@ -1180,6 +1213,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 162250.26190289258,
       "surplus": 4238.940749441332,
       "withdrawals": {
@@ -1213,6 +1247,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 172815.30461191,
       "surplus": 9419.954974104534,
       "withdrawals": {
@@ -1246,6 +1281,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 184845.99914729048,
       "surplus": 15672.159646121698,
       "withdrawals": {
@@ -1279,6 +1315,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 197675.71316393535,
       "surplus": 22464.368586885626,
       "withdrawals": {
@@ -1312,6 +1349,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 211351.05600358595,
       "surplus": 29836.668809788505,
       "withdrawals": {
@@ -1345,6 +1383,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 224755.50648331855,
       "surplus": 36817.92464407181,
       "withdrawals": {
@@ -1378,6 +1417,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 240194.38743677805,
       "surplus": 45200.08016161976,
       "withdrawals": {
@@ -1411,6 +1451,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 255172.6108906393,
       "surplus": 53148.4261292961,
       "withdrawals": {
@@ -1444,6 +1485,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 272550.92891150387,
       "surplus": 62834.10387146345,
       "withdrawals": {
@@ -1477,6 +1519,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 289195.2734514683,
       "surplus": 71879.12816930446,
       "withdrawals": {
@@ -1510,6 +1553,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 306651.6328851343,
       "surplus": 81446.7918475453,
       "withdrawals": {
@@ -1543,6 +1587,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 324920.82981931185,
       "surplus": 91543.49528889137,
       "withdrawals": {
@@ -1577,6 +1622,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 341482.30540054,
       "surplus": 100242.32084628008,
       "withdrawals": {
@@ -1610,6 +1656,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 361234.01254585886,
       "surplus": 111271.84999526921,
       "withdrawals": {
@@ -1643,6 +1690,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 378601.37402608624,
       "surplus": 120389.46973175247,
       "withdrawals": {
@@ -1676,6 +1724,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 396194.8152677854,
       "surplus": 129582.09571224195,
       "withdrawals": {
@@ -1709,6 +1758,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 413886.0143106455,
       "surplus": 138737.12038753385,
       "withdrawals": {
@@ -1742,6 +1792,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 431511.00191015145,
       "surplus": 147736.76720094442,
       "withdrawals": {
@@ -1775,6 +1826,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 444136.1053818279,
       "surplus": 152826.70598314924,
       "withdrawals": {
@@ -1808,6 +1860,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 455775.964548155,
       "surplus": 157056.2430968819,
       "withdrawals": {
@@ -1841,6 +1894,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 460580.6028411002,
       "surplus": 155968.99345052737,
       "withdrawals": {
@@ -1874,6 +1928,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 469514.6855603128,
       "surplus": 157913.11469941132,
       "withdrawals": {
@@ -1907,6 +1962,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 469939.1782897236,
       "surplus": 153258.36551560287,
       "withdrawals": {
@@ -1940,6 +1996,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 467820.99655228533,
       "surplus": 146554.93714553508,
       "withdrawals": {
@@ -1973,6 +2030,7 @@
       "contributions": 0.0,
       "contributions_by_account": {},
       "employer_match": 0.0,
+      "one_time_contributions": 0.0,
       "required_distributions": 455548.00509585894,
       "surplus": 283012.38668949576,
       "withdrawals": {
@@ -2010,5 +2068,6 @@
       "name": "Jordan's survivor Social Security",
       "direction": "Income"
     }
-  ]
+  ],
+  "one_time": []
 }

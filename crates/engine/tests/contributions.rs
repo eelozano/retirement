@@ -51,6 +51,7 @@ fn plan_with(contribution: ContributionRule, kind: AccountKind, plan_type: PlanT
                 contribution,
                 &person,
             )],
+            one_time_contributions: vec![],
             employer_match: None,
         }],
         streams: vec![
@@ -404,6 +405,7 @@ fn two_entries_on_one_account_sum_and_clamp_together_with_one_warning() {
     );
     plan.accounts[0].contributions.push(Contribution {
         id: "raise".to_string(),
+        name: String::new(),
         rule: ContributionRule::FlatAmount {
             amount: 12_000.0,
             growth: GrowthRule::None,

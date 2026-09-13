@@ -55,7 +55,7 @@ function makePlan(overrides: Partial<Plan> = {}): Plan {
   };
 }
 
-const projection: Projection = { snapshots: [], warnings: [], streams: [] };
+const projection: Projection = { snapshots: [], warnings: [], streams: [], one_time: [] };
 
 describe("ReportView", () => {
   it("carries the balances' as-of date in the header", () => {

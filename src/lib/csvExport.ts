@@ -9,10 +9,12 @@ import { dateStamp, sanitizedPlanName } from "./exportFilename";
 // Per-stream and per-account columns (#67) sit right after the total they
 // decompose, and are taken from `projection.streams` rather than the plan so
 // the Social Security and survivor streams the engine synthesizes get
-// columns too.
+// columns too. One-time contributions follow the employer match the same way:
+// their total, then a column for each entry the engine actually deposited
+// (`projection.one_time`), zero outside the year it landed.
 
 /** Wraps a field in quotes and escapes internal quotes if it needs it — the
- * only free-text values here are account names. */
+ * free-text values here are account, stream and one-time contribution names. */
 function csvField(value: string | number): string {
   const s = typeof value === "number" ? String(value) : value;
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -48,6 +50,7 @@ export function buildProjectionCsv(
 
   const incomeStreams = projection.streams.filter((s) => s.direction === "Income");
   const expenseStreams = projection.streams.filter((s) => s.direction === "Expense");
+  const oneTime = projection.one_time;
 
   const header = [
     "Year",
@@ -61,6 +64,8 @@ export function buildProjectionCsv(
     "Contributions",
     ...plan.accounts.map((a) => `${a.name} contribution`),
     "Employer match",
+    "One-time contributions",
+    ...oneTime.map((o) => `${o.name.trim() || "One-time contribution"} (one-time)`),
     "Required distributions",
     "Surplus",
     ...plan.accounts.map((a) => `${a.name} withdrawal`),
@@ -83,6 +88,8 @@ export function buildProjectionCsv(
       m(s.contributions),
       ...plan.accounts.map((a) => m(s.contributions_by_account[a.id] ?? 0)),
       m(s.employer_match),
+      m(s.one_time_contributions),
+      ...oneTime.map((o) => m(o.period === s.period ? o.amount : 0)),
       m(s.required_distributions),
       m(s.surplus),
       ...plan.accounts.map((a) => m(s.withdrawals[a.id] ?? 0)),

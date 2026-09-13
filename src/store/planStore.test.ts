@@ -67,7 +67,7 @@ function makePlan(overrides: Partial<Plan>): Plan {
   };
 }
 
-const projection: Projection = { snapshots: [], warnings: [], streams: [] };
+const projection: Projection = { snapshots: [], warnings: [], streams: [], one_time: [] };
 
 function mcResult(success_rate: number, n_paths: number): MonteCarloResult {
   return { n_paths, success_rate, percentiles: [], diagnostics: diagnostics() };

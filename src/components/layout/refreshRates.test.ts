@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Plan } from "../../types/generated/Plan";
-import { grownRate, listRates, monthsBetween, refreshMonths } from "./refreshRates";
+import {
+  grownRate,
+  listRates,
+  monthsBetween,
+  oneTimeSkippedBy,
+  refreshMonths,
+} from "./refreshRates";
 
 const plan = {
   people: [
@@ -33,6 +39,7 @@ const plan = {
       contributions: [
         {
           id: "transfer",
+          name: "",
           rule: { FlatAmount: { amount: 40_000, growth: "None" } },
           start: "PlanStart",
           end: { AtRetirement: "alex" },
@@ -43,6 +50,16 @@ const plan = {
           rule: { PercentOfSalary: { percent: 0.1, step_up: null } },
         },
       ],
+      // A sale price is exactly the kind of figure a sitting re-estimates.
+      one_time_contributions: [
+        {
+          id: "house-sale",
+          name: "House sale",
+          amount: 350_000,
+          growth: "Inflation",
+          date: { AtRetirement: "alex" },
+        },
+      ],
     },
     {
       id: "alex-401k",
@@ -50,6 +67,7 @@ const plan = {
       owner: "alex",
       // Intent again: the engine indexes the statutory figure forward.
       contributions: [{ id: "max", rule: "FederalMaximum" }],
+      one_time_contributions: [],
     },
   ],
 } as unknown as Plan;
@@ -60,6 +78,7 @@ describe("listRates", () => {
       "stream:alex-salary",
       "stream:household-spending",
       "contribution:taxable-brokerage:transfer",
+      "one-time:taxable-brokerage:house-sale",
     ]);
   });
 
@@ -69,8 +88,8 @@ describe("listRates", () => {
     expect(salary.detail).toBe("Income · Alex");
     expect(spending.detail).toBe("Spending · Household");
     expect(transfer.label).toBe("Into Taxable Brokerage");
-    // An entry has no name of its own, so its window is what tells two
-    // entries on the same account apart.
+    // An unnamed entry is called by where its money goes, so its window is
+    // what tells two entries on the same account apart.
     expect(transfer.detail).toBe("Alex · plan start to Alex retires");
     expect(transfer.amount).toBe(40_000);
   });
@@ -79,6 +98,65 @@ describe("listRates", () => {
     expect(listRates(plan)[2].target).toEqual({
       Contribution: { account: "taxable-brokerage", id: "transfer" },
     });
+  });
+
+  it("calls a named contribution by its name, and says where its money goes", () => {
+    const named = structuredClone(plan);
+    named.accounts[0].contributions[0].name = "Auto-invest";
+    const transfer = listRates(named)[2];
+    expect(transfer.label).toBe("Auto-invest");
+    expect(transfer.detail).toBe("Into Taxable Brokerage · plan start to Alex retires");
+  });
+
+  it("lists a one-time contribution as a figure the sitting can re-estimate", () => {
+    const sale = listRates(plan)[3];
+    expect(sale.label).toBe("House sale");
+    expect(sale.detail).toBe("One-time · into Taxable Brokerage · Alex retires");
+    expect(sale.amount).toBe(350_000);
+    expect(sale.growth).toBe("Inflation");
+    expect(sale.target).toEqual({
+      OneTimeContribution: { account: "taxable-brokerage", id: "house-sale" },
+    });
+  });
+});
+
+describe("oneTimeSkippedBy", () => {
+  /** The fixture's brokerage, holding one sale dated `year`-`month`. */
+  const saleIn = (year: number, month: number) =>
+    ({
+      ...plan,
+      accounts: [
+        {
+          ...plan.accounts[0],
+          one_time_contributions: [
+            {
+              id: "sale",
+              name: "House sale",
+              amount: 1,
+              growth: "None",
+              date: { Date: { year, month } },
+            },
+          ],
+        },
+      ],
+    }) as unknown as Plan;
+  const onFile = { year: 2026, month: 9 };
+  const newStart = { year: 2026, month: 12 };
+
+  it("names a one-time contribution the new start moves past", () => {
+    expect(oneTimeSkippedBy(saleIn(2026, 11), onFile, newStart)).toEqual([
+      {
+        key: "taxable-brokerage:sale",
+        name: "House sale",
+        account: "Taxable Brokerage",
+        month: { year: 2026, month: 11 },
+      },
+    ]);
+  });
+
+  it("leaves alone one already before the balances on file, and one the new start still reaches", () => {
+    expect(oneTimeSkippedBy(saleIn(2026, 8), onFile, newStart)).toEqual([]);
+    expect(oneTimeSkippedBy(saleIn(2026, 12), onFile, newStart)).toEqual([]);
   });
 });
 
