@@ -135,6 +135,7 @@ fn demo_base() -> Plan {
                     ),
                     Contribution {
                         id: "joint-brokerage-contribution-2027".to_string(),
+                        name: String::new(),
                         rule: ContributionRule::FlatAmount {
                             amount: 8_400.0,
                             growth: GrowthRule::None,
@@ -143,6 +144,7 @@ fn demo_base() -> Plan {
                         end: StreamBoundary::AtRetirement(ALEX.to_string()),
                     },
                 ],
+                one_time_contributions: vec![],
                 employer_match: None,
             },
             Account {
@@ -168,6 +170,7 @@ fn demo_base() -> Plan {
                     &ALEX.to_string(),
                 )],
                 // "100% of the first 3%, then 50% of the next 2%."
+                one_time_contributions: vec![],
                 employer_match: Some(tiered_match(
                     &[(0.03, 1.0), (0.02, 0.5)],
                     MatchDestination::PreTax,
@@ -190,6 +193,7 @@ fn demo_base() -> Plan {
                     },
                     &JORDAN.to_string(),
                 )],
+                one_time_contributions: vec![],
                 employer_match: Some(tiered_match(&[(0.04, 0.5)], MatchDestination::PreTax)),
             },
             Account {
@@ -206,6 +210,7 @@ fn demo_base() -> Plan {
                     ContributionRule::FederalMaximum,
                     &JORDAN.to_string(),
                 )],
+                one_time_contributions: vec![],
                 employer_match: None,
             },
             // An account that does not exist yet: Alex opens a Roth IRA in
@@ -222,10 +227,12 @@ fn demo_base() -> Plan {
                 plan_type: PlanType::Ira,
                 contributions: vec![Contribution {
                     id: "alex-roth-ira-contribution".to_string(),
+                    name: String::new(),
                     rule: ContributionRule::FederalMaximum,
                     start: StreamBoundary::Date(YearMonth::new(2029, 1)),
                     end: StreamBoundary::AtRetirement(ALEX.to_string()),
                 }],
+                one_time_contributions: vec![],
                 employer_match: None,
             },
             Account {
@@ -242,6 +249,7 @@ fn demo_base() -> Plan {
                     ContributionRule::FederalMaximum,
                     &ALEX.to_string(),
                 )],
+                one_time_contributions: vec![],
                 employer_match: None,
             },
             Account {
@@ -261,6 +269,7 @@ fn demo_base() -> Plan {
                     },
                     &JORDAN.to_string(),
                 )],
+                one_time_contributions: vec![],
                 employer_match: None,
             },
         ],

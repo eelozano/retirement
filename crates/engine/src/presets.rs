@@ -430,6 +430,7 @@ pub fn seed_plan() -> Plan {
                     },
                     &alex,
                 )],
+                one_time_contributions: vec![],
                 employer_match: None,
             },
             Account {
@@ -449,6 +450,7 @@ pub fn seed_plan() -> Plan {
                     ContributionRule::FederalMaximum,
                     &alex,
                 )],
+                one_time_contributions: vec![],
                 employer_match: None,
             },
             Account {
@@ -465,6 +467,7 @@ pub fn seed_plan() -> Plan {
                     ContributionRule::FederalMaximum,
                     &jordan,
                 )],
+                one_time_contributions: vec![],
                 employer_match: None,
             },
         ],
