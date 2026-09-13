@@ -62,6 +62,14 @@ contributions_by_account: { [key in string]?: number },
  */
 employer_match: number, 
 /**
+ * Money deposited this period from outside the plan — one-time
+ * contributions such as a home sale's proceeds. Like `employer_match`
+ * it raises balances without passing through household cash, so it is
+ * not part of `contributions` and sits outside the income = outflow +
+ * surplus identity. `Projection::one_time` names the entries.
+ */
+one_time_contributions: number, 
+/**
  * Gross required minimum distributions forced out of pre-tax accounts
  * this period (#49). Part of `withdrawals`, not an addition to them:
  * the forced share of the period's gross draw.

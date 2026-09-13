@@ -18,6 +18,7 @@ function projection(warnings: Projection["warnings"]): Projection {
     ],
     warnings,
     streams: [],
+    one_time: [],
   };
 }
 

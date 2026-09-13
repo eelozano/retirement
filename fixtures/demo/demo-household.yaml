@@ -129,6 +129,7 @@ scenarios:
     alex-401k:
       contributions:
       - id: alex-401k-contribution
+        name: ''
         rule: !PercentOfSalary
           percent: 0.1
           step_up:
@@ -136,6 +137,7 @@ scenarios:
             cap: 0.15
         start: PlanStart
         end: !AtRetirement alex
+      one_time_contributions: []
       employer_match:
         tiers:
         - employee_percent: 0.03
@@ -146,37 +148,45 @@ scenarios:
     alex-hsa:
       contributions:
       - id: alex-hsa-contribution
+        name: ''
         rule: FederalMaximum
         start: PlanStart
         end: !AtRetirement alex
+      one_time_contributions: []
       employer_match: null
     alex-roth-ira:
       contributions:
       - id: alex-roth-ira-contribution
+        name: ''
         rule: FederalMaximum
         start: !Date
           year: 2029
           month: 1
         end: !AtRetirement alex
+      one_time_contributions: []
       employer_match: null
     emergency-savings:
       contributions:
       - id: emergency-savings-contribution
+        name: ''
         rule: !FlatAmount
           amount: 0.0
           growth: None
         start: PlanStart
         end: !AtRetirement jordan
+      one_time_contributions: []
       employer_match: null
     joint-brokerage:
       contributions:
       - id: joint-brokerage-contribution
+        name: ''
         rule: !FlatAmount
           amount: 6000.0
           growth: None
         start: PlanStart
         end: !AtRetirement alex
       - id: joint-brokerage-contribution-2027
+        name: Car paid off
         rule: !FlatAmount
           amount: 8400.0
           growth: None
@@ -184,15 +194,18 @@ scenarios:
           year: 2027
           month: 1
         end: !AtRetirement alex
+      one_time_contributions: []
       employer_match: null
     jordan-403b:
       contributions:
       - id: jordan-403b-contribution
+        name: ''
         rule: !PercentOfSalary
           percent: 0.08
           step_up: null
         start: PlanStart
         end: !AtRetirement jordan
+      one_time_contributions: []
       employer_match:
         tiers:
         - employee_percent: 0.04
@@ -201,9 +214,11 @@ scenarios:
     jordan-roth-ira:
       contributions:
       - id: jordan-roth-ira-contribution
+        name: ''
         rule: FederalMaximum
         start: PlanStart
         end: !AtRetirement jordan
+      one_time_contributions: []
       employer_match: null
   social_security:
     alex-social-security:
@@ -311,6 +326,7 @@ scenarios:
     alex-401k:
       contributions:
       - id: alex-401k-contribution
+        name: ''
         rule: !PercentOfSalary
           percent: 0.1
           step_up:
@@ -318,6 +334,7 @@ scenarios:
             cap: 0.15
         start: PlanStart
         end: !AtRetirement alex
+      one_time_contributions: []
       employer_match:
         tiers:
         - employee_percent: 0.03
@@ -328,37 +345,45 @@ scenarios:
     alex-hsa:
       contributions:
       - id: alex-hsa-contribution
+        name: ''
         rule: FederalMaximum
         start: PlanStart
         end: !AtRetirement alex
+      one_time_contributions: []
       employer_match: null
     alex-roth-ira:
       contributions:
       - id: alex-roth-ira-contribution
+        name: ''
         rule: FederalMaximum
         start: !Date
           year: 2029
           month: 1
         end: !AtRetirement alex
+      one_time_contributions: []
       employer_match: null
     emergency-savings:
       contributions:
       - id: emergency-savings-contribution
+        name: ''
         rule: !FlatAmount
           amount: 0.0
           growth: None
         start: PlanStart
         end: !AtRetirement jordan
+      one_time_contributions: []
       employer_match: null
     joint-brokerage:
       contributions:
       - id: joint-brokerage-contribution
+        name: ''
         rule: !FlatAmount
           amount: 6000.0
           growth: None
         start: PlanStart
         end: !AtRetirement alex
       - id: joint-brokerage-contribution-2027
+        name: Car paid off
         rule: !FlatAmount
           amount: 8400.0
           growth: None
@@ -366,15 +391,18 @@ scenarios:
           year: 2027
           month: 1
         end: !AtRetirement alex
+      one_time_contributions: []
       employer_match: null
     jordan-403b:
       contributions:
       - id: jordan-403b-contribution
+        name: ''
         rule: !PercentOfSalary
           percent: 0.08
           step_up: null
         start: PlanStart
         end: !AtRetirement jordan
+      one_time_contributions: []
       employer_match:
         tiers:
         - employee_percent: 0.04
@@ -383,9 +411,11 @@ scenarios:
     jordan-roth-ira:
       contributions:
       - id: jordan-roth-ira-contribution
+        name: ''
         rule: FederalMaximum
         start: PlanStart
         end: !AtRetirement jordan
+      one_time_contributions: []
       employer_match: null
   social_security:
     alex-social-security:
@@ -493,6 +523,7 @@ scenarios:
     alex-401k:
       contributions:
       - id: alex-401k-contribution
+        name: ''
         rule: !PercentOfSalary
           percent: 0.1
           step_up:
@@ -500,6 +531,7 @@ scenarios:
             cap: 0.15
         start: PlanStart
         end: !AtRetirement alex
+      one_time_contributions: []
       employer_match:
         tiers:
         - employee_percent: 0.03
@@ -510,37 +542,45 @@ scenarios:
     alex-hsa:
       contributions:
       - id: alex-hsa-contribution
+        name: ''
         rule: FederalMaximum
         start: PlanStart
         end: !AtRetirement alex
+      one_time_contributions: []
       employer_match: null
     alex-roth-ira:
       contributions:
       - id: alex-roth-ira-contribution
+        name: ''
         rule: FederalMaximum
         start: !Date
           year: 2029
           month: 1
         end: !AtRetirement alex
+      one_time_contributions: []
       employer_match: null
     emergency-savings:
       contributions:
       - id: emergency-savings-contribution
+        name: ''
         rule: !FlatAmount
           amount: 0.0
           growth: None
         start: PlanStart
         end: !AtRetirement jordan
+      one_time_contributions: []
       employer_match: null
     joint-brokerage:
       contributions:
       - id: joint-brokerage-contribution
+        name: ''
         rule: !FlatAmount
           amount: 6000.0
           growth: None
         start: PlanStart
         end: !AtRetirement alex
       - id: joint-brokerage-contribution-2027
+        name: Car paid off
         rule: !FlatAmount
           amount: 8400.0
           growth: None
@@ -548,15 +588,18 @@ scenarios:
           year: 2027
           month: 1
         end: !AtRetirement alex
+      one_time_contributions: []
       employer_match: null
     jordan-403b:
       contributions:
       - id: jordan-403b-contribution
+        name: ''
         rule: !PercentOfSalary
           percent: 0.08
           step_up: null
         start: PlanStart
         end: !AtRetirement jordan
+      one_time_contributions: []
       employer_match:
         tiers:
         - employee_percent: 0.04
@@ -565,9 +608,11 @@ scenarios:
     jordan-roth-ira:
       contributions:
       - id: jordan-roth-ira-contribution
+        name: ''
         rule: FederalMaximum
         start: PlanStart
         end: !AtRetirement jordan
+      one_time_contributions: []
       employer_match: null
   social_security:
     alex-social-security:
@@ -675,6 +720,7 @@ scenarios:
     alex-401k:
       contributions:
       - id: alex-401k-contribution
+        name: ''
         rule: !PercentOfSalary
           percent: 0.1
           step_up:
@@ -682,6 +728,7 @@ scenarios:
             cap: 0.15
         start: PlanStart
         end: !AtRetirement alex
+      one_time_contributions: []
       employer_match:
         tiers:
         - employee_percent: 0.03
@@ -692,37 +739,45 @@ scenarios:
     alex-hsa:
       contributions:
       - id: alex-hsa-contribution
+        name: ''
         rule: FederalMaximum
         start: PlanStart
         end: !AtRetirement alex
+      one_time_contributions: []
       employer_match: null
     alex-roth-ira:
       contributions:
       - id: alex-roth-ira-contribution
+        name: ''
         rule: FederalMaximum
         start: !Date
           year: 2029
           month: 1
         end: !AtRetirement alex
+      one_time_contributions: []
       employer_match: null
     emergency-savings:
       contributions:
       - id: emergency-savings-contribution
+        name: ''
         rule: !FlatAmount
           amount: 0.0
           growth: None
         start: PlanStart
         end: !AtRetirement jordan
+      one_time_contributions: []
       employer_match: null
     joint-brokerage:
       contributions:
       - id: joint-brokerage-contribution
+        name: ''
         rule: !FlatAmount
           amount: 6000.0
           growth: None
         start: PlanStart
         end: !AtRetirement alex
       - id: joint-brokerage-contribution-2027
+        name: Car paid off
         rule: !FlatAmount
           amount: 8400.0
           growth: None
@@ -730,15 +785,18 @@ scenarios:
           year: 2027
           month: 1
         end: !AtRetirement alex
+      one_time_contributions: []
       employer_match: null
     jordan-403b:
       contributions:
       - id: jordan-403b-contribution
+        name: ''
         rule: !PercentOfSalary
           percent: 0.08
           step_up: null
         start: PlanStart
         end: !AtRetirement jordan
+      one_time_contributions: []
       employer_match:
         tiers:
         - employee_percent: 0.04
@@ -747,9 +805,11 @@ scenarios:
     jordan-roth-ira:
       contributions:
       - id: jordan-roth-ira-contribution
+        name: ''
         rule: FederalMaximum
         start: PlanStart
         end: !AtRetirement jordan
+      one_time_contributions: []
       employer_match: null
   social_security:
     alex-social-security:
@@ -791,6 +851,208 @@ scenarios:
     owner: null
     direction: Expense
     annual_amount: 120000.0
+    start: !AtRetirement alex
+    end: PlanEnd
+    growth: Inflation
+    survivor_percentage: null
+  - id: healthcare-bridge
+    name: Pre-Medicare health insurance
+    owner: null
+    direction: Expense
+    annual_amount: 26000.0
+    start: !AtRetirement alex
+    end: !Date
+      year: 2044
+      month: 4
+    growth: Inflation
+    survivor_percentage: null
+  - id: jordan-pension
+    name: Jordan pension
+    owner: jordan
+    direction: Income
+    annual_amount: 18000.0
+    start: !AtRetirement jordan
+    end: PlanEnd
+    growth: None
+    survivor_percentage: 0.5
+  assumptions:
+    inflation: 0.025
+    asset_returns:
+      UsEquity: 0.08
+      IntlEquity: 0.075
+      GlobalEquity: 0.078
+      UsBonds: 0.04
+    filing_status: MarriedFilingJointly
+    state_tax:
+      state: Colorado
+      brackets:
+      - up_to: null
+        rate: 0.044
+      standard_deduction: 0.0
+    plan_end_age: 95
+    sweep_surplus_from: !AtRetirement alex
+    survivor_expense_factor: 0.75
+    social_security_cola: 0.025
+    asset_volatility:
+      UsEquity: 0.18
+      IntlEquity: 0.2
+      GlobalEquity: 0.17
+      UsBonds: 0.06
+    reinvest_into: joint-brokerage
+- id: sell-the-house-at-retirement
+  name: Sell the house at retirement
+  display_real_dollars: false
+  people:
+    alex:
+      retirement:
+        year: 2042
+        month: 4
+      life_expectancy_age: 88
+    jordan:
+      retirement:
+        year: 2044
+        month: 9
+      life_expectancy_age: 91
+  accounts:
+    alex-401k:
+      contributions:
+      - id: alex-401k-contribution
+        name: ''
+        rule: !PercentOfSalary
+          percent: 0.1
+          step_up:
+            points_per_year: 0.01
+            cap: 0.15
+        start: PlanStart
+        end: !AtRetirement alex
+      one_time_contributions: []
+      employer_match:
+        tiers:
+        - employee_percent: 0.03
+          match_percent: 1.0
+        - employee_percent: 0.02
+          match_percent: 0.5
+        destination: PreTax
+    alex-hsa:
+      contributions:
+      - id: alex-hsa-contribution
+        name: ''
+        rule: FederalMaximum
+        start: PlanStart
+        end: !AtRetirement alex
+      one_time_contributions: []
+      employer_match: null
+    alex-roth-ira:
+      contributions:
+      - id: alex-roth-ira-contribution
+        name: ''
+        rule: FederalMaximum
+        start: !Date
+          year: 2029
+          month: 1
+        end: !AtRetirement alex
+      one_time_contributions: []
+      employer_match: null
+    emergency-savings:
+      contributions:
+      - id: emergency-savings-contribution
+        name: ''
+        rule: !FlatAmount
+          amount: 0.0
+          growth: None
+        start: PlanStart
+        end: !AtRetirement jordan
+      one_time_contributions: []
+      employer_match: null
+    joint-brokerage:
+      contributions:
+      - id: joint-brokerage-contribution
+        name: ''
+        rule: !FlatAmount
+          amount: 6000.0
+          growth: None
+        start: PlanStart
+        end: !AtRetirement alex
+      - id: joint-brokerage-contribution-2027
+        name: Car paid off
+        rule: !FlatAmount
+          amount: 8400.0
+          growth: None
+        start: !Date
+          year: 2027
+          month: 1
+        end: !AtRetirement alex
+      one_time_contributions:
+      - id: house-sale
+        name: House sale
+        amount: 350000.0
+        growth: Inflation
+        date: !AtRetirement alex
+      employer_match: null
+    jordan-403b:
+      contributions:
+      - id: jordan-403b-contribution
+        name: ''
+        rule: !PercentOfSalary
+          percent: 0.08
+          step_up: null
+        start: PlanStart
+        end: !AtRetirement jordan
+      one_time_contributions: []
+      employer_match:
+        tiers:
+        - employee_percent: 0.04
+          match_percent: 0.5
+        destination: PreTax
+    jordan-roth-ira:
+      contributions:
+      - id: jordan-roth-ira-contribution
+        name: ''
+        rule: FederalMaximum
+        start: PlanStart
+        end: !AtRetirement jordan
+      one_time_contributions: []
+      employer_match: null
+  social_security:
+    alex-social-security:
+      claiming_age: 70
+      cola_override: null
+    jordan-social-security:
+      claiming_age: 67
+      cola_override: null
+  streams:
+  - id: alex-salary
+    name: Alex salary
+    owner: alex
+    direction: Income
+    annual_amount: 145000.0
+    start: PlanStart
+    end: !AtRetirement alex
+    growth: Inflation
+    survivor_percentage: null
+  - id: jordan-salary
+    name: Jordan salary
+    owner: jordan
+    direction: Income
+    annual_amount: 105000.0
+    start: PlanStart
+    end: !AtRetirement jordan
+    growth: Inflation
+    survivor_percentage: null
+  - id: spending-working
+    name: Household spending (working)
+    owner: null
+    direction: Expense
+    annual_amount: 150000.0
+    start: PlanStart
+    end: !AtRetirement alex
+    growth: Inflation
+    survivor_percentage: null
+  - id: spending-retired
+    name: Household spending (retired)
+    owner: null
+    direction: Expense
+    annual_amount: 145000.0
     start: !AtRetirement alex
     end: PlanEnd
     growth: Inflation

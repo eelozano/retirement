@@ -116,7 +116,7 @@ export function readableWarnings(plan: Plan, projection: Projection): ReadableWa
         key,
         title: `${name}: a contribution was skipped`,
         detail:
-          "One of its contributions starts or ends at the retirement or death of someone who is no longer in this plan, so there is no window to apply it over and nothing is being contributed from it. Pick a new start or end for it.",
+          "One of its contributions is tied to the retirement or death of someone who is no longer in this plan, so there is no date to apply it at and nothing is being contributed from it. Pick a new date for it.",
       };
     }
     const name = streamName(plan, warning.UnknownPersonRef.stream);

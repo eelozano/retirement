@@ -15,6 +15,7 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     taxes: 0,
     contributions: 0,
     employer_match: 0,
+    one_time_contributions: 0,
     required_distributions: 0,
     surplus: 0,
     withdrawals: {},
@@ -33,7 +34,7 @@ function projection(
   snapshots: PeriodSnapshot[],
   warnings: Projection["warnings"] = [],
 ): Projection {
-  return { snapshots, warnings, streams: [] };
+  return { snapshots, warnings, streams: [], one_time: [] };
 }
 
 describe("compareRows", () => {

@@ -112,6 +112,9 @@ export function TextField(props: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  /** Shown while the field is empty: an example of what goes there, never a
+   * value the plan holds. */
+  placeholder?: string;
 }) {
   return (
     <label className="field">
@@ -119,6 +122,7 @@ export function TextField(props: {
       <input
         type="text"
         value={props.value}
+        placeholder={props.placeholder}
         onChange={(e) => props.onChange(e.currentTarget.value)}
       />
     </label>

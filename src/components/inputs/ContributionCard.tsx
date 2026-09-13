@@ -13,6 +13,7 @@ import {
   CheckboxField,
   PercentField,
   SelectField,
+  TextField,
   YearMonthField,
 } from "./fields";
 import type { UpdatePlan } from "./shared";
@@ -30,7 +31,9 @@ import {
  * years or runs past retirement is the same idea as a stream that does, and
  * a reader who has met one should not have to learn the other.
  *
- * The card has no name field; its legend is derived from the entry's data.
+ * Its legend is derived from the entry's data, led by the entry's name when it
+ * has one: the name says what the entry is for, and the derived part stays
+ * true however its dates move.
  */
 export function ContributionCard(props: {
   plan: Plan;
@@ -48,6 +51,16 @@ export function ContributionCard(props: {
   return (
     <fieldset>
       <legend>{contributionLegend(entry, plan)}</legend>
+      <TextField
+        label="Name (optional)"
+        value={entry.name}
+        placeholder="e.g. Auto-invest"
+        onChange={(name) =>
+          updatePlan((d) => {
+            d.accounts[i].contributions[e].name = name;
+          })
+        }
+      />
       <SelectField
         label={account.kind === "Savings" ? "Savings rate" : "Contribution"}
         value={mode}

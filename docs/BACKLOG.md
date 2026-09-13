@@ -210,6 +210,13 @@ re-homed and the household file migrated a second time.
 ## B — Real estate: an appreciating asset the drawdown must not be able to sell
 
 > **Depends on A.** A property without its mortgage is not worth modeling.
+>
+> **Partly expressible already.** A sale's *net proceeds* can be written down
+> today as a one-time contribution into a brokerage or savings account, dated
+> or tied to a retirement (see "One-time contributions" in
+> `docs/ARCHITECTURE.md`). What this entry still owns is everything before and
+> inside the sale: the house in net worth, its basis and the §121 exclusion,
+> and the mortgage paid off at closing.
 
 ### Scope
 
@@ -247,10 +254,11 @@ mortgage in one period. Three sub-decisions:
 - The §121 primary-residence exclusion ($250k single / $500k joint) is real
   money on a long-held house. Without it the plan shows a large tax bill that
   never arrives; with it the plan needs to know which property is the residence.
-- Where the proceeds land. `Assumptions::reinvest_into` already exists for
-  exactly this kind of "money has to go somewhere" question — reuse it rather
-  than inventing a second answer, and reuse its warning shape when there is
-  nowhere to put it.
+- Where the proceeds land. A one-time contribution already answers this — a
+  named deposit into a brokerage or savings account, outside household cash —
+  so the sale event should produce one rather than inventing a second answer.
+  `Assumptions::reinvest_into` is the natural default account, and its warning
+  shape the one to reuse when there is nowhere to put it.
 - Cost basis. A house bought decades ago has a basis the user has to supply;
   defaulting it to the current value silently zeroes the gain, and defaulting it
   to zero silently maximizes it. Neither default is safe — require it, or refuse

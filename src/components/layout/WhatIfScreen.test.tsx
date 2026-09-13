@@ -97,7 +97,7 @@ const plan = {
   },
 } as unknown as Plan;
 
-const projection: Projection = { snapshots: [], warnings: [], streams: [] };
+const projection: Projection = { snapshots: [], warnings: [], streams: [], one_time: [] };
 
 /** Past the screen's slider-settle debounce, and through whatever promises
  * the projection and Monte Carlo effects resolve. */

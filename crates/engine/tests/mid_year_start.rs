@@ -74,6 +74,7 @@ fn working_plan(start: YearMonth, last_year: i32, rule: ContributionRule) -> Pla
             allocation: bonds_only,
             plan_type: PlanType::EmployerPlan,
             contributions: vec![Contribution::until_retirement("c", rule, &person)],
+            one_time_contributions: vec![],
             employer_match: None,
         }],
         streams: vec![
@@ -274,6 +275,7 @@ fn the_stub_takes_no_required_distribution_and_the_next_year_takes_a_whole_one()
                 allocation: cash.clone(),
                 plan_type: PlanType::Ira,
                 contributions: vec![],
+                one_time_contributions: vec![],
                 employer_match: None,
             },
             Account {
@@ -286,6 +288,7 @@ fn the_stub_takes_no_required_distribution_and_the_next_year_takes_a_whole_one()
                 allocation: cash,
                 plan_type: PlanType::None,
                 contributions: vec![],
+                one_time_contributions: vec![],
                 employer_match: None,
             },
         ],

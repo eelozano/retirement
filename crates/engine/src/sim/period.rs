@@ -32,8 +32,9 @@ use crate::strategies::{
 };
 
 use super::{
-    compound, contributions, growth_factor, overlap_fraction, required_distributions,
-    PeriodSnapshot, ResolvedContribution, ResolvedStream, SimWarning, StreamSource,
+    compound, contributions, growth_factor, overlap_fraction, required_distributions, OneTimeInfo,
+    PeriodSnapshot, ResolvedContribution, ResolvedOneTime, ResolvedStream, SimWarning,
+    StreamSource,
 };
 
 /// The warnings collected over a run, deduplicated on push.
@@ -67,6 +68,9 @@ pub(super) struct RunContext<'a> {
     /// concrete months, in plan account order. An entry whose boundary
     /// could not be resolved is absent — it was reported instead.
     pub contributions: &'a [ResolvedContribution<'a>],
+    /// Every one-time contribution that lands inside the horizon, resolved
+    /// to its month, in plan account order.
+    pub one_time: &'a [ResolvedOneTime<'a>],
     /// The month ordinary surplus starts being swept into the taxable
     /// account, resolved from `Assumptions::sweep_surplus_from`. `None`
     /// never sweeps.
@@ -103,6 +107,9 @@ pub(super) struct RunState {
     /// distribution is taken there — see `required_distributions`.
     pub prior_balances: Option<Vec<f64>>,
     pub warnings: Warnings,
+    /// Every one-time contribution deposited so far, in the order they
+    /// landed — `Projection::one_time`.
+    pub one_time: Vec<OneTimeInfo>,
 }
 
 impl RunState {
@@ -123,6 +130,7 @@ impl RunState {
             distribution_unallocated_reported: false,
             prior_balances: None,
             warnings: Warnings::default(),
+            one_time: Vec::new(),
         }
     }
 }
@@ -189,6 +197,10 @@ pub(super) struct PeriodState {
     pub contributions_by_account: BTreeMap<AccountId, f64>,
     /// Employer match — never passes through household cash.
     pub employer_match: f64,
+    /// One-time contributions deposited this period: money from outside the
+    /// plan, which like the employer match never passes through household
+    /// cash.
+    pub one_time_contributions: f64,
     /// Pre-tax dollars deposited this period, employee and match alike:
     /// what reduces the period's ordinary income.
     pub pretax_contributions: f64,
@@ -221,9 +233,9 @@ impl PeriodState {
     /// Social Security is carried separately since it is only partially
     /// taxable.
     ///
-    /// This is the *single* definition of the period's income. Step 4's
-    /// gross-up stacks on top of it rather than re-entering the brackets at
-    /// $0 (#54).
+    /// This is the *single* definition of the period's income. The
+    /// drawdown's gross-up in `settle` stacks on top of it rather than
+    /// re-entering the brackets at $0 (#54).
     fn base_income(&self) -> IncomeBreakdown {
         IncomeBreakdown {
             // A required distribution — and a savings account's interest —
@@ -254,6 +266,7 @@ impl PeriodState {
             contributions: self.contributions,
             contributions_by_account: self.contributions_by_account,
             employer_match: self.employer_match,
+            one_time_contributions: self.one_time_contributions,
             required_distributions: self.required_distributions,
             surplus: self.surplus,
             withdrawals: self.withdrawals,
@@ -268,6 +281,7 @@ pub(super) fn run(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) -
     let mut period = PeriodState::default();
     accrue_streams(run, ctx, &mut period);
     contribute(run, ctx, &mut period, state);
+    deposit_one_time(run, ctx, &mut period, state);
     distribute(run, ctx, &mut period, state);
     accrue_interest(run, ctx, &mut period, state);
     settle(run, ctx, &mut period, state);
@@ -403,7 +417,62 @@ fn contribute(
     }
 }
 
-/// Step 3 — force out each owner's required minimum distribution. See
+/// Step 3 — deposit one-time contributions: lump sums from outside the plan,
+/// such as a home sale's proceeds, each in the period its month falls in.
+///
+/// Nothing here touches household cash. The money did not come out of this
+/// period's income, so it is not in `contributions`, it is not taxed, and it
+/// never enters `settle`'s arithmetic — which is the whole difference from a
+/// one-month recurring entry, whose dollars `settle` would find by selling
+/// investments. It raises one balance, and the cost basis of a `Taxable`
+/// one: these are after-tax dollars, and without basis a later withdrawal
+/// would tax them again as gain.
+///
+/// Runs before `distribute`, `accrue_interest` and `settle`, as `contribute`
+/// does, so the money is part of the portfolio for the rest of the period: a
+/// shortfall that year can draw on it, a `Savings` destination earns the
+/// period's interest on it, and `grow` gives it the period's whole return
+/// whatever month it arrived in — the whole-period convention every flow
+/// follows.
+///
+/// The amount grows from plan start to the start of *this period* rather
+/// than to its exact month: the exponent a stream and the deflator use, so
+/// an inflation-grown entry reads back as exactly the figure typed in
+/// today's dollars.
+fn deposit_one_time(
+    run: &RunContext,
+    ctx: &PeriodContext,
+    period: &mut PeriodState,
+    state: &mut RunState,
+) {
+    for resolved in run.one_time {
+        if resolved.month < ctx.start || resolved.month >= ctx.end {
+            continue;
+        }
+        let entry = resolved.entry;
+        let amount =
+            entry.amount.max(0.0) * growth_factor(entry.growth, ctx.inflation, ctx.years_elapsed);
+        if amount <= 0.0 {
+            continue;
+        }
+        let account = &mut state.accounts[resolved.account];
+        account.balance += amount;
+        if account.kind == AccountKind::Taxable {
+            account.cost_basis += amount;
+        }
+        let account_id = account.id.clone();
+        period.one_time_contributions += amount;
+        state.one_time.push(OneTimeInfo {
+            account: account_id,
+            id: entry.id.clone(),
+            name: entry.name.clone(),
+            period: ctx.period,
+            amount,
+        });
+    }
+}
+
+/// Step 4 — force out each owner's required minimum distribution. See
 /// `required_distributions` for the conventions; the gross lands in
 /// `withdrawals` alongside discretionary draws and in `base_income` as
 /// ordinary income, so `settle` taxes it with everything else in one pass.
@@ -436,7 +505,7 @@ fn distribute(
     }
 }
 
-/// Step 4 — accrue interest on Savings accounts and tax it this same
+/// Step 5 — accrue interest on Savings accounts and tax it this same
 /// period, unlike every other account's growth, which stays unrealized
 /// until it is withdrawn. Runs before `settle` so the interest is in
 /// `base_income` for the period's one tax pass, not a second one; runs
@@ -470,7 +539,7 @@ fn accrue_interest(
     }
 }
 
-/// Steps 5 and 6 — tax the period's income, then invest what is left over
+/// Steps 6 and 7 — tax the period's income, then invest what is left over
 /// or draw down the shortfall (grossed up through the tax model).
 ///
 /// One tax pass, not two. The drawdown grosses itself up against the same
@@ -572,7 +641,7 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
     }
 }
 
-/// Step 7 — apply market growth to post-flow balances. Returns the total
+/// Step 8 — apply market growth to post-flow balances. Returns the total
 /// dollar growth across accounts, in nominal dollars.
 ///
 /// Savings accounts are skipped: `accrue_interest` already grew and taxed

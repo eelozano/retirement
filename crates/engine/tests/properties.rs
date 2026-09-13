@@ -1,7 +1,7 @@
 //! Invariant checks over a grid of plan variations. Not exhaustive fuzzing —
 //! a deliberate sweep of the knobs users will actually turn.
 
-use engine::model::{Plan, YearMonth};
+use engine::model::{GrowthRule, OneTimeContribution, Plan, StreamBoundary, YearMonth};
 use engine::presets::seed_plan;
 use engine::{run_deterministic, SimWarning};
 
@@ -23,6 +23,21 @@ fn plan_grid() -> Vec<Plan> {
                 for rate in plan.assumptions.asset_returns.values_mut() {
                     *rate *= return_scale;
                 }
+                // A lump sum from outside the plan at the first retirement,
+                // so the shifted dates move the year it lands in.
+                let owner = plan.people[0].id.clone();
+                plan.accounts
+                    .iter_mut()
+                    .find(|a| a.id == "taxable-brokerage")
+                    .expect("seed plan has a taxable brokerage")
+                    .one_time_contributions
+                    .push(OneTimeContribution {
+                        id: "windfall".to_string(),
+                        name: "Windfall".to_string(),
+                        amount: 250_000.0,
+                        growth: GrowthRule::Inflation,
+                        date: StreamBoundary::AtRetirement(owner),
+                    });
                 plans.push(plan);
             }
         }
@@ -32,6 +47,7 @@ fn plan_grid() -> Vec<Plan> {
 
 #[test]
 fn invariants_hold_across_plan_grid() {
+    let mut landed = 0;
     for (i, plan) in plan_grid().iter().enumerate() {
         let projection = run_deterministic(plan);
         assert!(
@@ -109,6 +125,20 @@ fn invariants_hold_across_plan_grid() {
                 "plan {i} period {}: contributions_by_account does not sum to contributions",
                 snapshot.period
             );
+            // One-time contributions sit outside the cash identity above,
+            // and the engine's own list of them is a decomposition of the
+            // snapshot's figure, as the maps are.
+            let listed: f64 = projection
+                .one_time
+                .iter()
+                .filter(|o| o.period == snapshot.period)
+                .map(|o| o.amount)
+                .sum();
+            assert!(
+                close(snapshot.one_time_contributions, listed),
+                "plan {i} period {}: one_time does not sum to one_time_contributions",
+                snapshot.period
+            );
             assert!(
                 snapshot.withdrawal_taxes >= -1e-9
                     && snapshot.withdrawal_taxes <= snapshot.taxes + tolerance,
@@ -146,7 +176,16 @@ fn invariants_hold_across_plan_grid() {
             }
             prev_start = Some(snapshot.period_start);
         }
+
+        // Never more than once, wherever the shifted retirement puts it.
+        assert!(
+            projection.one_time.len() <= 1,
+            "plan {i}: {:?}",
+            projection.one_time
+        );
+        landed += projection.one_time.len();
     }
+    assert!(landed > 0, "the grid's windfall landed nowhere");
 }
 
 #[test]

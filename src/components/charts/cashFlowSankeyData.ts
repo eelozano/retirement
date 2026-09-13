@@ -2,6 +2,7 @@ import { isWorkingPeriod } from "../../lib/currentSpending";
 import type { PeriodSnapshot } from "../../types/generated/PeriodSnapshot";
 import type { Plan } from "../../types/generated/Plan";
 import type { Projection } from "../../types/generated/Projection";
+import { oneTimeName } from "../inputs/accountContribution";
 import { OTHER_KEY, type SeriesDef } from "./chartData";
 
 // One year's cash flow as a graph: what came in, pooled through the
@@ -16,8 +17,9 @@ import { OTHER_KEY, type SeriesDef } from "./chartData";
 //   income + withdrawals = expenses + taxes + contributions + surplus
 //
 // so the hub balances by construction, and every node here is a term of
-// that identity broken out by stream or account. Employer match and market
-// growth appear on neither side of it and are not nodes.
+// that identity broken out by stream or account. Employer match, one-time
+// contributions from outside the plan, and market growth appear on neither
+// side of it and are not nodes.
 
 export type CompositionSide = "in" | "hub" | "out";
 
@@ -48,6 +50,12 @@ export interface Composition {
   totalIn: number;
   /** Not a flow — went straight into accounts — but worth a note. */
   employerMatch: number;
+  /**
+   * One-time contributions that landed this year: money from outside the plan,
+   * straight into an account, so a note beside the match's rather than a node.
+   * Named as the engine deposited them.
+   */
+  oneTime: { key: string; name: string; account: string; value: number }[];
   /** The forced share of the withdrawal nodes, for a note. */
   requiredDistributions: number;
   /**
@@ -210,6 +218,14 @@ export function yearComposition(
     links,
     totalIn,
     employerMatch: s.employer_match / d,
+    oneTime: projection.one_time
+      .filter((o) => o.period === s.period)
+      .map((o) => ({
+        key: `one-time:${o.account}:${o.id}`,
+        name: oneTimeName(o),
+        account: plan.accounts.find((a) => a.id === o.account)?.name ?? o.account,
+        value: o.amount / d,
+      })),
     requiredDistributions: s.required_distributions / d,
     shortfall,
     working,

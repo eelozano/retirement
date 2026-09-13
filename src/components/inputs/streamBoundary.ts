@@ -47,6 +47,16 @@ export function boundaryOptions(plan: Plan, edge: "start" | "end") {
 }
 
 /**
+ * Where a one-time contribution can land: a specific month, or someone's
+ * retirement. Not the plan's start — it moves forward each time the balances
+ * are refreshed, so money landing there would land again — and not its end,
+ * which is exclusive, so nothing lands there at all.
+ */
+export function landingOptions(plan: Plan) {
+  return boundaryOptions(plan, "start").filter((o) => o.value !== "PlanStart");
+}
+
+/**
  * The calendar month a person-relative boundary resolves to, so a reader
  * doesn't have to hop to the People pane and read `retirement` (or do the
  * birth-plus-life-expectancy arithmetic for `AtDeath`) by hand. Mirrors

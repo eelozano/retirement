@@ -23,6 +23,7 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     taxes: 0,
     contributions: 0,
     employer_match: 0,
+    one_time_contributions: 0,
     required_distributions: 0,
     surplus: 0,
     withdrawals: {},
@@ -48,7 +49,7 @@ const streams: Projection["streams"] = [
 ];
 
 function projection(snapshots: PeriodSnapshot[]): Projection {
-  return { snapshots, warnings: [], streams };
+  return { snapshots, warnings: [], streams, one_time: [] };
 }
 
 /** One person, retiring in 2035; the plan-screen series for two accounts. */
@@ -270,6 +271,49 @@ describe("yearComposition", () => {
     expect(c?.nodes.find((n) => n.key === INCOME_TAX_KEY)?.value).toBe(20);
   });
 
+  it("notes a one-time contribution by name rather than drawing it as a flow", () => {
+    const c = yearComposition(
+      plan,
+      {
+        ...projection([
+          snapshot({
+            period: 3,
+            income: 100_000,
+            income_by_stream: { salary: 100_000 },
+            taxes: 20_000,
+            surplus: 80_000,
+            deflator: 2,
+          }),
+        ]),
+        one_time: [
+          {
+            account: "brokerage",
+            id: "sale",
+            name: "House sale",
+            period: 3,
+            amount: 700_000,
+          },
+          // Landed in another year, so not this year's note.
+          { account: "brokerage", id: "gift", name: "Gift", period: 4, amount: 5_000 },
+        ],
+      },
+      2040,
+      series,
+      true,
+    );
+    expect(c?.oneTime).toEqual([
+      {
+        key: "one-time:brokerage:sale",
+        name: "House sale",
+        account: "Brokerage",
+        value: 350_000,
+      },
+    ]);
+    expect(c?.nodes.some((n) => n.key.includes("sale"))).toBe(false);
+    // The hub balances on the household's own cash alone.
+    expect(balance(c as Composition)).toEqual({ intoHub: 50_000, outOfHub: 50_000 });
+  });
+
   it("reports an empty year and an unknown year distinctly", () => {
     const p = projection([snapshot({})]);
     expect(yearComposition(plan, p, 2040, series, false)?.empty).toBe(true);
@@ -286,6 +330,7 @@ describe("yearComposition", () => {
         ],
         warnings: [],
         streams: [{ id: "pension", name: longName, direction: "Income" }],
+        one_time: [],
       },
       2040,
       series,

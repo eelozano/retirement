@@ -44,6 +44,7 @@ fn taxable(id: &str, allocation: AllocationRef) -> Account {
             },
             &"p1".to_string(),
         )],
+        one_time_contributions: vec![],
         employer_match: None,
     }
 }
@@ -66,6 +67,7 @@ fn pretax(id: &str, balance: f64) -> Account {
             },
             &"p1".to_string(),
         )],
+        one_time_contributions: vec![],
         employer_match: None,
     }
 }

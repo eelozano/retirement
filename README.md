@@ -16,7 +16,8 @@ tile, and a stacked area chart of net worth and account balances through
 2072, with a year inspector pinned to 2042.](docs/screenshots/plan.png)
 
 Every screenshot here is the committed demo household — `fixtures/demo/`, an
-invented family of four scenarios. None of it is anyone's real money.
+invented household and the scenarios branched from it. None of it is anyone's
+real money.
 
 <details>
 <summary><b>More screens</b></summary>
@@ -264,7 +265,14 @@ there — it just doesn't bundle an installer.
   January", an account you don't open until 2029, an IRA funded past
   retirement. A percent-of-salary entry can auto-escalate the way a plan
   document writes it (up a point a year to a cap), and a flat amount can be
-  set to keep pace with inflation instead of quietly decaying.
+  set to keep pace with inflation instead of quietly decaying. Any entry can
+  carry a name.
+- **One-time contributions from outside the plan.** A house sale or an
+  inheritance, named and dated — a specific month, or someone's retirement —
+  landing in a brokerage or savings account, in today's dollars or as a fixed
+  figure. Unlike a contribution it isn't paid out of that year's income, so the
+  plan doesn't sell investments to fund it, and it isn't taxed: enter what
+  actually arrives.
 - **Employer match.** Tiered formulas ("100% of the first 3%, 50% of the next
   2%"), matched against your household deferral rate, landing in a pre-tax or
   Roth account and held to the annual-additions cap rather than your own
@@ -290,7 +298,7 @@ there — it just doesn't bundle an installer.
   and moves the projection's start there — so the plan is about today rather
   than about whenever you last looked. Balances you don't re-read keep their
   own older date rather than being estimated forward, and every figure stated
-  in start dollars (a salary, a spending figure, a flat contribution) is
+  in start dollars (a salary, a spending figure, a flat or one-time contribution) is
   listed with what it would take to hold its purchasing power, to keep, grow
   or retype. One refresh moves every scenario of the household, because they
   all project from the same balances.
@@ -408,7 +416,7 @@ pnpm demo
 
 That seeds `/tmp/retirement-demo` from the fixtures and runs against it. Seeding
 is conditional, so a restart keeps whatever you changed; `pnpm demo:reset` puts
-the four committed scenarios back. Add, edit and delete plans in there as freely
+the committed scenarios back. Add, edit and delete plans in there as freely
 as you like — it's a throwaway copy, and reset is one command.
 
 The fixtures under `fixtures/demo/` are generated from

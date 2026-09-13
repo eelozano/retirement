@@ -212,7 +212,8 @@ export interface BenefitReading {
  * `StreamBoundary` use on the way out. */
 export type RateTarget =
   | { Stream: { id: string } }
-  | { Contribution: { account: string; id: string } };
+  | { Contribution: { account: string; id: string } }
+  | { OneTimeContribution: { account: string; id: string } };
 
 /** One re-affirmed rate. `amount` is the final figure — kept, grown, or
  * retyped — because the backend deliberately grows nothing on its own; see

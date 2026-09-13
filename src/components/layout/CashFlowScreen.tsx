@@ -120,6 +120,13 @@ export function CashFlowScreen() {
                     is not a flow here.
                   </li>
                 )}
+                {composition.oneTime.map((o) => (
+                  <li key={o.key}>
+                    {o.name} put {currency(o.value)} straight into {o.account} from
+                    outside the plan. It never passed through household cash, so it is not
+                    a flow here.
+                  </li>
+                ))}
                 {composition.working && <li>{CURRENT_SPENDING_NOTE}</li>}
               </ul>
             </>

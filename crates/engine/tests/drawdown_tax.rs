@@ -63,6 +63,7 @@ fn retiree() -> Plan {
                 },
                 &"p1".to_string(),
             )],
+            one_time_contributions: vec![],
             employer_match: None,
         }],
         streams: vec![CashFlowStream {

@@ -20,6 +20,7 @@ function snapshot(year: number, overrides: Partial<PeriodSnapshot> = {}): Period
     taxes: 0,
     contributions: 0,
     employer_match: 0,
+    one_time_contributions: 0,
     required_distributions: 0,
     surplus: 0,
     withdrawals: {},
@@ -49,7 +50,7 @@ function plan(people: Person[]): Plan {
 }
 
 function projection(snapshots: PeriodSnapshot[]): Projection {
-  return { snapshots, warnings: [], streams: [] };
+  return { snapshots, warnings: [], streams: [], one_time: [] };
 }
 
 /** A working year: 100k of pay, 15k saved, 20k of tax — 65k lived on. */
