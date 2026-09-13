@@ -11,53 +11,115 @@ you choose. No cloud, no accounts, no telemetry, no network calls.
 
 ## What it looks like
 
-![The Plan screen: a probability-of-success tile reading 88.6%, a fund-depletion
-tile, and a stacked area chart of net worth and account balances through
-2072, with a year inspector pinned to 2042.](docs/screenshots/plan.png)
+![The Plan screen: a probability-of-success tile reading 94% of 5,000 paths, a
+fund-depletion tile reading Never, a notice that the balances are as of Jan
+2026, and a stacked area chart of net worth and account balances through 2072,
+with a year inspector pinned to 2042.](docs/screenshots/plan.png)
 
 Every screenshot here is the committed demo household — `fixtures/demo/`, an
 invented household and the scenarios branched from it. None of it is anyone's
-real money.
+real money. The notice across the top is real too: the demo's balances were
+read in January, and the app says how old they are rather than projecting
+from them as if they were today's.
 
 <details>
 <summary><b>More screens</b></summary>
 
-**Monte Carlo.** The same projection across 1,000 randomized return paths,
-as a percentile fan with the range for the pinned year broken out.
+**Monte Carlo.** The same projection across thousands of randomized return
+paths, as a percentile fan, with the range for the pinned year broken out in
+the inspector. Re-roll draws a fresh set of paths.
 
 ![The net worth chart showing 10th-90th and 25th-75th percentile bands around
-a median line.](docs/screenshots/monte-carlo.png)
+a median line, with the pinned year's P10 to P90 net worth range in the
+inspector.](docs/screenshots/monte-carlo.png)
+
+**Why paths fail.** Below the chart, the paths that ran dry are read for what
+they have in common — when they failed, what returns they drew in the first
+years of retirement, and how hard they were withdrawing — next to the plan's
+milestones.
+
+![A "Why paths fail" card with a histogram of failure years, the median
+returns of failed and surviving paths, and the median withdrawal rate against
+the conventional 3-4% range, above tiles for net worth at each retirement, at
+the first death, and at plan end.](docs/screenshots/why-paths-fail.png)
 
 **Scenarios.** Branch a plan, then overlay them and read the differences off a
 summary table — net worth at plan end, delta against the base, depletion year,
-lifetime taxes.
+lifetime taxes, and a Monte Carlo run of every scenario on the same paths for
+probability of success, its delta, and the 10th percentile at the end.
 
-![Four scenarios overlaid on one chart, with a table comparing net worth at
-plan end and lifetime taxes.](docs/screenshots/scenarios.png)
+![Five scenarios overlaid on one chart, above a table comparing each one's
+deterministic projection and its Monte Carlo probability of
+success.](docs/screenshots/scenarios.png)
 
-**Cash flow.** Where the money actually went in a given year, as a Sankey —
-salaries in on the left, spending, taxes and contributions out on the right.
+**What-if.** A sandbox for questions you don't want to save yet: retire
+earlier, spend less, assume worse returns or higher inflation, and read the
+hypothetical against the plan it started from. Nothing is written until you
+save it as a scenario of its own.
+
+![The What-if screen with sliders for retirement dates, spending, returns,
+volatility, inflation and life expectancy, comparing the Base plan to a
+hypothetical where Alex retires two years earlier and spending is cut to 92%:
+$789K less at plan end, and a 95% probability of success against the plan's
+94%.](docs/screenshots/what-if.png)
+
+**Cash flow.** Money in above the line and money out below it, year by year,
+then where it actually went in the year you pick, as a Sankey — salaries and
+withdrawals in on the left, spending, taxes and contributions out on the
+right.
+
+![A chart of income, withdrawals, contributions, expenses and taxes stacked
+above and below a zero line from 2026 to 2072, under tiles for the year
+withdrawals overtake income, the largest withdrawal, and lifetime
+taxes.](docs/screenshots/cash-flow.png)
 
 ![A Sankey diagram flowing two salaries and account withdrawals into a
 household node, then out to spending, taxes and
 contributions.](docs/screenshots/cash-flow-sankey.png)
 
+**Growth.** How much of the plan is money you put in and how much is the
+market's, per year and as a running total — and the year compounding overtakes
+your own contributions.
+
+![The Growth screen: tiles for the year market growth overtakes what you put
+in, growth at plan end and growth per dollar, above a per-year bar chart and a
+running-total line chart of contributions against market
+growth.](docs/screenshots/growth.png)
+
 **Inputs.** A two-pane editor rather than a wizard. Every edit re-projects and
 autosaves.
 
 ![The Inputs screen with People, Accounts and Spending in a left rail, editing
-a person's birth date, retirement date and salary.](docs/screenshots/inputs.png)
+a person's birth month, retirement month, life expectancy and
+salary.](docs/screenshots/inputs.png)
 
 **Accounts.** The balance sheet as a table, with the account under the cursor
-open for editing beneath it. Saving is dated: the demo household's brokerage
-runs two overlapping schedules, its 401(k) escalates from 10% to 15% of
-salary, and one Roth IRA has a zero balance because it doesn't open until
-2029.
+open for editing beneath it. Each balance carries the month it was read.
+Saving is dated: the demo household's brokerage runs two overlapping
+schedules, its 401(k) escalates from 10% to 15% of salary, and one Roth IRA
+has a zero balance because it doesn't open until 2029.
 
 ![The Accounts table listing seven accounts with a contributing column reading
-"2 schedules", "10% to 15% of salary" and "Max", above the editor for the
-joint brokerage's first contribution
-schedule.](docs/screenshots/accounts.png)
+"2 schedules", "10% → 15% of salary" and "Max", and an as-of column, above the
+editor for the joint brokerage.](docs/screenshots/accounts.png)
+
+**One-time contributions.** Money from outside the plan — a house sale, an
+inheritance — named, dated, and landing in one account once. The demo's "Sell
+the house at retirement" scenario puts $350,000 in today's dollars into the
+brokerage the month Alex retires. Recurring contributions can carry a name
+too.
+
+![The joint brokerage's contribution cards: a recurring one named "Car paid
+off", and a one-time contribution named "House sale" of $350,000 in today's
+dollars landing when Alex retires.](docs/screenshots/one-time-contribution.png)
+
+**Update balances.** Every balance off today's statements in one sitting,
+dated to the month you did it, which moves the projection's start there for
+every scenario of the household at once.
+
+![The Update balances screen: a month picker, then a table of seven accounts
+showing each one's last reading and date beside a field for the new balance
+and cost basis.](docs/screenshots/update-balances.png)
 
 </details>
 
@@ -292,8 +354,17 @@ there — it just doesn't bundle an installer.
   shared spending steps down by a factor you choose, and a pension can carry a
   survivor percentage.
 - **Monte Carlo simulation.** Runs the projection across many randomized return
-  paths in parallel and charts the percentile fan plus probability of success.
-- **Update balances in one sitting.** A Refresh screen that takes every
+  paths in parallel and charts the percentile fan plus probability of success,
+  with its margin of error. The path count is a setting, a large run can be
+  cancelled, and Re-roll draws fresh paths. A "Why paths fail" card reads the
+  paths that ran dry for when they failed, the returns they drew early in
+  retirement, and how hard they were withdrawing.
+- **What-if sandbox.** Sliders for retirement dates, spending, returns,
+  volatility, inflation and life expectancy, projected and Monte Carlo'd
+  against the saved plan on the same paths, so the difference is the change
+  and not the draw. Nothing touches the plan on disk until you save the
+  hypothetical as a scenario of its own.
+- **Update balances in one sitting.** A screen that takes every
   balance off today's statements at once, dates them to the month you did it,
   and moves the projection's start there — so the plan is about today rather
   than about whenever you last looked. Balances you don't re-read keep their
@@ -304,11 +375,16 @@ there — it just doesn't bundle an installer.
   all project from the same balances.
 - **Multi-scenario comparison.** Duplicate a plan to branch a scenario, then
   overlay net worth across up to five of them with a summary table (net worth
-  at plan end, delta vs. the active scenario, depletion year, lifetime taxes).
+  at plan end, delta vs. the active scenario, depletion year, lifetime taxes),
+  plus a Monte Carlo run of each on the same paths for probability of success,
+  its delta, and the 10th percentile at plan end.
 - **Charts and tables.** A Plan screen with headline tiles and a year-by-year
-  inspector, a Cash flow screen with a per-year composition Sankey, stacked
-  account balances and net worth, retirement and fund-depletion markers, a
-  nominal/today's-dollars toggle, and a table view of every plotted value.
+  inspector, a Cash flow screen with a per-year composition Sankey, a Growth
+  screen splitting the plan into what you put in and what the market added,
+  stacked account balances and net worth, retirement and fund-depletion
+  markers, a nominal/today's-dollars toggle, and a table view of every plotted
+  value. The Plan screen, the comparison and the report each say how old the
+  balances behind them are.
 - **Export.** CSV of the projection, and a paginated printable PDF report.
 - **Validation before simulation.** Plans are checked before they're simulated
   or saved, with plain-language error messages.
