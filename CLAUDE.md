@@ -83,11 +83,15 @@ caution at all; see `.claude/skills/run-app/SKILL.md`.
   an older one makes Tauri log a line and fall back to the flat `icon.icns`
   while the build stays green. Check that the built `.app` has
   `Contents/Resources/Assets.car` before uploading the `.dmg`.
-  - If bundling instead fails with `Failed to create app Assets.car: failed to
-    run actool`, the icon is usually fine and Xcode's `ibtoold` daemon is
-    wedged: running `actool` by hand shows an `NSPlaceholderArray` exception
-    even for a one-layer icon. `pkill -f ibtoold`, then build again; `actool`
-    starts a fresh daemon.
+  - `actool` hands its work to Xcode's `ibtoold` daemon, and a daemon started
+    by the `actool` call inside `tauri build` fails every compile of the icon
+    with an `NSPlaceholderArray` exception, for every later caller too, until
+    it is killed. `scripts/warm-actool.sh` runs as `build.beforeBundleCommand`
+    and leaves a working daemon for Tauri to find: it compiles the icon, checks
+    a daemon is still running afterwards, and restarts it until both hold.
+    Killing the daemon and building again does *not* work — the build just
+    starts another broken one. If bundling still fails with `failed to run
+    actool`, the script's own output says what went wrong.
 
 ## Dev commands
 
