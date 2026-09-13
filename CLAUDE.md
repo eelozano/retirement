@@ -119,7 +119,7 @@ ts-rs output would make the CI drift check fail permanently.
 
 ## Status
 
-V1 shipped; the app is released and in real use (`v0.6`). Current and planned
+V1 shipped; the app is released and in real use (`v0.7`). Current and planned
 work lives in GitHub issues, not in this file — `gh issue list`.
 
 Design intent for work not yet built is in `docs/ARCHITECTURE.md`: which
