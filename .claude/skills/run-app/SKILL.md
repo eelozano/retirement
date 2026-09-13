@@ -126,7 +126,7 @@ Seeding is conditional, so a restart keeps whatever you changed last time:
 
 - `pnpm demo` — seed if the root is empty, then run.
 - `pnpm demo:seed` — seed without running.
-- `pnpm demo:reset` — throw the root away and re-seed the four committed
+- `pnpm demo:reset` — throw the root away and re-seed the five committed
   scenarios.
 
 **Change whatever you like in demo mode.** Edit inputs, add scenarios, delete
@@ -137,10 +137,11 @@ removing plans is frequently the fastest way to test something — do it, and
 don't ask first.
 
 **Confirm before you screenshot.** The demo household is Alex and Jordan; the
-real one is not. If the plan picker shows anything other than the four demo
+real one is not. If the plan picker shows anything other than the five demo
 scenarios — Base plan, Retire two years early, Claim Social Security at 62,
-Leaner retirement spending — the var did not take, and you are looking at real
-data. Stop and fix it rather than cropping around it.
+Leaner retirement spending, Sell the house at retirement — the var did not
+take, and you are looking at real data. Stop and fix it rather than cropping
+around it.
 
 ### When you do need real data
 

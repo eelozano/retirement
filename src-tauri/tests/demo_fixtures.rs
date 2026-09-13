@@ -8,11 +8,11 @@
 //! The plans are defined here in Rust and the YAML under `fixtures/demo/`
 //! is generated from them, so the fixtures cannot drift from the schema
 //! without this test failing. Since #109 that is **one file**,
-//! `demo-household.yaml`: one household's facts plus the four scenarios
-//! branched from it, which is exactly what the split claims — the four
-//! plans below differ only in retirement dates, claiming ages and a
-//! spending amount, and share every balance. This test proves it, by
-//! decomposing all four and asserting the households they produce agree.
+//! `demo-household.yaml`: one household's facts plus the five scenarios
+//! branched from it, which is exactly what the split claims — the five
+//! plans below differ only in retirement dates, claiming ages, a spending
+//! amount and a house sale, and share every balance. This test proves it,
+//! by decomposing all five and asserting the households they produce agree.
 //! To re-generate after an intentional schema change:
 //!
 //! ```text
@@ -26,9 +26,9 @@ use engine::model::PeriodLength;
 use engine::model::{
     compose, decompose, empty_household, Account, AccountKind, AllocationRef, CashFlowStream,
     Contribution, ContributionRule, EmployerMatch, FilingStatus, GrowthRule, Household,
-    HouseholdFile, MatchDestination, MatchTier, Person, Plan, PlanType, SimConfig,
-    SocialSecurityBenefit, StateCode, StepUp, StreamBoundary, StreamDirection, YearMonth,
-    SCHEMA_VERSION,
+    HouseholdFile, MatchDestination, MatchTier, OneTimeContribution, Person, Plan, PlanType,
+    SimConfig, SocialSecurityBenefit, StateCode, StepUp, StreamBoundary, StreamDirection,
+    YearMonth, SCHEMA_VERSION,
 };
 use engine::presets::{default_assumptions, presets};
 use std::fs;
@@ -135,7 +135,7 @@ fn demo_base() -> Plan {
                     ),
                     Contribution {
                         id: "joint-brokerage-contribution-2027".to_string(),
-                        name: String::new(),
+                        name: "Car paid off".to_string(),
                         rule: ContributionRule::FlatAmount {
                             amount: 8_400.0,
                             growth: GrowthRule::None,
@@ -169,8 +169,8 @@ fn demo_base() -> Plan {
                     },
                     &ALEX.to_string(),
                 )],
-                // "100% of the first 3%, then 50% of the next 2%."
                 one_time_contributions: vec![],
+                // "100% of the first 3%, then 50% of the next 2%."
                 employer_match: Some(tiered_match(
                     &[(0.03, 1.0), (0.02, 0.5)],
                     MatchDestination::PreTax,
@@ -401,10 +401,29 @@ fn demo_plans() -> Vec<Plan> {
     leaner.name = "Leaner retirement spending".to_string();
     stream_mut(&mut leaner, "spending-retired").annual_amount = 120_000.0;
 
-    vec![base, retire_early, claim_early, leaner]
+    // Money from outside the plan: the house sells when Alex retires and
+    // $350,000 in today's dollars lands in the brokerage. The house itself is
+    // not modelled, so net worth jumps the year the sale lands.
+    let mut sell_house = base.clone();
+    sell_house.id = "sell-the-house-at-retirement".to_string();
+    sell_house.name = "Sell the house at retirement".to_string();
+    sell_house
+        .accounts
+        .iter_mut()
+        .find(|a| a.id == "joint-brokerage")
+        .expect("demo base plan has a joint brokerage")
+        .one_time_contributions = vec![OneTimeContribution {
+        id: "house-sale".to_string(),
+        name: "House sale".to_string(),
+        amount: 350_000.0,
+        growth: GrowthRule::Inflation,
+        date: StreamBoundary::AtRetirement(ALEX.to_string()),
+    }];
+
+    vec![base, retire_early, claim_early, leaner, sell_house]
 }
 
-/// The four plans, split into the one household they describe and the four
+/// The five plans, split into the one household they describe and the five
 /// scenarios that differ. Every plan must decompose to the *same* household
 /// — that is the claim #109 makes about this fixture, and asserting it here
 /// is what keeps the claim true as the demo grows.
@@ -535,7 +554,7 @@ fn every_demo_scenario_round_trips_through_compose() {
     }
 }
 
-/// Seven accounts and four scenarios are seven balances, not twenty-eight.
+/// Seven accounts and five scenarios are seven balances, not thirty-five.
 #[test]
 fn the_household_writes_each_balance_once() {
     let file = demo_household_file();
