@@ -16,10 +16,8 @@
 //!              − 21,600 tax ((120,000 − 12,000) × 20%) − 86,400 spending = 0
 //!   Stub (4/12): every one of those figures × 1/3, so it is zero there too.
 
-use std::collections::BTreeMap;
-
 use engine::model::{
-    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, Contribution,
+    Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
     StateTaxProfile, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
 };
@@ -39,7 +37,7 @@ fn run_with_flat_tax(plan: &Plan, rate: f64) -> Projection {
     // Annual rates, scaled to a period the same way `run_deterministic`
     // does: a period is a calendar year, and the loop takes the stub's
     // share of the year's return itself.
-    let returns = FixedReturns::new(&plan.assumptions.asset_returns, 12);
+    let returns = FixedReturns::new(&plan.assumptions.strategy_returns, 12);
     simulate(plan, &returns, &FlatTax { rate }, &ProportionalDrawdown, 0)
 }
 
@@ -47,7 +45,7 @@ fn run_with_flat_tax(plan: &Plan, rate: f64) -> Projection {
 /// calendar year `last_year`.
 fn working_plan(start: YearMonth, last_year: i32, rule: ContributionRule) -> Plan {
     let person = "p1".to_string();
-    let bonds_only = AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)]));
+    let bonds_only = AllocationRef::FixedRate(RETURN);
     let birth = YearMonth::new(1986, 1);
     Plan {
         id: "mid-year".to_string(),
@@ -104,14 +102,14 @@ fn working_plan(start: YearMonth, last_year: i32, rule: ContributionRule) -> Pla
         social_security: vec![],
         assumptions: Assumptions {
             inflation: 0.0,
-            asset_returns: BTreeMap::from([(AssetClass::UsBonds, RETURN)]),
+            strategy_returns: Default::default(),
             filing_status: FilingStatus::Single,
             state_tax: StateTaxProfile::none(),
             plan_end_age: 100,
             sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
-            asset_volatility: BTreeMap::new(),
+            strategy_volatility: Default::default(),
             reinvest_into: None,
         },
         sim_config: SimConfig {
@@ -251,7 +249,7 @@ fn a_stub_period_caps_contributions_at_its_share_of_the_year() {
 #[test]
 fn the_stub_takes_no_required_distribution_and_the_next_year_takes_a_whole_one() {
     let person = "p1".to_string();
-    let cash = AllocationRef::Cash(0.0);
+    let cash = AllocationRef::FixedRate(0.0);
     let plan = Plan {
         id: "rmd".to_string(),
         schema_version: SCHEMA_VERSION,
@@ -272,7 +270,7 @@ fn the_stub_takes_no_required_distribution_and_the_next_year_takes_a_whole_one()
                 name: "IRA".to_string(),
                 balance: OPENING_BALANCE,
                 cost_basis: None,
-                allocation: cash.clone(),
+                allocation: cash,
                 plan_type: PlanType::Ira,
                 contributions: vec![],
                 one_time_contributions: vec![],
@@ -296,14 +294,14 @@ fn the_stub_takes_no_required_distribution_and_the_next_year_takes_a_whole_one()
         social_security: vec![],
         assumptions: Assumptions {
             inflation: 0.0,
-            asset_returns: BTreeMap::new(),
+            strategy_returns: Default::default(),
             filing_status: FilingStatus::Single,
             state_tax: StateTaxProfile::none(),
             plan_end_age: 78,
             sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
-            asset_volatility: BTreeMap::new(),
+            strategy_volatility: Default::default(),
             reinvest_into: None,
         },
         sim_config: SimConfig {

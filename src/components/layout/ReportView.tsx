@@ -5,7 +5,6 @@ import { rateToPercent, yearMonth } from "../../lib/format";
 import { depletionYear as computeDepletionYear } from "../../lib/projection";
 import { readableWarnings } from "../../lib/warnings";
 import { usePlanStore } from "../../store/planStore";
-import type { AssetClass } from "../../types/generated/AssetClass";
 import { CashFlowChart } from "../charts/CashFlowChart";
 import { cashFlowRows } from "../charts/cashFlowData";
 import { chartRows, seriesDefs } from "../charts/chartData";
@@ -15,9 +14,9 @@ import { ProjectionChart } from "../charts/ProjectionChart";
 import { headlineMetrics } from "../charts/planData";
 import { WhyPathsFail } from "../charts/WhyPathsFail";
 import {
-  ASSET_LABELS,
   FILING_STATUS_OPTIONS,
   STATE_LABELS,
+  STRATEGIES,
 } from "../inputs/AssumptionsSection";
 import { Modal } from "./Modal";
 
@@ -174,18 +173,12 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
                   <td>{rateToPercent(plan.assumptions.inflation)}% / year</td>
                 </tr>
                 <tr>
-                  <th>Expected returns</th>
+                  <th>Investment strategies</th>
                   <td>
-                    {(
-                      Object.entries(plan.assumptions.asset_returns) as [
-                        AssetClass,
-                        number,
-                      ][]
-                    )
-                      .map(
-                        ([cls, rate]) => `${ASSET_LABELS[cls]}: ${rateToPercent(rate)}%`,
-                      )
-                      .join(" · ")}
+                    {STRATEGIES.map(
+                      ({ key, variant }) =>
+                        `${variant}: ${rateToPercent(plan.assumptions.strategy_returns[key])}% return, ${rateToPercent(plan.assumptions.strategy_volatility[key])}% volatility`,
+                    ).join(" · ")}
                   </td>
                 </tr>
                 <tr>

@@ -23,10 +23,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::model::{
-    AccountId, AccountKind, AllocationRef, PersonId, Plan, StreamDirection, StreamId, YearMonth,
-};
-use crate::presets::allocation_weights;
+use crate::model::{AccountId, AccountKind, PersonId, Plan, StreamDirection, StreamId, YearMonth};
 use crate::strategies::{
     AccountState, DrawdownStrategy, IncomeBreakdown, PeriodIndex, ReturnModel, TaxModel,
 };
@@ -511,6 +508,16 @@ fn distribute(
 /// `base_income` for the period's one tax pass, not a second one; runs
 /// after `distribute` so a forced distribution redeposited into this same
 /// account this period does not itself earn interest before it has arrived.
+///
+/// `AccountKind::Savings` is the *only* switch: this step and `grow` are
+/// exact complements over it, so every account is priced by one of them and
+/// none by both. Before #129 this step additionally required an
+/// `AllocationRef::Cash`, which meant a Savings account carrying a named
+/// preset was skipped here *and* skipped by `grow` — it sat flat forever.
+///
+/// The rate comes from the plan's assumptions rather than from
+/// `run.returns`, so a savings account stays risk-free across Monte Carlo
+/// paths, exactly as a fixed cash rate did.
 fn accrue_interest(
     run: &RunContext,
     ctx: &PeriodContext,
@@ -521,13 +528,16 @@ fn accrue_interest(
         if account.kind != AccountKind::Savings {
             continue;
         }
-        let AllocationRef::Cash(rate) = &account.allocation else {
-            continue;
-        };
         // Scaled to the period for the same reason `grow` is: this is the
         // savings account's whole return, and a stub period earns its own
         // months of it.
-        let rate = compound(*rate, ctx.fraction);
+        let rate = compound(
+            run.plan
+                .assumptions
+                .strategy_returns
+                .rate_for(account.allocation),
+            ctx.fraction,
+        );
         let balance = &mut state.accounts[idx].balance;
         if *balance <= 0.0 || rate <= 0.0 {
             continue;
@@ -654,18 +664,9 @@ fn grow(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) -> f64 {
         if account.kind == AccountKind::Savings {
             continue;
         }
-        // A fixed cash rate bypasses the asset-class return model entirely —
-        // used by an account with no market allocation of its own.
-        let rate: f64 = match &account.allocation {
-            AllocationRef::Cash(rate) => *rate,
-            allocation => {
-                let weights = allocation_weights(allocation);
-                weights
-                    .iter()
-                    .map(|(class, w)| w * period_returns.get(class).copied().unwrap_or(0.0))
-                    .sum()
-            }
-        };
+        // Total: a named strategy reads this period's draw, and a fixed rate
+        // prices itself. See `StrategyRates::rate_for`.
+        let rate = period_returns.rate_for(account.allocation);
         let balance = &mut state.accounts[idx].balance;
         let pre = *balance;
         // Scaled to the period, not to the calendar year: a stub first

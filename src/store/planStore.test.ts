@@ -44,7 +44,8 @@ function makePlan(overrides: Partial<Plan>): Plan {
     social_security: [],
     assumptions: {
       inflation: 0.03,
-      asset_returns: {},
+      strategy_returns: { aggressive: 0.08, moderate: 0.06, conservative: 0.04 },
+      strategy_volatility: { aggressive: 0.15, moderate: 0.11, conservative: 0.09 },
       filing_status: "Single",
       state_tax: {
         state: "Other",
@@ -55,7 +56,6 @@ function makePlan(overrides: Partial<Plan>): Plan {
       sweep_surplus_from: null,
       survivor_expense_factor: 1,
       social_security_cola: 0,
-      asset_volatility: {},
       reinvest_into: null,
     },
     sim_config: {

@@ -21,10 +21,8 @@
 //! and a salary that covers spending with no sweep — so nothing but the lump
 //! sum ever reaches the brokerage.
 
-use std::collections::BTreeMap;
-
 use engine::model::{
-    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, Contribution,
+    Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, OneTimeContribution, PeriodLength, Person, Plan,
     PlanType, SimConfig, StateTaxProfile, StreamBoundary, StreamDirection, YearMonth,
     SCHEMA_VERSION,
@@ -81,7 +79,7 @@ fn plan(start: YearMonth, retirement: YearMonth) -> Plan {
             name: "Joint brokerage".to_string(),
             balance: 0.0,
             cost_basis: Some(0.0),
-            allocation: AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
+            allocation: AllocationRef::Moderate,
             plan_type: PlanType::None,
             contributions: vec![],
             one_time_contributions: vec![],
@@ -104,14 +102,14 @@ fn plan(start: YearMonth, retirement: YearMonth) -> Plan {
         social_security: vec![],
         assumptions: Assumptions {
             inflation: 0.0,
-            asset_returns: BTreeMap::from([(AssetClass::UsBonds, 0.0)]),
+            strategy_returns: Default::default(),
             filing_status: FilingStatus::Single,
             state_tax: StateTaxProfile::none(),
             plan_end_age: 90,
             sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
-            asset_volatility: BTreeMap::new(),
+            strategy_volatility: Default::default(),
             reinvest_into: None,
         },
         sim_config: SimConfig {
@@ -154,7 +152,7 @@ fn with(mut plan: Plan, entries: Vec<OneTimeContribution>) -> Plan {
 }
 
 fn run(plan: &Plan) -> Projection {
-    let returns = FixedReturns::new(&plan.assumptions.asset_returns, 12);
+    let returns = FixedReturns::new(&plan.assumptions.strategy_returns, 12);
     simulate(
         plan,
         &returns,
@@ -409,7 +407,7 @@ fn an_inflation_grown_sale_reads_back_in_todays_dollars() {
 #[test]
 fn a_december_sale_earns_the_whole_years_return() {
     let mut base = working_plan();
-    base.assumptions.asset_returns = BTreeMap::from([(AssetClass::UsBonds, 0.10)]);
+    base.assumptions.strategy_returns = base.assumptions.strategy_returns.map(|_| 0.10);
     let projection = run(&with(base, vec![sale(month(2031, 12))]));
     assert_close(
         year(&projection, 2031).balances[BROKERAGE],

@@ -37,6 +37,10 @@ const plan = {
     },
   ],
   accounts: [],
+  assumptions: {
+    strategy_returns: { aggressive: 0.075, moderate: 0.067, conservative: 0.059 },
+    strategy_volatility: { aggressive: 0.155, moderate: 0.115, conservative: 0.09 },
+  },
   sim_config: { start: { year: 2025, month: 1 }, period: "Year" },
 } as unknown as Plan;
 
@@ -129,19 +133,27 @@ describe("AccountsSection", () => {
     });
   });
 
-  it("switches a savings account to a fixed cash rate instead of a market allocation", async () => {
+  it("starts a savings account on a fixed rate rather than a strategy", async () => {
     render(<AccountsSection />);
     await addAccount();
 
     await userEvent.selectOptions(screen.getByLabelText("Type"), "savings");
     expect(currentAccount()?.kind).toBe("Savings");
-    expect(currentAccount()?.allocation).toEqual({ Cash: expect.any(Number) });
-    expect(screen.queryByLabelText("Allocation")).toBeNull();
-    expect(screen.getByLabelText("Interest rate (%)")).toBeTruthy();
+    expect(currentAccount()?.allocation).toEqual({ FixedRate: expect.any(Number) });
+    expect(screen.getByLabelText("Fixed rate (%)")).toBeTruthy();
 
-    // Leaving Savings returns to a market preset — "Cash" isn't otherwise offered.
+    // The select stays visible and reads the rate row it is actually on.
+    // Before #129 `allocationName` returned "Moderate" for anything that
+    // wasn't a string, so a fixed-rate account claimed a strategy nobody
+    // had chosen — and the next edit to any other field wrote it in.
+    expect(screen.getByLabelText<HTMLSelectElement>("Allocation").value).toBe(
+      "FixedRate",
+    );
+
+    // Leaving Savings keeps the rate: it is legal on any kind now, so
+    // silently replacing a rate the user typed would be the wrong move.
     await userEvent.selectOptions(screen.getByLabelText("Type"), "taxable");
-    expect(currentAccount()?.allocation).toBe("Moderate");
+    expect(currentAccount()?.allocation).toEqual({ FixedRate: expect.any(Number) });
   });
 
   it("edits owner, allocation, and balance on the selected account", async () => {

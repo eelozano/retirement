@@ -1,9 +1,7 @@
 //! Monte Carlo behavior: reproducibility, aggregate sanity, and that
 //! volatility actually widens the outcome fan.
 
-use std::collections::BTreeMap;
-
-use engine::model::{AssetClass, StreamDirection};
+use engine::model::StreamDirection;
 use engine::presets::seed_plan;
 use engine::strategies::{BracketTax, ProportionalDrawdown, StochasticReturns};
 use engine::{
@@ -105,14 +103,9 @@ fn single_path_collapses_percentiles() {
 #[test]
 fn zero_volatility_matches_deterministic() {
     let plan = seed_plan();
-    let no_vol: BTreeMap<AssetClass, f64> = plan
-        .assumptions
-        .asset_returns
-        .keys()
-        .map(|c| (*c, 0.0))
-        .collect();
+    let no_vol = plan.assumptions.strategy_returns.map(|_| 0.0);
     let returns = StochasticReturns::new(
-        &plan.assumptions.asset_returns,
+        &plan.assumptions.strategy_returns,
         &no_vol,
         plan.sim_config.period.months(),
         99,
@@ -381,14 +374,9 @@ fn tax_for(plan: &Plan) -> BracketTax {
 }
 
 fn run_with_volatility(plan: &Plan, stddev: f64, config: &MonteCarloConfig) -> MonteCarloResult {
-    let vol: BTreeMap<AssetClass, f64> = plan
-        .assumptions
-        .asset_returns
-        .keys()
-        .map(|c| (*c, stddev))
-        .collect();
+    let vol = plan.assumptions.strategy_returns.map(|_| stddev);
     let returns = StochasticReturns::new(
-        &plan.assumptions.asset_returns,
+        &plan.assumptions.strategy_returns,
         &vol,
         plan.sim_config.period.months(),
         config.seed as u64,
@@ -481,14 +469,9 @@ fn higher_volatility_widens_the_fan() {
     };
 
     let spread_at = |stddev: f64| {
-        let vol: BTreeMap<AssetClass, f64> = plan
-            .assumptions
-            .asset_returns
-            .keys()
-            .map(|c| (*c, stddev))
-            .collect();
+        let vol = plan.assumptions.strategy_returns.map(|_| stddev);
         let returns = StochasticReturns::new(
-            &plan.assumptions.asset_returns,
+            &plan.assumptions.strategy_returns,
             &vol,
             months,
             config.seed as u64,
@@ -507,9 +490,9 @@ fn higher_volatility_widens_the_fan() {
 #[test]
 fn net_worth_never_goes_negative() {
     let plan = seed_plan();
-    let vol = engine::presets::asset_volatility();
+    let vol = engine::presets::default_strategy_volatility();
     let returns = StochasticReturns::new(
-        &plan.assumptions.asset_returns,
+        &plan.assumptions.strategy_returns,
         &vol,
         plan.sim_config.period.months(),
         5,
@@ -539,12 +522,27 @@ fn net_worth_never_goes_negative() {
     }
 }
 
-/// Pins the exact aggregate output against values captured before
-/// `run_monte_carlo` was changed from collecting whole `Projection`s to
-/// folding each path down to a net-worth vector and a success flag. The
-/// percentile pass is nearest-rank over a sorted slice and the success count
-/// is an integer, so the refactor is required to be *bit*-identical, not
-/// approximately equal — hence `assert_eq!` on `f64` rather than an epsilon.
+/// Pins the exact aggregate output, so the fold from whole `Projection`s to
+/// a net-worth vector plus a success flag — and anything since — stays
+/// *bit*-identical rather than approximately equal. The percentile pass is
+/// nearest-rank over a sorted slice and the success count is an integer, so
+/// `assert_eq!` on `f64` is the right assertion here.
+///
+/// Re-blessed at #129, for two separate reasons worth keeping apart.
+///
+/// The refactor itself gave `StochasticReturns` a different draw sequence —
+/// one shared market shock per period rather than four independent
+/// per-asset-class draws — so every path realizes different numbers and no
+/// amount of care could have kept these values. What it must *not* have
+/// done is move the aggregate materially, and it didn't: 0.805 → 0.815, two
+/// paths in two hundred, because the old model's blended presets were
+/// already ~0.99 correlated and perfect correlation is nearly where that
+/// sat. An independent draw per strategy, by contrast, put this at 0.88 —
+/// which is exactly what the shared shock exists to prevent.
+///
+/// Then the default volatilities widened to real whole-portfolio figures,
+/// which took it to 0.725 deliberately. See
+/// `presets::default_strategy_volatility`.
 ///
 /// Spot indices rather than all 58 periods: enough to catch an off-by-one or
 /// a reordering, few enough to read when it fails.
@@ -559,25 +557,25 @@ fn fold_reproduces_pre_refactor_output() {
         },
     );
 
-    assert_eq!(result.success_rate, 0.805);
+    assert_eq!(result.success_rate, 0.725);
     assert_eq!(result.percentiles.len(), 58);
 
     let at = |i: usize| &result.percentiles[i];
 
-    assert_eq!(at(0).p10, 626751.4776252601);
-    assert_eq!(at(12).p10, 2031389.8270239325);
-    assert_eq!(at(38).p10, 685521.0019532992);
+    assert_eq!(at(0).p10, 616573.9878651936);
+    assert_eq!(at(12).p10, 1793689.618243871);
+    assert_eq!(at(38).p10, 0.0);
     assert_eq!(at(57).p10, 0.0);
 
-    assert_eq!(at(0).p50, 762556.4549689445);
-    assert_eq!(at(12).p50, 3213900.8128613797);
-    assert_eq!(at(38).p50, 7373661.181726994);
-    assert_eq!(at(57).p50, 13641209.842750408);
+    assert_eq!(at(0).p50, 763297.404964235);
+    assert_eq!(at(12).p50, 3005420.085878938);
+    assert_eq!(at(38).p50, 6022326.797337486);
+    assert_eq!(at(57).p50, 11684948.987272412);
 
-    assert_eq!(at(0).p90, 868644.9166317225);
-    assert_eq!(at(12).p90, 4965592.984084475);
-    assert_eq!(at(38).p90, 27083819.892219543);
-    assert_eq!(at(57).p90, 85572360.53923939);
+    assert_eq!(at(0).p90, 904377.7405692474);
+    assert_eq!(at(12).p90, 5310748.638284052);
+    assert_eq!(at(38).p90, 27418073.74605364);
+    assert_eq!(at(57).p90, 81144909.48138416);
 }
 
 /// The observed form must not change the answer: progress counting and the
@@ -632,7 +630,7 @@ fn cancelled_before_start_returns_cancelled_without_running() {
 /// from a test.
 #[test]
 fn cancel_mid_run_short_circuits_the_sweep() {
-    use engine::strategies::{AssetReturns, PeriodIndex, ReturnModel};
+    use engine::strategies::{PeriodIndex, ReturnModel, StrategyReturns};
     use std::sync::atomic::{AtomicU32, Ordering};
 
     struct CancelAfter<'a> {
@@ -642,7 +640,7 @@ fn cancel_mid_run_short_circuits_the_sweep() {
         after: u32,
     }
     impl ReturnModel for CancelAfter<'_> {
-        fn returns_for(&self, period: PeriodIndex, path_id: u64) -> AssetReturns {
+        fn returns_for(&self, period: PeriodIndex, path_id: u64) -> StrategyReturns {
             if self.calls.fetch_add(1, Ordering::Relaxed) == self.after {
                 self.control.cancel();
             }
@@ -658,8 +656,8 @@ fn cancel_mid_run_short_circuits_the_sweep() {
     let control = RunControl::new();
     let returns = CancelAfter {
         inner: StochasticReturns::new(
-            &plan.assumptions.asset_returns,
-            &plan.assumptions.asset_volatility,
+            &plan.assumptions.strategy_returns,
+            &plan.assumptions.strategy_volatility,
             12,
             1,
         ),

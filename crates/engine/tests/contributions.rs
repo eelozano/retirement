@@ -4,10 +4,8 @@
 //! `PercentOfSalary` and `FederalMaximum` is what they do over a career, and
 //! neither differs from a flat amount in period 0.
 
-use std::collections::BTreeMap;
-
 use engine::model::{
-    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, Contribution,
+    Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
     StateTaxProfile, StepUp, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
 };
@@ -44,7 +42,7 @@ fn plan_with(contribution: ContributionRule, kind: AccountKind, plan_type: PlanT
             cost_basis: None,
             // Zero return, so a snapshot balance is the running sum of what
             // actually went in — no growth to unwind.
-            allocation: AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
+            allocation: AllocationRef::FixedRate(0.0),
             plan_type,
             contributions: vec![Contribution::until_retirement(
                 "contribution",
@@ -81,14 +79,14 @@ fn plan_with(contribution: ContributionRule, kind: AccountKind, plan_type: PlanT
         social_security: vec![],
         assumptions: Assumptions {
             inflation: INFLATION,
-            asset_returns: BTreeMap::from([(AssetClass::UsBonds, 0.0)]),
+            strategy_returns: Default::default(),
             filing_status: FilingStatus::Single,
             state_tax: StateTaxProfile::none(),
             plan_end_age: 71,
             sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
-            asset_volatility: BTreeMap::new(),
+            strategy_volatility: Default::default(),
             reinvest_into: None,
         },
         sim_config: SimConfig {
@@ -101,7 +99,7 @@ fn plan_with(contribution: ContributionRule, kind: AccountKind, plan_type: PlanT
 
 fn run(plan: &Plan) -> Projection {
     let returns = FixedReturns::new(
-        &plan.assumptions.asset_returns,
+        &plan.assumptions.strategy_returns,
         plan.sim_config.period.months(),
     );
     simulate(

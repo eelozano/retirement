@@ -1,4 +1,3 @@
-import type { AssetClass } from "../types/generated/AssetClass";
 import type { Plan } from "../types/generated/Plan";
 import type { StreamBoundary } from "../types/generated/StreamBoundary";
 import type { YearMonth } from "../types/generated/YearMonth";
@@ -37,12 +36,12 @@ export interface WhatIfOverrides {
   /** Scales every *expense* stream's `annual_amount`. Income is left alone:
    * this knob answers "what if we spent less", not "what if we earned less". */
   spendingMultiplier: number;
-  /** Added to every asset class's expected return, in basis points. Moves the
+  /** Added to every strategy's expected return, in basis points. Moves the
    * deterministic projection and the center of the Monte Carlo fan together. */
   returnShiftBp: number;
-  /** Scales every asset class's volatility. Monte Carlo only — the
-   * deterministic projection reads `asset_returns` and never
-   * `asset_volatility` (see `engine::run_deterministic`). */
+  /** Scales every strategy's volatility. Monte Carlo only — the
+   * deterministic projection reads `strategy_returns` and never
+   * `strategy_volatility` (see `engine::run_deterministic`). */
   volatilityMultiplier: number;
   /** Added to the inflation assumption, in basis points. */
   inflationShiftBp: number;
@@ -83,17 +82,16 @@ function addYears(date: YearMonth, years: number): YearMonth {
   return { year: date.year + years, month: date.month };
 }
 
-type Rates = Plan["assumptions"]["asset_returns"];
+type Rates = Plan["assumptions"]["strategy_returns"];
 
-/** Maps every present asset class through `f`. The map is partial — a plan
- * need not price every class — so the absent ones stay absent rather than
- * appearing at zero. */
+/** Every strategy's rate through `f`. Total, unlike the per-asset-class map
+ * this replaced: all three strategies are always priced. */
 function mapRates(rates: Rates, f: (rate: number) => number): Rates {
-  const next: Rates = {};
-  for (const [cls, rate] of Object.entries(rates) as [AssetClass, number][]) {
-    next[cls] = f(rate);
-  }
-  return next;
+  return {
+    aggressive: f(rates.aggressive),
+    moderate: f(rates.moderate),
+    conservative: f(rates.conservative),
+  };
 }
 
 /** Applies the overrides to a plan already owned by the caller. The in-place
@@ -122,18 +120,18 @@ export function applyOverridesTo(draft: Plan, o: WhatIfOverrides): void {
 
   const returnShift = o.returnShiftBp / BP;
   if (returnShift !== 0) {
-    draft.assumptions.asset_returns = mapRates(
-      draft.assumptions.asset_returns,
-      // Not floored at zero: a bond class at 2% shifted down 300 bp is a real
-      // question, and the engine has no trouble with a negative expected
-      // return.
+    draft.assumptions.strategy_returns = mapRates(
+      draft.assumptions.strategy_returns,
+      // Not floored at zero: a conservative strategy at 2% shifted down
+      // 300 bp is a real question, and the engine has no trouble with a
+      // negative expected return.
       (rate) => rate + returnShift,
     );
   }
 
   if (o.volatilityMultiplier !== 1) {
-    draft.assumptions.asset_volatility = mapRates(
-      draft.assumptions.asset_volatility,
+    draft.assumptions.strategy_volatility = mapRates(
+      draft.assumptions.strategy_volatility,
       (sigma) => sigma * o.volatilityMultiplier,
     );
   }

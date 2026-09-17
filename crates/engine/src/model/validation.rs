@@ -563,23 +563,33 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
             "Social Security COLA can't be -100% or lower.",
         ));
     }
-    for (class, rate) in &plan.assumptions.asset_returns {
-        if *rate <= -1.0 {
+    let returns = plan.assumptions.strategy_returns;
+    for (field, label, rate) in [
+        ("aggressive", "Aggressive", returns.aggressive),
+        ("moderate", "Moderate", returns.moderate),
+        ("conservative", "Conservative", returns.conservative),
+    ] {
+        if rate <= -1.0 {
             errors.push(err(
-                "assumptions.asset_returns",
-                &format!("{class:?} return can't be -100% or lower."),
+                &format!("assumptions.strategy_returns.{field}"),
+                &format!("{label} return can't be -100% or lower."),
             ));
         }
     }
-    // `StochasticReturns` feeds this straight into a normal distribution's
-    // stddev parameter, which panics if it's negative. An upper bound of
+    // A negative stddev would invert `StochasticReturns`' market shock,
+    // quietly turning every bad year into a good one. An upper bound of
     // 100% keeps a fat-fingered entry from producing a fan wide enough to
     // look like a rendering bug.
-    for (class, stddev) in &plan.assumptions.asset_volatility {
-        if !(0.0..=1.0).contains(stddev) {
+    let volatility = plan.assumptions.strategy_volatility;
+    for (field, label, stddev) in [
+        ("aggressive", "Aggressive", volatility.aggressive),
+        ("moderate", "Moderate", volatility.moderate),
+        ("conservative", "Conservative", volatility.conservative),
+    ] {
+        if !(0.0..=1.0).contains(&stddev) {
             errors.push(err(
-                "assumptions.asset_volatility",
-                &format!("{class:?} volatility must be between 0% and 100%."),
+                &format!("assumptions.strategy_volatility.{field}"),
+                &format!("{label} volatility must be between 0% and 100%."),
             ));
         }
     }
@@ -1102,30 +1112,35 @@ mod tests {
             .any(|e| e.field == "assumptions.social_security_cola"));
     }
 
+    /// A negative stddev would panic `Normal::new` inside
+    /// `StochasticReturns`, so each strategy is checked by name.
     #[test]
-    fn catches_out_of_range_asset_volatility() {
+    fn catches_out_of_range_strategy_volatility() {
         let mut plan = seed_plan();
-        for stddev in plan.assumptions.asset_volatility.values_mut() {
-            *stddev = -0.1;
-        }
+        plan.assumptions.strategy_volatility = plan.assumptions.strategy_volatility.map(|_| -0.1);
         let errors = plan.validate();
-        assert!(errors
-            .iter()
-            .any(|e| e.field == "assumptions.asset_volatility"));
+        for field in [
+            "assumptions.strategy_volatility.aggressive",
+            "assumptions.strategy_volatility.moderate",
+            "assumptions.strategy_volatility.conservative",
+        ] {
+            assert!(
+                errors.iter().any(|e| e.field == field),
+                "expected an error on {field}"
+            );
+        }
     }
 
     #[test]
     fn catches_extreme_inflation_and_returns() {
         let mut plan = seed_plan();
         plan.assumptions.inflation = -1.5;
-        for rate in plan.assumptions.asset_returns.values_mut() {
-            *rate = -2.0;
-        }
+        plan.assumptions.strategy_returns = plan.assumptions.strategy_returns.map(|_| -2.0);
         let errors = plan.validate();
         assert!(errors.iter().any(|e| e.field == "assumptions.inflation"));
         assert!(errors
             .iter()
-            .any(|e| e.field == "assumptions.asset_returns"));
+            .any(|e| e.field == "assumptions.strategy_returns.aggressive"));
     }
 
     #[test]

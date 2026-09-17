@@ -1,9 +1,7 @@
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{AssetClass, GrowthRule, PersonId, StreamBoundary};
+use super::{legacy, GrowthRule, PersonId, StreamBoundary};
 use crate::presets::{ELECTIVE_DEFERRAL_LIMIT, IRA_CONTRIBUTION_LIMIT};
 
 pub type AccountId = String;
@@ -341,21 +339,78 @@ pub struct EmployerMatch {
     pub destination: MatchDestination,
 }
 
-/// Portfolio allocation: a named preset, explicit weights summing to 1, or a
-/// fixed cash rate.
-#[derive(Serialize, Deserialize, TS, Clone, Debug, PartialEq)]
+/// How an account is invested: one of the three named strategies the plan
+/// prices in `Assumptions::strategy_returns`, or a fixed rate the account
+/// grows at on its own.
+///
+/// The type name and the `allocation` field name are unchanged from the
+/// asset-class era (#129) deliberately. The three named variants serialize
+/// identically, so a household file's `allocation: Aggressive` needs no
+/// migration at all, `decompose`'s routing of the field to the household is
+/// untouched, and the rationale on `HouseholdAccount::allocation` — an
+/// allocation is how the money is invested *today*, a fact and not a policy
+/// — stays true word for word.
+#[derive(Serialize, TS, Clone, Copy, Debug, PartialEq)]
 #[ts(export)]
 pub enum AllocationRef {
     Aggressive,
     Moderate,
     Conservative,
-    Custom(BTreeMap<AssetClass, f64>),
     /// A fixed nominal annual rate (0.045 = 4.5%) applied directly to the
-    /// balance each period, bypassing `Assumptions::asset_returns` entirely
-    /// — a savings/money-market account's rate, not a market return. Like
+    /// balance each period, bypassing `Assumptions::strategy_returns`
+    /// entirely — a savings or money-market rate, a CD ladder, or a
+    /// hand-blended portfolio the three strategies don't describe. Like
     /// `ContributionRule::FlatAmount`, this is nominal by design: it does
     /// not track inflation on its own.
+    ///
+    /// This is the pre-#129 `Cash(f64)` generalized. That variant was legal
+    /// only on a `Savings` account and was the only thing `accrue_interest`
+    /// would accept; a fixed rate is now legal on any kind, and the
+    /// annual-taxable-interest treatment derives from `AccountKind::Savings`
+    /// alone.
+    FixedRate(f64),
+}
+
+/// Deserialization shape for `AllocationRef`, carrying the two variants
+/// plans written before #129 used. A wire enum rather than
+/// `#[serde(from = ...)]` only because ts-rs cannot parse that container
+/// attribute and warns on every build — the same rationale as `Plan`'s,
+/// `Account`'s and `Assumptions`'s hand-written `Deserialize`.
+///
+/// The migration lives on the type rather than on `AccountWire`, so
+/// `Account`, `HouseholdAccount` and any future holder of the field all
+/// migrate with no change of their own.
+#[derive(Deserialize)]
+enum AllocationRefWire {
+    Aggressive,
+    Moderate,
+    Conservative,
+    FixedRate(f64),
+    /// Pre-#129, when the variant was called `Cash` and only a `Savings`
+    /// account could carry one. Same number, same meaning.
     Cash(f64),
+    /// Pre-#129 hand-written asset-class weights. Migrated to the fixed rate
+    /// they blended to rather than snapped to a named strategy, so a
+    /// hand-edited allocation is never silently replaced by a preset nobody
+    /// chose. See `legacy::blend_custom` for which return table it blends
+    /// against, and why.
+    Custom(legacy::ClassRates),
+}
+
+impl<'de> Deserialize<'de> for AllocationRef {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Ok(match AllocationRefWire::deserialize(deserializer)? {
+            AllocationRefWire::Aggressive => AllocationRef::Aggressive,
+            AllocationRefWire::Moderate => AllocationRef::Moderate,
+            AllocationRefWire::Conservative => AllocationRef::Conservative,
+            AllocationRefWire::FixedRate(rate) | AllocationRefWire::Cash(rate) => {
+                AllocationRef::FixedRate(rate)
+            }
+            AllocationRefWire::Custom(weights) => {
+                AllocationRef::FixedRate(legacy::blend_custom(&weights))
+            }
+        })
+    }
 }
 
 #[derive(Serialize, TS, Clone, Debug)]

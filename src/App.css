@@ -564,6 +564,33 @@ body {
   padding: 0 4px;
 }
 
+/* One strategy's return and volatility, grouped. Grouping them is the point:
+   they are the pair the reader reasons in, and seeing them together is what
+   makes an incoherent one (a conservative return at an aggressive spread)
+   visible — the weight-derived model this replaced could not express one. */
+.strategy-group + .strategy-group {
+  margin-top: 12px;
+}
+
+.strategy-name {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 10px 0 2px;
+}
+
+/* How many accounts this strategy prices — the answer to "does this number
+   matter to me?", which is otherwise a trip to the Accounts pane. */
+.strategy-usage {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary, var(--text-secondary));
+}
+
 /* flex-start (not space-between) keeps each label hugging its own control —
    space-between stretched the gap to the panel's full width, so a label
    read closer to the *next* row's label than to the control it named. */

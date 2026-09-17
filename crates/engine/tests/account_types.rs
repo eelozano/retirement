@@ -5,12 +5,10 @@
 //! and a `Savings` account grows at its own configured rate rather than a
 //! market-return allocation.
 
-use std::collections::BTreeMap;
-
 use engine::model::{
-    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, Contribution,
+    Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
-    StateTaxProfile, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
+    StateTaxProfile, StrategyRates, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
 };
 use engine::presets::CONTRIBUTION_LIMITS;
 use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
@@ -62,17 +60,18 @@ fn base_plan(accounts: Vec<Account>) -> Plan {
         social_security: vec![],
         assumptions: Assumptions {
             inflation: INFLATION,
-            asset_returns: BTreeMap::from([
-                (AssetClass::UsBonds, 0.05),
-                (AssetClass::UsEquity, 0.08),
-            ]),
+            strategy_returns: StrategyRates {
+                aggressive: 0.08,
+                moderate: 0.05,
+                conservative: 0.05,
+            },
             filing_status: FilingStatus::Single,
             state_tax: StateTaxProfile::none(),
             plan_end_age: 71,
             sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
-            asset_volatility: BTreeMap::new(),
+            strategy_volatility: Default::default(),
             reinvest_into: None,
         },
         sim_config: SimConfig {
@@ -115,7 +114,7 @@ fn run(plan: &Plan) -> Projection {
 
 fn run_taxed(plan: &Plan, rate: f64) -> Projection {
     let returns = FixedReturns::new(
-        &plan.assumptions.asset_returns,
+        &plan.assumptions.strategy_returns,
         plan.sim_config.period.months(),
     );
     simulate(plan, &returns, &FlatTax { rate }, &ProportionalDrawdown, 0)
@@ -148,14 +147,14 @@ fn a_457b_and_a_401k_share_no_contribution_cap() {
             AccountKind::TraditionalPreTax,
             PlanType::EmployerPlan,
             ContributionRule::FederalMaximum,
-            AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
+            AllocationRef::FixedRate(0.05),
         ),
         account(
             "457b",
             AccountKind::TraditionalPreTax,
             PlanType::Plan457b,
             ContributionRule::FederalMaximum,
-            AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
+            AllocationRef::FixedRate(0.05),
         ),
     ]);
     let projection = run(&plan);
@@ -177,14 +176,14 @@ fn sep_ira_and_simple_ira_resolve_to_their_own_limits() {
         AccountKind::TraditionalPreTax,
         PlanType::SepIra,
         ContributionRule::FederalMaximum,
-        AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
+        AllocationRef::FixedRate(0.05),
     )]));
     let simple = run(&base_plan(vec![account(
         "simple",
         AccountKind::TraditionalPreTax,
         PlanType::SimpleIra,
         ContributionRule::FederalMaximum,
-        AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
+        AllocationRef::FixedRate(0.05),
     )]));
 
     assert_close(
@@ -227,7 +226,7 @@ fn an_hsa_contribution_reduces_taxable_income() {
             amount: 4_000.0,
             growth: GrowthRule::None,
         },
-        AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
+        AllocationRef::FixedRate(0.05),
     )]));
     let without = run(&base_plan(vec![account(
         "hsa",
@@ -237,7 +236,7 @@ fn an_hsa_contribution_reduces_taxable_income() {
             amount: 0.0,
             growth: GrowthRule::None,
         },
-        AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
+        AllocationRef::FixedRate(0.05),
     )]));
 
     let tax_with = with_hsa.snapshots[0].taxes;
@@ -265,7 +264,7 @@ fn a_savings_account_grows_at_its_own_cash_rate_not_market_returns() {
             amount: 0.0,
             growth: GrowthRule::None,
         },
-        AllocationRef::Cash(0.045),
+        AllocationRef::FixedRate(0.045),
     )]);
     plan.accounts[0].balance = 10_000.0;
     // No income/expense flows so the balance only moves from growth.
@@ -294,7 +293,7 @@ fn a_savings_account_has_no_cost_basis_its_interest_is_taxed_as_it_accrues() {
             amount: 0.0,
             growth: GrowthRule::None,
         },
-        AllocationRef::Cash(0.045),
+        AllocationRef::FixedRate(0.045),
     )]);
     plan.accounts[0].balance = 10_000.0;
     plan.streams.clear();
@@ -315,6 +314,71 @@ fn a_savings_account_has_no_cost_basis_its_interest_is_taxed_as_it_accrues() {
         10_000.0 * 1.045 - 90.0,
         "the tax on interest is funded by drawing on the account that earned it",
     );
+}
+
+/// Before #129 this account was priced by nothing at all: `accrue_interest`
+/// additionally required an `AllocationRef::Cash`, and `grow` skips every
+/// `Savings` account, so a savings account carrying a named strategy sat
+/// flat forever — $35k of the committed demo household among them. The two
+/// steps are now exact complements over `AccountKind::Savings` alone, so
+/// every account is priced by one of them and none by both.
+#[test]
+fn a_savings_account_on_a_named_strategy_still_accrues_interest() {
+    let mut plan = base_plan(vec![account(
+        "savings",
+        AccountKind::Savings,
+        PlanType::None,
+        ContributionRule::FlatAmount {
+            amount: 0.0,
+            growth: GrowthRule::None,
+        },
+        AllocationRef::Conservative,
+    )]);
+    plan.accounts[0].balance = 10_000.0;
+    plan.streams.clear();
+
+    let projection = run_taxed(&plan, 0.0);
+    let first = &projection.snapshots[0];
+    assert_close(
+        first.balances["savings"],
+        10_000.0 * 1.05,
+        "grows at the conservative strategy's 5%, not at nothing",
+    );
+    assert_close(
+        first.growth,
+        500.0,
+        "and reports it as growth, the way a cash rate does",
+    );
+}
+
+/// The other half of that complement: a fixed rate on a non-`Savings` kind
+/// is priced by `grow`, so it compounds unrealized with no tax until it is
+/// withdrawn. The rate is legal on any kind now — the annual-interest
+/// treatment follows the account kind, never the allocation.
+#[test]
+fn a_fixed_rate_on_a_brokerage_grows_unrealized() {
+    let mut plan = base_plan(vec![account(
+        "brokerage",
+        AccountKind::Taxable,
+        PlanType::None,
+        ContributionRule::FlatAmount {
+            amount: 0.0,
+            growth: GrowthRule::None,
+        },
+        AllocationRef::FixedRate(0.045),
+    )]);
+    plan.accounts[0].balance = 10_000.0;
+    plan.accounts[0].cost_basis = Some(10_000.0);
+    plan.streams.clear();
+
+    let projection = run_taxed(&plan, 0.2);
+    let first = &projection.snapshots[0];
+    assert_close(
+        first.balances["brokerage"],
+        10_000.0 * 1.045,
+        "the full 4.5% stays in the account",
+    );
+    assert_close(first.taxes, 0.0, "nothing is realized, so nothing is taxed");
 }
 
 #[test]
@@ -349,7 +413,7 @@ fn a_savings_account_is_a_valid_reinvestment_destination() {
             amount: 0.0,
             growth: GrowthRule::None,
         },
-        AllocationRef::Cash(0.02),
+        AllocationRef::FixedRate(0.02),
     )]);
     plan.assumptions.reinvest_into = Some("savings".to_string());
     assert!(plan.validate().is_empty(), "{:?}", plan.validate());

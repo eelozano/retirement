@@ -10,8 +10,6 @@
 //! The fixture runs with zero inflation, zero returns and zero COLA, so
 //! every figure below is the tax treatment and nothing else.
 
-use std::collections::BTreeMap;
-
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
@@ -53,7 +51,7 @@ fn retiree() -> Plan {
             name: "401k".to_string(),
             balance: 1_500_000.0,
             cost_basis: None,
-            allocation: AllocationRef::Custom(BTreeMap::new()),
+            allocation: AllocationRef::FixedRate(0.0),
             plan_type: PlanType::EmployerPlan,
             contributions: vec![Contribution::until_retirement(
                 "contribution",
@@ -89,14 +87,14 @@ fn retiree() -> Plan {
         }],
         assumptions: Assumptions {
             inflation: 0.0,
-            asset_returns: BTreeMap::new(),
+            strategy_returns: Default::default(),
             filing_status: FilingStatus::Single,
             state_tax: StateTaxProfile::none(),
             plan_end_age: 85,
             sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
-            asset_volatility: BTreeMap::new(),
+            strategy_volatility: Default::default(),
             reinvest_into: None,
         },
         sim_config: SimConfig {

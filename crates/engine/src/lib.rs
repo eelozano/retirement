@@ -64,13 +64,13 @@ fn tax_model(plan: &Plan) -> SurvivorTax {
 /// bracket tax, proportional drawdown — all read from the plan's
 /// assumptions.
 pub fn run_deterministic(plan: &Plan) -> Projection {
-    let returns = FixedReturns::new(&plan.assumptions.asset_returns, MONTHS_PER_PERIOD);
+    let returns = FixedReturns::new(&plan.assumptions.strategy_returns, MONTHS_PER_PERIOD);
     simulate(plan, &returns, &tax_model(plan), &ProportionalDrawdown, 0)
 }
 
 /// V2: Monte Carlo over `StochasticReturns`, reading both the mean
-/// (`asset_returns`) and the spread (`asset_volatility`) from the plan — same
-/// tax/drawdown strategies as `run_deterministic`.
+/// (`strategy_returns`) and the spread (`strategy_volatility`) from the plan
+/// — same tax/drawdown strategies as `run_deterministic`.
 pub fn run_monte_carlo(plan: &Plan, config: &MonteCarloConfig) -> MonteCarloResult {
     let returns = stochastic_returns(plan, config);
     run_monte_carlo_sim(
@@ -103,8 +103,8 @@ pub fn run_monte_carlo_with(
 
 fn stochastic_returns(plan: &Plan, config: &MonteCarloConfig) -> StochasticReturns {
     StochasticReturns::new(
-        &plan.assumptions.asset_returns,
-        &plan.assumptions.asset_volatility,
+        &plan.assumptions.strategy_returns,
+        &plan.assumptions.strategy_volatility,
         MONTHS_PER_PERIOD,
         config.seed as u64,
     )

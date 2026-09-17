@@ -5,10 +5,8 @@
 //! year — no catch-up tier in play). Zero market return, so a balance is the
 //! running sum of what went in.
 
-use std::collections::BTreeMap;
-
 use engine::model::{
-    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, Contribution,
+    Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, EmployerMatch, FilingStatus, GrowthRule, MatchDestination, MatchTier,
     PeriodLength, Person, Plan, PlanType, SimConfig, StateTaxProfile, StreamBoundary,
     StreamDirection, YearMonth, SCHEMA_VERSION,
@@ -44,7 +42,7 @@ fn account(id: &str, kind: AccountKind, contribution: ContributionRule) -> Accou
         name: id.to_string(),
         balance: 0.0,
         cost_basis: None,
-        allocation: AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
+        allocation: AllocationRef::FixedRate(0.0),
         plan_type: PlanType::EmployerPlan,
         contributions: vec![Contribution::until_retirement(
             "contribution",
@@ -98,14 +96,14 @@ fn plan_with(accounts: Vec<Account>) -> Plan {
         social_security: vec![],
         assumptions: Assumptions {
             inflation: 0.0,
-            asset_returns: BTreeMap::from([(AssetClass::UsBonds, 0.0)]),
+            strategy_returns: Default::default(),
             filing_status: FilingStatus::Single,
             state_tax: StateTaxProfile::none(),
             plan_end_age: 48,
             sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
-            asset_volatility: BTreeMap::new(),
+            strategy_volatility: Default::default(),
             reinvest_into: None,
         },
         sim_config: SimConfig {
@@ -119,7 +117,7 @@ fn plan_with(accounts: Vec<Account>) -> Plan {
 fn run(plan: &Plan) -> Projection {
     assert!(plan.validate().is_empty(), "{:?}", plan.validate());
     let returns = FixedReturns::new(
-        &plan.assumptions.asset_returns,
+        &plan.assumptions.strategy_returns,
         plan.sim_config.period.months(),
     );
     simulate(

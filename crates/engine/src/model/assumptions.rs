@@ -1,20 +1,7 @@
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{AccountId, FilingStatus, StateTaxProfile, StreamBoundary};
-
-/// Broad asset classes the engine models. Portfolio presets map fund tickers
-/// (VT, VTI, VXUS, BND) onto these.
-#[derive(Serialize, Deserialize, TS, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-#[ts(export)]
-pub enum AssetClass {
-    UsEquity,
-    IntlEquity,
-    GlobalEquity,
-    UsBonds,
-}
+use super::{legacy, AccountId, FilingStatus, StateTaxProfile, StrategyRates, StreamBoundary};
 
 /// Market and tax assumptions. All rates are annual decimals (0.07 = 7%).
 ///
@@ -24,10 +11,37 @@ pub enum AssetClass {
 #[ts(export)]
 pub struct Assumptions {
     pub inflation: f64,
-    /// Nominal expected annual return per asset class (used by the V1
-    /// deterministic `FixedReturns` model; stochastic models bring their own
-    /// distribution parameters in V2).
-    pub asset_returns: BTreeMap<AssetClass, f64>,
+    /// Nominal expected annual return for each investment strategy — what an
+    /// account allocated `Aggressive` is assumed to earn.
+    ///
+    /// This replaced a per-asset-class table (#129). Growth was modelled in
+    /// two layers: four asset-class returns here, and per-account weights
+    /// over those classes in `presets::allocation_weights`. The engine only
+    /// ever used the weighted average, so the four numbers were a second set
+    /// of figures to keep true in order to derive three the user could have
+    /// typed — and nothing outside the growth path read an asset class at
+    /// all.
+    ///
+    /// `#[serde(default)]`, with the old `asset_returns` key read and blended
+    /// in `AssumptionsWire` below, so a plan written before this field loads
+    /// with its deterministic projection unchanged.
+    #[serde(default = "crate::presets::default_strategy_returns")]
+    pub strategy_returns: StrategyRates,
+    /// Annualized standard deviation for each strategy, read by
+    /// `StochasticReturns` (Monte Carlo): `strategy_returns` sets where the
+    /// fan is centered, this sets how wide it is. Surfaced as an editable
+    /// number rather than hidden in the engine for the reason #52 gave — the
+    /// fan's width must not come from figures the user cannot see.
+    ///
+    /// These are whole-portfolio figures, not the narrower ones the four
+    /// independent per-class draws they replaced implied. Those draws let a
+    /// 90/10 portfolio diversify against asset classes that in reality move
+    /// together, and the fan was too narrow for it. Upgrading a plan
+    /// therefore widens its fan and lowers its reported probability of
+    /// success; that is the model getting more honest, not a regression
+    /// (#129).
+    #[serde(default = "crate::presets::default_strategy_volatility")]
+    pub strategy_volatility: StrategyRates,
     /// Federal filing status — drives the federal bracket/standard-deduction
     /// table and Social Security taxability thresholds `BracketTax` uses.
     /// `#[serde(default)]` (→ `Single`) so plans saved before this field
@@ -108,14 +122,6 @@ pub struct Assumptions {
     /// have no `social_security` entries to apply it to.
     #[serde(default)]
     pub social_security_cola: f64,
-    /// Annualized standard deviation per asset class, read by
-    /// `StochasticReturns` (Monte Carlo) — `asset_returns` sets where the fan
-    /// is centered, this sets how wide it is. `#[serde(default =
-    /// "default_asset_volatility")]` so plans saved before this field existed
-    /// load with the same historical figures Monte Carlo used to hardcode,
-    /// producing identical output on upgrade.
-    #[serde(default = "default_asset_volatility")]
-    pub asset_volatility: BTreeMap<AssetClass, f64>,
     /// Which account receives reinvested cash: swept surplus (above), and
     /// the after-tax remainder of a required minimum distribution,
     /// unconditionally (#49). `None` — the default — is today's behaviour:
@@ -136,19 +142,6 @@ pub struct Assumptions {
     pub reinvest_into: Option<AccountId>,
 }
 
-/// Approximate historical annualized standard deviation per asset class.
-/// Seeds `Assumptions::asset_volatility` for new plans (matching
-/// `presets::default_assumptions`) and for plans saved before that field
-/// existed.
-pub(crate) fn default_asset_volatility() -> BTreeMap<AssetClass, f64> {
-    BTreeMap::from([
-        (AssetClass::UsEquity, 0.18),
-        (AssetClass::IntlEquity, 0.20),
-        (AssetClass::GlobalEquity, 0.17),
-        (AssetClass::UsBonds, 0.06),
-    ])
-}
-
 /// Historical default for `plan_end_age`, matching `presets::default_assumptions`.
 fn default_plan_end_age() -> u8 {
     95
@@ -161,14 +154,34 @@ fn no_survivor_step_down() -> f64 {
 }
 
 /// Deserialization shape for `Assumptions`, carrying the pre-#50 boolean
-/// `sweep_surplus_to_taxable` alongside the boundary that replaced it. A
-/// wire struct rather than `#[serde(from = "AssumptionsWire")]` only because
-/// ts-rs cannot parse that container attribute and warns on every build —
-/// same rationale as `Plan`'s and `Account`'s hand-written `Deserialize`.
+/// `sweep_surplus_to_taxable` alongside the boundary that replaced it, and
+/// the pre-#129 per-asset-class return table alongside the per-strategy one.
+/// A wire struct rather than `#[serde(from = "AssumptionsWire")]` only
+/// because ts-rs cannot parse that container attribute and warns on every
+/// build — same rationale as `Plan`'s and `Account`'s hand-written
+/// `Deserialize`.
+///
+/// The pre-#129 `asset_volatility` key is deliberately **not** declared
+/// here. Nothing reads it any more, unknown keys are ignored, and the
+/// resolution below says why a legacy plan is given fresh volatility figures
+/// rather than its own blended forward.
 #[derive(Deserialize)]
 struct AssumptionsWire {
     inflation: f64,
-    asset_returns: BTreeMap<AssetClass, f64>,
+    /// Per-strategy figures, present in anything a current build wrote.
+    #[serde(default)]
+    strategy_returns: Option<StrategyRates>,
+    #[serde(default)]
+    strategy_volatility: Option<StrategyRates>,
+    /// Pre-#129: nominal expected return per asset class. Read only when
+    /// `strategy_returns` is absent, so a current build's output is never
+    /// reinterpreted through the field it replaced — the same rule
+    /// `sweep_surplus_to_taxable` follows.
+    ///
+    /// No longer required, unlike the field it replaced: a file written by a
+    /// current build has no such key.
+    #[serde(default)]
+    asset_returns: Option<legacy::ClassRates>,
     #[serde(default)]
     filing_status: FilingStatus,
     #[serde(default)]
@@ -187,8 +200,6 @@ struct AssumptionsWire {
     survivor_expense_factor: f64,
     #[serde(default)]
     social_security_cola: f64,
-    #[serde(default = "default_asset_volatility")]
-    asset_volatility: BTreeMap<AssetClass, f64>,
     #[serde(default)]
     reinvest_into: Option<AccountId>,
 }
@@ -198,7 +209,27 @@ impl<'de> Deserialize<'de> for Assumptions {
         let w = AssumptionsWire::deserialize(deserializer)?;
         Ok(Assumptions {
             inflation: w.inflation,
-            asset_returns: w.asset_returns,
+            strategy_returns: w
+                .strategy_returns
+                .unwrap_or_else(|| match &w.asset_returns {
+                    // The plan's own table, blended against the weights its
+                    // allocation presets carried — the weighted average `grow`
+                    // computed every period, so the deterministic projection is
+                    // unchanged.
+                    Some(classes) => legacy::blend_all(classes),
+                    None => crate::presets::default_strategy_returns(),
+                }),
+            // A legacy plan's own per-class volatility is deliberately not
+            // blended forward. Doing so would reproduce the too-narrow fan
+            // the independent per-class draws implied, which is the thing
+            // #129 exists to correct; the plan gets the realistic
+            // whole-portfolio figures instead, visible and editable in one
+            // place. Its *returns* are preserved exactly, because those are
+            // its own forecast — the volatility was a default it never
+            // chose.
+            strategy_volatility: w
+                .strategy_volatility
+                .unwrap_or_else(crate::presets::default_strategy_volatility),
             filing_status: w.filing_status,
             state_tax: w.state_tax,
             plan_end_age: w.plan_end_age,
@@ -208,7 +239,6 @@ impl<'de> Deserialize<'de> for Assumptions {
             }),
             survivor_expense_factor: w.survivor_expense_factor,
             social_security_cola: w.social_security_cola,
-            asset_volatility: w.asset_volatility,
             reinvest_into: w.reinvest_into,
         })
     }
@@ -219,6 +249,15 @@ mod tests {
     use super::*;
     use crate::model::StreamBoundary;
 
+    /// Blended figures are exact decimals in principle but float arithmetic
+    /// in practice.
+    fn assert_close(actual: f64, expected: f64) {
+        assert!(
+            (actual - expected).abs() < 1e-12,
+            "expected {expected}, got {actual}"
+        );
+    }
+
     /// A plan file written before #50 carries the boolean, not the boundary:
     /// `true` must load as a sweep from plan start, `false` as no sweep at
     /// all, so neither changes behaviour on upgrade.
@@ -227,7 +266,6 @@ mod tests {
         let legacy = |flag: bool| {
             serde_json::json!({
                 "inflation": 0.025,
-                "asset_returns": {},
                 "plan_end_age": 95,
                 "sweep_surplus_to_taxable": flag,
             })
@@ -243,20 +281,84 @@ mod tests {
         assert!(unswept.sweep_surplus_from.is_none());
     }
 
-    /// A plan file written before #52 has no `asset_volatility` key at all.
-    /// It must load with the same historical figures Monte Carlo used to
-    /// hardcode, so an upgrade never changes a saved plan's output.
+    /// A plan file with no per-strategy volatility — anything written before
+    /// #129 — loads with the realistic whole-portfolio figures. Deliberately
+    /// *not* its own pre-#129 per-class table blended forward: see the
+    /// resolution in `Deserialize`.
     #[test]
-    fn missing_asset_volatility_falls_back_to_historical_figures() {
+    fn missing_strategy_volatility_falls_back_to_portfolio_figures() {
         let value = serde_json::json!({
             "inflation": 0.025,
-            "asset_returns": {},
             "plan_end_age": 95,
         });
 
         let parsed: Assumptions = serde_json::from_value(value).expect("parses");
 
-        assert_eq!(parsed.asset_volatility, default_asset_volatility());
+        assert_eq!(
+            parsed.strategy_volatility,
+            crate::presets::default_strategy_volatility()
+        );
+    }
+
+    /// A plan written before #129 carries four per-class returns. Each
+    /// strategy must load as the weighted average `grow` computed from them
+    /// every period, so the deterministic projection does not move.
+    #[test]
+    fn legacy_asset_returns_blend_to_per_strategy_rates() {
+        let value = serde_json::json!({
+            "inflation": 0.025,
+            "asset_returns": {
+                "UsEquity": 0.08,
+                "IntlEquity": 0.075,
+                "GlobalEquity": 0.078,
+                "UsBonds": 0.04,
+            },
+        });
+
+        let parsed: Assumptions = serde_json::from_value(value).expect("parses");
+
+        // 90/10: 0.6(8%) + 0.3(7.5%) + 0.1(4%)
+        assert_close(parsed.strategy_returns.aggressive, 0.0745);
+        // 70/30: 0.45(8%) + 0.25(7.5%) + 0.3(4%)
+        assert_close(parsed.strategy_returns.moderate, 0.06675);
+        // 50/50 global equity and bonds
+        assert_close(parsed.strategy_returns.conservative, 0.059);
+    }
+
+    /// The blend reads the plan's *own* table, not the shipped defaults, so a
+    /// plan whose returns were edited keeps its own forecast.
+    #[test]
+    fn legacy_blend_uses_the_plans_own_edited_returns() {
+        let value = serde_json::json!({
+            "inflation": 0.025,
+            "asset_returns": {
+                "UsEquity": 0.10,
+                "IntlEquity": 0.09,
+                "GlobalEquity": 0.085,
+                "UsBonds": 0.05,
+            },
+        });
+
+        let parsed: Assumptions = serde_json::from_value(value).expect("parses");
+
+        assert_close(parsed.strategy_returns.aggressive, 0.092);
+        assert_close(parsed.strategy_returns.moderate, 0.0825);
+        assert_close(parsed.strategy_returns.conservative, 0.0675);
+    }
+
+    /// Per-strategy returns win where both keys are present — a current
+    /// build's output is never reinterpreted through the table it replaced.
+    #[test]
+    fn explicit_strategy_returns_beat_the_legacy_table() {
+        let value = serde_json::json!({
+            "inflation": 0.025,
+            "strategy_returns": { "aggressive": 0.09, "moderate": 0.07, "conservative": 0.05 },
+            "asset_returns": { "UsEquity": 0.99 },
+        });
+
+        let parsed: Assumptions = serde_json::from_value(value).expect("parses");
+
+        assert_close(parsed.strategy_returns.aggressive, 0.09);
     }
 
     /// The boundary wins where both keys are present — a current build's
@@ -265,7 +367,6 @@ mod tests {
     fn explicit_boundary_beats_the_legacy_boolean() {
         let value = serde_json::json!({
             "inflation": 0.025,
-            "asset_returns": {},
             "sweep_surplus_from": { "AtRetirement": "p1" },
             "sweep_surplus_to_taxable": true,
         });

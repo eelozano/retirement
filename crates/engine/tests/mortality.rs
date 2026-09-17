@@ -2,8 +2,6 @@
 //! survivor, and `StreamBoundary::AtDeath` resolves against each person's
 //! own figure rather than a shared household age.
 
-use std::collections::BTreeMap;
-
 use engine::model::{
     Assumptions, CashFlowStream, FilingStatus, GrowthRule, PeriodLength, Person, Plan, SimConfig,
     StateTaxProfile, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
@@ -57,7 +55,7 @@ fn plan_with_two_lifespans() -> Plan {
         social_security: vec![],
         assumptions: Assumptions {
             inflation: 0.0,
-            asset_returns: BTreeMap::new(),
+            strategy_returns: Default::default(),
             filing_status: FilingStatus::Single,
             state_tax: StateTaxProfile::none(),
             // Deliberately left far from either person's real expectancy —
@@ -66,7 +64,7 @@ fn plan_with_two_lifespans() -> Plan {
             sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
-            asset_volatility: BTreeMap::new(),
+            strategy_volatility: Default::default(),
             reinvest_into: None,
         },
         sim_config: SimConfig {

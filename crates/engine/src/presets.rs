@@ -7,9 +7,9 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::model::{
-    default_asset_volatility, Account, AccountKind, AllocationRef, AssetClass, Assumptions,
-    CashFlowStream, Contribution, ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person,
-    Plan, PlanType, SimConfig, SocialSecurityBenefit, StateCode, StateTaxProfile, StreamBoundary,
+    Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
+    ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
+    SocialSecurityBenefit, StateCode, StateTaxProfile, StrategyRates, StreamBoundary,
     StreamDirection, YearMonth, SCHEMA_VERSION,
 };
 use crate::state_tax_data::state_tax_profiles;
@@ -281,8 +281,6 @@ pub struct Presets {
     /// for. Lives here so the frontend never hardcodes a statutory figure of
     /// its own, and so it can disclose the basis year next to them.
     pub contribution_limits: ContributionLimits,
-    /// Asset-class weights for each named `AllocationRef` preset.
-    pub allocations: BTreeMap<String, BTreeMap<AssetClass, f64>>,
     /// Prefill bracket schedule for each state's income tax, keyed by
     /// `StateCode`. Picking a state in the UI copies its entry into
     /// `Assumptions.state_tax`; the plan then owns an editable copy — this
@@ -290,45 +288,51 @@ pub struct Presets {
     pub state_tax_profiles: BTreeMap<StateCode, StateTaxProfile>,
 }
 
-/// Boglehead-style three-fund weights for a named preset.
+/// Nominal expected annual return for each strategy, seeding
+/// `Assumptions::strategy_returns` for a new plan.
 ///
-/// - Aggressive: 90/10 stocks/bonds — VTI 60%, VXUS 30%, BND 10%
-/// - Moderate:   70/30 — VTI 45%, VXUS 25%, BND 30%
-/// - Conservative: 50/50 — VT 50%, BND 50%
-pub fn allocation_weights(alloc: &AllocationRef) -> BTreeMap<AssetClass, f64> {
-    match alloc {
-        AllocationRef::Aggressive => BTreeMap::from([
-            (AssetClass::UsEquity, 0.60),
-            (AssetClass::IntlEquity, 0.30),
-            (AssetClass::UsBonds, 0.10),
-        ]),
-        AllocationRef::Moderate => BTreeMap::from([
-            (AssetClass::UsEquity, 0.45),
-            (AssetClass::IntlEquity, 0.25),
-            (AssetClass::UsBonds, 0.30),
-        ]),
-        AllocationRef::Conservative => BTreeMap::from([
-            (AssetClass::GlobalEquity, 0.50),
-            (AssetClass::UsBonds, 0.50),
-        ]),
-        AllocationRef::Custom(weights) => weights.clone(),
-        // A fixed cash rate has no asset-class weights — `grow()` special-
-        // cases `Cash` before reaching here; this arm exists for
-        // exhaustiveness and any other caller that wants "no market
-        // exposure" for a cash allocation.
-        AllocationRef::Cash(_) => BTreeMap::new(),
+/// Round figures a person would actually type. The pre-#129 per-class
+/// defaults blended to 7.45 / 6.675 / 5.9 under each preset's weights, and a
+/// plan carried across that change keeps its *own* blend to the last decimal
+/// — see `AssumptionsWire`. These are only what a new plan starts from, so
+/// there is nothing to preserve here and no reason to ship 6.675%.
+pub fn default_strategy_returns() -> StrategyRates {
+    StrategyRates {
+        aggressive: 0.075,
+        moderate: 0.067,
+        conservative: 0.059,
+    }
+}
+
+/// Annualized standard deviation for each strategy, seeding
+/// `Assumptions::strategy_volatility` — for a new plan, and also for any
+/// plan written before #129, which carries no per-strategy figure of its
+/// own.
+///
+/// Whole-portfolio figures for a 90/10, a 70/30 and a 50/50: roughly what
+/// those mixes have actually done. The four independent per-class draws this
+/// replaced implied 12.4 / 9.7 / 9.0 — `sqrt(Σ wᵢ² σᵢ²)` under each preset's
+/// weights — about three points too narrow at the aggressive end, because
+/// independent draws let equity diversify against equity.
+///
+/// So this widens the fan and lowers reported probability of success on a
+/// plan nobody edited: across the five demo scenarios, by 6.7 to 10.1
+/// points (the base scenario goes 0.948 → 0.881 at 2,000 paths). It is the
+/// one place this project knowingly breaks "an upgrade never changes a
+/// saved plan's output", and it breaks it because the old number was wrong.
+pub fn default_strategy_volatility() -> StrategyRates {
+    StrategyRates {
+        aggressive: 0.155,
+        moderate: 0.115,
+        conservative: 0.090,
     }
 }
 
 pub fn default_assumptions() -> Assumptions {
     Assumptions {
         inflation: 0.025,
-        asset_returns: BTreeMap::from([
-            (AssetClass::UsEquity, 0.08),
-            (AssetClass::IntlEquity, 0.075),
-            (AssetClass::GlobalEquity, 0.078),
-            (AssetClass::UsBonds, 0.04),
-        ]),
+        strategy_returns: default_strategy_returns(),
+        strategy_volatility: default_strategy_volatility(),
         filing_status: FilingStatus::Single,
         // No state selected by default — we don't know where the user
         // lives; the state picker prefills a real bracket schedule once
@@ -341,37 +345,14 @@ pub fn default_assumptions() -> Assumptions {
         // No step-down until the user picks one — see the field docs.
         survivor_expense_factor: 1.0,
         social_security_cola: 0.025,
-        asset_volatility: default_asset_volatility(),
         reinvest_into: None,
     }
-}
-
-/// Fixed annualized standard deviation per asset class, used to seed
-/// `Assumptions::asset_volatility` for new plans. Approximate historical
-/// figures; the plan owns an editable copy from here on, same as
-/// `asset_returns`.
-pub fn asset_volatility() -> BTreeMap<AssetClass, f64> {
-    default_asset_volatility()
 }
 
 pub fn presets() -> Presets {
     Presets {
         default_assumptions: default_assumptions(),
         contribution_limits: CONTRIBUTION_LIMITS,
-        allocations: BTreeMap::from([
-            (
-                "Aggressive".to_string(),
-                allocation_weights(&AllocationRef::Aggressive),
-            ),
-            (
-                "Moderate".to_string(),
-                allocation_weights(&AllocationRef::Moderate),
-            ),
-            (
-                "Conservative".to_string(),
-                allocation_weights(&AllocationRef::Conservative),
-            ),
-        ]),
         state_tax_profiles: state_tax_profiles(),
     }
 }

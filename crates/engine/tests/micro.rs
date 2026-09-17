@@ -10,10 +10,8 @@
 //!   401(k): (121k - 40k) * 1.1 = 89.1k.
 //! Period 2: same → (89.1k - 40k) * 1.1 = 54.01k.
 
-use std::collections::BTreeMap;
-
 use engine::model::{
-    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, Contribution,
+    Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
     StateTaxProfile, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
 };
@@ -31,7 +29,7 @@ use engine::{simulate, Projection};
 /// "20% flat tax" framing exactly.
 fn run_with_flat_tax(plan: &Plan, rate: f64) -> Projection {
     let returns = FixedReturns::new(
-        &plan.assumptions.asset_returns,
+        &plan.assumptions.strategy_returns,
         plan.sim_config.period.months(),
     );
     simulate(plan, &returns, &FlatTax { rate }, &ProportionalDrawdown, 0)
@@ -39,7 +37,7 @@ fn run_with_flat_tax(plan: &Plan, rate: f64) -> Projection {
 
 fn micro_plan() -> Plan {
     let person = "p1".to_string();
-    let bonds_only = AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)]));
+    let bonds_only = AllocationRef::FixedRate(0.10);
     Plan {
         id: "micro".to_string(),
         schema_version: SCHEMA_VERSION,
@@ -99,7 +97,7 @@ fn micro_plan() -> Plan {
         social_security: vec![],
         assumptions: Assumptions {
             inflation: 0.0,
-            asset_returns: BTreeMap::from([(AssetClass::UsBonds, 0.10)]),
+            strategy_returns: Default::default(),
             filing_status: FilingStatus::Single,
             state_tax: StateTaxProfile::none(),
             // Person is 60 at plan start (2026); age 63 → end month 2029-01,
@@ -108,7 +106,7 @@ fn micro_plan() -> Plan {
             sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
-            asset_volatility: BTreeMap::new(),
+            strategy_volatility: Default::default(),
             reinvest_into: None,
         },
         sim_config: SimConfig {
@@ -198,7 +196,7 @@ fn micro_plan_with_taxable_account() -> Plan {
         name: "Taxable".to_string(),
         balance: 0.0,
         cost_basis: Some(0.0),
-        allocation: AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 0.0)])),
+        allocation: AllocationRef::FixedRate(0.0),
         plan_type: PlanType::None,
         contributions: vec![Contribution::until_retirement(
             "contribution",
@@ -336,7 +334,7 @@ fn with_second_account(
         name: id.to_string(),
         balance: 0.0,
         cost_basis: None,
-        allocation: AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)])),
+        allocation: AllocationRef::FixedRate(0.10),
         plan_type,
         contributions: vec![Contribution::until_retirement(
             "contribution",

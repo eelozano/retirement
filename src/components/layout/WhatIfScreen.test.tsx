@@ -76,8 +76,8 @@ const plan = {
   social_security: [],
   assumptions: {
     inflation: 0.025,
-    asset_returns: { UsEquity: 0.07 },
-    asset_volatility: { UsEquity: 0.16 },
+    strategy_returns: { aggressive: 0.07, moderate: 0.06, conservative: 0.04 },
+    strategy_volatility: { aggressive: 0.16, moderate: 0.12, conservative: 0.09 },
     filing_status: "Single",
     state_tax: {
       state: "Other",
@@ -162,8 +162,8 @@ describe("the sandbox never writes", () => {
     expect(draft?.people[0]?.life_expectancy_age).toBe(97);
     expect(draft?.streams[0]?.annual_amount).toBeCloseTo(64_000, 6);
     expect(draft?.assumptions.inflation).toBeCloseTo(0.035, 10);
-    expect(draft?.assumptions.asset_returns.UsEquity).toBeCloseTo(0.05, 10);
-    expect(draft?.assumptions.asset_volatility.UsEquity).toBeCloseTo(0.28, 10);
+    expect(draft?.assumptions.strategy_returns.aggressive).toBeCloseTo(0.05, 10);
+    expect(draft?.assumptions.strategy_volatility.aggressive).toBeCloseTo(0.28, 10);
   });
 
   it("throws the hypothetical away when a knob comes back to rest", async () => {
