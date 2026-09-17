@@ -5,7 +5,7 @@ import { usePlanStore } from "../../store/planStore";
 import type { Plan } from "../../types/generated/Plan";
 import { PeopleSection } from "./PeopleSection";
 
-// A person's own income/expense streams and their Social Security benefits
+// A person's own income/expense streams, Social Security benefits and pensions
 // live on the person's card here — grouped by `owner` instead of scattered
 // across separate flat panels. What they *save* does not: contributions and
 // the employer match are edited on the account, covered in
@@ -76,7 +76,7 @@ describe("PeopleSection", () => {
     expect(usePlanStore.getState().plan?.streams[0].annual_amount).toBe(120000);
   });
 
-  it("adds a single-life pension with no COLA, entered as a monthly check", async () => {
+  it("adds a single-life pension with no COLA, entered as a monthly check, alongside Social Security", async () => {
     render(<PeopleSection />);
 
     await userEvent.click(screen.getByRole("button", { name: "Add pension" }));
@@ -84,6 +84,9 @@ describe("PeopleSection", () => {
     expect(added?.kind).toBe("Pension");
     expect(added?.end).toEqual({ AtDeath: "p1" });
     expect(added?.growth).toBe("None");
+    // Grouped with Social Security, not with the salary and expense streams.
+    expect(screen.getByText("Social Security & pensions")).toBeTruthy();
+    expect(screen.queryByLabelText("Amount / yr ($, today's)")).toBeNull();
 
     const monthly = screen.getByLabelText("Monthly benefit ($)");
     await userEvent.clear(monthly);

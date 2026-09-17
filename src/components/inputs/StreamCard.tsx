@@ -7,7 +7,6 @@ import {
   TextField,
   YearMonthField,
 } from "./fields";
-import { PensionCard } from "./PensionCard";
 import type { UpdatePlan } from "./shared";
 import {
   boundaryDateHint,
@@ -35,9 +34,6 @@ export function StreamCard(props: {
 }) {
   const { plan, streamIndex: i, updatePlan } = props;
   const stream = plan.streams[i];
-  if (stream.kind === "Pension") {
-    return <PensionCard plan={plan} streamIndex={i} updatePlan={updatePlan} />;
-  }
   // A stream that has already stopped by its owner's death has no share to
   // pass on: "ends at retirement" is the common case, and the degenerate
   // "ends at plan start" the other.
