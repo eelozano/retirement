@@ -25,7 +25,9 @@ pub use person::{Person, PersonId};
 pub use plan::{PeriodLength, Plan, PlanId, SimConfig, SCHEMA_VERSION};
 pub use social_security::{adjustment_factor, SocialSecurityBenefit, SocialSecurityBenefitId};
 pub use strategy::StrategyRates;
-pub use stream::{CashFlowStream, GrowthRule, StreamBoundary, StreamDirection, StreamId};
+pub use stream::{
+    CashFlowStream, GrowthRule, StreamBoundary, StreamDirection, StreamId, StreamKind,
+};
 pub use tax_profile::{bracket_tax, FilingStatus, StateCode, StateTaxProfile, TaxBracket};
 pub use validation::ValidationError;
 pub use year_month::YearMonth;

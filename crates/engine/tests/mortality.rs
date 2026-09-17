@@ -4,7 +4,7 @@
 
 use engine::model::{
     Assumptions, CashFlowStream, FilingStatus, GrowthRule, PeriodLength, Person, Plan, SimConfig,
-    StateTaxProfile, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
+    StateTaxProfile, StreamBoundary, StreamDirection, StreamKind, YearMonth, SCHEMA_VERSION,
 };
 use engine::run_deterministic;
 
@@ -51,6 +51,7 @@ fn plan_with_two_lifespans() -> Plan {
             end: StreamBoundary::AtDeath(short),
             growth: GrowthRule::None,
             survivor_percentage: None,
+            kind: StreamKind::General,
         }],
         social_security: vec![],
         assumptions: Assumptions {

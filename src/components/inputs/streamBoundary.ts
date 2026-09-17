@@ -8,7 +8,7 @@ import type { YearMonth } from "../../types/generated/YearMonth";
 // Shared by the People pane's own streams, the household Spending pane,
 // and an account's dated contribution entries.
 
-export type BoundaryChoice = string; // "PlanStart" | "PlanEnd" | "Date" | `Retirement:${id}`
+export type BoundaryChoice = string; // "PlanStart" | "PlanEnd" | "Date" | `Retirement:${id}` | `Death:${id}`
 
 export function boundaryToChoice(b: StreamBoundary): BoundaryChoice {
   if (b === "PlanStart" || b === "PlanEnd") return b;
@@ -43,6 +43,11 @@ export function boundaryOptions(plan: Plan, edge: "start" | "end") {
       value: `Retirement:${p.id}`,
       label: `${p.name} retires`,
     })),
+    // Only as an end: nothing starts at a death that `survivor_percentage`
+    // does not already start on its own.
+    ...(edge === "end"
+      ? plan.people.map((p) => ({ value: `Death:${p.id}`, label: `${p.name} dies` }))
+      : []),
   ];
 }
 

@@ -10,7 +10,7 @@
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
-    StateTaxProfile, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
+    StateTaxProfile, StreamBoundary, StreamDirection, StreamKind, YearMonth, SCHEMA_VERSION,
 };
 use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
 use engine::{simulate, Projection, SimWarning};
@@ -57,6 +57,7 @@ fn staggered_household() -> Plan {
         end: StreamBoundary::AtRetirement(owner.to_string()),
         growth: GrowthRule::None,
         survivor_percentage: None,
+        kind: StreamKind::General,
     };
     Plan {
         id: "sweep".to_string(),
@@ -115,6 +116,7 @@ fn staggered_household() -> Plan {
                 end: StreamBoundary::PlanEnd,
                 growth: GrowthRule::None,
                 survivor_percentage: None,
+                kind: StreamKind::General,
             },
         ],
         social_security: vec![],

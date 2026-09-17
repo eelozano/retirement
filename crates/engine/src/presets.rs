@@ -10,7 +10,7 @@ use crate::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
     SocialSecurityBenefit, StateCode, StateTaxProfile, StrategyRates, StreamBoundary,
-    StreamDirection, YearMonth, SCHEMA_VERSION,
+    StreamDirection, StreamKind, YearMonth, SCHEMA_VERSION,
 };
 use crate::state_tax_data::state_tax_profiles;
 
@@ -463,6 +463,7 @@ pub fn seed_plan() -> Plan {
                 end: StreamBoundary::AtRetirement(alex.clone()),
                 growth: GrowthRule::Inflation,
                 survivor_percentage: None,
+                kind: StreamKind::General,
             },
             CashFlowStream {
                 id: "jordan-salary".to_string(),
@@ -474,6 +475,7 @@ pub fn seed_plan() -> Plan {
                 end: StreamBoundary::AtRetirement(jordan),
                 growth: GrowthRule::Inflation,
                 survivor_percentage: None,
+                kind: StreamKind::General,
             },
             CashFlowStream {
                 id: "household-spending".to_string(),
@@ -485,6 +487,7 @@ pub fn seed_plan() -> Plan {
                 end: StreamBoundary::PlanEnd,
                 growth: GrowthRule::Inflation,
                 survivor_percentage: None,
+                kind: StreamKind::General,
             },
         ],
         social_security: vec![SocialSecurityBenefit {

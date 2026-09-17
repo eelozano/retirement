@@ -44,7 +44,7 @@ const plan = {
   ],
   streams: [],
   social_security: [],
-  assumptions: { social_security_cola: 0.02 },
+  assumptions: { social_security_cola: 0.02, inflation: 0.025 },
 } as unknown as Plan;
 
 beforeEach(() => {
@@ -74,6 +74,26 @@ describe("PeopleSection", () => {
     await userEvent.clear(amount);
     await userEvent.type(amount, "120000");
     expect(usePlanStore.getState().plan?.streams[0].annual_amount).toBe(120000);
+  });
+
+  it("adds a single-life pension with no COLA, entered as a monthly check", async () => {
+    render(<PeopleSection />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Add pension" }));
+    const added = usePlanStore.getState().plan?.streams[0];
+    expect(added?.kind).toBe("Pension");
+    expect(added?.end).toEqual({ AtDeath: "p1" });
+    expect(added?.growth).toBe("None");
+
+    const monthly = screen.getByLabelText("Monthly benefit ($)");
+    await userEvent.clear(monthly);
+    await userEvent.type(monthly, "1500");
+    expect(usePlanStore.getState().plan?.streams[0].annual_amount).toBe(18000);
+
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: /cost-of-living adjustment/ }),
+    );
+    expect(usePlanStore.getState().plan?.streams[0].growth).toEqual({ Fixed: 0.025 });
   });
 
   it("adds and edits a Social Security benefit owned by the person, with no owner select", async () => {

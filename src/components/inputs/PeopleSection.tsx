@@ -54,6 +54,26 @@ export function PeopleSection() {
               end: { AtRetirement: person.id },
               growth: "Inflation",
               survivor_percentage: null,
+              kind: "General",
+            });
+          });
+
+        // Single life on its owner, no COLA, starting when they retire: the
+        // plainest pension, and a statement's "monthly benefit" is all that
+        // is left to fill in.
+        const addPension = () =>
+          updatePlan((d) => {
+            d.streams.push({
+              id: `pension-${Date.now()}`,
+              name: "Pension",
+              owner: person.id,
+              direction: "Income",
+              annual_amount: 0,
+              start: { AtRetirement: person.id },
+              end: { AtDeath: person.id },
+              growth: "None",
+              survivor_percentage: null,
+              kind: "Pension",
             });
           });
 
@@ -127,6 +147,9 @@ export function PeopleSection() {
               ))}
               <button type="button" className="add" onClick={addStream}>
                 Add stream
+              </button>
+              <button type="button" className="add" onClick={addPension}>
+                Add pension
               </button>
             </div>
 

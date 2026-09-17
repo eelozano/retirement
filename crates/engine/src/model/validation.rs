@@ -3,7 +3,10 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{AccountKind, ContributionRule, Plan, PlanType, StreamBoundary, YearMonth};
+use super::{
+    AccountKind, ContributionRule, Plan, PlanType, StreamBoundary, StreamDirection, StreamKind,
+    YearMonth,
+};
 
 /// Bounds on any date in a plan. `YearMonth::new` asserts the month range,
 /// but serde deserialization constructs the struct field-by-field and never
@@ -421,6 +424,15 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                 &format!("Duplicate stream id \"{}\".", stream.id),
             ));
         }
+        // A pension's amount is read as its first payment; an expense has
+        // no first payment to read it as, so the kind would silently move
+        // when its growth starts.
+        if stream.kind == StreamKind::Pension && stream.direction != StreamDirection::Income {
+            errors.push(err(
+                &format!("streams[{i}].direction"),
+                &format!("\"{}\" is a pension, so it must be income.", stream.name),
+            ));
+        }
         if let Some(percentage) = stream.survivor_percentage {
             if !(0.0..=1.0).contains(&percentage) {
                 errors.push(err(
@@ -623,6 +635,7 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
 
 #[cfg(test)]
 mod tests {
+    use super::{StreamDirection, StreamKind};
     use crate::presets::seed_plan;
 
     #[test]
@@ -1084,6 +1097,21 @@ mod tests {
         assert!(errors
             .iter()
             .any(|e| e.field == "streams[0].survivor_percentage"));
+    }
+
+    #[test]
+    fn catches_a_pension_that_is_an_expense() {
+        let mut plan = seed_plan();
+        let i = plan
+            .streams
+            .iter()
+            .position(|s| s.direction == StreamDirection::Expense)
+            .expect("seed plan has an expense");
+        plan.streams[i].kind = StreamKind::Pension;
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == format!("streams[{i}].direction")));
     }
 
     /// A survivor share needs an owner: it starts at that person's death.

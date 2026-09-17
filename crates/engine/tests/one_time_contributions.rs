@@ -24,7 +24,7 @@
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, OneTimeContribution, PeriodLength, Person, Plan,
-    PlanType, SimConfig, StateTaxProfile, StreamBoundary, StreamDirection, YearMonth,
+    PlanType, SimConfig, StateTaxProfile, StreamBoundary, StreamDirection, StreamKind, YearMonth,
     SCHEMA_VERSION,
 };
 use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
@@ -50,6 +50,7 @@ fn stream(
         end,
         growth: GrowthRule::None,
         survivor_percentage: None,
+        kind: StreamKind::General,
     }
 }
 

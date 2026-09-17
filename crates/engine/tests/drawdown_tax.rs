@@ -13,7 +13,7 @@
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
-    SocialSecurityBenefit, StateTaxProfile, StreamBoundary, StreamDirection, YearMonth,
+    SocialSecurityBenefit, StateTaxProfile, StreamBoundary, StreamDirection, StreamKind, YearMonth,
     SCHEMA_VERSION,
 };
 use engine::run_deterministic;
@@ -74,6 +74,7 @@ fn retiree() -> Plan {
             end: StreamBoundary::PlanEnd,
             growth: GrowthRule::None,
             survivor_percentage: None,
+            kind: StreamKind::General,
         }],
         // Full retirement age and claiming age both 67, so the claiming
         // adjustment is exactly 1.0 and `benefit_at_fra` is what is paid.
