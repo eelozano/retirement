@@ -528,16 +528,21 @@ fn net_worth_never_goes_negative() {
 /// nearest-rank over a sorted slice and the success count is an integer, so
 /// `assert_eq!` on `f64` is the right assertion here.
 ///
-/// Re-blessed once, at #129. That change gave `StochasticReturns` a
-/// different draw sequence — one shared market shock per period rather than
-/// four independent per-asset-class draws — so every path realizes
-/// different numbers and no amount of care could have kept these values.
-/// What it must *not* have done is move the aggregate materially: the
-/// success rate went 0.805 → 0.815, two paths out of two hundred, and the
-/// old model's blended presets were already ~0.99 correlated with each other
-/// so perfect correlation is nearly where it sat. An independent draw per
-/// strategy, by contrast, put this at 0.88 — which is what the shared shock
-/// exists to prevent.
+/// Re-blessed at #129, for two separate reasons worth keeping apart.
+///
+/// The refactor itself gave `StochasticReturns` a different draw sequence —
+/// one shared market shock per period rather than four independent
+/// per-asset-class draws — so every path realizes different numbers and no
+/// amount of care could have kept these values. What it must *not* have
+/// done is move the aggregate materially, and it didn't: 0.805 → 0.815, two
+/// paths in two hundred, because the old model's blended presets were
+/// already ~0.99 correlated and perfect correlation is nearly where that
+/// sat. An independent draw per strategy, by contrast, put this at 0.88 —
+/// which is exactly what the shared shock exists to prevent.
+///
+/// Then the default volatilities widened to real whole-portfolio figures,
+/// which took it to 0.725 deliberately. See
+/// `presets::default_strategy_volatility`.
 ///
 /// Spot indices rather than all 58 periods: enough to catch an off-by-one or
 /// a reordering, few enough to read when it fails.
@@ -552,25 +557,25 @@ fn fold_reproduces_pre_refactor_output() {
         },
     );
 
-    assert_eq!(result.success_rate, 0.815);
+    assert_eq!(result.success_rate, 0.725);
     assert_eq!(result.percentiles.len(), 58);
 
     let at = |i: usize| &result.percentiles[i];
 
-    assert_eq!(at(0).p10, 643401.2475410796);
-    assert_eq!(at(12).p10, 2043130.1938297432);
-    assert_eq!(at(38).p10, 1030587.9081689048);
+    assert_eq!(at(0).p10, 616573.9878651936);
+    assert_eq!(at(12).p10, 1793689.618243871);
+    assert_eq!(at(38).p10, 0.0);
     assert_eq!(at(57).p10, 0.0);
 
-    assert_eq!(at(0).p50, 761120.4921227816);
-    assert_eq!(at(12).p50, 3101113.611590304);
-    assert_eq!(at(38).p50, 7484337.881899694);
-    assert_eq!(at(57).p50, 17824499.273784924);
+    assert_eq!(at(0).p50, 763297.404964235);
+    assert_eq!(at(12).p50, 3005420.085878938);
+    assert_eq!(at(38).p50, 6022326.797337486);
+    assert_eq!(at(57).p50, 11684948.987272412);
 
-    assert_eq!(at(0).p90, 874312.1752304918);
-    assert_eq!(at(12).p90, 4907618.405452874);
-    assert_eq!(at(38).p90, 25133045.199177157);
-    assert_eq!(at(57).p90, 75361912.91128722);
+    assert_eq!(at(0).p90, 904377.7405692474);
+    assert_eq!(at(12).p90, 5310748.638284052);
+    assert_eq!(at(38).p90, 27418073.74605364);
+    assert_eq!(at(57).p90, 81144909.48138416);
 }
 
 /// The observed form must not change the answer: progress counting and the

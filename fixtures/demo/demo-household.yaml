@@ -287,13 +287,13 @@ scenarios:
   assumptions:
     inflation: 0.025
     strategy_returns:
-      aggressive: 0.0745
-      moderate: 0.06675
+      aggressive: 0.075
+      moderate: 0.067
       conservative: 0.059
     strategy_volatility:
-      aggressive: 0.1237
-      moderate: 0.0969
-      conservative: 0.0901
+      aggressive: 0.155
+      moderate: 0.115
+      conservative: 0.09
     filing_status: MarriedFilingJointly
     state_tax:
       state: Colorado
@@ -482,13 +482,13 @@ scenarios:
   assumptions:
     inflation: 0.025
     strategy_returns:
-      aggressive: 0.0745
-      moderate: 0.06675
+      aggressive: 0.075
+      moderate: 0.067
       conservative: 0.059
     strategy_volatility:
-      aggressive: 0.1237
-      moderate: 0.0969
-      conservative: 0.0901
+      aggressive: 0.155
+      moderate: 0.115
+      conservative: 0.09
     filing_status: MarriedFilingJointly
     state_tax:
       state: Colorado
@@ -677,13 +677,13 @@ scenarios:
   assumptions:
     inflation: 0.025
     strategy_returns:
-      aggressive: 0.0745
-      moderate: 0.06675
+      aggressive: 0.075
+      moderate: 0.067
       conservative: 0.059
     strategy_volatility:
-      aggressive: 0.1237
-      moderate: 0.0969
-      conservative: 0.0901
+      aggressive: 0.155
+      moderate: 0.115
+      conservative: 0.09
     filing_status: MarriedFilingJointly
     state_tax:
       state: Colorado
@@ -872,13 +872,13 @@ scenarios:
   assumptions:
     inflation: 0.025
     strategy_returns:
-      aggressive: 0.0745
-      moderate: 0.06675
+      aggressive: 0.075
+      moderate: 0.067
       conservative: 0.059
     strategy_volatility:
-      aggressive: 0.1237
-      moderate: 0.0969
-      conservative: 0.0901
+      aggressive: 0.155
+      moderate: 0.115
+      conservative: 0.09
     filing_status: MarriedFilingJointly
     state_tax:
       state: Colorado
@@ -1072,13 +1072,13 @@ scenarios:
   assumptions:
     inflation: 0.025
     strategy_returns:
-      aggressive: 0.0745
-      moderate: 0.06675
+      aggressive: 0.075
+      moderate: 0.067
       conservative: 0.059
     strategy_volatility:
-      aggressive: 0.1237
-      moderate: 0.0969
-      conservative: 0.0901
+      aggressive: 0.155
+      moderate: 0.115
+      conservative: 0.09
     filing_status: MarriedFilingJointly
     state_tax:
       state: Colorado

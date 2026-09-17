@@ -973,6 +973,61 @@ mod tests {
         assert!(load_household_file(&path).is_err());
     }
 
+    /// Rewrites a current household file into the shape a pre-#129 build
+    /// wrote it: each per-strategy block replaced by the four-class table it
+    /// replaced, at the same indentation.
+    ///
+    /// Line-based rather than a string match on today's default figures,
+    /// because a match on those would stop matching the moment the defaults
+    /// move — turning the test below into a no-op that still passes.
+    fn to_pre_129(current: &str) -> String {
+        const RETURNS: [(&str, &str); 4] = [
+            ("UsEquity", "0.08"),
+            ("IntlEquity", "0.075"),
+            ("GlobalEquity", "0.078"),
+            ("UsBonds", "0.04"),
+        ];
+        const VOLATILITY: [(&str, &str); 4] = [
+            ("UsEquity", "0.18"),
+            ("IntlEquity", "0.2"),
+            ("GlobalEquity", "0.17"),
+            ("UsBonds", "0.06"),
+        ];
+
+        let mut out = String::new();
+        let mut dropping = false;
+        for line in current.lines() {
+            let body = line.trim_start();
+            let indent = &line[..line.len() - body.len()];
+            let legacy = match body.split(':').next() {
+                Some("strategy_returns") => Some(("asset_returns", RETURNS)),
+                Some("strategy_volatility") => Some(("asset_volatility", VOLATILITY)),
+                _ => None,
+            };
+            if let Some((key, table)) = legacy {
+                out.push_str(&format!("{indent}{key}:\n"));
+                for (class, rate) in table {
+                    out.push_str(&format!("{indent}  {class}: {rate}\n"));
+                }
+                dropping = true;
+                continue;
+            }
+            // The three rate lines belonging to the block just replaced.
+            if dropping {
+                if matches!(
+                    body.split(':').next(),
+                    Some("aggressive" | "moderate" | "conservative")
+                ) {
+                    continue;
+                }
+                dropping = false;
+            }
+            out.push_str(line);
+            out.push('\n');
+        }
+        out
+    }
+
     /// Every plan file already on disk predates #129: it carries four
     /// per-asset-class returns and, for a savings account, a `Cash`
     /// allocation — neither of which the schema still has. They must load
@@ -987,32 +1042,11 @@ mod tests {
 
         let path = household_path(&base.0, "base-plan");
         let current = fs::read_to_string(&path).unwrap();
-        let legacy = current
-            .replace(
-                "\
-    strategy_returns:
-      aggressive: 0.0745
-      moderate: 0.06675
-      conservative: 0.059
-    strategy_volatility:
-      aggressive: 0.1237
-      moderate: 0.0969
-      conservative: 0.0901",
-                "\
-    asset_returns:
-      UsEquity: 0.08
-      IntlEquity: 0.075
-      GlobalEquity: 0.078
-      UsBonds: 0.04
-    asset_volatility:
-      UsEquity: 0.18
-      IntlEquity: 0.2
-      GlobalEquity: 0.17
-      UsBonds: 0.06",
-            )
-            .replace("allocation: Moderate", "allocation: !Cash 0.02");
+        let legacy = to_pre_129(&current).replace("allocation: Moderate", "allocation: !Cash 0.02");
         assert!(
-            legacy.contains("asset_returns:") && legacy.contains("!Cash"),
+            legacy.contains("asset_returns:")
+                && !legacy.contains("strategy_returns:")
+                && legacy.contains("!Cash"),
             "the rewrite matched nothing — this test would prove nothing"
         );
         fs::write(&path, legacy).unwrap();

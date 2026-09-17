@@ -289,33 +289,42 @@ pub struct Presets {
 }
 
 /// Nominal expected annual return for each strategy, seeding
-/// `Assumptions::strategy_returns` for new plans.
+/// `Assumptions::strategy_returns` for a new plan.
 ///
-/// These are the weighted averages the pre-#129 per-class defaults produced
-/// under each preset's weights — 0.6(8%) + 0.3(7.5%) + 0.1(4%) and so on —
-/// so a plan carried across the change projects identically on the
-/// deterministic path.
+/// Round figures a person would actually type. The pre-#129 per-class
+/// defaults blended to 7.45 / 6.675 / 5.9 under each preset's weights, and a
+/// plan carried across that change keeps its *own* blend to the last decimal
+/// — see `AssumptionsWire`. These are only what a new plan starts from, so
+/// there is nothing to preserve here and no reason to ship 6.675%.
 pub fn default_strategy_returns() -> StrategyRates {
     StrategyRates {
-        aggressive: 0.0745,
-        moderate: 0.06675,
+        aggressive: 0.075,
+        moderate: 0.067,
         conservative: 0.059,
     }
 }
 
 /// Annualized standard deviation for each strategy, seeding
-/// `Assumptions::strategy_volatility` for new plans.
+/// `Assumptions::strategy_volatility` — for a new plan, and also for any
+/// plan written before #129, which carries no per-strategy figure of its
+/// own.
 ///
-/// These are the figures the four independent per-class draws implied before
-/// #129 — `sqrt(Σ wᵢ² σᵢ²)` under each preset's weights — so the Monte Carlo
-/// fan keeps the width it had. They are too narrow for a real portfolio,
-/// because independent draws let equity diversify against equity; widening
-/// them is a deliberate, separately-measured change.
+/// Whole-portfolio figures for a 90/10, a 70/30 and a 50/50: roughly what
+/// those mixes have actually done. The four independent per-class draws this
+/// replaced implied 12.4 / 9.7 / 9.0 — `sqrt(Σ wᵢ² σᵢ²)` under each preset's
+/// weights — about three points too narrow at the aggressive end, because
+/// independent draws let equity diversify against equity.
+///
+/// So this widens the fan and lowers reported probability of success on a
+/// plan nobody edited: across the five demo scenarios, by 6.7 to 10.1
+/// points (the base scenario goes 0.948 → 0.881 at 2,000 paths). It is the
+/// one place this project knowingly breaks "an upgrade never changes a
+/// saved plan's output", and it breaks it because the old number was wrong.
 pub fn default_strategy_volatility() -> StrategyRates {
     StrategyRates {
-        aggressive: 0.1237,
-        moderate: 0.0969,
-        conservative: 0.0901,
+        aggressive: 0.155,
+        moderate: 0.115,
+        conservative: 0.090,
     }
 }
 
