@@ -58,13 +58,12 @@ export function lifespanOptions(plan: Plan, stream: CashFlowStream) {
   const current = lifespanOf(stream);
   const options: { value: Lifespan; label: string }[] = plan.people.map((p) => ({
     value: `Death:${p.id}`,
-    label: `Until ${p.name || "this person"} dies (single life)`,
+    label: `Until ${p.name || "this person"} dies`,
   }));
   if (plan.people.length > 1 || current === "Joint") {
-    const label =
-      plan.people.length === 2
-        ? `Until ${plan.people[0].name} and ${plan.people[1].name} have both died (joint)`
-        : "Until the last survivor dies (joint)";
+    // Short enough for the select's width: the survivor-share hint below
+    // it spells out what joint means.
+    const label = plan.people.length === 2 ? "Both lives (joint)" : "All lives (joint)";
     options.push({ value: "Joint", label });
   }
   if (current === "Other") {
