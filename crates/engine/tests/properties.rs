@@ -20,9 +20,8 @@ fn plan_grid() -> Vec<Plan> {
                 for person in &mut plan.people {
                     person.retirement = person.retirement.add_years(retirement_shift_years);
                 }
-                for rate in plan.assumptions.asset_returns.values_mut() {
-                    *rate *= return_scale;
-                }
+                plan.assumptions.strategy_returns =
+                    plan.assumptions.strategy_returns.map(|r| r * return_scale);
                 // A lump sum from outside the plan at the first retirement,
                 // so the shifted dates move the year it lands in.
                 let owner = plan.people[0].id.clone();

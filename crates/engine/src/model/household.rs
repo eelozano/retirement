@@ -318,7 +318,7 @@ pub fn compose(household: &Household, scenario: &Scenario) -> Result<Plan, Compo
                 name: a.name.clone(),
                 balance: current.map_or(0.0, |o| o.balance),
                 cost_basis: current.and_then(|o| o.cost_basis),
-                allocation: a.allocation.clone(),
+                allocation: a.allocation,
                 plan_type: a.plan_type,
                 contributions: policy.contributions.clone(),
                 one_time_contributions: policy.one_time_contributions.clone(),
@@ -440,7 +440,7 @@ pub fn decompose(plan: &Plan, previous: &Household) -> (Household, Scenario) {
                     kind: a.kind,
                     plan_type: a.plan_type,
                     name: a.name.clone(),
-                    allocation: a.allocation.clone(),
+                    allocation: a.allocation,
                     observations,
                 }
             })

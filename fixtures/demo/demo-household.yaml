@@ -94,7 +94,7 @@ accounts:
   kind: Savings
   plan_type: None
   name: Emergency savings
-  allocation: Conservative
+  allocation: !FixedRate 0.02
   observations:
   - as_of:
       year: 2026
@@ -286,11 +286,14 @@ scenarios:
     survivor_percentage: 0.5
   assumptions:
     inflation: 0.025
-    asset_returns:
-      UsEquity: 0.08
-      IntlEquity: 0.075
-      GlobalEquity: 0.078
-      UsBonds: 0.04
+    strategy_returns:
+      aggressive: 0.0745
+      moderate: 0.06675
+      conservative: 0.059
+    strategy_volatility:
+      aggressive: 0.1237
+      moderate: 0.0969
+      conservative: 0.0901
     filing_status: MarriedFilingJointly
     state_tax:
       state: Colorado
@@ -302,11 +305,6 @@ scenarios:
     sweep_surplus_from: !AtRetirement alex
     survivor_expense_factor: 0.75
     social_security_cola: 0.025
-    asset_volatility:
-      UsEquity: 0.18
-      IntlEquity: 0.2
-      GlobalEquity: 0.17
-      UsBonds: 0.06
     reinvest_into: joint-brokerage
 - id: retire-two-years-early
   name: Retire two years early
@@ -483,11 +481,14 @@ scenarios:
     survivor_percentage: 0.5
   assumptions:
     inflation: 0.025
-    asset_returns:
-      UsEquity: 0.08
-      IntlEquity: 0.075
-      GlobalEquity: 0.078
-      UsBonds: 0.04
+    strategy_returns:
+      aggressive: 0.0745
+      moderate: 0.06675
+      conservative: 0.059
+    strategy_volatility:
+      aggressive: 0.1237
+      moderate: 0.0969
+      conservative: 0.0901
     filing_status: MarriedFilingJointly
     state_tax:
       state: Colorado
@@ -499,11 +500,6 @@ scenarios:
     sweep_surplus_from: !AtRetirement alex
     survivor_expense_factor: 0.75
     social_security_cola: 0.025
-    asset_volatility:
-      UsEquity: 0.18
-      IntlEquity: 0.2
-      GlobalEquity: 0.17
-      UsBonds: 0.06
     reinvest_into: joint-brokerage
 - id: claim-social-security-at-62
   name: Claim Social Security at 62
@@ -680,11 +676,14 @@ scenarios:
     survivor_percentage: 0.5
   assumptions:
     inflation: 0.025
-    asset_returns:
-      UsEquity: 0.08
-      IntlEquity: 0.075
-      GlobalEquity: 0.078
-      UsBonds: 0.04
+    strategy_returns:
+      aggressive: 0.0745
+      moderate: 0.06675
+      conservative: 0.059
+    strategy_volatility:
+      aggressive: 0.1237
+      moderate: 0.0969
+      conservative: 0.0901
     filing_status: MarriedFilingJointly
     state_tax:
       state: Colorado
@@ -696,11 +695,6 @@ scenarios:
     sweep_surplus_from: !AtRetirement alex
     survivor_expense_factor: 0.75
     social_security_cola: 0.025
-    asset_volatility:
-      UsEquity: 0.18
-      IntlEquity: 0.2
-      GlobalEquity: 0.17
-      UsBonds: 0.06
     reinvest_into: joint-brokerage
 - id: leaner-retirement
   name: Leaner retirement spending
@@ -877,11 +871,14 @@ scenarios:
     survivor_percentage: 0.5
   assumptions:
     inflation: 0.025
-    asset_returns:
-      UsEquity: 0.08
-      IntlEquity: 0.075
-      GlobalEquity: 0.078
-      UsBonds: 0.04
+    strategy_returns:
+      aggressive: 0.0745
+      moderate: 0.06675
+      conservative: 0.059
+    strategy_volatility:
+      aggressive: 0.1237
+      moderate: 0.0969
+      conservative: 0.0901
     filing_status: MarriedFilingJointly
     state_tax:
       state: Colorado
@@ -893,11 +890,6 @@ scenarios:
     sweep_surplus_from: !AtRetirement alex
     survivor_expense_factor: 0.75
     social_security_cola: 0.025
-    asset_volatility:
-      UsEquity: 0.18
-      IntlEquity: 0.2
-      GlobalEquity: 0.17
-      UsBonds: 0.06
     reinvest_into: joint-brokerage
 - id: sell-the-house-at-retirement
   name: Sell the house at retirement
@@ -1079,11 +1071,14 @@ scenarios:
     survivor_percentage: 0.5
   assumptions:
     inflation: 0.025
-    asset_returns:
-      UsEquity: 0.08
-      IntlEquity: 0.075
-      GlobalEquity: 0.078
-      UsBonds: 0.04
+    strategy_returns:
+      aggressive: 0.0745
+      moderate: 0.06675
+      conservative: 0.059
+    strategy_volatility:
+      aggressive: 0.1237
+      moderate: 0.0969
+      conservative: 0.0901
     filing_status: MarriedFilingJointly
     state_tax:
       state: Colorado
@@ -1095,9 +1090,4 @@ scenarios:
     sweep_surplus_from: !AtRetirement alex
     survivor_expense_factor: 0.75
     social_security_cola: 0.025
-    asset_volatility:
-      UsEquity: 0.18
-      IntlEquity: 0.2
-      GlobalEquity: 0.17
-      UsBonds: 0.06
     reinvest_into: joint-brokerage

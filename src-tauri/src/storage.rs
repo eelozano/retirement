@@ -973,6 +973,84 @@ mod tests {
         assert!(load_household_file(&path).is_err());
     }
 
+    /// Every plan file already on disk predates #129: it carries four
+    /// per-asset-class returns and, for a savings account, a `Cash`
+    /// allocation — neither of which the schema still has. They must load
+    /// anyway, because the version bump was deliberately avoided:
+    /// `load_household_file` is also the reader for `.history/` snapshots and
+    /// `.refreshes/`, so bumping would have made every one of those
+    /// unreadable rather than just needing a migration pass.
+    #[test]
+    fn a_pre_129_household_file_loads_with_blended_strategy_returns() {
+        let base = TempBase::new("legacy-asset-classes");
+        seed(&base.0);
+
+        let path = household_path(&base.0, "base-plan");
+        let current = fs::read_to_string(&path).unwrap();
+        let legacy = current
+            .replace(
+                "\
+    strategy_returns:
+      aggressive: 0.0745
+      moderate: 0.06675
+      conservative: 0.059
+    strategy_volatility:
+      aggressive: 0.1237
+      moderate: 0.0969
+      conservative: 0.0901",
+                "\
+    asset_returns:
+      UsEquity: 0.08
+      IntlEquity: 0.075
+      GlobalEquity: 0.078
+      UsBonds: 0.04
+    asset_volatility:
+      UsEquity: 0.18
+      IntlEquity: 0.2
+      GlobalEquity: 0.17
+      UsBonds: 0.06",
+            )
+            .replace("allocation: Moderate", "allocation: !Cash 0.02");
+        assert!(
+            legacy.contains("asset_returns:") && legacy.contains("!Cash"),
+            "the rewrite matched nothing — this test would prove nothing"
+        );
+        fs::write(&path, legacy).unwrap();
+
+        let plan = load_first(&base.0)
+            .expect("a pre-#129 file still parses")
+            .expect("a plan is stored");
+
+        // Each strategy loads as the weighted average `grow` computed from
+        // those four classes every period, so the deterministic projection
+        // does not move: 0.6(8%) + 0.3(7.5%) + 0.1(4%), and so on.
+        let close = |actual: f64, expected: f64| {
+            assert!((actual - expected).abs() < 1e-12, "{actual} != {expected}");
+        };
+        close(plan.assumptions.strategy_returns.aggressive, 0.0745);
+        close(plan.assumptions.strategy_returns.moderate, 0.06675);
+        close(plan.assumptions.strategy_returns.conservative, 0.059);
+
+        // Volatility is deliberately not carried forward — blending the old
+        // table would reproduce the too-narrow fan #129 exists to correct.
+        assert_eq!(
+            plan.assumptions.strategy_volatility,
+            engine::presets::default_strategy_volatility()
+        );
+
+        // And the legacy `Cash` rate survives as a fixed rate, unchanged.
+        assert!(
+            plan.accounts
+                .iter()
+                .any(|a| a.allocation == engine::model::AllocationRef::FixedRate(0.02)),
+            "expected a migrated fixed rate, got {:?}",
+            plan.accounts
+                .iter()
+                .map(|a| a.allocation)
+                .collect::<Vec<_>>()
+        );
+    }
+
     #[test]
     fn rejects_plan_without_id() {
         let base = TempBase::new("no-id");

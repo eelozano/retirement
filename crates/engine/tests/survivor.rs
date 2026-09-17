@@ -5,8 +5,6 @@
 //! Every fixture runs with zero inflation, zero returns, and zero COLA, so
 //! the figures asserted below are the transition itself and nothing else.
 
-use std::collections::BTreeMap;
-
 use engine::model::{
     Assumptions, CashFlowStream, FilingStatus, GrowthRule, PeriodLength, Person, Plan, SimConfig,
     SocialSecurityBenefit, StateTaxProfile, StreamBoundary, StreamDirection, YearMonth,
@@ -52,14 +50,14 @@ fn household() -> Plan {
         social_security: vec![],
         assumptions: Assumptions {
             inflation: 0.0,
-            asset_returns: BTreeMap::new(),
+            strategy_returns: Default::default(),
             filing_status: FilingStatus::Single,
             state_tax: StateTaxProfile::none(),
             plan_end_age: 95,
             sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
-            asset_volatility: BTreeMap::new(),
+            strategy_volatility: Default::default(),
             reinvest_into: None,
         },
         sim_config: SimConfig {
