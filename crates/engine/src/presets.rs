@@ -330,7 +330,15 @@ pub fn default_strategy_volatility() -> StrategyRates {
 
 pub fn default_assumptions() -> Assumptions {
     Assumptions {
-        inflation: 0.025,
+        // Roughly the long-run US average, and deliberately above the 2%
+        // target a shorter window would suggest. This is not only a display
+        // divisor: it indexes the tax brackets and contribution limits
+        // forward and escalates every stream set to grow with inflation, so
+        // the cost of seeding it low is spread across the whole projection
+        // rather than confined to the today's-dollars toggle. Against the
+        // unchanged nominal returns above it implies a 4.4% real return for
+        // `Aggressive`.
+        inflation: 0.03,
         strategy_returns: default_strategy_returns(),
         strategy_volatility: default_strategy_volatility(),
         filing_status: FilingStatus::Single,
@@ -344,7 +352,12 @@ pub fn default_assumptions() -> Assumptions {
         sweep_surplus_from: None,
         // No step-down until the user picks one — see the field docs.
         survivor_expense_factor: 1.0,
-        social_security_cola: 0.025,
+        // Held equal to `inflation` above, because SSA's COLA tracks CPI-W
+        // and the two are the same underlying quantity. A COLA that lags
+        // inflation is a real possibility but it is a *choice*, and a
+        // default should not make it silently: a new plan would otherwise
+        // assume benefits lose purchasing power every year without saying so.
+        social_security_cola: 0.03,
         reinvest_into: None,
     }
 }

@@ -8,7 +8,7 @@ tracked in `CLAUDE.md`; update both when the design evolves.
 A local, privacy-first retirement projection tool (ProjectionLab/Boldin-inspired). Stack: Tauri (React/TypeScript frontend + Rust backend). Philosophy: **simple V1 MVP, modular for V2** — deterministic annual projections now, but data models and Rust traits designed so Monte Carlo, tax brackets, and ordered drawdown slot in without refactoring core state.
 
 **Foundational decisions:**
-- Engine simulates in **nominal dollars**; UI offers a today's-dollars (real) display toggle.
+- Engine simulates in **nominal dollars**; UI offers a today's-dollars (real) display toggle. `strategy_returns` are nominal *and arithmetic* annual means — see "The return is an arithmetic mean, not a compound rate" below.
 - Persistence: **YAML files** (one per *household* since #109 — its facts plus every scenario branched from them) with `schema_version`, stored in a user-configurable path (default: OS Documents folder, changeable in-app under Storage); a small JSON settings file in the app-config dir records the chosen location. No SQLite, no cloud.
 - Income/expenses modeled as **generic dated cash-flow streams** (salary, retirement spending, contributions in V1; pensions fit the same shape, no schema change). Social Security is the exception: a first-class `SocialSecurityBenefit` (PIA + claiming age) resolved into a stream at simulate time, so claiming age stays interactively recomputable instead of a one-time manually-computed dollar entry.
 - **Single plan** in V1; file format is scenario-ready (a scenario was another plan file, and since #109 is another entry inside one household's file). V2 multi-scenario comparison (#6) builds on this directly: each scenario carries a stable `id` distinct from its editable `name`; the storage/IPC layer supports listing, duplicating, deleting, and switching the active scenario; and a Compare view overlays net worth across up to 5 scenarios plus a summary table (net worth at plan end, delta vs. the active scenario, depletion year, lifetime taxes) — see `run_projections`, `src/components/charts/compareData.ts`, and `ComparisonView`.
@@ -354,6 +354,44 @@ Two consequences worth knowing:
 historical-sequence extension below still slots in as a new impl — and gets
 easier, since a blended per-strategy series carries that year's real
 cross-asset correlation for free.
+
+### The return is an arithmetic mean, not a compound rate
+
+`Assumptions::strategy_returns` is the expected return of a **single year**, and
+`StochasticReturns` uses it that way: each `(period, path)` draws one market
+shock and *adds* `σ · shock` to the period mean, so the draws are symmetric
+about the typed figure and their average is it. Periods are calendar years
+(`MONTHS_PER_PERIOD = 12`), so no rescaling hides this.
+
+A sequence of such years does not compound at that figure. The median of a
+product of independent draws is `exp(E[ln(1+r)])`, and to second order
+`E[ln(1+r)] ≈ ln(1+μ) − σ²/(2(1+μ)²)`. At the aggressive defaults (μ = 7.5%,
+σ = 15.5%) that is **6.4%** — over a point below the 7.5% the deterministic
+projection compounds directly, because the deterministic run reads the same
+number as a certainty and has no variance to drag on it.
+
+So the deterministic line is not the Monte Carlo median, and is not meant to
+be: the two answer "what if every year is average" and "what does the middle
+path do when years vary". The gap is variance drag, and it is the honest
+consequence of having stated a volatility at all.
+
+Two alternatives were weighed and rejected:
+
+- **Draw log-normally** — `(1+μ)·exp(σZ − σ²/2)` — so the median path compounds
+  at μ. That changes the answer rather than the explanation, and it would move
+  every saved plan's reported probability of success. `default_strategy_volatility`
+  documents paying that cost once, deliberately, because the old number was
+  *wrong*; the arithmetic convention is not wrong, only undocumented, and does
+  not earn the same exception.
+- **Treat the typed figure as geometric** and add `σ²/2` back before drawing.
+  That quietly makes the aggressive strategy an 8.7% arithmetic mean while the
+  pane says 7.5% — the exact opposite of the #52 rule that the fan's width must
+  not come from numbers nobody can see.
+
+The convention therefore stays arithmetic and the UI says so instead.
+`src/lib/returns.ts` derives the implied median compounded rate and the implied
+real return, and `AssumptionsSection` prints both next to the figure they
+qualify.
 
 ### Strategy traits (`crates/engine/src/strategies/`)
 

@@ -291,7 +291,7 @@ scenarios:
     survivor_percentage: 0.5
     kind: Pension
   assumptions:
-    inflation: 0.025
+    inflation: 0.03
     strategy_returns:
       aggressive: 0.075
       moderate: 0.067
@@ -310,7 +310,7 @@ scenarios:
     plan_end_age: 95
     sweep_surplus_from: !AtRetirement alex
     survivor_expense_factor: 0.75
-    social_security_cola: 0.025
+    social_security_cola: 0.03
     reinvest_into: joint-brokerage
 - id: retire-two-years-early
   name: Retire two years early
@@ -492,7 +492,7 @@ scenarios:
     survivor_percentage: 0.5
     kind: Pension
   assumptions:
-    inflation: 0.025
+    inflation: 0.03
     strategy_returns:
       aggressive: 0.075
       moderate: 0.067
@@ -511,7 +511,7 @@ scenarios:
     plan_end_age: 95
     sweep_surplus_from: !AtRetirement alex
     survivor_expense_factor: 0.75
-    social_security_cola: 0.025
+    social_security_cola: 0.03
     reinvest_into: joint-brokerage
 - id: claim-social-security-at-62
   name: Claim Social Security at 62
@@ -693,7 +693,7 @@ scenarios:
     survivor_percentage: 0.5
     kind: Pension
   assumptions:
-    inflation: 0.025
+    inflation: 0.03
     strategy_returns:
       aggressive: 0.075
       moderate: 0.067
@@ -712,7 +712,7 @@ scenarios:
     plan_end_age: 95
     sweep_surplus_from: !AtRetirement alex
     survivor_expense_factor: 0.75
-    social_security_cola: 0.025
+    social_security_cola: 0.03
     reinvest_into: joint-brokerage
 - id: leaner-retirement
   name: Leaner retirement spending
@@ -894,7 +894,7 @@ scenarios:
     survivor_percentage: 0.5
     kind: Pension
   assumptions:
-    inflation: 0.025
+    inflation: 0.03
     strategy_returns:
       aggressive: 0.075
       moderate: 0.067
@@ -913,7 +913,7 @@ scenarios:
     plan_end_age: 95
     sweep_surplus_from: !AtRetirement alex
     survivor_expense_factor: 0.75
-    social_security_cola: 0.025
+    social_security_cola: 0.03
     reinvest_into: joint-brokerage
 - id: sell-the-house-at-retirement
   name: Sell the house at retirement
@@ -1100,7 +1100,7 @@ scenarios:
     survivor_percentage: 0.5
     kind: Pension
   assumptions:
-    inflation: 0.025
+    inflation: 0.03
     strategy_returns:
       aggressive: 0.075
       moderate: 0.067
@@ -1119,5 +1119,5 @@ scenarios:
     plan_end_age: 95
     sweep_surplus_from: !AtRetirement alex
     survivor_expense_factor: 0.75
-    social_security_cola: 0.025
+    social_security_cola: 0.03
     reinvest_into: joint-brokerage

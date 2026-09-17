@@ -685,11 +685,13 @@ mod tests {
         assert_eq!(summaries[0].household_name, "Base plan");
 
         let mut edited = plan.clone();
-        edited.assumptions.inflation = 0.03;
+        // Deliberately not a default: a value the seeded plan already holds
+        // would let this pass against a file that was never written.
+        edited.assumptions.inflation = 0.035;
         save_plan(&base.0, &edited).unwrap();
 
         let reloaded = load_first(&base.0).unwrap().expect("a plan is stored");
-        assert_eq!(reloaded.assumptions.inflation, 0.03);
+        assert_eq!(reloaded.assumptions.inflation, 0.035);
         // Previous version preserved as .bak.
         assert!(plans_dir(&base.0).join("base-plan.yaml.bak").exists());
     }
