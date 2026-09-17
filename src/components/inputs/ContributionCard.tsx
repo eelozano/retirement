@@ -8,13 +8,13 @@ import {
   federalMaximumHint,
   ruleForMode,
 } from "./accountContribution";
+import { BoundaryDetail } from "./BoundaryDetail";
 import {
   AmountField,
   CheckboxField,
   PercentField,
   SelectField,
   TextField,
-  YearMonthField,
 } from "./fields";
 import type { UpdatePlan } from "./shared";
 import {
@@ -194,17 +194,15 @@ export function ContributionCard(props: {
           })
         }
       />
-      {typeof entry.start === "object" && "Date" in entry.start && (
-        <YearMonthField
-          label="Start month"
-          value={entry.start.Date}
-          onChange={(date) =>
-            updatePlan((d) => {
-              d.accounts[i].contributions[e].start = { Date: date };
-            })
-          }
-        />
-      )}
+      <BoundaryDetail
+        label="Start"
+        boundary={entry.start}
+        onChange={(boundary) =>
+          updatePlan((d) => {
+            d.accounts[i].contributions[e].start = boundary;
+          })
+        }
+      />
       <SelectField
         label="Ends"
         value={boundaryToChoice(entry.end)}
@@ -218,17 +216,15 @@ export function ContributionCard(props: {
           })
         }
       />
-      {typeof entry.end === "object" && "Date" in entry.end && (
-        <YearMonthField
-          label="End month"
-          value={entry.end.Date}
-          onChange={(date) =>
-            updatePlan((d) => {
-              d.accounts[i].contributions[e].end = { Date: date };
-            })
-          }
-        />
-      )}
+      <BoundaryDetail
+        label="End"
+        boundary={entry.end}
+        onChange={(boundary) =>
+          updatePlan((d) => {
+            d.accounts[i].contributions[e].end = boundary;
+          })
+        }
+      />
       <button
         type="button"
         className="remove"

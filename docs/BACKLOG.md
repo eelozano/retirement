@@ -345,13 +345,13 @@ healthcare — it is also how you say "spending drifts 1% below inflation as we
 age," which is a mainstream planning assumption the model cannot currently
 express either.
 
-**Medicare eligibility is an age, so add `StreamBoundary::AtAge(PersonId, u8)`
-rather than anything healthcare-specific.** `Person::birth` already exists and
-`month_at_age` is already the mechanism `Plan::end_month` uses. One variant buys
-Medicare at 65, "part-time work until 62," and "spending steps down at 80"; the
-long-term-care boundary in E is its sibling. A `HealthcareExpense` type, by
-contrast, would be a `CashFlowStream` with a narrower name and its own
-proration, survivor, and growth handling to keep in sync.
+**Medicare eligibility is an age — `StreamBoundary::AtAge(PersonId, u8)`, which
+now exists** (built for a pension's full-benefit age, and offered on every
+Starts/Ends select). It buys Medicare at 65, "part-time work until 62," and
+"spending steps down at 80"; the long-term-care boundary in E is its sibling.
+Nothing healthcare-specific is needed: a `HealthcareExpense` type would be a
+`CashFlowStream` with a narrower name and its own proration, survivor, and
+growth handling to keep in sync.
 
 **Recommendation: do not add a first-class healthcare type.** The two additions
 above cover the modeling need. What healthcare deserves is UI affordance — a

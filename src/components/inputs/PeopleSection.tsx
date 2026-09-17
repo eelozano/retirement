@@ -1,4 +1,5 @@
 import { usePlanStore } from "../../store/planStore";
+import { ageAt } from "./age";
 import { NumberField, TextField, YearMonthField } from "./fields";
 import { PensionCard } from "./PensionCard";
 import { SocialSecurityFields } from "./SocialSecurityFields";
@@ -118,6 +119,7 @@ export function PeopleSection() {
             />
             <YearMonthField
               label="Retires"
+              hint={ageAt(person.birth, person.retirement)}
               value={person.retirement}
               onChange={(retirement) =>
                 updatePlan((d) => {

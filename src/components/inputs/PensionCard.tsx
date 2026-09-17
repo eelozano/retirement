@@ -1,11 +1,11 @@
 import type { Plan } from "../../types/generated/Plan";
+import { BoundaryDetail } from "./BoundaryDetail";
 import {
   CheckboxField,
   NumberField,
   PercentField,
   SelectField,
   TextField,
-  YearMonthField,
 } from "./fields";
 import {
   applyLifespan,
@@ -72,17 +72,15 @@ export function PensionCard(props: {
           })
         }
       />
-      {typeof stream.start === "object" && "Date" in stream.start && (
-        <YearMonthField
-          label="Start month"
-          value={stream.start.Date}
-          onChange={(date) =>
-            updatePlan((d) => {
-              d.streams[i].start = { Date: date };
-            })
-          }
-        />
-      )}
+      <BoundaryDetail
+        label="Start"
+        boundary={stream.start}
+        onChange={(boundary) =>
+          updatePlan((d) => {
+            d.streams[i].start = boundary;
+          })
+        }
+      />
       <CheckboxField
         label="Has a cost-of-living adjustment (COLA)"
         hint="When off, the check stays the same dollar amount for life."

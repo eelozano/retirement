@@ -3,7 +3,8 @@ import { usePlanStore } from "../../store/planStore";
 import type { FilingStatus } from "../../types/generated/FilingStatus";
 import type { Plan } from "../../types/generated/Plan";
 import type { StateCode } from "../../types/generated/StateCode";
-import { PercentField, SelectField, YearMonthField } from "./fields";
+import { BoundaryDetail } from "./BoundaryDetail";
+import { PercentField, SelectField } from "./fields";
 import { boundaryOptions, boundaryToChoice, choiceToBoundary } from "./streamBoundary";
 import { TaxBracketEditor } from "./TaxBracketEditor";
 
@@ -137,8 +138,6 @@ export function AssumptionsSection() {
   const assumptions = plan.assumptions;
   const sweep = assumptions.sweep_surplus_from;
   const sweepChoice = sweep === null ? NEVER : boundaryToChoice(sweep);
-  const sweepDate =
-    sweep !== null && typeof sweep === "object" && "Date" in sweep ? sweep.Date : null;
   const reinvestChoice = assumptions.reinvest_into ?? DEFAULT_DESTINATION;
   return (
     <div className="pane-section">
@@ -207,13 +206,13 @@ export function AssumptionsSection() {
             })
           }
         />
-        {sweepDate && (
-          <YearMonthField
-            label="Sweep starts"
-            value={sweepDate}
-            onChange={(date) =>
+        {sweep !== null && (
+          <BoundaryDetail
+            label="Sweep start"
+            boundary={sweep}
+            onChange={(boundary) =>
               updatePlan((d) => {
-                d.assumptions.sweep_surplus_from = { Date: date };
+                d.assumptions.sweep_surplus_from = boundary;
               })
             }
           />

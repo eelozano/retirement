@@ -241,7 +241,7 @@ pub struct CashFlowStream {
     pub direction: Income | Expense,
     pub annual_amount: f64,             // in start-date dollars
     pub start: StreamBoundary,          // Date(YearMonth) | AtRetirement(PersonId) | PlanStart
-    pub end: StreamBoundary,            //                  | AtDeath(PersonId) | PlanEnd
+    pub end: StreamBoundary,            // AtAge(PersonId, u8) | AtDeath(PersonId) | PlanEnd
     pub growth: GrowthRule,             // Inflation | Fixed(rate) | None
     // A pension's or annuity's survivor percentage. When set, it overrides
     // `end` in both directions at the owner's death: the full amount stops

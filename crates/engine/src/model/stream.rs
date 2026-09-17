@@ -22,6 +22,13 @@ pub enum StreamBoundary {
     Date(YearMonth),
     AtRetirement(PersonId),
     AtDeath(PersonId),
+    /// The month this person reaches a whole-year age — the month they were
+    /// born in, that many years on, which is how `AtDeath` already reads a
+    /// life expectancy. Ages are how eligibility is written down: a
+    /// pension's full benefit at 65, Medicare at 65, catch-up
+    /// contributions at 50, and they stay right when a birth date is
+    /// corrected or a retirement date moves.
+    AtAge(PersonId, u8),
 }
 
 /// How an amount grows over time — a stream's, or a flat contribution's.

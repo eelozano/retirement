@@ -359,6 +359,7 @@ fn resolve_boundary(
             let p = plan.person(person)?;
             Some(p.month_at_age(p.life_expectancy_age))
         }
+        StreamBoundary::AtAge(person, age) => Some(plan.person(person)?.month_at_age(*age)),
     }
 }
 
