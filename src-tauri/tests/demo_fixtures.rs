@@ -259,7 +259,12 @@ fn demo_base() -> Plan {
                 name: "Emergency savings".to_string(),
                 balance: 35_000.0,
                 cost_basis: None,
-                allocation: AllocationRef::Conservative,
+                // An emergency fund earns a savings rate, not a market
+                // return. It carried `Conservative` until #129, which meant
+                // it earned *nothing*: `accrue_interest` wanted a cash rate
+                // and `grow` skips every Savings account, so all $35k sat
+                // flat through every screenshot this fixture has produced.
+                allocation: AllocationRef::FixedRate(0.02),
                 plan_type: PlanType::None,
                 contributions: vec![Contribution::until_retirement(
                     "emergency-savings-contribution",

@@ -7,10 +7,8 @@
 //! boundary between them, and these tests pin what it does at each of its
 //! three settings — plus the migration from the boolean it replaced.
 
-use std::collections::BTreeMap;
-
 use engine::model::{
-    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, Contribution,
+    Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
     StateTaxProfile, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
 };
@@ -24,7 +22,7 @@ use engine::{simulate, Projection, SimWarning};
 /// the one thing this file is about.)
 fn run(plan: &Plan) -> Projection {
     let returns = FixedReturns::new(
-        &plan.assumptions.asset_returns,
+        &plan.assumptions.strategy_returns,
         plan.sim_config.period.months(),
     );
     simulate(
@@ -48,7 +46,7 @@ fn run(plan: &Plan) -> Projection {
 /// | 2029–2030   | Later only     |  70,000 |
 /// | 2031–2032   | nobody         |  30,000 |
 fn staggered_household() -> Plan {
-    let bonds_only = AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)]));
+    let bonds_only = AllocationRef::FixedRate(0.0);
     let salary = |id: &str, owner: &str, amount: f64| CashFlowStream {
         id: id.to_string(),
         name: id.to_string(),
@@ -122,14 +120,14 @@ fn staggered_household() -> Plan {
         social_security: vec![],
         assumptions: Assumptions {
             inflation: 0.0,
-            asset_returns: BTreeMap::from([(AssetClass::UsBonds, 0.0)]),
+            strategy_returns: Default::default(),
             filing_status: FilingStatus::Single,
             state_tax: StateTaxProfile::none(),
             plan_end_age: 67,
             sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
-            asset_volatility: BTreeMap::new(),
+            strategy_volatility: Default::default(),
             reinvest_into: None,
         },
         sim_config: SimConfig {

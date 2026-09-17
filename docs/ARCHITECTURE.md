@@ -224,7 +224,7 @@ pub struct Account {
     pub name: String,
     pub balance: f64,               // starting balance (nominal, as of plan start)
     pub cost_basis: Option<f64>,    // taxable only; splits withdrawals principal vs gains
-    pub allocation: AllocationRef,  // preset id or custom weights
+    pub allocation: AllocationRef,  // a named strategy, or a fixed rate of its own
     pub plan_type: PlanType,        // limit bucket; cap shared per person per year
     pub contributions: Vec<Contribution>,
     pub one_time_contributions: Vec<OneTimeContribution>, // see "One-time contributions"
@@ -251,7 +251,8 @@ pub struct CashFlowStream {
 
 pub struct Assumptions {
     pub inflation: f64,
-    pub asset_returns: BTreeMap<AssetClass, f64>,  // nominal expected returns
+    pub strategy_returns: StrategyRates,     // nominal expected return per strategy
+    pub strategy_volatility: StrategyRates,  // annualized std. dev. per strategy
     // Federal filing status: drives the bracket + standard-deduction table
     // and the Social Security taxability thresholds `BracketTax` reads.
     pub filing_status: FilingStatus,
@@ -290,8 +291,10 @@ pub struct SocialSecurityBenefit {
     pub cola_override: Option<f64>,
 }
 
-pub enum AssetClass { UsEquity, IntlEquity, GlobalEquity, UsBonds }
-// presets.rs: Aggressive / Moderate / Conservative → VT/VTI/VXUS/BND weights
+pub struct StrategyRates { pub aggressive: f64, pub moderate: f64, pub conservative: f64 }
+pub enum AllocationRef { Aggressive, Moderate, Conservative, FixedRate(f64) }
+// See "Growth is one number per strategy" below for why this is not a
+// per-asset-class table with per-account weights over it any more (#129).
 
 pub struct SimConfig {
     pub start: YearMonth,
@@ -308,12 +311,53 @@ pub struct SimConfig {
 // that does not.
 ```
 
+### Growth is one number per strategy
+
+Growth was originally modelled in two layers: four per-asset-class returns and
+volatilities on `Assumptions` (`UsEquity`, `IntlEquity`, `GlobalEquity`,
+`UsBonds`), and per-account weights over those classes in
+`presets::allocation_weights`, which the growth step averaged every period.
+Picking "Moderate" therefore never set a return — it selected a weighting
+recipe over four numbers that had to be kept true separately, in order to
+derive three that could have been typed directly.
+
+That layer was removed in #129, for two reasons.
+
+**Nothing read it.** No tax, drawdown, RMD, dividend or rebalancing logic ever
+branched on an asset class: the ordinary-versus-capital-gains split is keyed to
+`AccountKind` and cost basis, and there is no rebalancing code at all. The
+engine only ever consumed the weighted average, so the four numbers bought no
+behaviour the three could not express.
+
+**The blend was less honest than a portfolio-level figure.** `StochasticReturns`
+drew each asset class independently, which implied portfolio standard
+deviations of about 12.4 / 9.7 / 9.0 — roughly three points too narrow at the
+aggressive end, because independent draws let equity diversify against equity.
+Stating a whole-portfolio figure directly cannot make that mistake.
+
+Two consequences worth knowing:
+
+- **Strategies are perfectly correlated in Monte Carlo**, by one shared market
+  shock per `(period, path)` scaled by each strategy's own sigma. Real
+  portfolios of the same funds run about 0.95–0.99, so 1.0 is the better of the
+  two approximations available without a correlation matrix, and it errs
+  towards caution. Drawing strategies independently was measured at +7.5 points
+  of success rate on the seed household — a household spanning two strategies
+  diversifying against itself.
+- **Volatility stays user-editable**, one figure per strategy, preserving what
+  #52 established: the fan's width must not come from numbers nobody can see.
+
+`ReturnModel` kept its signature and its `path_id`, so the
+historical-sequence extension below still slots in as a new impl — and gets
+easier, since a blended per-strategy series carries that year's real
+cross-asset correlation for free.
+
 ### Strategy traits (`crates/engine/src/strategies/`)
 
 ```rust
 pub trait ReturnModel {
     // path_id threads Monte Carlo run index / seed; deterministic V1 ignores it.
-    fn returns_for(&self, period: PeriodIndex, path_id: u64) -> AssetReturns;
+    fn returns_for(&self, period: PeriodIndex, path_id: u64) -> StrategyReturns;
 }
 
 pub trait TaxModel {

@@ -7,10 +7,8 @@
 //! wrong destination is visible in the numbers, not just in which balance
 //! moved.
 
-use std::collections::BTreeMap;
-
 use engine::model::{
-    Account, AccountKind, AllocationRef, AssetClass, Assumptions, CashFlowStream, Contribution,
+    Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
     StateTaxProfile, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
 };
@@ -18,12 +16,12 @@ use engine::run_deterministic;
 
 const START_YEAR: i32 = 2026;
 
-fn bonds() -> AllocationRef {
-    AllocationRef::Custom(BTreeMap::from([(AssetClass::UsBonds, 1.0)]))
+fn flat() -> AllocationRef {
+    AllocationRef::FixedRate(0.0)
 }
 
-fn equity() -> AllocationRef {
-    AllocationRef::Custom(BTreeMap::from([(AssetClass::UsEquity, 1.0)]))
+fn growing() -> AllocationRef {
+    AllocationRef::FixedRate(0.08)
 }
 
 fn taxable(id: &str, allocation: AllocationRef) -> Account {
@@ -57,7 +55,7 @@ fn pretax(id: &str, balance: f64) -> Account {
         name: id.to_string(),
         balance,
         cost_basis: None,
-        allocation: bonds(),
+        allocation: flat(),
         plan_type: PlanType::EmployerPlan,
         contributions: vec![Contribution::until_retirement(
             "contribution",
@@ -115,10 +113,9 @@ fn plan(accounts: Vec<Account>, sweep_from_start: bool, reinvest_into: Option<&s
         social_security: vec![],
         assumptions: Assumptions {
             inflation: 0.0,
-            asset_returns: BTreeMap::from([
-                (AssetClass::UsBonds, 0.0),
-                (AssetClass::UsEquity, 0.08),
-            ]),
+            // Unread: every account here carries its own fixed rate, so the
+            // two destinations differ by 0% vs 8% on the account itself.
+            strategy_returns: Default::default(),
             filing_status: FilingStatus::Single,
             state_tax: StateTaxProfile::none(),
             plan_end_age: 90,
@@ -129,7 +126,7 @@ fn plan(accounts: Vec<Account>, sweep_from_start: bool, reinvest_into: Option<&s
             },
             survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
-            asset_volatility: BTreeMap::new(),
+            strategy_volatility: Default::default(),
             reinvest_into: reinvest_into.map(str::to_string),
         },
         sim_config: SimConfig {
@@ -156,8 +153,8 @@ fn a_named_destination_receives_the_sweep_and_the_projection_differs() {
     let accounts = || {
         vec![
             pretax("401k", 0.0),
-            taxable("brokerage_a", bonds()),
-            taxable("brokerage_b", equity()),
+            taxable("brokerage_a", flat()),
+            taxable("brokerage_b", growing()),
         ]
     };
 
@@ -202,8 +199,8 @@ fn the_rmd_remainder_lands_in_the_named_account_not_the_first_one() {
     let accounts = vec![
         pretax("401k", 1_000_000.0),
         // Listed first, but not named — must receive nothing.
-        taxable("first_listed", bonds()),
-        taxable("named", bonds()),
+        taxable("first_listed", flat()),
+        taxable("named", flat()),
     ];
     // Sweep off: isolates the RMD remainder as the only source of
     // reinvested cash, exactly like `required_distributions.rs`'s
@@ -235,8 +232,8 @@ fn unset_projects_identically_to_naming_the_first_taxable_account() {
     let accounts = || {
         vec![
             pretax("401k", 1_000_000.0),
-            taxable("first", bonds()),
-            taxable("second", equity()),
+            taxable("first", flat()),
+            taxable("second", growing()),
         ]
     };
     let unset = run_deterministic(&plan(accounts(), true, None));
@@ -253,13 +250,13 @@ fn unset_projects_identically_to_naming_the_first_taxable_account() {
 fn reordering_accounts_changes_nothing_once_a_destination_is_named() {
     let forward = vec![
         pretax("401k", 1_000_000.0),
-        taxable("brokerage_a", bonds()),
-        taxable("brokerage_b", equity()),
+        taxable("brokerage_a", flat()),
+        taxable("brokerage_b", growing()),
     ];
     let reversed = vec![
         pretax("401k", 1_000_000.0),
-        taxable("brokerage_b", equity()),
-        taxable("brokerage_a", bonds()),
+        taxable("brokerage_b", growing()),
+        taxable("brokerage_a", flat()),
     ];
 
     let a = run_deterministic(&plan(forward, true, Some("brokerage_b")));

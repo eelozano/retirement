@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { currency, yearMonth } from "../../lib/format";
+import { currency, ratePercent, yearMonth } from "../../lib/format";
 import { usePlanStore } from "../../store/planStore";
 import type { AllocationRef } from "../../types/generated/AllocationRef";
+import type { StrategyRates } from "../../types/generated/StrategyRates";
 import type { YearMonth } from "../../types/generated/YearMonth";
+import { STRATEGIES, type StrategyVariant } from "./AssumptionsSection";
 import {
   contributionSummary,
   defaultContribution,
@@ -20,24 +22,42 @@ import { FACT_VS_POLICY } from "./shared";
 /** A sensible starting rate for a newly-typed Savings account. */
 const DEFAULT_SAVINGS_RATE = 0.02;
 
-const ALLOCATION_OPTIONS = [
-  { value: "Aggressive", label: "Aggressive (90/10)" },
-  { value: "Moderate", label: "Moderate (70/30)" },
-  { value: "Conservative", label: "Conservative (50/50)" },
-] as const;
+/** The picker value standing for "a rate I type", rather than a strategy. */
+const FIXED_RATE = "FixedRate";
 
-type PresetName = (typeof ALLOCATION_OPTIONS)[number]["value"];
+type AllocationChoice = StrategyVariant | typeof FIXED_RATE;
 
-function allocationName(allocation: AllocationRef): PresetName {
-  return typeof allocation === "string" ? allocation : "Moderate";
+/**
+ * Which row of the picker an allocation is on. Total, unlike the version
+ * before #129: with `Custom` gone, an allocation is either a strategy name
+ * or a fixed rate, so a fixed-rate account no longer falls through to
+ * reading "Moderate" in a select it never chose.
+ */
+function allocationChoice(allocation: AllocationRef): AllocationChoice {
+  return typeof allocation === "string" ? allocation : FIXED_RATE;
 }
 
-function allocationLabel(allocation: AllocationRef): string {
-  if (typeof allocation === "object" && "Cash" in allocation) {
-    return `Cash (${(allocation.Cash * 100).toFixed(1)}%)`;
+/**
+ * Labels name the rate, not an asset mix: "Aggressive (90/10)" described
+ * weights that no longer exist, and the return is the thing picking a
+ * strategy actually decides.
+ */
+function allocationOptions(returns: StrategyRates) {
+  return [
+    ...STRATEGIES.map(({ key, variant }) => ({
+      value: variant,
+      label: `${variant} (${ratePercent(returns[key])})`,
+    })),
+    { value: FIXED_RATE, label: "Fixed rate…" },
+  ];
+}
+
+function allocationLabel(allocation: AllocationRef, returns: StrategyRates): string {
+  if (typeof allocation === "object") {
+    return `Fixed ${ratePercent(allocation.FixedRate)}`;
   }
-  const name = allocationName(allocation);
-  return ALLOCATION_OPTIONS.find((o) => o.value === name)?.label ?? name;
+  const strategy = STRATEGIES.find((s) => s.variant === allocation);
+  return strategy ? `${allocation} (${ratePercent(returns[strategy.key])})` : allocation;
 }
 
 /**
@@ -165,7 +185,12 @@ export function AccountsSection() {
                     <td>
                       {plan.people.find((p) => p.id === account.owner)?.name ?? "—"}
                     </td>
-                    <td>{allocationLabel(account.allocation)}</td>
+                    <td>
+                      {allocationLabel(
+                        account.allocation,
+                        plan.assumptions.strategy_returns,
+                      )}
+                    </td>
                     <td>{contributionSummary(account)}</td>
                     <td className="num">{currency(account.balance)}</td>
                     <td>{yearMonth(accountAsOf(account.id))}</td>
@@ -211,16 +236,13 @@ export function AccountsSection() {
                 } else {
                   account.cost_basis = null;
                 }
-                // A Savings account grows at its own rate instead of a
-                // market allocation; leaving a Savings type returns it to a
-                // market preset, since "Cash" is otherwise not offered.
+                // A newly-typed Savings account starts on a savings rate
+                // rather than a market strategy. Leaving the Savings type no
+                // longer rewrites it: since #129 a fixed rate is legal on
+                // any kind, so replacing a rate the user typed with a preset
+                // nobody chose would be the wrong move.
                 if (type.kind === "Savings" && !wasSavings) {
-                  account.allocation = { Cash: DEFAULT_SAVINGS_RATE };
-                } else if (
-                  type.kind !== "Savings" &&
-                  typeof account.allocation === "object"
-                ) {
-                  account.allocation = "Moderate";
+                  account.allocation = { FixedRate: DEFAULT_SAVINGS_RATE };
                 }
                 // Retyping an account re-picks its statutory bucket: the old
                 // bucket may be meaningless under the new one, and an
@@ -265,27 +287,29 @@ export function AccountsSection() {
               })
             }
           />
-          {typeof selected.allocation === "object" && "Cash" in selected.allocation ? (
+          <SelectField
+            label="Allocation"
+            value={allocationChoice(selected.allocation)}
+            options={allocationOptions(plan.assumptions.strategy_returns)}
+            onChange={(choice) =>
+              updatePlan((d) => {
+                d.accounts[selectedIndex].allocation =
+                  choice === FIXED_RATE
+                    ? { FixedRate: DEFAULT_SAVINGS_RATE }
+                    : (choice as StrategyVariant);
+              })
+            }
+          />
+          {typeof selected.allocation === "object" && (
             <PercentField
-              label="Interest rate"
-              rate={selected.allocation.Cash}
+              label="Fixed rate"
+              rate={selected.allocation.FixedRate}
               minPercent={0}
-              maxPercent={20}
-              hint="A fixed rate this account grows at every year, instead of a market-return allocation — a bank savings or money-market rate."
+              maxPercent={30}
+              hint="A rate this account grows at every year, instead of one of the plan's investment strategies — a bank savings or money-market rate, a CD ladder, or a mix the three strategies don't describe."
               onChange={(rate) =>
                 updatePlan((d) => {
-                  d.accounts[selectedIndex].allocation = { Cash: rate };
-                })
-              }
-            />
-          ) : (
-            <SelectField
-              label="Allocation"
-              value={allocationName(selected.allocation)}
-              options={ALLOCATION_OPTIONS}
-              onChange={(preset) =>
-                updatePlan((d) => {
-                  d.accounts[selectedIndex].allocation = preset;
+                  d.accounts[selectedIndex].allocation = { FixedRate: rate };
                 })
               }
             />

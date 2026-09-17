@@ -6,8 +6,6 @@
 //! nothing else. The sweep toggle is **off** everywhere, which is both the
 //! default and the setting the money-destruction regression needs.
 
-use std::collections::BTreeMap;
-
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
@@ -44,7 +42,7 @@ fn account(id: &str, kind: AccountKind, balance: f64, basis: Option<f64>) -> Acc
         name: id.to_string(),
         balance,
         cost_basis: basis,
-        allocation: AllocationRef::Custom(BTreeMap::new()),
+        allocation: AllocationRef::FixedRate(0.0),
         plan_type: match kind {
             AccountKind::Taxable => PlanType::None,
             _ => PlanType::EmployerPlan,
@@ -143,7 +141,7 @@ impl Fixture {
                 .collect(),
             assumptions: Assumptions {
                 inflation: 0.0,
-                asset_returns: BTreeMap::new(),
+                strategy_returns: Default::default(),
                 filing_status: FilingStatus::Single,
                 state_tax: StateTaxProfile::none(),
                 plan_end_age: 90,
@@ -151,7 +149,7 @@ impl Fixture {
                 sweep_surplus_from: None,
                 survivor_expense_factor: 1.0,
                 social_security_cola: 0.0,
-                asset_volatility: BTreeMap::new(),
+                strategy_volatility: Default::default(),
                 reinvest_into: None,
             },
             sim_config: SimConfig {

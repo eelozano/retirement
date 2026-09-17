@@ -516,14 +516,17 @@ percentile band.
 
 ### Problem
 
-`StochasticReturns` draws each (period, asset class) independently from a Normal
-(`strategies/returns.rs`). The comment on that type already admits most of what
-follows. Three consequences:
+`StochasticReturns` draws one market shock per (period, path) from a Normal and
+scales it by each strategy's own sigma (`strategies/returns.rs`). The comment on
+that type already admits most of what follows. Three consequences:
 
-- **No correlation across asset classes.** Equities and bonds are drawn
-  independently, so the model cannot produce 2022 (both down together) and
-  cannot correctly price the diversification benefit either. The fan's width is
-  wrong in both directions, not just one.
+- **Every strategy moves perfectly together, and the shock has no asset-class
+  structure.** Since #129 the model no longer pretends equities and bonds are
+  independent — that was the error a per-asset-class draw made, and it made the
+  fan too narrow — but it has replaced it with the opposite simplification: a
+  50/50 portfolio's bad years are now exactly the 90/10's bad years, scaled. It
+  still cannot produce 2022 as a *composition* (bonds falling more than their
+  usual share of an equity drawdown), only as a uniformly bad year.
 - **No serial correlation.** Real returns cluster and mean-revert. An
   independent draw cannot produce a *sequence* like 1966–1982 or 2000–2009 — a
   decade of bad returns arriving immediately at retirement. That sequence is the
@@ -544,15 +547,21 @@ since "today's dollars" would then differ between paths) and historical *real*
 returns with the plan's own inflation assumption layered back on (simpler, and
 defensible if documented). Do not leave it implicit.
 
-**Dataset and start years.** An annual series per asset class, shipped in the
-crate — `historical_data.rs`, following the `state_tax_data.rs` precedent for a
-large static table. Coverage decides the usable range: US equity and US bond
-series run from 1928, but international equity series do not usefully start
-before about 1970. Decide what a plan holding `IntlEquity` does for earlier
-start years. Recommend restricting the offered start years to those with full
-coverage for the plan's actual allocation, rather than substituting a proxy
-series — a silent substitution is a data-quality lie in a tool whose whole
-argument is that the numbers are yours.
+**Dataset and start years.** Three blended annual series, one per strategy,
+shipped in the crate — `historical_data.rs`, following the `state_tax_data.rs`
+precedent for a large static table. Since #129 the schema has no asset classes
+to key a series to, and blending at the source is the better shape anyway: each
+year's figure is what a real 90/10 (or 70/30, or 50/50) portfolio actually did
+that year, so the cross-asset correlation is baked in rather than modelled, and
+the composition problem named above disappears for this model.
+
+Coverage still decides the usable range, and a blended series is constrained by
+its narrowest component: US equity and bond series run from 1928, but
+international equity does not usefully start before about 1970, so a series
+containing it starts there. Recommend restricting the offered start years to
+those with full coverage, rather than substituting a proxy — a silent
+substitution is a data-quality lie in a tool whose whole argument is that the
+numbers are yours.
 
 **Path enumeration, and why this should not be a percentile fan.** With ~95
 years of record and a 60-year horizon, only about 35 distinct rolling sequences
@@ -756,7 +765,7 @@ in the pre-refresh copy), and name it.
 **What it is for.** The one question worth designing the copy around is
 "was the return assumption fair for us": the realised nominal return per
 account between observations, contributions netted out, against
-`asset_returns` for its allocation. Everything else on the view is context
+`strategy_returns` for its strategy. Everything else on the view is context
 for that number.
 
 **Out of scope:** reconciling transactions, importing statements, and any

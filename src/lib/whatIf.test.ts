@@ -108,8 +108,8 @@ const plan = {
   ],
   assumptions: {
     inflation: 0.025,
-    asset_returns: { UsEquity: 0.07, UsBonds: 0.03 },
-    asset_volatility: { UsEquity: 0.16, UsBonds: 0.06 },
+    strategy_returns: { aggressive: 0.07, moderate: 0.05, conservative: 0.03 },
+    strategy_volatility: { aggressive: 0.16, moderate: 0.11, conservative: 0.06 },
   },
   sim_config: { start: { year: 2026, month: 1 } },
 } as unknown as Plan;
@@ -197,17 +197,19 @@ describe("applyOverrides", () => {
     expect(draft.streams.map((s) => s.annual_amount)).toEqual([120_000, 72_000, 9_000]);
   });
 
-  it("shifts every priced asset class's return, and prices no new ones", () => {
+  it("shifts every strategy's return by the same amount", () => {
     const draft = applyOverrides(plan, overrides({ returnShiftBp: -150 }));
-    expect(Object.keys(draft.assumptions.asset_returns)).toEqual(["UsEquity", "UsBonds"]);
-    expect(draft.assumptions.asset_returns.UsEquity).toBeCloseTo(0.055, 10);
-    expect(draft.assumptions.asset_returns.UsBonds).toBeCloseTo(0.015, 10);
+    expect(draft.assumptions.strategy_returns.aggressive).toBeCloseTo(0.055, 10);
+    expect(draft.assumptions.strategy_returns.moderate).toBeCloseTo(0.035, 10);
+    expect(draft.assumptions.strategy_returns.conservative).toBeCloseTo(0.015, 10);
   });
 
   it("scales volatility without touching returns", () => {
     const draft = applyOverrides(plan, overrides({ volatilityMultiplier: 1.5 }));
-    expect(draft.assumptions.asset_volatility).toEqual({ UsEquity: 0.24, UsBonds: 0.09 });
-    expect(draft.assumptions.asset_returns).toEqual(plan.assumptions.asset_returns);
+    expect(draft.assumptions.strategy_volatility.aggressive).toBeCloseTo(0.24, 10);
+    expect(draft.assumptions.strategy_volatility.moderate).toBeCloseTo(0.165, 10);
+    expect(draft.assumptions.strategy_volatility.conservative).toBeCloseTo(0.09, 10);
+    expect(draft.assumptions.strategy_returns).toEqual(plan.assumptions.strategy_returns);
   });
 
   it("shifts inflation", () => {
