@@ -54,6 +54,7 @@ export function SpendingSection() {
         end: "PlanEnd",
         growth: "Inflation",
         survivor_percentage: null,
+        kind: "General",
       });
     });
 
@@ -69,6 +70,7 @@ export function SpendingSection() {
         end: "PlanEnd",
         growth: "Inflation",
         survivor_percentage: null,
+        kind: "General",
       });
     });
 

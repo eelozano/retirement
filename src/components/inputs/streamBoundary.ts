@@ -8,12 +8,18 @@ import type { YearMonth } from "../../types/generated/YearMonth";
 // Shared by the People pane's own streams, the household Spending pane,
 // and an account's dated contribution entries.
 
-export type BoundaryChoice = string; // "PlanStart" | "PlanEnd" | "Date" | `Retirement:${id}`
+export type BoundaryChoice = string; // "PlanStart" | "PlanEnd" | "Date" | `Retirement:${id}` | `Death:${id}` | `Age:${id}`
+
+/** The age an "at age" boundary starts at when one is first chosen: full
+ * Social Security retirement age, and the age most pension and Medicare
+ * eligibility is written at. */
+const DEFAULT_AGE = 65;
 
 export function boundaryToChoice(b: StreamBoundary): BoundaryChoice {
   if (b === "PlanStart" || b === "PlanEnd") return b;
   if ("Date" in b) return "Date";
   if ("AtRetirement" in b) return `Retirement:${b.AtRetirement}`;
+  if ("AtAge" in b) return `Age:${b.AtAge[0]}`;
   return `Death:${b.AtDeath}`;
 }
 
@@ -28,7 +34,12 @@ export function choiceToBoundary(
     return { Date: prevDate };
   }
   const [kind, id] = choice.split(":");
-  return kind === "Retirement" ? { AtRetirement: id } : { AtDeath: id };
+  if (kind === "Retirement") return { AtRetirement: id };
+  if (kind === "Death") return { AtDeath: id };
+  // Switching between two people keeps the age already typed.
+  const prevAge =
+    typeof prev === "object" && "AtAge" in prev ? prev.AtAge[1] : DEFAULT_AGE;
+  return { AtAge: [id, prevAge] };
 }
 
 export function boundaryOptions(plan: Plan, edge: "start" | "end") {
@@ -43,6 +54,12 @@ export function boundaryOptions(plan: Plan, edge: "start" | "end") {
       value: `Retirement:${p.id}`,
       label: `${p.name} retires`,
     })),
+    ...plan.people.map((p) => ({ value: `Age:${p.id}`, label: `${p.name} turns…` })),
+    // Only as an end: nothing starts at a death that `survivor_percentage`
+    // does not already start on its own.
+    ...(edge === "end"
+      ? plan.people.map((p) => ({ value: `Death:${p.id}`, label: `${p.name} dies` }))
+      : []),
   ];
 }
 
@@ -71,6 +88,10 @@ export function boundaryResolvedDate(
   if (typeof b !== "object") return undefined;
   if ("AtRetirement" in b)
     return plan.people.find((p) => p.id === b.AtRetirement)?.retirement;
+  if ("AtAge" in b) {
+    const person = plan.people.find((p) => p.id === b.AtAge[0]);
+    return person && { year: person.birth.year + b.AtAge[1], month: person.birth.month };
+  }
   if ("AtDeath" in b) {
     const person = plan.people.find((p) => p.id === b.AtDeath);
     if (!person) return undefined;
@@ -103,10 +124,11 @@ export function boundaryPhrase(b: StreamBoundary, plan: Plan): string {
   if (b === "PlanStart") return "plan start";
   if (b === "PlanEnd") return "plan end";
   if ("Date" in b) return yearMonth(b.Date);
-  const retires = "AtRetirement" in b;
-  const id = retires ? b.AtRetirement : b.AtDeath;
+  const id = "AtRetirement" in b ? b.AtRetirement : "AtAge" in b ? b.AtAge[0] : b.AtDeath;
   const name = plan.people.find((p) => p.id === id)?.name || "the owner";
+  const event =
+    "AtRetirement" in b ? "retires" : "AtAge" in b ? `turns ${b.AtAge[1]}` : "dies";
   const resolved = boundaryResolvedDate(b, plan);
   const suffix = resolved ? ` (${yearMonth(resolved)})` : "";
-  return `${retires ? `${name} retires` : `${name} dies`}${suffix}`;
+  return `${name} ${event}${suffix}`;
 }

@@ -9,7 +9,7 @@
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
-    SocialSecurityBenefit, StateTaxProfile, StreamBoundary, StreamDirection, YearMonth,
+    SocialSecurityBenefit, StateTaxProfile, StreamBoundary, StreamDirection, StreamKind, YearMonth,
     SCHEMA_VERSION,
 };
 use engine::presets::{rmd_age, uniform_lifetime_divisor};
@@ -74,6 +74,7 @@ fn stream(id: &str, direction: StreamDirection, amount: f64) -> CashFlowStream {
         end: StreamBoundary::PlanEnd,
         growth: GrowthRule::None,
         survivor_percentage: None,
+        kind: StreamKind::General,
     }
 }
 

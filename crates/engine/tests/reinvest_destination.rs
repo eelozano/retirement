@@ -10,7 +10,7 @@
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
-    StateTaxProfile, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
+    StateTaxProfile, StreamBoundary, StreamDirection, StreamKind, YearMonth, SCHEMA_VERSION,
 };
 use engine::run_deterministic;
 
@@ -84,6 +84,7 @@ fn stream(id: &str, direction: StreamDirection, amount: f64) -> CashFlowStream {
         end: StreamBoundary::PlanEnd,
         growth: GrowthRule::None,
         survivor_percentage: None,
+        kind: StreamKind::General,
     }
 }
 

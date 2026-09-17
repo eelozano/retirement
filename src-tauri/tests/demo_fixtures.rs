@@ -28,7 +28,7 @@ use engine::model::{
     Contribution, ContributionRule, EmployerMatch, FilingStatus, GrowthRule, Household,
     HouseholdFile, MatchDestination, MatchTier, OneTimeContribution, Person, Plan, PlanType,
     SimConfig, SocialSecurityBenefit, StateCode, StepUp, StreamBoundary, StreamDirection,
-    YearMonth, SCHEMA_VERSION,
+    StreamKind, YearMonth, SCHEMA_VERSION,
 };
 use engine::presets::{default_assumptions, presets};
 use std::fs;
@@ -289,6 +289,7 @@ fn demo_base() -> Plan {
                 end: StreamBoundary::AtRetirement(ALEX.to_string()),
                 growth: GrowthRule::Inflation,
                 survivor_percentage: None,
+                kind: StreamKind::General,
             },
             CashFlowStream {
                 id: "jordan-salary".to_string(),
@@ -300,6 +301,7 @@ fn demo_base() -> Plan {
                 end: StreamBoundary::AtRetirement(JORDAN.to_string()),
                 growth: GrowthRule::Inflation,
                 survivor_percentage: None,
+                kind: StreamKind::General,
             },
             // Spending is two streams, not one, so a scenario can change
             // retirement spending without rewriting the working years.
@@ -313,6 +315,7 @@ fn demo_base() -> Plan {
                 end: StreamBoundary::AtRetirement(ALEX.to_string()),
                 growth: GrowthRule::Inflation,
                 survivor_percentage: None,
+                kind: StreamKind::General,
             },
             CashFlowStream {
                 id: "spending-retired".to_string(),
@@ -324,6 +327,7 @@ fn demo_base() -> Plan {
                 end: StreamBoundary::PlanEnd,
                 growth: GrowthRule::Inflation,
                 survivor_percentage: None,
+                kind: StreamKind::General,
             },
             // The gap between retiring and Medicare at 65, which is the
             // expense that most often decides whether retiring early works.
@@ -337,6 +341,7 @@ fn demo_base() -> Plan {
                 end: StreamBoundary::Date(YearMonth::new(2044, 4)),
                 growth: GrowthRule::Inflation,
                 survivor_percentage: None,
+                kind: StreamKind::General,
             },
             CashFlowStream {
                 id: "jordan-pension".to_string(),
@@ -348,6 +353,7 @@ fn demo_base() -> Plan {
                 end: StreamBoundary::PlanEnd,
                 growth: GrowthRule::None,
                 survivor_percentage: Some(0.5),
+                kind: StreamKind::Pension,
             },
         ],
         social_security: vec![

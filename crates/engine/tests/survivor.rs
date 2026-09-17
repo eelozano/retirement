@@ -7,7 +7,7 @@
 
 use engine::model::{
     Assumptions, CashFlowStream, FilingStatus, GrowthRule, PeriodLength, Person, Plan, SimConfig,
-    SocialSecurityBenefit, StateTaxProfile, StreamBoundary, StreamDirection, YearMonth,
+    SocialSecurityBenefit, StateTaxProfile, StreamBoundary, StreamDirection, StreamKind, YearMonth,
     SCHEMA_VERSION,
 };
 use engine::run_deterministic;
@@ -110,6 +110,7 @@ fn stream(
         end: StreamBoundary::PlanEnd,
         growth: GrowthRule::None,
         survivor_percentage: None,
+        kind: StreamKind::General,
     }
 }
 
@@ -451,4 +452,119 @@ fn plans_without_the_survivor_fields_load_unchanged() {
         100_000.0,
         "spending is untouched without a factor"
     );
+}
+
+// --- Pensions (`StreamKind::Pension`) --------------------------------------
+//
+// A pension card writes nothing the engine did not already run — an
+// `AtDeath` end, a survivor percentage, a `Fixed` COLA — except the kind,
+// which moves where that COLA starts counting.
+
+fn assert_close(actual: f64, expected: f64) {
+    assert!(
+        (actual - expected).abs() < 1e-6,
+        "expected {expected}, got {actual}"
+    );
+}
+
+fn pension(owner: &str, annual: f64) -> CashFlowStream {
+    let mut pension = stream("pension", Some(owner), StreamDirection::Income, annual);
+    pension.kind = StreamKind::Pension;
+    pension
+}
+
+/// Single life: nothing is left for anyone once the named person dies.
+#[test]
+fn a_single_life_pension_stops_at_its_owners_death() {
+    let mut plan = household();
+    let mut single = pension("first", 60_000.0);
+    single.end = StreamBoundary::AtDeath("first".to_string());
+    plan.streams = vec![single];
+    let projection = run_deterministic(&plan);
+
+    assert_eq!(year(&projection, 2034).income, 60_000.0);
+    assert_eq!(year(&projection, 2035).income, 0.0);
+}
+
+/// Joint at 100%: the same check until both have died.
+#[test]
+fn a_joint_pension_pays_the_same_check_after_the_first_death() {
+    let mut plan = household();
+    let mut joint = pension("first", 60_000.0);
+    joint.survivor_percentage = Some(1.0);
+    plan.streams = vec![joint];
+    let projection = run_deterministic(&plan);
+
+    assert_eq!(year(&projection, 2034).income, 60_000.0);
+    assert_eq!(year(&projection, 2035).income, 60_000.0);
+    assert_eq!(year(&projection, 2044).income, 60_000.0);
+}
+
+/// The amount a pension is entered at is its first check: a 2% COLA on a
+/// pension starting six years into the plan starts compounding then, not
+/// at the plan start.
+#[test]
+fn a_pension_cola_counts_from_its_first_payment() {
+    let mut plan = household();
+    let mut future = pension("second", 60_000.0);
+    future.start = StreamBoundary::Date(YearMonth {
+        year: 2036,
+        month: 1,
+    });
+    future.growth = GrowthRule::Fixed(0.02);
+    plan.streams = vec![future];
+    let projection = run_deterministic(&plan);
+
+    assert_eq!(year(&projection, 2035).income, 0.0);
+    assert_close(year(&projection, 2036).income, 60_000.0);
+    assert_close(year(&projection, 2037).income, 61_200.0);
+}
+
+/// The same fields on a general stream keep their plan-start-dollar
+/// reading, so no saved plan projects differently.
+#[test]
+fn a_general_stream_still_compounds_from_the_plan_start() {
+    let mut plan = household();
+    let mut future = stream("income", Some("second"), StreamDirection::Income, 60_000.0);
+    future.start = StreamBoundary::Date(YearMonth {
+        year: 2036,
+        month: 1,
+    });
+    future.growth = GrowthRule::Fixed(0.02);
+    plan.streams = vec![future];
+    let projection = run_deterministic(&plan);
+
+    assert_close(year(&projection, 2036).income, 60_000.0 * 1.02_f64.powi(6));
+}
+
+/// A pension already paying at the plan start has nothing to re-anchor.
+#[test]
+fn a_pension_in_payment_grows_like_a_general_stream() {
+    let mut plan = household();
+    let mut paying = pension("second", 60_000.0);
+    paying.growth = GrowthRule::Fixed(0.02);
+    plan.streams = vec![paying];
+    let projection = run_deterministic(&plan);
+
+    assert_close(year(&projection, 2030).income, 60_000.0);
+    assert_close(year(&projection, 2033).income, 60_000.0 * 1.02_f64.powi(3));
+}
+
+/// The survivor share keeps the pension's COLA history: it is measured
+/// from the pension's first payment, not restarted at the death.
+#[test]
+fn a_survivor_share_keeps_the_pensions_cola_anchor() {
+    let mut plan = household();
+    let mut joint = pension("first", 60_000.0);
+    joint.start = StreamBoundary::Date(YearMonth {
+        year: 2032,
+        month: 1,
+    });
+    joint.growth = GrowthRule::Fixed(0.02);
+    joint.survivor_percentage = Some(0.5);
+    plan.streams = vec![joint];
+    let projection = run_deterministic(&plan);
+
+    assert_close(year(&projection, 2034).income, 60_000.0 * 1.02_f64.powi(2));
+    assert_close(year(&projection, 2035).income, 30_000.0 * 1.02_f64.powi(3));
 }

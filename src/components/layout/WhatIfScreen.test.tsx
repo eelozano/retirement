@@ -71,6 +71,7 @@ const plan = {
       end: "PlanEnd",
       growth: "Inflation",
       survivor_percentage: null,
+      kind: "General",
     },
   ],
   social_security: [],

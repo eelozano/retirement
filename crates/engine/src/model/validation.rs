@@ -3,7 +3,10 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{AccountKind, ContributionRule, Plan, PlanType, StreamBoundary, YearMonth};
+use super::{
+    AccountKind, ContributionRule, Plan, PlanType, StreamBoundary, StreamDirection, StreamKind,
+    YearMonth,
+};
 
 /// Bounds on any date in a plan. `YearMonth::new` asserts the month range,
 /// but serde deserialization constructs the struct field-by-field and never
@@ -14,6 +17,11 @@ use super::{AccountKind, ContributionRule, Plan, PlanType, StreamBoundary, YearM
 /// so a stray digit turns into hundreds of thousands of snapshots.
 const MIN_YEAR: i32 = 1900;
 const MAX_YEAR: i32 = 2200;
+
+/// Upper bound on an age a boundary can be pinned to. Deliberately past any
+/// life expectancy: a window that opens after everyone has died contributes
+/// nothing, which is a plan worth simulating, while an age of 300 is a typo.
+const MAX_AGE: u8 = 120;
 
 /// A single reason a plan cannot be simulated or saved. `field` is a
 /// stable, dotted path (e.g. `"accounts[1].owner"`) the frontend can use to
@@ -59,6 +67,33 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                     "{label} must be between {MIN_YEAR} and {MAX_YEAR} (got {}).",
                     date.year
                 ),
+            });
+        }
+    }
+
+    /// A boundary pinned to an age has to name someone who exists and an age
+    /// a person could reach; both would otherwise resolve to nothing and the
+    /// window would silently span the whole plan.
+    fn check_boundary(
+        errors: &mut Vec<ValidationError>,
+        plan: &Plan,
+        field: &str,
+        label: &str,
+        boundary: &StreamBoundary,
+    ) {
+        let StreamBoundary::AtAge(person, age) = boundary else {
+            return;
+        };
+        if *age > MAX_AGE {
+            errors.push(ValidationError {
+                field: field.to_string(),
+                message: format!("{label} must be an age of {MAX_AGE} or less (got {age})."),
+            });
+        }
+        if plan.person(person).is_none() {
+            errors.push(ValidationError {
+                field: field.to_string(),
+                message: format!("{label} is pinned to an age of someone who isn't in the plan."),
             });
         }
     }
@@ -251,6 +286,13 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                         *date,
                     );
                 }
+                check_boundary(
+                    &mut errors,
+                    plan,
+                    &field(edge),
+                    &format!("\"{}\"'s contribution {edge}", account.name),
+                    boundary,
+                );
             }
             // Money into an employer's plan comes out of a paycheck from
             // that employer, so an entry cannot outlive the owner's
@@ -273,6 +315,9 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                     StreamBoundary::AtRetirement(other) => plan
                         .person(other)
                         .is_some_and(|p| p.retirement.month_index() > retirement),
+                    StreamBoundary::AtAge(other, age) => plan
+                        .person(other)
+                        .is_some_and(|p| p.month_at_age(*age).month_index() > retirement),
                 };
                 if past_retirement {
                     errors.push(err(
@@ -356,8 +401,17 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                     &format!("The date of {what_mid} into \"{}\"", account.name),
                     *date,
                 ),
-                StreamBoundary::AtRetirement(_) | StreamBoundary::AtDeath(_) => {}
+                StreamBoundary::AtRetirement(_)
+                | StreamBoundary::AtDeath(_)
+                | StreamBoundary::AtAge(..) => {}
             }
+            check_boundary(
+                &mut errors,
+                plan,
+                &field("date"),
+                &format!("The date of {what_mid} into \"{}\"", account.name),
+                &entry.date,
+            );
         }
         if let Some(employer) = &account.employer_match {
             let field = format!("accounts[{i}].employer_match");
@@ -421,6 +475,15 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                 &format!("Duplicate stream id \"{}\".", stream.id),
             ));
         }
+        // A pension's amount is read as its first payment; an expense has
+        // no first payment to read it as, so the kind would silently move
+        // when its growth starts.
+        if stream.kind == StreamKind::Pension && stream.direction != StreamDirection::Income {
+            errors.push(err(
+                &format!("streams[{i}].direction"),
+                &format!("\"{}\" is a pension, so it must be income.", stream.name),
+            ));
+        }
         if let Some(percentage) = stream.survivor_percentage {
             if !(0.0..=1.0).contains(&percentage) {
                 errors.push(err(
@@ -452,6 +515,13 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                     *date,
                 );
             }
+            check_boundary(
+                &mut errors,
+                plan,
+                &format!("streams[{i}].{edge}"),
+                &format!("\"{}\"'s {edge}", stream.name),
+                boundary,
+            );
         }
     }
 
@@ -623,6 +693,7 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
 
 #[cfg(test)]
 mod tests {
+    use super::{StreamDirection, StreamKind};
     use crate::presets::seed_plan;
 
     #[test]
@@ -1084,6 +1155,38 @@ mod tests {
         assert!(errors
             .iter()
             .any(|e| e.field == "streams[0].survivor_percentage"));
+    }
+
+    #[test]
+    fn catches_an_impossible_age_boundary() {
+        let mut plan = seed_plan();
+        let owner = plan.streams[0].owner.clone().expect("an owned stream");
+        plan.streams[0].end = super::StreamBoundary::AtAge(owner, 200);
+        let errors = plan.validate();
+        assert!(errors.iter().any(|e| e.field == "streams[0].end"));
+    }
+
+    #[test]
+    fn catches_an_age_boundary_pinned_to_nobody() {
+        let mut plan = seed_plan();
+        plan.streams[0].end = super::StreamBoundary::AtAge("ghost".to_string(), 65);
+        let errors = plan.validate();
+        assert!(errors.iter().any(|e| e.field == "streams[0].end"));
+    }
+
+    #[test]
+    fn catches_a_pension_that_is_an_expense() {
+        let mut plan = seed_plan();
+        let i = plan
+            .streams
+            .iter()
+            .position(|s| s.direction == StreamDirection::Expense)
+            .expect("seed plan has an expense");
+        plan.streams[i].kind = StreamKind::Pension;
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == format!("streams[{i}].direction")));
     }
 
     /// A survivor share needs an owner: it starts at that person's death.

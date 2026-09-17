@@ -2,6 +2,7 @@
 import type { GrowthRule } from "./GrowthRule";
 import type { StreamBoundary } from "./StreamBoundary";
 import type { StreamDirection } from "./StreamDirection";
+import type { StreamKind } from "./StreamKind";
 
 /**
  * A dated cash flow: salary, retirement spending, pensions, or one-offs.
@@ -37,4 +38,8 @@ annual_amount: number, start: StreamBoundary, end: StreamBoundary, growth: Growt
  * `#[serde(default)]` (→ `None`) so plans saved before this field
  * existed load unchanged.
  */
-survivor_percentage: number | null, };
+survivor_percentage: number | null, 
+/**
+ * See `StreamKind`. Read by the simulation only to anchor `growth`.
+ */
+kind: StreamKind, };

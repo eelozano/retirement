@@ -7,7 +7,8 @@
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
-    StateTaxProfile, StepUp, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
+    StateTaxProfile, StepUp, StreamBoundary, StreamDirection, StreamKind, YearMonth,
+    SCHEMA_VERSION,
 };
 use engine::presets::CONTRIBUTION_LIMITS;
 use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
@@ -63,6 +64,7 @@ fn plan_with(contribution: ContributionRule, kind: AccountKind, plan_type: PlanT
                 end: StreamBoundary::AtRetirement(person),
                 growth: GrowthRule::Inflation,
                 survivor_percentage: None,
+                kind: StreamKind::General,
             },
             CashFlowStream {
                 id: "spending".to_string(),
@@ -74,6 +76,7 @@ fn plan_with(contribution: ContributionRule, kind: AccountKind, plan_type: PlanT
                 end: StreamBoundary::PlanEnd,
                 growth: GrowthRule::None,
                 survivor_percentage: None,
+                kind: StreamKind::General,
             },
         ],
         social_security: vec![],

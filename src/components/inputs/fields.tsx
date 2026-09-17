@@ -296,10 +296,15 @@ export function YearMonthField(props: {
   onChange: (value: YearMonth) => void;
   minYear?: number;
   maxYear?: number;
+  hint?: string;
 }) {
   const { year, month } = props.value;
   return (
-    <fieldset className="field field-yearmonth">
+    <fieldset
+      className={
+        props.hint ? "field field-yearmonth field-with-hint" : "field field-yearmonth"
+      }
+    >
       <legend>{props.label}</legend>
       <span className="field-group">
         <select
@@ -322,6 +327,7 @@ export function YearMonthField(props: {
           onCommit={(nextYear) => props.onChange({ year: Math.round(nextYear), month })}
         />
       </span>
+      {props.hint && <small className="field-hint">{props.hint}</small>}
     </fieldset>
   );
 }

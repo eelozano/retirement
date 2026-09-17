@@ -19,7 +19,7 @@
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
-    StateTaxProfile, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
+    StateTaxProfile, StreamBoundary, StreamDirection, StreamKind, YearMonth, SCHEMA_VERSION,
 };
 use engine::presets::{seed_plan, uniform_lifetime_divisor, CONTRIBUTION_LIMITS};
 use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
@@ -86,6 +86,7 @@ fn working_plan(start: YearMonth, last_year: i32, rule: ContributionRule) -> Pla
                 end: StreamBoundary::AtRetirement(person),
                 growth: GrowthRule::None,
                 survivor_percentage: None,
+                kind: StreamKind::General,
             },
             CashFlowStream {
                 id: "spending".to_string(),
@@ -97,6 +98,7 @@ fn working_plan(start: YearMonth, last_year: i32, rule: ContributionRule) -> Pla
                 end: StreamBoundary::PlanEnd,
                 growth: GrowthRule::None,
                 survivor_percentage: None,
+                kind: StreamKind::General,
             },
         ],
         social_security: vec![],
