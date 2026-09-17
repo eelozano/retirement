@@ -15,6 +15,14 @@ export type Assumptions = { inflation: number,
  * Nominal expected annual return for each investment strategy — what an
  * account allocated `Aggressive` is assumed to earn.
  *
+ * The expected return of a **single year**, not the rate a balance
+ * compounds at over a projection: `StochasticReturns` adds `σ · shock`
+ * to it, so it is an arithmetic mean and a volatile sequence of such
+ * years compounds about `σ²/2` lower. That is why the deterministic
+ * line sits above the Monte Carlo median. See "The return is an
+ * arithmetic mean, not a compound rate" in `docs/ARCHITECTURE.md` for
+ * why the convention stays and the UI explains it instead.
+ *
  * This replaced a per-asset-class table (#129). Growth was modelled in
  * two layers: four asset-class returns here, and per-account weights
  * over those classes in `presets::allocation_weights`. The engine only
