@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from "react";
 import { exportReportPdf } from "../../lib/api";
 import { dateStamp, sanitizedPlanName } from "../../lib/exportFilename";
-import { rateToPercent, yearMonth } from "../../lib/format";
+import { ratePercent, rateToPercent, yearMonth } from "../../lib/format";
 import { depletionYear as computeDepletionYear } from "../../lib/projection";
+import { realReturn } from "../../lib/returns";
 import { readableWarnings } from "../../lib/warnings";
 import { usePlanStore } from "../../store/planStore";
 import { CashFlowChart } from "../charts/CashFlowChart";
@@ -177,7 +178,7 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
                   <td>
                     {STRATEGIES.map(
                       ({ key, variant }) =>
-                        `${variant}: ${rateToPercent(plan.assumptions.strategy_returns[key])}% return, ${rateToPercent(plan.assumptions.strategy_volatility[key])}% volatility`,
+                        `${variant}: ${rateToPercent(plan.assumptions.strategy_returns[key])}% nominal (${ratePercent(realReturn(plan.assumptions.strategy_returns[key], plan.assumptions.inflation))} real), ${rateToPercent(plan.assumptions.strategy_volatility[key])}% volatility`,
                     ).join(" · ")}
                   </td>
                 </tr>

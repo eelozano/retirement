@@ -1,4 +1,5 @@
-import { currencyCompact } from "../../lib/format";
+import { currencyCompact, ratePercent } from "../../lib/format";
+import { medianCompoundedReturn, realReturn } from "../../lib/returns";
 import { usePlanStore } from "../../store/planStore";
 import type { FilingStatus } from "../../types/generated/FilingStatus";
 import type { Plan } from "../../types/generated/Plan";
@@ -149,6 +150,7 @@ export function AssumptionsSection() {
         <legend>Economy &amp; taxes</legend>
         <PercentField
           label="Inflation"
+          hint="Grows every amount set to rise with inflation, indexes the tax brackets and contribution limits forward each year, and sets the deflator behind the today's-dollars toggle. The expected returns below are nominal, so this is what comes off them."
           rate={assumptions.inflation}
           onChange={(rate) =>
             updatePlan((d) => {
@@ -264,14 +266,26 @@ export function AssumptionsSection() {
       <fieldset>
         <legend>Investment strategies</legend>
         <p className="field-hint">
-          Each account picks one of these on the Accounts pane. The return is where the
-          Monte Carlo fan is centered; the volatility is how wide it is — and therefore
-          how much of it lands below zero. Whole-portfolio figures, prefilled but yours to
-          change.
+          Each account picks one of these on the Accounts pane. Returns are nominal —
+          inflation comes off them — and each is the average of a <em>single year</em>,
+          not the rate a balance compounds at over decades. The volatility is how wide the
+          Monte Carlo fan gets, and width has a price: the same average return compounds
+          more slowly the more it varies, so the median Monte Carlo path ends below the
+          deterministic projection even though both were given this number.
+          Whole-portfolio figures, prefilled but yours to change.
         </p>
         {STRATEGIES.map(({ key, variant }) => {
           const held = plan.accounts.filter((a) => a.allocation === variant);
           const balance = held.reduce((sum, a) => sum + a.balance, 0);
+          // What the stored figure means, said out loud: the same rate with
+          // inflation out of it, and the rate a Monte Carlo path actually
+          // compounds at once this volatility drags on it.
+          const nominal = assumptions.strategy_returns[key];
+          const real = realReturn(nominal, assumptions.inflation);
+          const compounded = medianCompoundedReturn(
+            nominal,
+            assumptions.strategy_volatility[key],
+          );
           return (
             <div key={key} className="strategy-group">
               <h4 className="strategy-name">
@@ -284,7 +298,8 @@ export function AssumptionsSection() {
               </h4>
               <PercentField
                 label="Expected return"
-                rate={assumptions.strategy_returns[key]}
+                hint={`${ratePercent(real)} after this plan's ${ratePercent(assumptions.inflation)} inflation. Monte Carlo paths compound at about ${ratePercent(compounded)} a year at this volatility.`}
+                rate={nominal}
                 onChange={(rate) =>
                   updatePlan((d) => {
                     d.assumptions.strategy_returns[key] = rate;

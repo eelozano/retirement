@@ -544,6 +544,14 @@ fn net_worth_never_goes_negative() {
 /// which took it to 0.725 deliberately. See
 /// `presets::default_strategy_volatility`.
 ///
+/// Then the default inflation and Social Security COLA moved 2.5% → 3.0%,
+/// taking it to 0.605. The nominal returns did not move, so this is a real-
+/// return cut of about half a point a year — and it lands twice, since the
+/// seed household's salaries and spending both escalate with inflation while
+/// the portfolio still grows at an unchanged nominal 7.5/6.7/5.9. Period 0 is
+/// identical across the change, which is the check that it is inflation
+/// moving and nothing else: the deflator's exponent is zero there.
+///
 /// Spot indices rather than all 58 periods: enough to catch an off-by-one or
 /// a reordering, few enough to read when it fails.
 #[test]
@@ -557,25 +565,25 @@ fn fold_reproduces_pre_refactor_output() {
         },
     );
 
-    assert_eq!(result.success_rate, 0.725);
+    assert_eq!(result.success_rate, 0.605);
     assert_eq!(result.percentiles.len(), 58);
 
     let at = |i: usize| &result.percentiles[i];
 
     assert_eq!(at(0).p10, 616573.9878651936);
-    assert_eq!(at(12).p10, 1793689.618243871);
+    assert_eq!(at(12).p10, 1811134.7528040872);
     assert_eq!(at(38).p10, 0.0);
     assert_eq!(at(57).p10, 0.0);
 
     assert_eq!(at(0).p50, 763297.404964235);
-    assert_eq!(at(12).p50, 3005420.085878938);
-    assert_eq!(at(38).p50, 6022326.797337486);
-    assert_eq!(at(57).p50, 11684948.987272412);
+    assert_eq!(at(12).p50, 3022873.974996055);
+    assert_eq!(at(38).p50, 4934135.003594706);
+    assert_eq!(at(57).p50, 4928651.507928143);
 
     assert_eq!(at(0).p90, 904377.7405692474);
-    assert_eq!(at(12).p90, 5310748.638284052);
-    assert_eq!(at(38).p90, 27418073.74605364);
-    assert_eq!(at(57).p90, 81144909.48138416);
+    assert_eq!(at(12).p90, 5335775.894425642);
+    assert_eq!(at(38).p90, 26541482.68892121);
+    assert_eq!(at(57).p90, 77066180.35202429);
 }
 
 /// The observed form must not change the answer: progress counting and the

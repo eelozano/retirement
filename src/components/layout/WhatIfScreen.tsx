@@ -505,7 +505,7 @@ export function WhatIfScreen() {
                 ? "As assumed"
                 : `${overrides.returnShiftBp > 0 ? "+" : "−"}${Math.abs(overrides.returnShiftBp)} bp`
             }
-            hint="Every asset class, deterministic projection and Monte Carlo alike."
+            hint="Shifts every strategy's expected return, deterministic projection and Monte Carlo alike. Nominal — move the inflation knob too if you meant a real-return change."
             value={overrides.returnShiftBp}
             baseline={0}
             min={-MAX_RETURN_SHIFT_BP}

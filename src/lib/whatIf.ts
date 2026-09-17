@@ -303,7 +303,7 @@ export function overrideLabels(plan: Plan, o: WhatIfOverrides): string[] {
     labels.push(`Spending ${signedPercent(o.spendingMultiplier)}`);
   }
   if (o.returnShiftBp !== 0) {
-    labels.push(`Returns ${signedBp(o.returnShiftBp)} on every asset class`);
+    labels.push(`Returns ${signedBp(o.returnShiftBp)} on every strategy`);
   }
   if (o.volatilityMultiplier !== 1) {
     labels.push(`Volatility ×${o.volatilityMultiplier.toFixed(2)}`);
