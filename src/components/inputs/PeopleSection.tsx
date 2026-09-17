@@ -1,14 +1,16 @@
 import { usePlanStore } from "../../store/planStore";
+import { ageAt } from "./age";
 import { NumberField, TextField, YearMonthField } from "./fields";
+import { PensionCard } from "./PensionCard";
 import { SocialSecurityFields } from "./SocialSecurityFields";
 import { StreamCard } from "./StreamCard";
 import { FACT_VS_POLICY, ownedBy } from "./shared";
 
 /**
  * One card per person, readable top to bottom as one story: dates, their
- * income, and their Social Security. Replaces the old flat panel where a
- * person's salary sat in a different column with "Owner" as a dropdown the
- * reader had to resolve by hand.
+ * income, and their Social Security and pensions. Replaces the old flat
+ * panel where a person's salary sat in a different column with "Owner" as a
+ * dropdown the reader had to resolve by hand.
  *
  * What they *save* is not here: a contribution carries its own dates and can
  * outlive a retirement, so it is edited on the account in the Accounts pane.
@@ -39,7 +41,11 @@ export function PeopleSection() {
       </div>
 
       {plan.people.map((person, i) => {
-        const streams = ownedBy(plan.streams, person.id);
+        // A pension is retirement income, so it sits with Social Security
+        // rather than among the salary and expenses that end at retirement.
+        const owned = ownedBy(plan.streams, person.id);
+        const streams = owned.filter(({ item }) => item.kind !== "Pension");
+        const pensions = owned.filter(({ item }) => item.kind === "Pension");
         const benefits = ownedBy(plan.social_security, person.id);
 
         const addStream = () =>
@@ -54,6 +60,26 @@ export function PeopleSection() {
               end: { AtRetirement: person.id },
               growth: "Inflation",
               survivor_percentage: null,
+              kind: "General",
+            });
+          });
+
+        // Single life on its owner, no COLA, starting when they retire: the
+        // plainest pension, and a statement's "monthly benefit" is all that
+        // is left to fill in.
+        const addPension = () =>
+          updatePlan((d) => {
+            d.streams.push({
+              id: `pension-${Date.now()}`,
+              name: "Pension",
+              owner: person.id,
+              direction: "Income",
+              annual_amount: 0,
+              start: { AtRetirement: person.id },
+              end: { AtDeath: person.id },
+              growth: "None",
+              survivor_percentage: null,
+              kind: "Pension",
             });
           });
 
@@ -93,6 +119,7 @@ export function PeopleSection() {
             />
             <YearMonthField
               label="Retires"
+              hint={ageAt(person.birth, person.retirement)}
               value={person.retirement}
               onChange={(retirement) =>
                 updatePlan((d) => {
@@ -131,7 +158,7 @@ export function PeopleSection() {
             </div>
 
             <div className="band band-social-security">
-              <p className="band-label">Social Security</p>
+              <p className="band-label">Social Security &amp; pensions</p>
               {benefits.map(({ index: benefitIndex }) => (
                 <SocialSecurityFields
                   key={plan.social_security[benefitIndex].id}
@@ -140,8 +167,19 @@ export function PeopleSection() {
                   updatePlan={updatePlan}
                 />
               ))}
+              {pensions.map(({ index: streamIndex }) => (
+                <PensionCard
+                  key={plan.streams[streamIndex].id}
+                  plan={plan}
+                  streamIndex={streamIndex}
+                  updatePlan={updatePlan}
+                />
+              ))}
               <button type="button" className="add" onClick={addBenefit}>
                 Add Social Security benefit
+              </button>
+              <button type="button" className="add" onClick={addPension}>
+                Add pension
               </button>
             </div>
           </div>

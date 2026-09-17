@@ -311,7 +311,12 @@ fn accrue_streams(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodStat
             }
             _ => fraction,
         };
-        let growth = growth_factor(stream.growth, ctx.inflation, ctx.years_elapsed);
+        // Counted from the stream's own anchor rather than
+        // `ctx.years_elapsed`: the two agree for every stream but a pension,
+        // whose COLA only starts at its first payment. Not yet paying is
+        // no growth, not negative growth.
+        let years = resolved.growth_from.months_until(ctx.start).max(0) as f64 / 12.0;
+        let growth = growth_factor(stream.growth, ctx.inflation, years);
         let amount = stream.annual_amount * growth * active * ctx.fraction;
         match stream.direction {
             StreamDirection::Income => {

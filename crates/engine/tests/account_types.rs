@@ -8,7 +8,8 @@
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
-    StateTaxProfile, StrategyRates, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
+    StateTaxProfile, StrategyRates, StreamBoundary, StreamDirection, StreamKind, YearMonth,
+    SCHEMA_VERSION,
 };
 use engine::presets::CONTRIBUTION_LIMITS;
 use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
@@ -44,6 +45,7 @@ fn base_plan(accounts: Vec<Account>) -> Plan {
                 end: StreamBoundary::AtRetirement(person),
                 growth: GrowthRule::Inflation,
                 survivor_percentage: None,
+                kind: StreamKind::General,
             },
             CashFlowStream {
                 id: "spending".to_string(),
@@ -55,6 +57,7 @@ fn base_plan(accounts: Vec<Account>) -> Plan {
                 end: StreamBoundary::PlanEnd,
                 growth: GrowthRule::None,
                 survivor_percentage: None,
+                kind: StreamKind::General,
             },
         ],
         social_security: vec![],

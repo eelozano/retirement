@@ -5,7 +5,7 @@ import { usePlanStore } from "../../store/planStore";
 import type { Plan } from "../../types/generated/Plan";
 import { PeopleSection } from "./PeopleSection";
 
-// A person's own income/expense streams and their Social Security benefits
+// A person's own income/expense streams, Social Security benefits and pensions
 // live on the person's card here — grouped by `owner` instead of scattered
 // across separate flat panels. What they *save* does not: contributions and
 // the employer match are edited on the account, covered in
@@ -44,7 +44,7 @@ const plan = {
   ],
   streams: [],
   social_security: [],
-  assumptions: { social_security_cola: 0.02 },
+  assumptions: { social_security_cola: 0.02, inflation: 0.025 },
 } as unknown as Plan;
 
 beforeEach(() => {
@@ -74,6 +74,49 @@ describe("PeopleSection", () => {
     await userEvent.clear(amount);
     await userEvent.type(amount, "120000");
     expect(usePlanStore.getState().plan?.streams[0].annual_amount).toBe(120000);
+  });
+
+  it("adds a single-life pension with no COLA, entered as a monthly check, alongside Social Security", async () => {
+    render(<PeopleSection />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Add pension" }));
+    const added = usePlanStore.getState().plan?.streams[0];
+    expect(added?.kind).toBe("Pension");
+    expect(added?.end).toEqual({ AtDeath: "p1" });
+    expect(added?.growth).toBe("None");
+    // Grouped with Social Security, not with the salary and expense streams.
+    expect(screen.getByText("Social Security & pensions")).toBeTruthy();
+    expect(screen.queryByLabelText("Amount / yr ($, today's)")).toBeNull();
+
+    // The pension's own start can be pinned to an age too — "full benefit
+    // at 65" is how a pension statement puts it.
+    await userEvent.selectOptions(screen.getByLabelText("Starts"), "Age:p1");
+    await userEvent.clear(screen.getByLabelText("Start age"));
+    await userEvent.type(screen.getByLabelText("Start age"), "65");
+    expect(usePlanStore.getState().plan?.streams[0].start).toEqual({ AtAge: ["p1", 65] });
+
+    const monthly = screen.getByLabelText("Monthly benefit ($)");
+    await userEvent.clear(monthly);
+    await userEvent.type(monthly, "1500");
+    expect(usePlanStore.getState().plan?.streams[0].annual_amount).toBe(18000);
+
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: /cost-of-living adjustment/ }),
+    );
+    expect(usePlanStore.getState().plan?.streams[0].growth).toEqual({ Fixed: 0.025 });
+  });
+
+  it("ends a stream at an age, editable as an age rather than a month", async () => {
+    render(<PeopleSection />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Add stream" }));
+    await userEvent.selectOptions(screen.getByLabelText("Ends"), "Age:p1");
+    expect(usePlanStore.getState().plan?.streams[0].end).toEqual({ AtAge: ["p1", 65] });
+
+    const age = screen.getByLabelText("End age");
+    await userEvent.clear(age);
+    await userEvent.type(age, "62");
+    expect(usePlanStore.getState().plan?.streams[0].end).toEqual({ AtAge: ["p1", 62] });
   });
 
   it("adds and edits a Social Security benefit owned by the person, with no owner select", async () => {

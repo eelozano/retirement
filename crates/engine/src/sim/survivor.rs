@@ -11,7 +11,7 @@
 
 use crate::model::{
     CashFlowStream, GrowthRule, Person, Plan, SocialSecurityBenefit, StreamBoundary,
-    StreamDirection, YearMonth,
+    StreamDirection, StreamKind, YearMonth,
 };
 
 use super::SimWarning;
@@ -101,13 +101,16 @@ pub(super) fn social_security_streams(
             end: StreamBoundary::AtDeath(survivor.id.clone()),
             growth: GrowthRule::Fixed(benefit.cola_override.unwrap_or(cola)),
             survivor_percentage: None,
+            kind: StreamKind::General,
         });
     }
     streams
 }
 
 /// The reduced continuations of every stream carrying a
-/// `survivor_percentage` — a pension's or annuity's survivor annuity.
+/// `survivor_percentage` — a pension's or annuity's survivor annuity — each
+/// paired with the plan stream it continues, whose start a pension's COLA
+/// is still counted from after the death (`StreamKind::Pension`).
 ///
 /// Each one starts at its owner's death and runs to the end of the plan,
 /// which is the last survivor's death: a continuation whose owner is the
@@ -120,13 +123,13 @@ pub(super) fn social_security_streams(
 /// decedent's: it is paid to whoever is left, and tagging it with a dead
 /// person would feed their salary tally, which drives percent-of-salary
 /// contributions.
-pub(super) fn stream_continuations(plan: &Plan) -> Vec<CashFlowStream> {
+pub(super) fn stream_continuations(plan: &Plan) -> Vec<(CashFlowStream, &CashFlowStream)> {
     plan.streams
         .iter()
         .filter_map(|stream| {
             let percentage = stream.survivor_percentage?;
             let owner = plan.person(stream.owner.as_ref()?)?;
-            Some(CashFlowStream {
+            let continuation = CashFlowStream {
                 id: format!("survivor-{}", stream.id),
                 name: format!("{} (survivor share)", stream.name),
                 owner: None,
@@ -136,7 +139,9 @@ pub(super) fn stream_continuations(plan: &Plan) -> Vec<CashFlowStream> {
                 end: StreamBoundary::PlanEnd,
                 growth: stream.growth,
                 survivor_percentage: None,
-            })
+                kind: stream.kind,
+            };
+            Some((continuation, stream))
         })
         .collect()
 }

@@ -179,6 +179,13 @@ function fixedEndMonth(
     const other = plan.people.find((p) => p.id === end.AtRetirement);
     return other ? monthIndex(other.retirement) : null;
   }
+  // An age is fixed whoever is being shifted: it is measured from a birth
+  // date, which the slider does not touch.
+  if ("AtAge" in end) {
+    const [personId, age] = end.AtAge;
+    const other = plan.people.find((p) => p.id === personId);
+    return other ? monthIndex(addYears(other.birth, age)) : null;
+  }
   return null;
 }
 

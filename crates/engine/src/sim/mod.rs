@@ -14,7 +14,7 @@ pub use projection::{OneTimeInfo, PeriodSnapshot, Projection, SimWarning, Stream
 
 use crate::model::{
     Account, AccountKind, CashFlowStream, Contribution, GrowthRule, OneTimeContribution, Plan,
-    StreamBoundary, YearMonth,
+    StreamBoundary, StreamKind, YearMonth,
 };
 use crate::strategies::{DrawdownStrategy, ReturnModel, TaxModel};
 
@@ -38,6 +38,10 @@ struct ResolvedStream<'a> {
     /// Exclusive.
     end: YearMonth,
     source: StreamSource,
+    /// The month `growth` compounds from: the simulation start, except for
+    /// a pension, whose amount is quoted at its first payment
+    /// (`StreamKind::Pension`).
+    growth_from: YearMonth,
 }
 
 /// A contribution entry with its boundaries resolved to concrete months,
@@ -118,17 +122,24 @@ pub fn simulate(
     // income, and a survivor continuation is exempt from the household
     // expense step-down below (its percentage is the step-down).
     let mut resolved_streams: Vec<ResolvedStream> = Vec::new();
+    //
+    // Each stream also names the stream its growth is anchored by: itself,
+    // or for a survivor continuation the plan stream it continues.
     let tagged_streams = plan
         .streams
         .iter()
-        .map(|s| (s, StreamSource::Plan))
-        .chain(ss_streams.iter().map(|s| (s, StreamSource::SocialSecurity)))
+        .map(|s| (s, StreamSource::Plan, s))
+        .chain(
+            ss_streams
+                .iter()
+                .map(|s| (s, StreamSource::SocialSecurity, s)),
+        )
         .chain(
             continuations
                 .iter()
-                .map(|s| (s, StreamSource::SurvivorContinuation)),
+                .map(|(s, base)| (s, StreamSource::SurvivorContinuation, *base)),
         );
-    for (stream, source) in tagged_streams {
+    for (stream, source, anchor) in tagged_streams {
         match (
             resolve_boundary(plan, &stream.start, start, end),
             resolve_boundary(plan, &stream.end, start, end),
@@ -147,6 +158,7 @@ pub fn simulate(
                     start: s,
                     end: e,
                     source,
+                    growth_from: growth_anchor(plan, anchor, start, end),
                 })
             }
             _ => state.warnings.push(SimWarning::UnknownPersonRef {
@@ -347,6 +359,7 @@ fn resolve_boundary(
             let p = plan.person(person)?;
             Some(p.month_at_age(p.life_expectancy_age))
         }
+        StreamBoundary::AtAge(person, age) => Some(plan.person(person)?.month_at_age(*age)),
     }
 }
 
@@ -385,6 +398,24 @@ fn compound(rate: f64, fraction: f64) -> f64 {
         return rate;
     }
     (1.0 + rate).max(0.0).powf(fraction) - 1.0
+}
+
+/// The month a stream's `growth` compounds from. A pension's amount is its
+/// first payment, so its COLA starts there — or at the simulation start for
+/// a pension already in payment. Every other stream is in simulation-start
+/// dollars. An unresolvable start (a deleted person) falls back to the
+/// simulation start; the stream itself already warns.
+fn growth_anchor(
+    plan: &Plan,
+    stream: &CashFlowStream,
+    start: YearMonth,
+    end: YearMonth,
+) -> YearMonth {
+    match stream.kind {
+        StreamKind::General => start,
+        StreamKind::Pension => resolve_boundary(plan, &stream.start, start, end)
+            .map_or(start, |first_payment| first_payment.max(start)),
+    }
 }
 
 fn growth_factor(rule: GrowthRule, inflation: f64, years_elapsed: f64) -> f64 {

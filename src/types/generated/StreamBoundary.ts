@@ -5,4 +5,4 @@ import type { YearMonth } from "./YearMonth";
  * When a stream turns on or off. Person-relative boundaries mean editing a
  * retirement date moves every stream tied to it — no manual re-dating.
  */
-export type StreamBoundary = "PlanStart" | "PlanEnd" | { "Date": YearMonth } | { "AtRetirement": string } | { "AtDeath": string };
+export type StreamBoundary = "PlanStart" | "PlanEnd" | { "Date": YearMonth } | { "AtRetirement": string } | { "AtDeath": string } | { "AtAge": [string, number] };

@@ -241,12 +241,15 @@ pub struct CashFlowStream {
     pub direction: Income | Expense,
     pub annual_amount: f64,             // in start-date dollars
     pub start: StreamBoundary,          // Date(YearMonth) | AtRetirement(PersonId) | PlanStart
-    pub end: StreamBoundary,            //                  | AtDeath(PersonId) | PlanEnd
+    pub end: StreamBoundary,            // AtAge(PersonId, u8) | AtDeath(PersonId) | PlanEnd
     pub growth: GrowthRule,             // Inflation | Fixed(rate) | None
     // A pension's or annuity's survivor percentage. When set, it overrides
     // `end` in both directions at the owner's death: the full amount stops
     // there even if `end` runs later, and this fraction continues to plan end.
     pub survivor_percentage: Option<f64>,
+    // General | Pension. A pension's amount is its first check, so its
+    // `growth` (COLA) compounds from its resolved start, not the plan start.
+    pub kind: StreamKind,
 }
 
 pub struct Assumptions {
@@ -556,7 +559,7 @@ Almost everything the transition does is expressed as `CashFlowStream`s the main
 
 **Expenses.** `survivor_expense_factor` scales the expense streams *no single person owns*. Expenses owned by a person are left alone — they are that person's own cost, and their `end` boundary already says when they stop. The default is 1.0, no step-down: the convention clusters at 0.70–0.80, and the engine deliberately does not seed one, so the number is always one the user chose.
 
-**Pensions.** `CashFlowStream::survivor_percentage` overrides `end` in both directions at the owner's death: the full amount stops there even if `end` ran later, and the fraction continues to plan end under the same growth rule. A stream whose owner dies last is unaffected — there is no one for the continuation to run for.
+**Pensions.** `CashFlowStream::survivor_percentage` overrides `end` in both directions at the owner's death: the full amount stops there even if `end` ran later, and the fraction continues to plan end under the same growth rule. A stream whose owner dies last is unaffected — there is no one for the continuation to run for. The UI's pension card is this same stream with `kind: Pension`: single life is an `AtDeath` end with no percentage, joint is `PlanEnd` plus a percentage (100% by default). The kind changes one thing in the engine — `growth` compounds from the pension's first payment (or the plan start, if it is already paying), and a survivor continuation keeps that anchor rather than restarting at the death — because a pension statement quotes the check at commencement, not in plan-start dollars. `General` streams are untouched, so no saved plan projects differently.
 
 #### Bracket indexing (`strategies/tax.rs`)
 

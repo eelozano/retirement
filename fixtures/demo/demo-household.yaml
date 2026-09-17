@@ -237,6 +237,7 @@ scenarios:
     end: !AtRetirement alex
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: jordan-salary
     name: Jordan salary
     owner: jordan
@@ -246,6 +247,7 @@ scenarios:
     end: !AtRetirement jordan
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: spending-working
     name: Household spending (working)
     owner: null
@@ -255,6 +257,7 @@ scenarios:
     end: !AtRetirement alex
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: spending-retired
     name: Household spending (retired)
     owner: null
@@ -264,6 +267,7 @@ scenarios:
     end: PlanEnd
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: healthcare-bridge
     name: Pre-Medicare health insurance
     owner: null
@@ -275,6 +279,7 @@ scenarios:
       month: 4
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: jordan-pension
     name: Jordan pension
     owner: jordan
@@ -284,6 +289,7 @@ scenarios:
     end: PlanEnd
     growth: None
     survivor_percentage: 0.5
+    kind: Pension
   assumptions:
     inflation: 0.025
     strategy_returns:
@@ -432,6 +438,7 @@ scenarios:
     end: !AtRetirement alex
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: jordan-salary
     name: Jordan salary
     owner: jordan
@@ -441,6 +448,7 @@ scenarios:
     end: !AtRetirement jordan
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: spending-working
     name: Household spending (working)
     owner: null
@@ -450,6 +458,7 @@ scenarios:
     end: !AtRetirement alex
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: spending-retired
     name: Household spending (retired)
     owner: null
@@ -459,6 +468,7 @@ scenarios:
     end: PlanEnd
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: healthcare-bridge
     name: Pre-Medicare health insurance
     owner: null
@@ -470,6 +480,7 @@ scenarios:
       month: 4
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: jordan-pension
     name: Jordan pension
     owner: jordan
@@ -479,6 +490,7 @@ scenarios:
     end: PlanEnd
     growth: None
     survivor_percentage: 0.5
+    kind: Pension
   assumptions:
     inflation: 0.025
     strategy_returns:
@@ -627,6 +639,7 @@ scenarios:
     end: !AtRetirement alex
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: jordan-salary
     name: Jordan salary
     owner: jordan
@@ -636,6 +649,7 @@ scenarios:
     end: !AtRetirement jordan
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: spending-working
     name: Household spending (working)
     owner: null
@@ -645,6 +659,7 @@ scenarios:
     end: !AtRetirement alex
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: spending-retired
     name: Household spending (retired)
     owner: null
@@ -654,6 +669,7 @@ scenarios:
     end: PlanEnd
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: healthcare-bridge
     name: Pre-Medicare health insurance
     owner: null
@@ -665,6 +681,7 @@ scenarios:
       month: 4
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: jordan-pension
     name: Jordan pension
     owner: jordan
@@ -674,6 +691,7 @@ scenarios:
     end: PlanEnd
     growth: None
     survivor_percentage: 0.5
+    kind: Pension
   assumptions:
     inflation: 0.025
     strategy_returns:
@@ -822,6 +840,7 @@ scenarios:
     end: !AtRetirement alex
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: jordan-salary
     name: Jordan salary
     owner: jordan
@@ -831,6 +850,7 @@ scenarios:
     end: !AtRetirement jordan
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: spending-working
     name: Household spending (working)
     owner: null
@@ -840,6 +860,7 @@ scenarios:
     end: !AtRetirement alex
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: spending-retired
     name: Household spending (retired)
     owner: null
@@ -849,6 +870,7 @@ scenarios:
     end: PlanEnd
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: healthcare-bridge
     name: Pre-Medicare health insurance
     owner: null
@@ -860,6 +882,7 @@ scenarios:
       month: 4
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: jordan-pension
     name: Jordan pension
     owner: jordan
@@ -869,6 +892,7 @@ scenarios:
     end: PlanEnd
     growth: None
     survivor_percentage: 0.5
+    kind: Pension
   assumptions:
     inflation: 0.025
     strategy_returns:
@@ -1022,6 +1046,7 @@ scenarios:
     end: !AtRetirement alex
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: jordan-salary
     name: Jordan salary
     owner: jordan
@@ -1031,6 +1056,7 @@ scenarios:
     end: !AtRetirement jordan
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: spending-working
     name: Household spending (working)
     owner: null
@@ -1040,6 +1066,7 @@ scenarios:
     end: !AtRetirement alex
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: spending-retired
     name: Household spending (retired)
     owner: null
@@ -1049,6 +1076,7 @@ scenarios:
     end: PlanEnd
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: healthcare-bridge
     name: Pre-Medicare health insurance
     owner: null
@@ -1060,6 +1088,7 @@ scenarios:
       month: 4
     growth: Inflation
     survivor_percentage: null
+    kind: General
   - id: jordan-pension
     name: Jordan pension
     owner: jordan
@@ -1069,6 +1098,7 @@ scenarios:
     end: PlanEnd
     growth: None
     survivor_percentage: 0.5
+    kind: Pension
   assumptions:
     inflation: 0.025
     strategy_returns:

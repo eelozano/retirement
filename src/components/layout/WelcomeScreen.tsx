@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { NewPerson } from "../../lib/api";
 import { usePlanStore } from "../../store/planStore";
+import { ageAt } from "../inputs/age";
 import { TextField, YearMonthField } from "../inputs/fields";
 
 // What a fresh install opens on, and what the app returns to when the last
@@ -137,6 +138,10 @@ export function WelcomeScreen() {
               />
               <YearMonthField
                 label="Retires"
+                hint={ageAt(
+                  { year: p.birthYear, month: p.birthMonth },
+                  { year: p.retirementYear, month: p.retirementMonth },
+                )}
                 value={{ year: p.retirementYear, month: p.retirementMonth }}
                 onChange={(v) =>
                   update(i, { retirementYear: v.year, retirementMonth: v.month })

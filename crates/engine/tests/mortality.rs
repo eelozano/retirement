@@ -4,7 +4,7 @@
 
 use engine::model::{
     Assumptions, CashFlowStream, FilingStatus, GrowthRule, PeriodLength, Person, Plan, SimConfig,
-    StateTaxProfile, StreamBoundary, StreamDirection, YearMonth, SCHEMA_VERSION,
+    StateTaxProfile, StreamBoundary, StreamDirection, StreamKind, YearMonth, SCHEMA_VERSION,
 };
 use engine::run_deterministic;
 
@@ -51,6 +51,7 @@ fn plan_with_two_lifespans() -> Plan {
             end: StreamBoundary::AtDeath(short),
             growth: GrowthRule::None,
             survivor_percentage: None,
+            kind: StreamKind::General,
         }],
         social_security: vec![],
         assumptions: Assumptions {
@@ -117,4 +118,41 @@ fn at_death_resolves_per_person_not_to_the_household_max() {
     let last = projection.snapshots.last().expect("at least one period");
     assert_eq!(last.period_start.year, 2009);
     assert_eq!(last.income, 0.0);
+}
+
+/// An age boundary is the month that person reaches the age — their birth
+/// month, that many years on — so eligibility written as an age (a
+/// pension's full benefit, Medicare, catch-up contributions) stays right
+/// when a retirement date moves or a birth date is corrected.
+#[test]
+fn an_age_boundary_resolves_to_the_month_that_person_turns_it() {
+    let mut plan = plan_with_two_lifespans();
+    // Born in April rather than at the plan start, so the resolved months
+    // are not the period boundaries themselves.
+    plan.people[1].birth = YearMonth {
+        year: 2000,
+        month: 4,
+    };
+    plan.people[1].life_expectancy_age = 20;
+    let mut income = plan.streams[0].clone();
+    income.owner = Some("long".to_string());
+    income.annual_amount = 12_000.0;
+    income.start = StreamBoundary::AtAge("long".to_string(), 5);
+    income.end = StreamBoundary::AtAge("long".to_string(), 10);
+    plan.streams = vec![income];
+    let projection = run_deterministic(&plan);
+
+    let year = |y: i32| {
+        projection
+            .snapshots
+            .iter()
+            .find(|s| s.period_start.year == y)
+            .expect("a period")
+            .income
+    };
+    assert_eq!(year(2004), 0.0);
+    assert!((year(2005) - 12_000.0 * 9.0 / 12.0).abs() < 1e-6);
+    assert_eq!(year(2006), 12_000.0);
+    assert!((year(2010) - 12_000.0 * 3.0 / 12.0).abs() < 1e-6);
+    assert_eq!(year(2011), 0.0);
 }

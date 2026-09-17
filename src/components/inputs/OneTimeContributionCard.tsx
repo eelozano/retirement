@@ -1,6 +1,7 @@
 import type { Plan } from "../../types/generated/Plan";
 import { oneTimeLegend, oneTimeNotCounted } from "./accountContribution";
-import { NumberField, SelectField, TextField, YearMonthField } from "./fields";
+import { BoundaryDetail } from "./BoundaryDetail";
+import { NumberField, SelectField, TextField } from "./fields";
 import type { UpdatePlan } from "./shared";
 import {
   boundaryDateHint,
@@ -89,17 +90,15 @@ export function OneTimeContributionCard(props: {
           })
         }
       />
-      {typeof entry.date === "object" && "Date" in entry.date && (
-        <YearMonthField
-          label="Landing month"
-          value={entry.date.Date}
-          onChange={(date) =>
-            updatePlan((d) => {
-              d.accounts[i].one_time_contributions[e].date = { Date: date };
-            })
-          }
-        />
-      )}
+      <BoundaryDetail
+        label="Landing"
+        boundary={entry.date}
+        onChange={(boundary) =>
+          updatePlan((d) => {
+            d.accounts[i].one_time_contributions[e].date = boundary;
+          })
+        }
+      />
       {notCounted && <p className="field-hint">{notCounted}</p>}
       <button
         type="button"

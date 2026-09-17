@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{CashFlowStream, GrowthRule, Person, PersonId, StreamBoundary, StreamDirection};
+use super::{
+    CashFlowStream, GrowthRule, Person, PersonId, StreamBoundary, StreamDirection, StreamKind,
+};
 
 pub type SocialSecurityBenefitId = String;
 
@@ -70,6 +72,7 @@ impl SocialSecurityBenefit {
             end: StreamBoundary::AtDeath(self.owner.clone()),
             growth: GrowthRule::Fixed(self.cola_override.unwrap_or(plan_default_cola)),
             survivor_percentage: None,
+            kind: StreamKind::General,
         }
     }
 }
