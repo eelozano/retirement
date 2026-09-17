@@ -1,5 +1,5 @@
+import { currencyCompact } from "../../lib/format";
 import { usePlanStore } from "../../store/planStore";
-import type { AssetClass } from "../../types/generated/AssetClass";
 import type { FilingStatus } from "../../types/generated/FilingStatus";
 import type { Plan } from "../../types/generated/Plan";
 import type { StateCode } from "../../types/generated/StateCode";
@@ -7,12 +7,23 @@ import { PercentField, SelectField, YearMonthField } from "./fields";
 import { boundaryOptions, boundaryToChoice, choiceToBoundary } from "./streamBoundary";
 import { TaxBracketEditor } from "./TaxBracketEditor";
 
-export const ASSET_LABELS: Record<AssetClass, string> = {
-  UsEquity: "US equity (VTI)",
-  IntlEquity: "Intl equity (VXUS)",
-  GlobalEquity: "Global equity (VT)",
-  UsBonds: "US bonds (BND)",
-};
+/**
+ * The three investment strategies in risk order: the key each is stored
+ * under on `StrategyRates`, and the `AllocationRef` variant that selects it
+ * — which is also how it is labelled, since the variant name is the name.
+ *
+ * An ordered list rather than `Object.keys` over the rates, so nothing
+ * starts rendering them alphabetically, and one source of truth for both
+ * the assumptions editor and the per-account picker.
+ */
+export const STRATEGIES = [
+  { key: "aggressive", variant: "Aggressive" },
+  { key: "moderate", variant: "Moderate" },
+  { key: "conservative", variant: "Conservative" },
+] as const;
+
+export type StrategyKey = (typeof STRATEGIES)[number]["key"];
+export type StrategyVariant = (typeof STRATEGIES)[number]["variant"];
 
 export const FILING_STATUS_OPTIONS: { value: FilingStatus; label: string }[] = [
   { value: "Single", label: "Single" },
@@ -252,41 +263,49 @@ export function AssumptionsSection() {
         </fieldset>
       )}
       <fieldset>
-        <legend>Nominal returns / yr</legend>
-        {(Object.keys(ASSET_LABELS) as AssetClass[]).map((asset) => (
-          <PercentField
-            key={asset}
-            label={ASSET_LABELS[asset]}
-            rate={assumptions.asset_returns[asset] ?? 0}
-            onChange={(rate) =>
-              updatePlan((d) => {
-                d.assumptions.asset_returns[asset] = rate;
-              })
-            }
-          />
-        ))}
-      </fieldset>
-      <fieldset>
-        <legend>Volatility (annualized std. dev.)</legend>
+        <legend>Investment strategies</legend>
         <p className="field-hint">
-          The return above sets where the Monte Carlo fan is centered; this sets how wide
-          it is — and therefore how much of it lands below zero. Approximate historical
-          figures, prefilled but yours to change.
+          Each account picks one of these on the Accounts pane. The return is where the
+          Monte Carlo fan is centered; the volatility is how wide it is — and therefore
+          how much of it lands below zero. Whole-portfolio figures, prefilled but yours to
+          change.
         </p>
-        {(Object.keys(ASSET_LABELS) as AssetClass[]).map((asset) => (
-          <PercentField
-            key={asset}
-            label={ASSET_LABELS[asset]}
-            rate={assumptions.asset_volatility[asset] ?? 0}
-            minPercent={0}
-            maxPercent={100}
-            onChange={(rate) =>
-              updatePlan((d) => {
-                d.assumptions.asset_volatility[asset] = rate;
-              })
-            }
-          />
-        ))}
+        {STRATEGIES.map(({ key, variant }) => {
+          const held = plan.accounts.filter((a) => a.allocation === variant);
+          const balance = held.reduce((sum, a) => sum + a.balance, 0);
+          return (
+            <div key={key} className="strategy-group">
+              <h4 className="strategy-name">
+                <span>{variant}</span>
+                <span className="strategy-usage">
+                  {held.length === 0
+                    ? "no accounts"
+                    : `${held.length} ${held.length === 1 ? "account" : "accounts"} · ${currencyCompact(balance)}`}
+                </span>
+              </h4>
+              <PercentField
+                label="Expected return"
+                rate={assumptions.strategy_returns[key]}
+                onChange={(rate) =>
+                  updatePlan((d) => {
+                    d.assumptions.strategy_returns[key] = rate;
+                  })
+                }
+              />
+              <PercentField
+                label="Volatility"
+                rate={assumptions.strategy_volatility[key]}
+                minPercent={0}
+                maxPercent={100}
+                onChange={(rate) =>
+                  updatePlan((d) => {
+                    d.assumptions.strategy_volatility[key] = rate;
+                  })
+                }
+              />
+            </div>
+          );
+        })}
       </fieldset>
     </div>
   );
