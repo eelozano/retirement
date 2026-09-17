@@ -136,6 +136,21 @@ describe("PeopleSection", () => {
     expect(usePlanStore.getState().plan?.social_security[0].benefit_at_fra).toBe(32000);
   });
 
+  it("heads a benefit with its owner's name, numbering only a second one", async () => {
+    render(<PeopleSection />);
+    const add = screen.getByRole("button", { name: "Add Social Security benefit" });
+
+    await userEvent.click(add);
+    expect(screen.getByText("Alex's Social Security")).toBeTruthy();
+
+    // A second benefit on the same person earns numbers; the index is within
+    // the owner, not the household, so this pair reads 1 and 2 rather than
+    // continuing a count started on someone else's card.
+    await userEvent.click(add);
+    expect(screen.getByText("Alex's Social Security 1")).toBeTruthy();
+    expect(screen.getByText("Alex's Social Security 2")).toBeTruthy();
+  });
+
   it("adds a new person", async () => {
     render(<PeopleSection />);
     await userEvent.click(screen.getByRole("button", { name: "Add person" }));
