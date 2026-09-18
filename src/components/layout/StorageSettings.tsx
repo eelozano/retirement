@@ -3,10 +3,12 @@ import {
   chooseStorageDir,
   exportPlans,
   getStorageInfo,
+  getTaxFiguresInfo,
   listSnapshots,
   revealStorageDir,
   type StorageInfo,
   setStorageDir,
+  type TaxFiguresInfo,
 } from "../../lib/api";
 import { usePlanStore } from "../../store/planStore";
 import { Modal } from "./Modal";
@@ -56,6 +58,7 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
   const setMonteCarloPaths = usePlanStore((s) => s.setMonteCarloPaths);
 
   const [info, setInfo] = useState<StorageInfo | null>(null);
+  const [taxFigures, setTaxFigures] = useState<TaxFiguresInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -72,6 +75,11 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
     setError(null);
     getStorageInfo()
       .then(setInfo)
+      .catch((e) => setError(String(e)));
+    // Re-read on every open: the file is edited outside the app, and this is
+    // where a hand edit that could not be used is reported.
+    getTaxFiguresInfo()
+      .then(setTaxFigures)
       .catch((e) => setError(String(e)));
   }, [open]);
 
@@ -90,6 +98,7 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
       if (picked) {
         await setStorageDir(picked);
         setInfo(await getStorageInfo());
+        setTaxFigures(await getTaxFiguresInfo());
       }
     } catch (e) {
       setError(String(e));
@@ -173,6 +182,27 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
               Reveal in Finder
             </button>
           </div>
+        </>
+      ) : (
+        <p>Loading…</p>
+      )}
+
+      <h3>Tax figures</h3>
+      {taxFigures ? (
+        <>
+          <p className="storage-badge">
+            Every plan uses the {taxFigures.tax_year} federal tax brackets, standard
+            deduction and contribution limits in this file. Edit it when the IRS publishes
+            a new year — each fall, and each spring for the HSA limit. A change applies at
+            the next recalculation; delete the file to go back to the built-in figures.
+          </p>
+          <p className="storage-path">{taxFigures.path}</p>
+          {taxFigures.error && (
+            <p role="alert" className="banner critical">
+              The file could not be used, so the built-in {taxFigures.tax_year} figures
+              are in force: {taxFigures.error}
+            </p>
+          )}
         </>
       ) : (
         <p>Loading…</p>

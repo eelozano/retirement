@@ -7,6 +7,7 @@
 //! boundary between them, and these tests pin what it does at each of its
 //! three settings — plus the migration from the boolean it replaced.
 
+use engine::model::TaxFigures;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
@@ -27,6 +28,7 @@ fn run(plan: &Plan) -> Projection {
     );
     simulate(
         plan,
+        &TaxFigures::built_in(),
         &returns,
         &FlatTax { rate: 0.0 },
         &ProportionalDrawdown,

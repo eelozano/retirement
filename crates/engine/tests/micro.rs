@@ -10,12 +10,12 @@
 //!   401(k): (121k - 40k) * 1.1 = 89.1k.
 //! Period 2: same → (89.1k - 40k) * 1.1 = 54.01k.
 
+use engine::model::TaxFigures;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
     StateTaxProfile, StreamBoundary, StreamDirection, StreamKind, YearMonth, SCHEMA_VERSION,
 };
-use engine::presets::CONTRIBUTION_LIMITS;
 use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
 use engine::{simulate, Projection};
 
@@ -32,7 +32,14 @@ fn run_with_flat_tax(plan: &Plan, rate: f64) -> Projection {
         &plan.assumptions.strategy_returns,
         plan.sim_config.period.months(),
     );
-    simulate(plan, &returns, &FlatTax { rate }, &ProportionalDrawdown, 0)
+    simulate(
+        plan,
+        &TaxFigures::built_in(),
+        &returns,
+        &FlatTax { rate },
+        &ProportionalDrawdown,
+        0,
+    )
 }
 
 fn micro_plan() -> Plan {
@@ -276,13 +283,13 @@ fn depletion_emits_warning_and_balances_stay_nonnegative() {
 /// than restated here: these tests are about bucket sharing, not about
 /// whether the seeded figures are current.
 fn deferral_cap() -> f64 {
-    CONTRIBUTION_LIMITS
+    TaxFigures::built_in()
         .annual_limit(PlanType::EmployerPlan, 60, 2026, 0.0)
         .expect("employer plans are capped")
 }
 
 fn ira_cap() -> f64 {
-    CONTRIBUTION_LIMITS
+    TaxFigures::built_in()
         .annual_limit(PlanType::Ira, 60, 2026, 0.0)
         .expect("IRAs are capped")
 }

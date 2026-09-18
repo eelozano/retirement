@@ -16,12 +16,13 @@
 //!              − 21,600 tax ((120,000 − 12,000) × 20%) − 86,400 spending = 0
 //!   Stub (4/12): every one of those figures × 1/3, so it is zero there too.
 
+use engine::model::TaxFigures;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
     StateTaxProfile, StreamBoundary, StreamDirection, StreamKind, YearMonth, SCHEMA_VERSION,
 };
-use engine::presets::{seed_plan, uniform_lifetime_divisor, CONTRIBUTION_LIMITS};
+use engine::presets::{seed_plan, uniform_lifetime_divisor};
 use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
 use engine::{run_deterministic, simulate, Projection};
 
@@ -38,7 +39,14 @@ fn run_with_flat_tax(plan: &Plan, rate: f64) -> Projection {
     // does: a period is a calendar year, and the loop takes the stub's
     // share of the year's return itself.
     let returns = FixedReturns::new(&plan.assumptions.strategy_returns, 12);
-    simulate(plan, &returns, &FlatTax { rate }, &ProportionalDrawdown, 0)
+    simulate(
+        plan,
+        &TaxFigures::built_in(),
+        &returns,
+        &FlatTax { rate },
+        &ProportionalDrawdown,
+        0,
+    )
 }
 
 /// A working household whose plan starts in `start`, ending after the
@@ -224,7 +232,7 @@ fn a_stub_period_caps_contributions_at_its_share_of_the_year() {
     let projection = run_with_flat_tax(&plan, 0.20);
 
     let limit = |year: i32| {
-        CONTRIBUTION_LIMITS
+        TaxFigures::built_in()
             .annual_limit(PlanType::EmployerPlan, year - 1986, year, 0.0)
             .expect("employer plans have a limit")
     };
@@ -344,7 +352,7 @@ fn the_stub_takes_no_required_distribution_and_the_next_year_takes_a_whole_one()
 fn the_stub_periods_effective_tax_rate_is_below_the_full_years() {
     let mut plan = working_plan(YearMonth::new(2026, 9), 2027, flat_contribution());
     // Real brackets, not the flat rate the rest of this file uses.
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
     let stub = &projection.snapshots[0];
     let full = &projection.snapshots[1];
 
@@ -355,23 +363,23 @@ fn the_stub_periods_effective_tax_rate_is_below_the_full_years() {
         "stub effective rate {stub_rate} should be below the full year's {full_rate}"
     );
     // The size of the convention, stated. On $40,000 of stub income the
-    // bill is $2,191.50 — 5.5% — because the whole standard deduction and
+    // bill is $2,140 — 5.35% — because the whole standard deduction and
     // the bottom brackets meet four months of income; the full year pays
-    // $15,209 on $120,000, 12.7%. A third of the full-year bill would be
-    // $5,069.67, so the stub is $2,878.17 light, and the household will in
+    // $14,930 on $120,000, 12.4%. A third of the full-year bill would be
+    // $4,976.67, so the stub is $2,836.67 light, and the household will in
     // reality pay something near that on the months this plan begins in.
-    assert_close(stub.taxes, 2_191.50, "stub bill");
-    assert_close(full.taxes, 15_209.00, "full-year bill");
+    assert_close(stub.taxes, 2_140.00, "stub bill");
+    assert_close(full.taxes, 14_930.00, "full-year bill");
     assert_close(
         full.taxes * STUB - stub.taxes,
-        2_878.1666666666665,
+        2_836.666666666667,
         "what the convention leaves untaxed",
     );
 
     // Started in January instead, the same household pays the full-year
     // rate in its first period — the convention costs nothing there.
     plan.sim_config.start = YearMonth::new(2026, 1);
-    let january = run_deterministic(&plan);
+    let january = run_deterministic(&plan, &TaxFigures::built_in());
     assert_close(
         january.snapshots[0].taxes / january.snapshots[0].income,
         full_rate,
@@ -386,7 +394,7 @@ fn the_stub_periods_effective_tax_rate_is_below_the_full_years() {
 fn the_seed_household_projects_from_any_start_month() {
     let mut plan = seed_plan();
     plan.sim_config.start = YearMonth::new(2029, 9);
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     let first = &projection.snapshots[0];
     assert_eq!(first.period_start, YearMonth::new(2029, 9));

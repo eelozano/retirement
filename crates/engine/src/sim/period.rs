@@ -23,7 +23,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::model::{AccountId, AccountKind, PersonId, Plan, StreamDirection, StreamId, YearMonth};
+use crate::model::{
+    AccountId, AccountKind, PersonId, Plan, StreamDirection, StreamId, TaxFigures, YearMonth,
+};
 use crate::strategies::{
     AccountState, DrawdownStrategy, IncomeBreakdown, PeriodIndex, ReturnModel, TaxModel,
 };
@@ -58,6 +60,9 @@ impl Warnings {
 /// Everything fixed for the whole run. Read-only to every step.
 pub(super) struct RunContext<'a> {
     pub plan: &'a Plan,
+    /// The yearly tax figures the run is under — what the contribution
+    /// step clamps to. The tax model was built from the same figures.
+    pub figures: &'a TaxFigures,
     /// Plan, Social Security and survivor-continuation streams, boundaries
     /// already resolved to concrete months.
     pub streams: &'a [ResolvedStream<'a>],
@@ -370,6 +375,7 @@ fn contribute(
         .collect();
     let inputs = contributions::Inputs {
         ctx,
+        figures: run.figures,
         contributions: run.contributions,
         salary: &period.salary,
         working: &working,

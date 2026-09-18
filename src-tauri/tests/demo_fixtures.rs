@@ -537,7 +537,7 @@ fn committed_demo_fixture_loads_composes_validates_and_simulates() {
                 .join("; ")
         );
 
-        let projection = engine::run_deterministic(&plan);
+        let projection = engine::run_deterministic(&plan, &engine::model::TaxFigures::built_in());
         assert!(
             !projection.snapshots.is_empty(),
             "scenario {:?} simulated to an empty projection",

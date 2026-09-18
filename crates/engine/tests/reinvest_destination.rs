@@ -7,6 +7,7 @@
 //! wrong destination is visible in the numbers, not just in which balance
 //! moved.
 
+use engine::model::TaxFigures;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
@@ -159,8 +160,11 @@ fn a_named_destination_receives_the_sweep_and_the_projection_differs() {
         ]
     };
 
-    let default = run_deterministic(&plan(accounts(), true, None));
-    let named = run_deterministic(&plan(accounts(), true, Some("brokerage_b")));
+    let default = run_deterministic(&plan(accounts(), true, None), &TaxFigures::built_in());
+    let named = run_deterministic(
+        &plan(accounts(), true, Some("brokerage_b")),
+        &TaxFigures::built_in(),
+    );
 
     // The default (unset) destination is the first taxable account in plan
     // order: brokerage_a. Every dollar swept lands there, none in b.
@@ -206,7 +210,10 @@ fn the_rmd_remainder_lands_in_the_named_account_not_the_first_one() {
     // Sweep off: isolates the RMD remainder as the only source of
     // reinvested cash, exactly like `required_distributions.rs`'s
     // money-destruction regression.
-    let projection = run_deterministic(&plan(accounts, false, Some("named")));
+    let projection = run_deterministic(
+        &plan(accounts, false, Some("named")),
+        &TaxFigures::built_in(),
+    );
 
     let s = projection
         .snapshots
@@ -237,8 +244,11 @@ fn unset_projects_identically_to_naming_the_first_taxable_account() {
             taxable("second", growing()),
         ]
     };
-    let unset = run_deterministic(&plan(accounts(), true, None));
-    let named_first = run_deterministic(&plan(accounts(), true, Some("first")));
+    let unset = run_deterministic(&plan(accounts(), true, None), &TaxFigures::built_in());
+    let named_first = run_deterministic(
+        &plan(accounts(), true, Some("first")),
+        &TaxFigures::built_in(),
+    );
 
     let net_worth =
         |p: &engine::Projection| -> Vec<f64> { p.snapshots.iter().map(|s| s.net_worth).collect() };
@@ -260,8 +270,14 @@ fn reordering_accounts_changes_nothing_once_a_destination_is_named() {
         taxable("brokerage_a", flat()),
     ];
 
-    let a = run_deterministic(&plan(forward, true, Some("brokerage_b")));
-    let b = run_deterministic(&plan(reversed, true, Some("brokerage_b")));
+    let a = run_deterministic(
+        &plan(forward, true, Some("brokerage_b")),
+        &TaxFigures::built_in(),
+    );
+    let b = run_deterministic(
+        &plan(reversed, true, Some("brokerage_b")),
+        &TaxFigures::built_in(),
+    );
 
     let net_worth =
         |p: &engine::Projection| -> Vec<f64> { p.snapshots.iter().map(|s| s.net_worth).collect() };

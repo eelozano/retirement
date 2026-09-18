@@ -2,7 +2,13 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::{legacy, GrowthRule, PersonId, StreamBoundary};
-use crate::presets::{ELECTIVE_DEFERRAL_LIMIT, IRA_CONTRIBUTION_LIMIT};
+
+/// The IRA and elective-deferral limits `migrated_plan_type` sorts a pre-#32
+/// account's typed limit between. Frozen here rather than read from the
+/// user's tax figures: which bucket an old file lands in must not depend on
+/// what year's figures are loaded when it happens to be opened.
+const IRA_CONTRIBUTION_LIMIT: f64 = 7_500.0;
+const ELECTIVE_DEFERRAL_LIMIT: f64 = 24_500.0;
 
 pub type AccountId = String;
 
@@ -147,7 +153,7 @@ pub enum ContributionRule {
     /// The statutory maximum for the account's `plan_type`, indexed forward
     /// and stepped up for the owner's catch-up tier. Stored as intent rather
     /// than a number so the plan stays correct as limits index and the owner
-    /// ages — see `presets::ContributionLimits`.
+    /// ages — see `TaxFigures::annual_limit`.
     FederalMaximum,
 }
 

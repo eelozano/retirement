@@ -1034,7 +1034,7 @@ mod tests {
     /// the percentage in force that year, read out of a real projection
     /// rather than off the entry.
     fn escalated_share(plan: &Plan) -> f64 {
-        let projection = engine::run_deterministic(plan);
+        let projection = engine::run_deterministic(plan, &engine::model::TaxFigures::built_in());
         let snapshot = projection
             .snapshots
             .iter()
