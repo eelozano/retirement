@@ -7,6 +7,7 @@ mod plan;
 mod social_security;
 mod strategy;
 mod stream;
+mod tax_figures;
 mod tax_profile;
 mod validation;
 mod year_month;
@@ -27,6 +28,9 @@ pub use social_security::{adjustment_factor, SocialSecurityBenefit, SocialSecuri
 pub use strategy::StrategyRates;
 pub use stream::{
     CashFlowStream, GrowthRule, StreamBoundary, StreamDirection, StreamId, StreamKind,
+};
+pub use tax_figures::{
+    ByFilingStatus, ContributionLimits, FederalSchedule, FederalTax, TaxFigures, HSA_CATCH_UP_55,
 };
 pub use tax_profile::{bracket_tax, FilingStatus, StateCode, StateTaxProfile, TaxBracket};
 pub use validation::ValidationError;

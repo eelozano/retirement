@@ -12,10 +12,12 @@ import { AccountsSection } from "./AccountsSection";
 // while; dated entries brought them back to the account.
 
 const presets = {
-  contribution_limits: {
-    basis_year: 2026,
-    employer_plan: 24500,
-    ira: 7500,
+  tax_figures: {
+    tax_year: 2026,
+    contribution_limits: {
+      employer_plan: 24500,
+      ira: 7500,
+    },
   },
 } as unknown as Presets;
 

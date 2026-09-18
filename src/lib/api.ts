@@ -278,6 +278,18 @@ export function revealStorageDir(): Promise<void> {
   return invoke<void>("reveal_storage_dir");
 }
 
+// Also a command-only shape, hand-declared like StorageInfo. `error` is set when
+// tax-figures.yaml could not be used and the built-in figures are in force.
+export interface TaxFiguresInfo {
+  path: string;
+  tax_year: number;
+  error: string | null;
+}
+
+export function getTaxFiguresInfo(): Promise<TaxFiguresInfo> {
+  return invoke<TaxFiguresInfo>("get_tax_figures_info");
+}
+
 /** Paths per Monte Carlo run. Always concrete — the backend resolves "unset"
  * to its own default, and clamps, so the frontend holds neither number. */
 export function getMonteCarloPaths(): Promise<number> {

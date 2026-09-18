@@ -10,115 +10,9 @@ use crate::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
     SocialSecurityBenefit, StateCode, StateTaxProfile, StrategyRates, StreamBoundary,
-    StreamDirection, StreamKind, YearMonth, SCHEMA_VERSION,
+    StreamDirection, StreamKind, TaxFigures, YearMonth, SCHEMA_VERSION,
 };
 use crate::state_tax_data::state_tax_profiles;
-
-/// Tax year the statutory figures in `CONTRIBUTION_LIMITS` are published
-/// for. The app is local-first with no network, so these go stale between
-/// releases rather than updating themselves — the year is surfaced in the
-/// UI so a projection never implies the numbers are live.
-pub const LIMITS_BASIS_YEAR: i32 = 2026;
-
-/// Statutory elective-deferral limit for employer plans — 401(k), 403(b),
-/// 457(b), Thrift Savings — shared across every such plan a person
-/// participates in. IRS Notice 2025-67, tax year 2026.
-pub const ELECTIVE_DEFERRAL_LIMIT: f64 = 24_500.0;
-
-/// Statutory IRA contribution limit, shared across a person's traditional
-/// and Roth IRAs. IRS Notice 2025-67, tax year 2026.
-pub const IRA_CONTRIBUTION_LIMIT: f64 = 7_500.0;
-
-/// Statutory 457(b) elective-deferral limit — the same dollar figure as
-/// [`ELECTIVE_DEFERRAL_LIMIT`] today, but a *separate* statutory cap: a
-/// person can defer the full amount into a 401(k)/403(b) and the full
-/// amount into a 457(b) in the same year. IRS Notice 2025-67, tax year 2026.
-pub const PLAN_457B_LIMIT: f64 = 24_500.0;
-
-/// HSA self-only coverage contribution limit. Family coverage is higher
-/// ($8,750 for 2026) but this app has no concept of HSA coverage type, so
-/// the more conservative self-only figure is used for everyone. IRS Rev.
-/// Proc. 2025-19, tax year 2026.
-pub const HSA_CONTRIBUTION_LIMIT: f64 = 4_400.0;
-
-/// HSA catch-up for owners 55 and older. Statutorily fixed at $1,000 since
-/// 2009 — unlike every other catch-up figure in this module, it is **not**
-/// indexed for inflation.
-pub const HSA_CATCH_UP_55: f64 = 1_000.0;
-
-/// SEP-IRA limit: employer contributions only, capped at the lesser of 25%
-/// of compensation or the IRC 415(c) annual-additions figure — the same
-/// number as [`ContributionLimits::annual_additions`] today. No employee
-/// catch-up. IRS Notice 2025-67, tax year 2026.
-pub const SEP_IRA_LIMIT: f64 = 72_000.0;
-
-/// SIMPLE IRA elective-deferral limit — its own figure, separate from
-/// [`ELECTIVE_DEFERRAL_LIMIT`] and [`IRA_CONTRIBUTION_LIMIT`] alike. IRS
-/// Notice 2025-67, tax year 2026.
-pub const SIMPLE_IRA_LIMIT: f64 = 17_000.0;
-
-/// Statutory limits for one tax year, indexed forward by the engine.
-///
-/// Every figure is IRS Notice 2025-67 (tax year 2026), verified against the
-/// IRS COLA table. They are carried as data rather than constants so the
-/// frontend can show the basis year alongside them, and so a limit lookup is
-/// a pure function of (bucket, age, year, inflation).
-#[derive(Serialize, Deserialize, TS, Clone, Copy, Debug)]
-#[ts(export)]
-pub struct ContributionLimits {
-    /// Tax year these figures are published for.
-    pub basis_year: i32,
-    /// IRC 402(g)(1) elective deferral limit.
-    pub employer_plan: f64,
-    /// IRC 414(v) catch-up, added from the year the owner turns 50.
-    pub employer_plan_catch_up_50: f64,
-    /// SECURE 2.0 higher catch-up, which *replaces* the age-50 figure for
-    /// the years the owner turns 60 through 63.
-    pub employer_plan_catch_up_60_63: f64,
-    /// IRC 219(b)(5)(A) IRA limit.
-    pub ira: f64,
-    /// IRC 219(b)(5)(B) IRA catch-up, added from the year the owner turns 50.
-    pub ira_catch_up_50: f64,
-    /// IRC 415(c)(1)(A) annual additions cap: everything that lands in an
-    /// employer plan in a year — the employee's own deferrals *and* the
-    /// employer match. Far higher than the deferral limit, which is the
-    /// whole point: matched dollars are not held to the employee's cap.
-    pub annual_additions: f64,
-    /// IRC 457(b) elective deferral limit. Same dollar figure as
-    /// `employer_plan` today, but a statutorily separate cap — see
-    /// [`PLAN_457B_LIMIT`]. Shares `employer_plan`'s catch-up tiers.
-    pub plan_457b: f64,
-    /// HSA self-only coverage limit — see [`HSA_CONTRIBUTION_LIMIT`].
-    pub hsa: f64,
-    /// HSA catch-up for owners 55+ — see [`HSA_CATCH_UP_55`]. Not indexed.
-    pub hsa_catch_up_55: f64,
-    /// SEP-IRA limit — see [`SEP_IRA_LIMIT`]. No catch-up.
-    pub sep_ira: f64,
-    /// SIMPLE IRA elective-deferral limit — see [`SIMPLE_IRA_LIMIT`].
-    pub simple_ira: f64,
-    /// SIMPLE IRA catch-up, added from the year the owner turns 50.
-    pub simple_ira_catch_up_50: f64,
-    /// SECURE 2.0 higher SIMPLE catch-up, replacing the age-50 figure for
-    /// the years the owner turns 60 through 63.
-    pub simple_ira_catch_up_60_63: f64,
-}
-
-pub const CONTRIBUTION_LIMITS: ContributionLimits = ContributionLimits {
-    basis_year: LIMITS_BASIS_YEAR,
-    employer_plan: ELECTIVE_DEFERRAL_LIMIT,
-    employer_plan_catch_up_50: 8_000.0,
-    employer_plan_catch_up_60_63: 11_250.0,
-    ira: IRA_CONTRIBUTION_LIMIT,
-    ira_catch_up_50: 1_100.0,
-    annual_additions: 72_000.0,
-    plan_457b: PLAN_457B_LIMIT,
-    hsa: HSA_CONTRIBUTION_LIMIT,
-    hsa_catch_up_55: HSA_CATCH_UP_55,
-    sep_ira: SEP_IRA_LIMIT,
-    simple_ira: SIMPLE_IRA_LIMIT,
-    simple_ira_catch_up_50: 4_000.0,
-    simple_ira_catch_up_60_63: 5_250.0,
-};
 
 /// Indexed figures round down to a statutory increment: $500 for the
 /// deferral, IRA, and employer catch-up limits; $100 for the IRA catch-up.
@@ -128,92 +22,6 @@ pub const CONTRIBUTION_LIMITS: ContributionLimits = ContributionLimits {
 pub(crate) fn index_to(base: f64, increment: f64, years: f64, inflation: f64) -> f64 {
     let indexed = base * (1.0 + inflation).powf(years);
     (indexed / increment).floor() * increment
-}
-
-impl ContributionLimits {
-    /// The annual limit for `plan_type` in calendar year `year`, for an owner
-    /// who reaches `age` during that year, with the seeded figures indexed
-    /// forward from `basis_year` at `inflation`.
-    ///
-    /// `None` means "no statutory cap" — a taxable brokerage.
-    ///
-    /// Catch-up eligibility is by the age *attained during* the calendar
-    /// year, which is the statutory rule: someone turning 50 in December is
-    /// eligible for that whole year.
-    /// The 415(c) annual-additions cap for `year`, indexed from
-    /// `basis_year`. Catch-up contributions sit on top of 415(c) rather than
-    /// inside it, so the eligible catch-up for `age` is added back.
-    ///
-    /// 415(c) is statutorily **per employer plan**; this model has no
-    /// employer grouping, so it is applied per person. That is the stricter
-    /// reading, and only differs for someone in two employers' plans at once.
-    pub fn annual_additions_limit(&self, age: i32, year: i32, inflation: f64) -> f64 {
-        let years = (year - self.basis_year) as f64;
-        let catch_up = match age {
-            60..=63 => index_to(self.employer_plan_catch_up_60_63, 500.0, years, inflation),
-            a if a >= 50 => index_to(self.employer_plan_catch_up_50, 500.0, years, inflation),
-            _ => 0.0,
-        };
-        index_to(self.annual_additions, 1_000.0, years, inflation) + catch_up
-    }
-
-    pub fn annual_limit(
-        &self,
-        plan_type: PlanType,
-        age: i32,
-        year: i32,
-        inflation: f64,
-    ) -> Option<f64> {
-        let years = (year - self.basis_year) as f64;
-        match plan_type {
-            PlanType::None => None,
-            PlanType::EmployerPlan => {
-                let catch_up = match age {
-                    60..=63 => index_to(self.employer_plan_catch_up_60_63, 500.0, years, inflation),
-                    a if a >= 50 => {
-                        index_to(self.employer_plan_catch_up_50, 500.0, years, inflation)
-                    }
-                    _ => 0.0,
-                };
-                Some(index_to(self.employer_plan, 500.0, years, inflation) + catch_up)
-            }
-            PlanType::Ira => {
-                let catch_up = if age >= 50 {
-                    index_to(self.ira_catch_up_50, 100.0, years, inflation)
-                } else {
-                    0.0
-                };
-                Some(index_to(self.ira, 500.0, years, inflation) + catch_up)
-            }
-            // Statutorily separate from `EmployerPlan`, but governed by the
-            // same 414(v) catch-up figures.
-            PlanType::Plan457b => {
-                let catch_up = match age {
-                    60..=63 => index_to(self.employer_plan_catch_up_60_63, 500.0, years, inflation),
-                    a if a >= 50 => {
-                        index_to(self.employer_plan_catch_up_50, 500.0, years, inflation)
-                    }
-                    _ => 0.0,
-                };
-                Some(index_to(self.plan_457b, 500.0, years, inflation) + catch_up)
-            }
-            // The $1,000 HSA catch-up is statutorily fixed, not indexed.
-            PlanType::Hsa => {
-                let catch_up = if age >= 55 { self.hsa_catch_up_55 } else { 0.0 };
-                Some(index_to(self.hsa, 50.0, years, inflation) + catch_up)
-            }
-            // Employer-only contributions: no employee catch-up.
-            PlanType::SepIra => Some(index_to(self.sep_ira, 1_000.0, years, inflation)),
-            PlanType::SimpleIra => {
-                let catch_up = match age {
-                    60..=63 => index_to(self.simple_ira_catch_up_60_63, 250.0, years, inflation),
-                    a if a >= 50 => index_to(self.simple_ira_catch_up_50, 250.0, years, inflation),
-                    _ => 0.0,
-                };
-                Some(index_to(self.simple_ira, 500.0, years, inflation) + catch_up)
-            }
-        }
-    }
 }
 
 /// Age at which required minimum distributions begin, for someone born in
@@ -277,10 +85,11 @@ pub fn uniform_lifetime_divisor(age: i32) -> Option<f64> {
 #[ts(export)]
 pub struct Presets {
     pub default_assumptions: Assumptions,
-    /// Statutory contribution limits and the tax year they are published
-    /// for. Lives here so the frontend never hardcodes a statutory figure of
-    /// its own, and so it can disclose the basis year next to them.
-    pub contribution_limits: ContributionLimits,
+    /// The yearly tax figures and the tax year they are for. The engine's
+    /// `presets()` carries the built-in set; the app replaces it with the
+    /// user's `tax-figures.yaml`, so the frontend shows the figures actually
+    /// in use and never hardcodes a statutory figure of its own.
+    pub tax_figures: TaxFigures,
     /// Prefill bracket schedule for each state's income tax, keyed by
     /// `StateCode`. Picking a state in the UI copies its entry into
     /// `Assumptions.state_tax`; the plan then owns an editable copy — this
@@ -365,7 +174,7 @@ pub fn default_assumptions() -> Assumptions {
 pub fn presets() -> Presets {
     Presets {
         default_assumptions: default_assumptions(),
-        contribution_limits: CONTRIBUTION_LIMITS,
+        tax_figures: TaxFigures::built_in(),
         state_tax_profiles: state_tax_profiles(),
     }
 }

@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use engine::model::{Household, Plan};
+use engine::model::{Household, Plan, TaxFigures};
 use engine::presets::Presets;
 use engine::{MonteCarloConfig, MonteCarloResult, Projection, RunControl};
 use serde::Serialize;
@@ -15,7 +15,7 @@ use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 
-use crate::{migrate, refresh, settings, storage};
+use crate::{migrate, refresh, settings, storage, tax_figures};
 
 /// Plan ids already snapshotted into history this session, so the
 /// once-per-session pre-edit snapshot (see `save_plan`) fires on the first
@@ -60,6 +60,14 @@ fn plans_base_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(settings::effective_plans_dir(&config_dir(app)?, &default))
 }
 
+/// The yearly tax figures every projection runs under, read fresh from the
+/// storage folder so an edit to `tax-figures.yaml` applies at the next
+/// recalculation. A file that cannot be used falls back to the built-in
+/// figures rather than failing the projection — see `tax_figures`.
+fn figures_in_force(app: &tauri::AppHandle) -> Result<TaxFigures, String> {
+    Ok(tax_figures::load(&plans_base_dir(app)?).figures)
+}
+
 /// The pre-#13 storage location, used only to detect and migrate old plans
 /// on first launch after this feature ships.
 fn legacy_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -91,9 +99,9 @@ fn require_valid(plan: &Plan) -> Result<(), String> {
 /// Stateless projection: the frontend sends the full plan (a few KB) and gets
 /// the full deterministic projection back.
 #[tauri::command]
-pub fn run_projection(plan: Plan) -> Result<Projection, String> {
+pub fn run_projection(app: tauri::AppHandle, plan: Plan) -> Result<Projection, String> {
     require_valid(&plan)?;
-    Ok(engine::run_deterministic(&plan))
+    Ok(engine::run_deterministic(&plan, &figures_in_force(&app)?))
 }
 
 /// Load the current plan, or `None` when the user has none. Before looking,
@@ -371,12 +379,13 @@ pub fn refresh_household(
 /// Each scenario's result is independent so one invalid or unsimulatable
 /// plan doesn't blank out the rest of the comparison.
 #[tauri::command]
-pub fn run_projections(plans: Vec<Plan>) -> Vec<Result<Projection, String>> {
+pub fn run_projections(app: tauri::AppHandle, plans: Vec<Plan>) -> Vec<Result<Projection, String>> {
+    let figures = figures_in_force(&app);
     plans
         .iter()
         .map(|plan| {
             require_valid(plan)?;
-            Ok(engine::run_deterministic(plan))
+            Ok(engine::run_deterministic(plan, figures.as_ref()?))
         })
         .collect()
 }
@@ -467,6 +476,7 @@ fn with_progress<T>(
 /// run whatever it is handed.
 #[tauri::command]
 pub async fn run_monte_carlo(
+    app: tauri::AppHandle,
     state: tauri::State<'_, MonteCarloState>,
     plan: Plan,
     config: MonteCarloConfig,
@@ -478,13 +488,14 @@ pub async fn run_monte_carlo(
         n_paths: settings::clamp_monte_carlo_paths(config.n_paths),
         ..config
     };
+    let figures = figures_in_force(&app)?;
 
     let worker = claim_slot(&state, run_id);
     let control = worker.clone();
     let outcome = tauri::async_runtime::spawn_blocking(move || {
         let total = config.n_paths;
         with_progress(&control, run_id, total, on_progress, || {
-            engine::run_monte_carlo_with(&plan, &config, &control)
+            engine::run_monte_carlo_with(&plan, &figures, &config, &control)
         })
     })
     .await
@@ -515,6 +526,7 @@ pub async fn run_monte_carlo(
 /// number rather than a bar that restarts per scenario.
 #[tauri::command]
 pub async fn run_monte_carlos(
+    app: tauri::AppHandle,
     state: tauri::State<'_, MonteCarloState>,
     plans: Vec<Plan>,
     config: MonteCarloConfig,
@@ -525,6 +537,7 @@ pub async fn run_monte_carlos(
         n_paths: settings::clamp_monte_carlo_paths(config.n_paths),
         ..config
     };
+    let figures = figures_in_force(&app)?;
 
     // Validated up front so the path total can exclude the scenarios that
     // will never run: a progress bar whose ceiling counts work nobody is
@@ -547,7 +560,9 @@ pub async fn run_monte_carlos(
                     // An invalid scenario is this scenario's error, not the
                     // batch's: `Ok(Err(_))` keeps its row and its message.
                     Err(message) => Ok(Err(message)),
-                    Ok(plan) => engine::run_monte_carlo_with(&plan, &config, &control).map(Ok),
+                    Ok(plan) => {
+                        engine::run_monte_carlo_with(&plan, &figures, &config, &control).map(Ok)
+                    }
                 })
                 // Short-circuits on the first `Cancelled`, which is the whole
                 // batch giving up rather than one scenario failing.
@@ -646,6 +661,7 @@ pub async fn choose_storage_dir(app: tauri::AppHandle) -> Result<Option<PathBuf>
 pub fn set_storage_dir(app: tauri::AppHandle, path: PathBuf) -> Result<(), String> {
     let old_base = plans_base_dir(&app)?;
     migrate::copy_yaml_dir(&old_base, &path)?;
+    tax_figures::copy(&old_base, &path)?;
     settings::set_plans_dir(&config_dir(&app)?, &path)
 }
 
@@ -667,7 +683,9 @@ pub async fn export_plans(app: tauri::AppHandle) -> Result<Option<PathBuf>, Stri
         return Ok(None);
     };
     let base = plans_base_dir(&app)?;
-    storage::export_plans(&base, &dest_parent).map(Some)
+    let dest = storage::export_plans(&base, &dest_parent)?;
+    tax_figures::copy(&base, &dest)?;
+    Ok(Some(dest))
 }
 
 /// Opens a native save-file dialog and writes `contents` to wherever the
@@ -750,10 +768,36 @@ pub fn reveal_storage_dir(app: tauri::AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-/// Allocation presets and default assumptions — defined once, in Rust.
+/// Allocation presets and default assumptions — defined once, in Rust —
+/// with the tax figures actually in force in place of the built-in ones, so
+/// the limits the account editor quotes are the ones projections use.
 #[tauri::command]
-pub fn get_presets() -> Presets {
-    engine::presets::presets()
+pub fn get_presets(app: tauri::AppHandle) -> Result<Presets, String> {
+    Ok(Presets {
+        tax_figures: figures_in_force(&app)?,
+        ..engine::presets::presets()
+    })
+}
+
+/// Which tax figures are in force and where they live, for the settings
+/// window. `error` is set when `tax-figures.yaml` could not be used and the
+/// built-in figures are standing in — the one place that is surfaced.
+#[derive(Serialize)]
+pub struct TaxFiguresInfo {
+    path: PathBuf,
+    tax_year: i32,
+    error: Option<String>,
+}
+
+#[tauri::command]
+pub fn get_tax_figures_info(app: tauri::AppHandle) -> Result<TaxFiguresInfo, String> {
+    let base = plans_base_dir(&app)?;
+    let loaded = tax_figures::load(&base);
+    Ok(TaxFiguresInfo {
+        path: tax_figures::path(&base),
+        tax_year: loaded.figures.tax_year,
+        error: loaded.error,
+    })
 }
 
 #[tauri::command]

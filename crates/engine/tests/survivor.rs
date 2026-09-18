@@ -5,6 +5,7 @@
 //! Every fixture runs with zero inflation, zero returns, and zero COLA, so
 //! the figures asserted below are the transition itself and nothing else.
 
+use engine::model::TaxFigures;
 use engine::model::{
     Assumptions, CashFlowStream, FilingStatus, GrowthRule, PeriodLength, Person, Plan, SimConfig,
     SocialSecurityBenefit, StateTaxProfile, StreamBoundary, StreamDirection, StreamKind, YearMonth,
@@ -150,7 +151,7 @@ fn a_solo_plan_has_no_survivor_transition() {
 fn social_security_drops_to_the_larger_benefit_at_the_first_death() {
     let mut plan = household();
     plan.social_security = vec![benefit("first", 40_000.0), benefit("second", 25_000.0)];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     assert_eq!(year(&projection, 2034).income, 65_000.0);
     // `first` dies 2035-01, the exact start of the 2035 period: the
@@ -166,7 +167,7 @@ fn social_security_drops_to_the_larger_benefit_at_the_first_death() {
 fn a_survivor_with_the_larger_benefit_keeps_their_own() {
     let mut plan = household();
     plan.social_security = vec![benefit("first", 25_000.0), benefit("second", 40_000.0)];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     assert_eq!(year(&projection, 2034).income, 65_000.0);
     assert_eq!(year(&projection, 2035).income, 40_000.0);
@@ -178,7 +179,7 @@ fn a_survivor_with_the_larger_benefit_keeps_their_own() {
 fn a_survivor_with_no_benefit_of_their_own_inherits_the_decedents() {
     let mut plan = household();
     plan.social_security = vec![benefit("first", 40_000.0)];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     assert_eq!(year(&projection, 2034).income, 40_000.0);
     assert_eq!(year(&projection, 2035).income, 40_000.0);
@@ -220,7 +221,7 @@ fn a_survivor_steps_up_no_earlier_than_their_own_claiming_age() {
         75,
     );
     plan.social_security = vec![benefit("first", 40_000.0), benefit("second", 25_000.0)];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     assert_eq!(year(&projection, 2034).income, 40_000.0);
     assert_eq!(year(&projection, 2036).income, 0.0);
@@ -247,7 +248,7 @@ fn a_household_with_two_survivors_keeps_every_benefit_as_it_was() {
         benefit("second", 25_000.0),
         benefit("third", 10_000.0),
     ];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     assert_eq!(year(&projection, 2034).income, 75_000.0);
     // Only `first`'s own benefit stops, at their own death.
@@ -266,7 +267,7 @@ fn filing_status_becomes_single_the_year_after_the_first_death() {
     // Household income, unowned and flat to the horizon, so the only thing
     // that changes across the transition is the bracket schedule.
     plan.streams = vec![stream("pension", None, StreamDirection::Income, 120_000.0)];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     for y in [2034, 2035, 2036] {
         assert_eq!(year(&projection, y).income, 120_000.0, "income is flat");
@@ -289,7 +290,7 @@ fn filing_status_becomes_single_the_year_after_the_first_death() {
 fn a_single_filer_household_sees_no_bracket_change() {
     let mut plan = household();
     plan.streams = vec![stream("pension", None, StreamDirection::Income, 120_000.0)];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     assert_eq!(
         year(&projection, 2036).taxes,
@@ -308,7 +309,7 @@ fn household_expenses_step_down_at_the_first_death() {
         StreamDirection::Expense,
         100_000.0,
     )];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     assert_eq!(year(&projection, 2034).expenses, 100_000.0);
     assert_eq!(year(&projection, 2035).expenses, 70_000.0);
@@ -337,7 +338,7 @@ fn the_step_down_is_prorated_within_the_period_of_the_death() {
         StreamDirection::Expense,
         100_000.0,
     )];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     let expected = 0.5 * 100_000.0 + 0.5 * 70_000.0;
     assert!(
@@ -360,7 +361,7 @@ fn a_person_owned_expense_is_not_stepped_down() {
         StreamDirection::Expense,
         100_000.0,
     )];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     assert_eq!(year(&projection, 2036).expenses, 100_000.0);
 }
@@ -374,7 +375,7 @@ fn a_survivor_percentage_continues_a_pension_at_the_reduced_rate() {
     pension.end = StreamBoundary::AtDeath("first".to_string());
     pension.survivor_percentage = Some(0.5);
     plan.streams = vec![pension];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     assert_eq!(year(&projection, 2034).income, 60_000.0);
     assert_eq!(year(&projection, 2035).income, 30_000.0);
@@ -391,7 +392,7 @@ fn a_survivor_percentage_stops_the_full_amount_at_the_owners_death() {
     pension.end = StreamBoundary::PlanEnd;
     pension.survivor_percentage = Some(0.5);
     plan.streams = vec![pension];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     assert_eq!(year(&projection, 2034).income, 60_000.0);
     assert_eq!(year(&projection, 2035).income, 30_000.0);
@@ -407,7 +408,7 @@ fn a_survivor_percentage_pays_nothing_when_the_owner_outlives_everyone() {
     pension.end = StreamBoundary::AtDeath("second".to_string());
     pension.survivor_percentage = Some(0.5);
     plan.streams = vec![pension];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     assert_eq!(year(&projection, 2044).income, 60_000.0);
     assert_eq!(
@@ -448,7 +449,7 @@ fn plans_without_the_survivor_fields_load_unchanged() {
         .iter()
         .all(|s| s.survivor_percentage.is_none()));
     assert_eq!(
-        year(&run_deterministic(&reloaded), 2036).expenses,
+        year(&run_deterministic(&reloaded, &TaxFigures::built_in()), 2036).expenses,
         100_000.0,
         "spending is untouched without a factor"
     );
@@ -480,7 +481,7 @@ fn a_single_life_pension_stops_at_its_owners_death() {
     let mut single = pension("first", 60_000.0);
     single.end = StreamBoundary::AtDeath("first".to_string());
     plan.streams = vec![single];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     assert_eq!(year(&projection, 2034).income, 60_000.0);
     assert_eq!(year(&projection, 2035).income, 0.0);
@@ -493,7 +494,7 @@ fn a_joint_pension_pays_the_same_check_after_the_first_death() {
     let mut joint = pension("first", 60_000.0);
     joint.survivor_percentage = Some(1.0);
     plan.streams = vec![joint];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     assert_eq!(year(&projection, 2034).income, 60_000.0);
     assert_eq!(year(&projection, 2035).income, 60_000.0);
@@ -513,7 +514,7 @@ fn a_pension_cola_counts_from_its_first_payment() {
     });
     future.growth = GrowthRule::Fixed(0.02);
     plan.streams = vec![future];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     assert_eq!(year(&projection, 2035).income, 0.0);
     assert_close(year(&projection, 2036).income, 60_000.0);
@@ -532,7 +533,7 @@ fn a_general_stream_still_compounds_from_the_plan_start() {
     });
     future.growth = GrowthRule::Fixed(0.02);
     plan.streams = vec![future];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     assert_close(year(&projection, 2036).income, 60_000.0 * 1.02_f64.powi(6));
 }
@@ -544,7 +545,7 @@ fn a_pension_in_payment_grows_like_a_general_stream() {
     let mut paying = pension("second", 60_000.0);
     paying.growth = GrowthRule::Fixed(0.02);
     plan.streams = vec![paying];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     assert_close(year(&projection, 2030).income, 60_000.0);
     assert_close(year(&projection, 2033).income, 60_000.0 * 1.02_f64.powi(3));
@@ -563,7 +564,7 @@ fn a_survivor_share_keeps_the_pensions_cola_anchor() {
     joint.growth = GrowthRule::Fixed(0.02);
     joint.survivor_percentage = Some(0.5);
     plan.streams = vec![joint];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     assert_close(year(&projection, 2034).income, 60_000.0 * 1.02_f64.powi(2));
     assert_close(year(&projection, 2035).income, 30_000.0 * 1.02_f64.powi(3));

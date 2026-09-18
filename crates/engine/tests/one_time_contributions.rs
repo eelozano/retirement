@@ -21,6 +21,7 @@
 //! and a salary that covers spending with no sweep — so nothing but the lump
 //! sum ever reaches the brokerage.
 
+use engine::model::TaxFigures;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, OneTimeContribution, PeriodLength, Person, Plan,
@@ -156,6 +157,7 @@ fn run(plan: &Plan) -> Projection {
     let returns = FixedReturns::new(&plan.assumptions.strategy_returns, 12);
     simulate(
         plan,
+        &TaxFigures::built_in(),
         &returns,
         &FlatTax { rate: 0.2 },
         &ProportionalDrawdown,

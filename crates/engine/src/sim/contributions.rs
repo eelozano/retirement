@@ -95,9 +95,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::model::{
     AccountId, AccountKind, ContributionRule, MatchDestination, PersonId, Plan, PlanType, StepUp,
-    YearMonth,
+    TaxFigures, YearMonth,
 };
-use crate::presets::CONTRIBUTION_LIMITS;
 
 use super::period::{PeriodContext, Warnings};
 use super::{growth_factor, ResolvedContribution, SimWarning};
@@ -106,6 +105,8 @@ use super::{growth_factor, ResolvedContribution, SimWarning};
 /// the dated entries, who earned what, and who was still working.
 pub(super) struct Inputs<'a> {
     pub ctx: &'a PeriodContext,
+    /// The statutory limits every bucket is clamped to.
+    pub figures: &'a TaxFigures,
     /// Every account's entries, boundaries resolved, in plan account order.
     pub contributions: &'a [ResolvedContribution<'a>],
     /// Gross salary accrued this period per person: their income streams,
@@ -160,7 +161,7 @@ pub(super) fn allowed_contributions(
     let mut remaining: BTreeMap<(PersonId, PlanType), f64> = BTreeMap::new();
     let limit_for = |plan: &Plan, owner: &PersonId, plan_type: PlanType| -> Option<f64> {
         let person = plan.person(owner)?;
-        CONTRIBUTION_LIMITS.annual_limit(
+        inputs.figures.annual_limit(
             plan_type,
             inputs.ctx.year - person.birth.year,
             inputs.ctx.year,
@@ -383,7 +384,7 @@ fn clamp_to_annual_additions(
             continue;
         };
         let entry = room.entry(account.owner.clone()).or_insert_with(|| {
-            CONTRIBUTION_LIMITS.annual_additions_limit(
+            inputs.figures.annual_additions_limit(
                 inputs.ctx.year - person.birth.year,
                 inputs.ctx.year,
                 inputs.ctx.inflation,

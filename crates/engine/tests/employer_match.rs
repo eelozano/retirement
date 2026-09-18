@@ -5,13 +5,13 @@
 //! year — no catch-up tier in play). Zero market return, so a balance is the
 //! running sum of what went in.
 
+use engine::model::TaxFigures;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, EmployerMatch, FilingStatus, GrowthRule, MatchDestination, MatchTier,
     PeriodLength, Person, Plan, PlanType, SimConfig, StateTaxProfile, StreamBoundary,
     StreamDirection, StreamKind, YearMonth, SCHEMA_VERSION,
 };
-use engine::presets::CONTRIBUTION_LIMITS;
 use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
 use engine::{simulate, Projection};
 
@@ -124,6 +124,7 @@ fn run(plan: &Plan) -> Projection {
     );
     simulate(
         plan,
+        &TaxFigures::built_in(),
         &returns,
         &FlatTax { rate: TAX_RATE },
         &ProportionalDrawdown,
@@ -206,7 +207,7 @@ fn the_match_is_not_reduced_when_the_employee_hits_the_deferral_limit() {
     let p0 = &projection.snapshots[0];
     assert_close(
         p0.contributions,
-        CONTRIBUTION_LIMITS.employer_plan,
+        TaxFigures::built_in().contribution_limits.employer_plan,
         "employee deferrals held to their own limit",
     );
     assert_close(
@@ -328,7 +329,7 @@ fn deferrals_plus_match_are_held_to_the_annual_additions_cap() {
 
     let projection = run(&plan);
     let p0 = &projection.snapshots[0];
-    let cap = CONTRIBUTION_LIMITS.annual_additions_limit(46, 2026, 0.0);
+    let cap = TaxFigures::built_in().annual_additions_limit(46, 2026, 0.0);
     assert_close(
         p0.contributions + p0.employer_match,
         cap,
@@ -336,7 +337,7 @@ fn deferrals_plus_match_are_held_to_the_annual_additions_cap() {
     );
     assert_close(
         p0.contributions,
-        CONTRIBUTION_LIMITS.employer_plan,
+        TaxFigures::built_in().contribution_limits.employer_plan,
         "the employee's own deferrals are untouched — only the match gives way",
     );
     assert!(
@@ -354,8 +355,8 @@ fn the_annual_additions_cap_is_far_above_the_deferral_limit() {
     // The distinction this whole issue rests on: folding a match into the
     // employee figure would clamp it at the deferral limit instead.
     assert!(
-        CONTRIBUTION_LIMITS.annual_additions_limit(46, 2026, 0.0)
-            > 2.0 * CONTRIBUTION_LIMITS.employer_plan,
+        TaxFigures::built_in().annual_additions_limit(46, 2026, 0.0)
+            > 2.0 * TaxFigures::built_in().contribution_limits.employer_plan,
     );
 }
 

@@ -18,7 +18,7 @@ pub use sim::{
     StreamInfo, EARLY_RETIREMENT_WINDOW_YEARS,
 };
 
-use model::FilingStatus;
+use model::{FilingStatus, TaxFigures};
 use strategies::{BracketTax, FixedReturns, ProportionalDrawdown, StochasticReturns, SurvivorTax};
 
 /// What a return model scales its annual rates to. A period is a calendar
@@ -37,12 +37,15 @@ const MONTHS_PER_PERIOD: i64 = 12;
 /// `StateTaxProfile` is a single editable bracket table with no filing-status
 /// dimension, and inventing a survivor variant of the user's own brackets
 /// would be worse than leaving them alone.
-fn tax_model(plan: &Plan) -> SurvivorTax {
-    let household = BracketTax {
-        filing_status: plan.assumptions.filing_status,
-        state_tax: plan.assumptions.state_tax.clone(),
-        inflation: plan.assumptions.inflation,
-    };
+fn tax_model(plan: &Plan, figures: &TaxFigures) -> SurvivorTax {
+    let start_year = plan.sim_config.start.year;
+    let household = BracketTax::new(
+        figures,
+        plan.assumptions.filing_status,
+        plan.assumptions.state_tax.clone(),
+        plan.assumptions.inflation,
+        start_year,
+    );
     let survivor_from = match (plan.assumptions.filing_status, plan.first_death()) {
         (FilingStatus::MarriedFilingJointly, Some((month, _))) => {
             Some(plan.sim_config.first_period_after(month))
@@ -50,11 +53,13 @@ fn tax_model(plan: &Plan) -> SurvivorTax {
         _ => None,
     };
     SurvivorTax {
-        survivor: BracketTax {
-            filing_status: FilingStatus::Single,
-            state_tax: household.state_tax.clone(),
-            inflation: household.inflation,
-        },
+        survivor: BracketTax::new(
+            figures,
+            FilingStatus::Single,
+            household.state_tax.clone(),
+            household.inflation,
+            start_year,
+        ),
         household,
         survivor_from,
     }
@@ -62,21 +67,33 @@ fn tax_model(plan: &Plan) -> SurvivorTax {
 
 /// The V1 configuration: deterministic fixed returns, federal + state
 /// bracket tax, proportional drawdown — all read from the plan's
-/// assumptions.
-pub fn run_deterministic(plan: &Plan) -> Projection {
+/// assumptions, under the given yearly tax `figures`.
+pub fn run_deterministic(plan: &Plan, figures: &TaxFigures) -> Projection {
     let returns = FixedReturns::new(&plan.assumptions.strategy_returns, MONTHS_PER_PERIOD);
-    simulate(plan, &returns, &tax_model(plan), &ProportionalDrawdown, 0)
+    simulate(
+        plan,
+        figures,
+        &returns,
+        &tax_model(plan, figures),
+        &ProportionalDrawdown,
+        0,
+    )
 }
 
 /// V2: Monte Carlo over `StochasticReturns`, reading both the mean
 /// (`strategy_returns`) and the spread (`strategy_volatility`) from the plan
 /// — same tax/drawdown strategies as `run_deterministic`.
-pub fn run_monte_carlo(plan: &Plan, config: &MonteCarloConfig) -> MonteCarloResult {
+pub fn run_monte_carlo(
+    plan: &Plan,
+    figures: &TaxFigures,
+    config: &MonteCarloConfig,
+) -> MonteCarloResult {
     let returns = stochastic_returns(plan, config);
     run_monte_carlo_sim(
         plan,
+        figures,
         &returns,
-        &tax_model(plan),
+        &tax_model(plan, figures),
         &ProportionalDrawdown,
         config,
     )
@@ -87,14 +104,16 @@ pub fn run_monte_carlo(plan: &Plan, config: &MonteCarloConfig) -> MonteCarloResu
 /// set. Same output as `run_monte_carlo` when it runs to completion.
 pub fn run_monte_carlo_with(
     plan: &Plan,
+    figures: &TaxFigures,
     config: &MonteCarloConfig,
     control: &RunControl,
 ) -> Result<MonteCarloResult, Cancelled> {
     let returns = stochastic_returns(plan, config);
     run_monte_carlo_sim_with(
         plan,
+        figures,
         &returns,
-        &tax_model(plan),
+        &tax_model(plan, figures),
         &ProportionalDrawdown,
         config,
         control,

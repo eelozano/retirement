@@ -10,6 +10,7 @@
 //! The fixture runs with zero inflation, zero returns and zero COLA, so
 //! every figure below is the tax treatment and nothing else.
 
+use engine::model::TaxFigures;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
@@ -110,11 +111,13 @@ fn retiree() -> Plan {
 }
 
 fn single_filer() -> BracketTax {
-    BracketTax {
-        filing_status: FilingStatus::Single,
-        state_tax: StateTaxProfile::none(),
-        inflation: 0.0,
-    }
+    BracketTax::new(
+        &TaxFigures::built_in(),
+        FilingStatus::Single,
+        StateTaxProfile::none(),
+        0.0,
+        TaxFigures::built_in().tax_year,
+    )
 }
 
 fn assert_close(actual: f64, expected: f64, label: &str) {
@@ -129,7 +132,7 @@ fn assert_close(actual: f64, expected: f64, label: &str) {
 /// stack — and never the sum of two separate bills.
 #[test]
 fn a_periods_tax_is_one_pass_over_the_benefit_and_the_withdrawal_together() {
-    let projection = run_deterministic(&retiree());
+    let projection = run_deterministic(&retiree(), &TaxFigures::built_in());
     let tax = single_filer();
 
     for snapshot in &projection.snapshots {
@@ -157,7 +160,7 @@ fn a_periods_tax_is_one_pass_over_the_benefit_and_the_withdrawal_together() {
 /// $25,000 Single base — so it contributed nothing at all.
 #[test]
 fn the_two_pass_model_understated_the_bill_by_a_wide_margin() {
-    let projection = run_deterministic(&retiree());
+    let projection = run_deterministic(&retiree(), &TaxFigures::built_in());
     let tax = single_filer();
     let first = &projection.snapshots[0];
     let gross: f64 = first.withdrawals.values().sum();
@@ -196,7 +199,7 @@ fn the_two_pass_model_understated_the_bill_by_a_wide_margin() {
 /// for — would break this.
 #[test]
 fn the_withdrawal_is_grossed_up_to_cover_spending_and_the_whole_bill() {
-    let projection = run_deterministic(&retiree());
+    let projection = run_deterministic(&retiree(), &TaxFigures::built_in());
     for snapshot in &projection.snapshots {
         let gross: f64 = snapshot.withdrawals.values().sum();
         assert_close(

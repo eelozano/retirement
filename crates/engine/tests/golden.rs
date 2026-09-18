@@ -14,6 +14,7 @@ use std::path::PathBuf;
 
 use serde_json::Value;
 
+use engine::model::TaxFigures;
 use engine::model::YearMonth;
 use engine::presets::seed_plan;
 use engine::{run_deterministic, Projection};
@@ -130,7 +131,10 @@ fn close_enough(actual: f64, expected: f64) -> bool {
 
 #[test]
 fn seed_projection_matches_golden_file() {
-    assert_matches_golden("seed_projection", &run_deterministic(&seed_plan()));
+    assert_matches_golden(
+        "seed_projection",
+        &run_deterministic(&seed_plan(), &TaxFigures::built_in()),
+    );
 }
 
 /// The same household, sat down with in September. Period 0 is four months
@@ -142,5 +146,8 @@ fn seed_projection_matches_golden_file() {
 fn mid_year_seed_projection_matches_golden_file() {
     let mut plan = seed_plan();
     plan.sim_config.start = YearMonth::new(2026, 9);
-    assert_matches_golden("seed_projection_mid_year", &run_deterministic(&plan));
+    assert_matches_golden(
+        "seed_projection_mid_year",
+        &run_deterministic(&plan, &TaxFigures::built_in()),
+    );
 }

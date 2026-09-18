@@ -5,13 +5,13 @@
 //! and a `Savings` account grows at its own configured rate rather than a
 //! market-return allocation.
 
+use engine::model::TaxFigures;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
     StateTaxProfile, StrategyRates, StreamBoundary, StreamDirection, StreamKind, YearMonth,
     SCHEMA_VERSION,
 };
-use engine::presets::CONTRIBUTION_LIMITS;
 use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
 use engine::{simulate, Projection};
 
@@ -120,7 +120,14 @@ fn run_taxed(plan: &Plan, rate: f64) -> Projection {
         &plan.assumptions.strategy_returns,
         plan.sim_config.period.months(),
     );
-    simulate(plan, &returns, &FlatTax { rate }, &ProportionalDrawdown, 0)
+    simulate(
+        plan,
+        &TaxFigures::built_in(),
+        &returns,
+        &FlatTax { rate },
+        &ProportionalDrawdown,
+        0,
+    )
 }
 
 fn assert_close(actual: f64, expected: f64, label: &str) {
@@ -163,10 +170,10 @@ fn a_457b_and_a_401k_share_no_contribution_cap() {
     let projection = run(&plan);
 
     let total = contributions_in(&projection, "401k", START_YEAR);
-    let expected = CONTRIBUTION_LIMITS
+    let expected = TaxFigures::built_in()
         .annual_limit(PlanType::EmployerPlan, 46, START_YEAR, INFLATION)
         .unwrap()
-        + CONTRIBUTION_LIMITS
+        + TaxFigures::built_in()
             .annual_limit(PlanType::Plan457b, 46, START_YEAR, INFLATION)
             .unwrap();
     assert_close(total, expected, "both plans hit their own full limit");
@@ -191,25 +198,25 @@ fn sep_ira_and_simple_ira_resolve_to_their_own_limits() {
 
     assert_close(
         contributions_in(&sep, "sep", START_YEAR),
-        CONTRIBUTION_LIMITS.sep_ira,
+        TaxFigures::built_in().contribution_limits.sep_ira,
         "SEP-IRA resolves to its own limit",
     );
     assert_close(
         contributions_in(&simple, "simple", START_YEAR),
-        CONTRIBUTION_LIMITS.simple_ira,
+        TaxFigures::built_in().contribution_limits.simple_ira,
         "SIMPLE IRA resolves to its own limit",
     );
 }
 
 #[test]
 fn hsa_catch_up_starts_at_55_not_50() {
-    let at_50 = CONTRIBUTION_LIMITS
+    let at_50 = TaxFigures::built_in()
         .annual_limit(PlanType::Hsa, 50, START_YEAR, INFLATION)
         .unwrap();
-    let at_54 = CONTRIBUTION_LIMITS
+    let at_54 = TaxFigures::built_in()
         .annual_limit(PlanType::Hsa, 54, START_YEAR, INFLATION)
         .unwrap();
-    let at_55 = CONTRIBUTION_LIMITS
+    let at_55 = TaxFigures::built_in()
         .annual_limit(PlanType::Hsa, 55, START_YEAR, INFLATION)
         .unwrap();
     assert_close(at_50, at_54, "no catch-up yet at 50 or 54");

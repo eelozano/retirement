@@ -4,7 +4,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::model::{Plan, YearMonth};
+use crate::model::{Plan, TaxFigures, YearMonth};
 use crate::sim::{simulate, Projection, SimWarning};
 use crate::strategies::{DrawdownStrategy, ReturnModel, TaxModel};
 
@@ -222,13 +222,22 @@ impl std::error::Error for Cancelled {}
 /// output for the same inputs.
 pub fn run_monte_carlo(
     plan: &Plan,
+    figures: &TaxFigures,
     returns: &(dyn ReturnModel + Sync),
     tax: &(dyn TaxModel + Sync),
     drawdown: &(dyn DrawdownStrategy + Sync),
     config: &MonteCarloConfig,
 ) -> MonteCarloResult {
-    run_monte_carlo_with(plan, returns, tax, drawdown, config, &RunControl::new())
-        .expect("a run that is never cancelled cannot be cancelled")
+    run_monte_carlo_with(
+        plan,
+        figures,
+        returns,
+        tax,
+        drawdown,
+        config,
+        &RunControl::new(),
+    )
+    .expect("a run that is never cancelled cannot be cancelled")
 }
 
 /// `run_monte_carlo`, observable and interruptible through `control`.
@@ -239,6 +248,7 @@ pub fn run_monte_carlo(
 /// rather than after the remainder has been walked through as no-ops.
 pub fn run_monte_carlo_with(
     plan: &Plan,
+    figures: &TaxFigures,
     returns: &(dyn ReturnModel + Sync),
     tax: &(dyn TaxModel + Sync),
     drawdown: &(dyn DrawdownStrategy + Sync),
@@ -255,7 +265,7 @@ pub fn run_monte_carlo_with(
     // assumption. Take it from one path up front so the parallel sweep below
     // can discard everything but the two numbers the aggregate needs. The
     // duplicated path costs 1/n of the run.
-    let timeline: Vec<(YearMonth, f64)> = simulate(plan, returns, tax, drawdown, 0)
+    let timeline: Vec<(YearMonth, f64)> = simulate(plan, figures, returns, tax, drawdown, 0)
         .snapshots
         .iter()
         .map(|s| (s.period_start, s.deflator))
@@ -278,7 +288,7 @@ pub fn run_monte_carlo_with(
             if control.is_cancelled() {
                 return Err(Cancelled);
             }
-            let projection = simulate(plan, returns, tax, drawdown, path_id);
+            let projection = simulate(plan, figures, returns, tax, drawdown, path_id);
             let summary = PathSummary::of(&projection, &anchor);
             // `projection` is dropped here: at 25,000 paths, holding every
             // path's snapshots (and their per-account maps) would be gigabytes.
