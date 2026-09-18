@@ -14,7 +14,7 @@ pub use projection::{OneTimeInfo, PeriodSnapshot, Projection, SimWarning, Stream
 
 use crate::model::{
     Account, AccountKind, CashFlowStream, Contribution, GrowthRule, OneTimeContribution, Plan,
-    StreamBoundary, StreamKind, YearMonth,
+    StreamBoundary, StreamKind, TaxFigures, YearMonth,
 };
 use crate::strategies::{DrawdownStrategy, ReturnModel, TaxModel};
 
@@ -92,6 +92,7 @@ struct ResolvedOneTime<'a> {
 /// 8. snapshot
 pub fn simulate(
     plan: &Plan,
+    figures: &TaxFigures,
     returns: &dyn ReturnModel,
     tax: &dyn TaxModel,
     drawdown: &dyn DrawdownStrategy,
@@ -267,6 +268,7 @@ pub fn simulate(
 
     let run = RunContext {
         plan,
+        figures,
         streams: &resolved_streams,
         contributions: &resolved_contributions,
         one_time: &resolved_one_time,

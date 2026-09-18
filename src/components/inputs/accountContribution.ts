@@ -86,26 +86,28 @@ export function defaultContribution(
 
 /**
  * What "federal maximum" resolves to today, so the number is visible before
- * a projection runs — with the tax year it is published for. The app is
- * local-first with no network, so the figures are as current as the release
- * and the basis year says which one that is.
+ * a projection runs — with the tax year it is published for. The figures are
+ * the user's own `tax-figures.yaml`, as loaded by `get_presets`: the app has no
+ * network, so they are as current as the user last made them, and the tax
+ * year says which one that is.
  */
 export function federalMaximumHint(presets: Presets | null, planType: PlanType): string {
-  const limits = presets?.contribution_limits;
+  const limits = presets?.tax_figures.contribution_limits;
+  const year = presets?.tax_figures.tax_year;
   if (!limits || planType === "None") return "";
   switch (planType) {
     case "Ira":
-      return `${currency(limits.ira)}/yr in ${limits.basis_year}, indexed for inflation and stepped up from age 50.`;
+      return `${currency(limits.ira)}/yr in ${year}, indexed for inflation and stepped up from age 50.`;
     case "Plan457b":
-      return `${currency(limits.plan_457b)}/yr in ${limits.basis_year}, indexed for inflation and stepped up from age 50 — separate from a 401(k)/403(b)'s limit.`;
+      return `${currency(limits.plan_457b)}/yr in ${year}, indexed for inflation and stepped up from age 50 — separate from a 401(k)/403(b)'s limit.`;
     case "Hsa":
-      return `${currency(limits.hsa)}/yr in ${limits.basis_year} (self-only coverage), indexed for inflation and stepped up from age 55.`;
+      return `${currency(limits.hsa)}/yr in ${year} (self-only coverage), indexed for inflation and stepped up from age 55.`;
     case "SepIra":
-      return `${currency(limits.sep_ira)}/yr in ${limits.basis_year}, indexed for inflation. Employer contributions only — no catch-up.`;
+      return `${currency(limits.sep_ira)}/yr in ${year}, indexed for inflation. Employer contributions only — no catch-up.`;
     case "SimpleIra":
-      return `${currency(limits.simple_ira)}/yr in ${limits.basis_year}, indexed for inflation and stepped up from age 50.`;
+      return `${currency(limits.simple_ira)}/yr in ${year}, indexed for inflation and stepped up from age 50.`;
     default:
-      return `${currency(limits.employer_plan)}/yr in ${limits.basis_year}, indexed for inflation and stepped up from age 50.`;
+      return `${currency(limits.employer_plan)}/yr in ${year}, indexed for inflation and stepped up from age 50.`;
   }
 }
 

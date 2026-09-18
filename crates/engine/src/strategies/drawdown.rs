@@ -171,10 +171,15 @@ mod tests {
     }
 
     fn joint() -> BracketTax {
-        BracketTax {
-            filing_status: FilingStatus::MarriedFilingJointly,
-            state_tax: StateTaxProfile::none(),
-            inflation: 0.0,
+        {
+            let figures = crate::model::TaxFigures::built_in();
+            BracketTax::new(
+                &figures,
+                FilingStatus::MarriedFilingJointly,
+                StateTaxProfile::none(),
+                0.0,
+                figures.tax_year,
+            )
         }
     }
 
@@ -200,7 +205,7 @@ mod tests {
     /// tax: $40,000 of Social Security and a $60,000 pre-tax withdrawal.
     ///
     /// The net need is picked so the gross-up lands on exactly $60,000
-    /// (60,000 - 7,023), which makes every figure here hand-checkable
+    /// (60,000 - 6,920), which makes every figure here hand-checkable
     /// against `BracketTax`.
     #[test]
     fn a_withdrawal_stacks_on_the_households_income_instead_of_restarting_the_brackets() {
@@ -210,16 +215,16 @@ mod tests {
             ..Default::default()
         };
         let mut accounts = pretax_only();
-        let result = ProportionalDrawdown.withdraw(52_977.0, &mut accounts, &tax, &base, 0);
+        let result = ProportionalDrawdown.withdraw(53_080.0, &mut accounts, &tax, &base, 0);
 
         assert_close(accounts[0].balance, 940_000.0, "gross withdrawn");
-        assert_close(result.net, 52_977.0, "net delivered");
-        assert_close(result.tax, 7_023.0, "marginal cost of the withdrawal");
+        assert_close(result.net, 53_080.0, "net delivered");
+        assert_close(result.tax, 6_920.0, "marginal cost of the withdrawal");
 
         // Taxed on its own — the two-pass model this replaced — the same
-        // $60,000 costs $2,943: its own climb from the 10% bracket, its own
+        // $60,000 costs $2,840: its own climb from the 10% bracket, its own
         // standard deduction, and no effect on the benefit's taxability.
-        // That is 58% of the real bill missing.
+        // That is 59% of the real bill missing.
         let standalone = tax
             .tax(
                 &IncomeBreakdown {
@@ -229,7 +234,7 @@ mod tests {
                 0,
             )
             .tax;
-        assert_close(standalone, 2_943.0, "standalone bill on the same dollars");
+        assert_close(standalone, 2_840.0, "standalone bill on the same dollars");
     }
 
     /// $40,000 of Social Security is federally untaxed on its own —
@@ -246,12 +251,12 @@ mod tests {
         assert_close(tax.tax(&base, 0).tax, 0.0, "the benefit alone is untaxed");
 
         let mut accounts = pretax_only();
-        let result = ProportionalDrawdown.withdraw(52_977.0, &mut accounts, &tax, &base, 0);
+        let result = ProportionalDrawdown.withdraw(53_080.0, &mut accounts, &tax, &base, 0);
 
-        // Of the $7,023, the part that no separate pass could ever produce
+        // Of the $6,920, the part that no separate pass could ever produce
         // is the tax on the $34,000 of benefit the withdrawal made taxable.
         assert!(
-            result.tax > 2_943.0,
+            result.tax > 2_840.0,
             "the withdrawal must cost more than its own standalone bill: {}",
             result.tax
         );
@@ -300,7 +305,7 @@ mod tests {
         let tax = joint();
         let mut accounts = pretax_only();
         let result = ProportionalDrawdown.withdraw(
-            52_977.0,
+            53_080.0,
             &mut accounts,
             &tax,
             &IncomeBreakdown::default(),

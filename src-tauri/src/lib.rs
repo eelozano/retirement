@@ -5,6 +5,7 @@ mod pdf;
 mod refresh;
 mod settings;
 mod storage;
+mod tax_figures;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -34,6 +35,7 @@ pub fn run() {
             commands::restore_snapshot,
             commands::refresh_household,
             commands::get_presets,
+            commands::get_tax_figures_info,
             commands::engine_version,
             commands::get_storage_info,
             commands::choose_storage_dir,

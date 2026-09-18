@@ -2,6 +2,7 @@
 //! survivor, and `StreamBoundary::AtDeath` resolves against each person's
 //! own figure rather than a shared household age.
 
+use engine::model::TaxFigures;
 use engine::model::{
     Assumptions, CashFlowStream, FilingStatus, GrowthRule, PeriodLength, Person, Plan, SimConfig,
     StateTaxProfile, StreamBoundary, StreamDirection, StreamKind, YearMonth, SCHEMA_VERSION,
@@ -92,7 +93,7 @@ fn end_month_is_the_max_over_per_person_expectancy() {
 
 #[test]
 fn at_death_resolves_per_person_not_to_the_household_max() {
-    let projection = run_deterministic(&plan_with_two_lifespans());
+    let projection = run_deterministic(&plan_with_two_lifespans(), &TaxFigures::built_in());
 
     // The household runs 10 years (through `long`'s death), not 5 — the
     // shorter-lived `short` no longer caps the whole plan.
@@ -140,7 +141,7 @@ fn an_age_boundary_resolves_to_the_month_that_person_turns_it() {
     income.start = StreamBoundary::AtAge("long".to_string(), 5);
     income.end = StreamBoundary::AtAge("long".to_string(), 10);
     plan.streams = vec![income];
-    let projection = run_deterministic(&plan);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
 
     let year = |y: i32| {
         projection

@@ -4,6 +4,7 @@
 //! checked that the engine survives it. It is now the first thing a new user
 //! has, and it must validate and project rather than panic or emit NaN.
 
+use engine::model::TaxFigures;
 use engine::model::{Person, Plan, YearMonth};
 use engine::presets::new_plan;
 use engine::{run_deterministic, run_monte_carlo, MonteCarloConfig};
@@ -33,7 +34,7 @@ fn empty_plan_is_valid() {
 
 #[test]
 fn empty_plan_projects_without_nan() {
-    let projection = run_deterministic(&solo());
+    let projection = run_deterministic(&solo(), &TaxFigures::built_in());
     assert!(
         !projection.snapshots.is_empty(),
         "an empty plan still has a horizon to project over"
@@ -58,6 +59,7 @@ fn empty_plan_runs_monte_carlo() {
     // must not divide by a zero allocation weight.
     let result = run_monte_carlo(
         &solo(),
+        &TaxFigures::built_in(),
         &MonteCarloConfig {
             n_paths: 64,
             seed: 1,
