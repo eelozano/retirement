@@ -11,6 +11,25 @@ import { successMargin } from "./planData";
 // deliberately chosen one at a time rather than derived from a plan).
 export const MAX_COMPARE = 5;
 
+/** What is actually compared, given what was ticked: the ticked scenarios
+ * that still exist, led by the active one, which is always the base. The
+ * selection outlives the scenario list — deleting a scenario (the active one
+ * included, which also hands "active" to another) would otherwise leave an
+ * id behind that no longer loads. An empty list is read as "not loaded yet",
+ * not "everything was deleted", so a list refresh can't wipe the selection. */
+export function comparedIds(
+  selected: readonly string[],
+  scenarioIds: readonly string[],
+  activeId: string,
+): string[] {
+  if (selected.length === 0) return [];
+  const exists = new Set(scenarioIds);
+  const kept = selected.filter(
+    (id) => id !== activeId && (scenarioIds.length === 0 || exists.has(id)),
+  );
+  return [activeId, ...kept].slice(0, MAX_COMPARE);
+}
+
 export interface CompareSeriesDef {
   key: string; // scenario id
   label: string; // scenario name

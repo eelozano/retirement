@@ -8,6 +8,7 @@ import type { MonteCarloResult } from "../types/generated/MonteCarloResult";
 import type { Plan } from "../types/generated/Plan";
 import type { Presets } from "../types/generated/Presets";
 import type { Projection } from "../types/generated/Projection";
+import type { TaxFigures } from "../types/generated/TaxFigures";
 import type { YearMonth } from "../types/generated/YearMonth";
 
 export function runProjection(plan: Plan): Promise<Projection> {
@@ -278,16 +279,25 @@ export function revealStorageDir(): Promise<void> {
   return invoke<void>("reveal_storage_dir");
 }
 
-// Also a command-only shape, hand-declared like StorageInfo. `error` is set when
-// tax-figures.yaml could not be used and the built-in figures are in force.
-export interface TaxFiguresInfo {
+// Also a command-only shape, hand-declared like StorageInfo — though what it
+// carries is the generated TaxFigures. `figures` is what projections use:
+// the file's, or the built-in set when `error` says the file could not be
+// used. `built_in` is what the editor's reset offers.
+export interface TaxFiguresState {
   path: string;
-  tax_year: number;
+  figures: TaxFigures;
+  built_in: TaxFigures;
   error: string | null;
 }
 
-export function getTaxFiguresInfo(): Promise<TaxFiguresInfo> {
-  return invoke<TaxFiguresInfo>("get_tax_figures_info");
+export function getTaxFigures(): Promise<TaxFiguresState> {
+  return invoke<TaxFiguresState>("get_tax_figures");
+}
+
+/** Rejects with the validation problems, having written nothing, when the
+ * figures are not usable. */
+export function saveTaxFigures(figures: TaxFigures): Promise<void> {
+  return invoke<void>("save_tax_figures", { figures });
 }
 
 /** Paths per Monte Carlo run. Always concrete — the backend resolves "unset"

@@ -2765,3 +2765,11 @@ button.remove:hover {
   margin-top: 5px;
   padding-top: 5px;
 }
+
+/* Tax figures editor: subheads inside a Settings-style dialog. */
+.modal h4 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 14px 0 4px;
+}

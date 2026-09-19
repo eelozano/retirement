@@ -8,16 +8,47 @@ import { NumberField, PercentField } from "./fields";
  * state picker in `AssumptionsSection` prefills `value` from a preset, but
  * every number here is free to edit afterward — this is what `BracketTax`
  * actually computes with, the preset is only ever a starting point.
- *
- * Invariant maintained by this component: the last bracket is always the
- * unbounded one (`up_to: null`); every earlier bracket has an ascending
- * `up_to`.
  */
 export function TaxBracketEditor(props: {
   value: StateTaxProfile;
   onChange: (next: StateTaxProfile) => void;
 }) {
-  const { brackets } = props.value;
+  return (
+    <div className="tax-bracket-editor">
+      <NumberField
+        label="Standard deduction ($)"
+        value={props.value.standard_deduction}
+        onChange={(standard_deduction) =>
+          props.onChange({ ...props.value, standard_deduction })
+        }
+      />
+      <BracketTable
+        brackets={props.value.brackets}
+        onChange={(brackets) => props.onChange({ ...props.value, brackets })}
+      />
+    </div>
+  );
+}
+
+/**
+ * One progressive bracket schedule: the state schedule above, and each
+ * federal schedule in the tax-figures editor.
+ *
+ * Invariant maintained by this component: the last bracket is always the
+ * unbounded one (`up_to: null`); every earlier bracket has an ascending
+ * `up_to`.
+ *
+ * `label` prefixes every control's name ("Ordinary bracket 1 rate"), so two
+ * tables on one screen stay distinguishable; without it they read
+ * "Bracket 1 rate".
+ */
+export function BracketTable(props: {
+  brackets: TaxBracket[];
+  onChange: (next: TaxBracket[]) => void;
+  label?: string;
+}) {
+  const { brackets } = props;
+  const name = props.label ? `${props.label} bracket` : "Bracket";
 
   // `TaxBracket` is generated from the Rust struct and carries no id, so row
   // identity is tracked here instead. Keying rows by array index would let
@@ -33,8 +64,7 @@ export function TaxBracketEditor(props: {
     ids.current = brackets.map((_, i) => ids.current[i] ?? newId());
   }
 
-  const setBrackets = (next: TaxBracket[]) =>
-    props.onChange({ ...props.value, brackets: next });
+  const setBrackets = props.onChange;
 
   const addBracket = () => {
     const last = brackets[brackets.length - 1];
@@ -56,14 +86,7 @@ export function TaxBracketEditor(props: {
     setBrackets(brackets.map((b, idx) => (idx === i ? { ...b, ...patch } : b)));
 
   return (
-    <div className="tax-bracket-editor">
-      <NumberField
-        label="Standard deduction ($)"
-        value={props.value.standard_deduction}
-        onChange={(standard_deduction) =>
-          props.onChange({ ...props.value, standard_deduction })
-        }
-      />
+    <>
       <table className="tax-bracket-table">
         <thead>
           <tr>
@@ -79,7 +102,7 @@ export function TaxBracketEditor(props: {
               <tr key={ids.current[i]}>
                 <td>
                   <PercentField
-                    label={`Bracket ${i + 1} rate`}
+                    label={`${name} ${i + 1} rate`}
                     rate={bracket.rate}
                     minPercent={0}
                     maxPercent={100}
@@ -91,7 +114,7 @@ export function TaxBracketEditor(props: {
                     <span className="field-hint">and above</span>
                   ) : (
                     <NumberField
-                      label={`Bracket ${i + 1} upper bound`}
+                      label={`${name} ${i + 1} upper bound`}
                       value={bracket.up_to ?? 0}
                       step={1000}
                       onChange={(up_to) => updateBracket(i, { up_to })}
@@ -103,7 +126,7 @@ export function TaxBracketEditor(props: {
                     <button
                       type="button"
                       className="remove"
-                      aria-label={`Remove bracket ${i + 1}`}
+                      aria-label={`Remove ${name.toLowerCase()} ${i + 1}`}
                       onClick={() => removeBracket(i)}
                     >
                       Remove
@@ -116,8 +139,8 @@ export function TaxBracketEditor(props: {
         </tbody>
       </table>
       <button type="button" className="add" onClick={addBracket}>
-        Add bracket
+        {props.label ? `Add ${props.label.toLowerCase()} bracket` : "Add bracket"}
       </button>
-    </div>
+    </>
   );
 }

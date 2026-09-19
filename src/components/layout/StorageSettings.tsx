@@ -3,15 +3,16 @@ import {
   chooseStorageDir,
   exportPlans,
   getStorageInfo,
-  getTaxFiguresInfo,
+  getTaxFigures,
   listSnapshots,
   revealStorageDir,
   type StorageInfo,
   setStorageDir,
-  type TaxFiguresInfo,
+  type TaxFiguresState,
 } from "../../lib/api";
 import { usePlanStore } from "../../store/planStore";
 import { Modal } from "./Modal";
+import { TaxFiguresEditor } from "./TaxFiguresEditor";
 
 interface StorageSettingsProps {
   open: boolean;
@@ -58,7 +59,8 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
   const setMonteCarloPaths = usePlanStore((s) => s.setMonteCarloPaths);
 
   const [info, setInfo] = useState<StorageInfo | null>(null);
-  const [taxFigures, setTaxFigures] = useState<TaxFiguresInfo | null>(null);
+  const [taxFigures, setTaxFigures] = useState<TaxFiguresState | null>(null);
+  const [editingTaxFigures, setEditingTaxFigures] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -78,7 +80,7 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
       .catch((e) => setError(String(e)));
     // Re-read on every open: the file is edited outside the app, and this is
     // where a hand edit that could not be used is reported.
-    getTaxFiguresInfo()
+    getTaxFigures()
       .then(setTaxFigures)
       .catch((e) => setError(String(e)));
   }, [open]);
@@ -98,7 +100,7 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
       if (picked) {
         await setStorageDir(picked);
         setInfo(await getStorageInfo());
-        setTaxFigures(await getTaxFiguresInfo());
+        setTaxFigures(await getTaxFigures());
       }
     } catch (e) {
       setError(String(e));
@@ -160,134 +162,155 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
     }
   };
 
+  const handleEditorClosed = () => {
+    setEditingTaxFigures(false);
+    // A save changes the year and clears any error shown here.
+    getTaxFigures()
+      .then(setTaxFigures)
+      .catch((e) => setError(String(e)));
+  };
+
   return (
-    <Modal open={open} onClose={onClose} title="Settings">
-      {error && (
-        <p role="alert" className="banner critical">
-          {error}
-        </p>
-      )}
-      <h3>Plan storage</h3>
-      {info ? (
-        <>
-          <p className="storage-path">{info.effective_dir}</p>
-          <p className="storage-badge">
-            {info.is_default ? "Default location" : "Custom location"}
+    <>
+      <Modal open={open} onClose={onClose} title="Settings">
+        {error && (
+          <p role="alert" className="banner critical">
+            {error}
           </p>
-          <div className="storage-actions">
-            <button type="button" onClick={handleChangeLocation} disabled={busy}>
-              Change location…
-            </button>
-            <button type="button" onClick={handleReveal}>
-              Reveal in Finder
-            </button>
-          </div>
-        </>
-      ) : (
-        <p>Loading…</p>
-      )}
-
-      <h3>Tax figures</h3>
-      {taxFigures ? (
-        <>
-          <p className="storage-badge">
-            Every plan uses the {taxFigures.tax_year} federal tax brackets, standard
-            deduction and contribution limits in this file. Edit it when the IRS publishes
-            a new year — each fall, and each spring for the HSA limit. A change applies at
-            the next recalculation; delete the file to go back to the built-in figures.
-          </p>
-          <p className="storage-path">{taxFigures.path}</p>
-          {taxFigures.error && (
-            <p role="alert" className="banner critical">
-              The file could not be used, so the built-in {taxFigures.tax_year} figures
-              are in force: {taxFigures.error}
+        )}
+        <h3>Plan storage</h3>
+        {info ? (
+          <>
+            <p className="storage-path">{info.effective_dir}</p>
+            <p className="storage-badge">
+              {info.is_default ? "Default location" : "Custom location"}
             </p>
-          )}
-        </>
-      ) : (
-        <p>Loading…</p>
-      )}
+            <div className="storage-actions">
+              <button type="button" onClick={handleChangeLocation} disabled={busy}>
+                Change location…
+              </button>
+              <button type="button" onClick={handleReveal}>
+                Reveal in Finder
+              </button>
+            </div>
+          </>
+        ) : (
+          <p>Loading…</p>
+        )}
 
-      <h3>Simulation</h3>
-      <p className="storage-badge">
-        How many randomised paths each projection is tested against. More paths narrow the
-        margin on the probability of success; they also take longer to run.
-      </p>
-      {/* A segmented control, like the dollar-basis toggle: these are mutually
-          exclusive settings of one value, not four separate actions. */}
-      <fieldset className="segmented">
-        <legend className="visually-hidden">Monte Carlo paths</legend>
-        {PATH_PRESETS.map((preset) => (
-          <button
-            key={preset.paths}
-            type="button"
-            aria-pressed={monteCarloPaths === preset.paths}
-            disabled={savingPaths || monteCarloPaths === null}
-            onClick={() => handleChangePaths(preset.paths)}
-          >
-            {preset.label}
-          </button>
-        ))}
-      </fieldset>
-      <p className="storage-badge">
-        {savingPaths
-          ? "Saving…"
-          : monteCarloPaths === null
-            ? "Loading…"
-            : `${PATH_PRESETS.find((p) => p.paths === monteCarloPaths)?.cost ?? "—"} per run, approximately.`}
-      </p>
-      {monteCarloLimits && (
+        <h3>Tax figures</h3>
+        {taxFigures ? (
+          <>
+            <p className="storage-badge">
+              Every plan uses the {taxFigures.figures.tax_year} federal tax brackets,
+              standard deduction and contribution limits in this file. Update them here or
+              in the file when the IRS publishes a new year — each fall, and each spring
+              for the HSA limit. A change applies at the next recalculation; delete the
+              file to go back to the built-in figures.
+            </p>
+            <p className="storage-path">{taxFigures.path}</p>
+            {taxFigures.error && (
+              <p role="alert" className="banner critical">
+                The file could not be used, so the built-in {taxFigures.figures.tax_year}{" "}
+                figures are in force: {taxFigures.error}
+              </p>
+            )}
+            <div className="storage-actions">
+              <button type="button" onClick={() => setEditingTaxFigures(true)}>
+                Edit figures…
+              </button>
+            </div>
+          </>
+        ) : (
+          <p>Loading…</p>
+        )}
+
+        <h3>Simulation</h3>
         <p className="storage-badge">
-          Up to {monteCarloLimits.auto_run_max_paths.toLocaleString()} paths, the
-          simulation re-runs after every edit. Above that it runs on demand: an edit marks
-          the last result as stale, and you run it from the Plan screen when ready.
+          How many randomised paths each projection is tested against. More paths narrow
+          the margin on the probability of success; they also take longer to run.
         </p>
-      )}
+        {/* A segmented control, like the dollar-basis toggle: these are mutually
+          exclusive settings of one value, not four separate actions. */}
+        <fieldset className="segmented">
+          <legend className="visually-hidden">Monte Carlo paths</legend>
+          {PATH_PRESETS.map((preset) => (
+            <button
+              key={preset.paths}
+              type="button"
+              aria-pressed={monteCarloPaths === preset.paths}
+              disabled={savingPaths || monteCarloPaths === null}
+              onClick={() => handleChangePaths(preset.paths)}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </fieldset>
+        <p className="storage-badge">
+          {savingPaths
+            ? "Saving…"
+            : monteCarloPaths === null
+              ? "Loading…"
+              : `${PATH_PRESETS.find((p) => p.paths === monteCarloPaths)?.cost ?? "—"} per run, approximately.`}
+        </p>
+        {monteCarloLimits && (
+          <p className="storage-badge">
+            Up to {monteCarloLimits.auto_run_max_paths.toLocaleString()} paths, the
+            simulation re-runs after every edit. Above that it runs on demand: an edit
+            marks the last result as stale, and you run it from the Plan screen when
+            ready.
+          </p>
+        )}
 
-      <h3>Snapshot history</h3>
-      {/* A snapshot is of the whole household — its balances and every one of
+        <h3>Snapshot history</h3>
+        {/* A snapshot is of the whole household — its balances and every one of
           its scenarios — because that is what one file holds since #109.
           Restoring one therefore brings all of them back as they were, and a
           scenario branched after the snapshot goes away again. Said here
           because it is a change from the per-plan restore this used to be. */}
-      <p className="storage-badge">
-        A snapshot covers the whole household: the balances and every scenario as they
-        were at that moment. Restoring one brings all of them back — and, like every
-        restore, snapshots the current state first, so it is itself undoable.
-      </p>
-      {plan && snapshots.length > 0 ? (
-        <ul className="scenario-list">
-          {snapshots.map((timestamp) => (
-            <li key={timestamp}>
-              <span className="scenario-name">{formatSnapshotTimestamp(timestamp)}</span>
-              <button
-                type="button"
-                disabled={restoring !== null}
-                onClick={() => handleRestore(timestamp)}
-              >
-                {restoring === timestamp ? "Restoring…" : "Restore"}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
         <p className="storage-badge">
-          No snapshots of this household yet — one is captured the first time you edit any
-          of its scenarios each session.
+          A snapshot covers the whole household: the balances and every scenario as they
+          were at that moment. Restoring one brings all of them back — and, like every
+          restore, snapshots the current state first, so it is itself undoable.
         </p>
-      )}
+        {plan && snapshots.length > 0 ? (
+          <ul className="scenario-list">
+            {snapshots.map((timestamp) => (
+              <li key={timestamp}>
+                <span className="scenario-name">
+                  {formatSnapshotTimestamp(timestamp)}
+                </span>
+                <button
+                  type="button"
+                  disabled={restoring !== null}
+                  onClick={() => handleRestore(timestamp)}
+                >
+                  {restoring === timestamp ? "Restoring…" : "Restore"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="storage-badge">
+            No snapshots of this household yet — one is captured the first time you edit
+            any of its scenarios each session.
+          </p>
+        )}
 
-      <h3>Export</h3>
-      <p className="storage-badge">
-        Write a timestamped copy of every plan to a folder of your choice — an external
-        drive or your own sync folder.
-      </p>
-      <div className="storage-actions">
-        <button type="button" onClick={handleExport} disabled={exporting}>
-          {exporting ? "Exporting…" : "Export all plans…"}
-        </button>
-      </div>
-      {exportedTo && <p className="storage-badge">Exported to {exportedTo}</p>}
-    </Modal>
+        <h3>Export</h3>
+        <p className="storage-badge">
+          Write a timestamped copy of every plan to a folder of your choice — an external
+          drive or your own sync folder.
+        </p>
+        <div className="storage-actions">
+          <button type="button" onClick={handleExport} disabled={exporting}>
+            {exporting ? "Exporting…" : "Export all plans…"}
+          </button>
+        </div>
+        {exportedTo && <p className="storage-badge">Exported to {exportedTo}</p>}
+      </Modal>
+      {/* A sibling, not a child: its own <dialog>, stacked over this one. */}
+      <TaxFiguresEditor open={editingTaxFigures} onClose={handleEditorClosed} />
+    </>
   );
 }

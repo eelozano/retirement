@@ -779,25 +779,35 @@ pub fn get_presets(app: tauri::AppHandle) -> Result<Presets, String> {
     })
 }
 
-/// Which tax figures are in force and where they live, for the settings
-/// window. `error` is set when `tax-figures.yaml` could not be used and the
-/// built-in figures are standing in — the one place that is surfaced.
+/// The tax figures for the settings window and the in-app editor: those in
+/// force, where they live, and the built-in set the editor's reset offers.
+/// `error` is set when `tax-figures.yaml` could not be used and the built-in
+/// figures are standing in — the one place that is surfaced.
 #[derive(Serialize)]
-pub struct TaxFiguresInfo {
+pub struct TaxFiguresState {
     path: PathBuf,
-    tax_year: i32,
+    figures: TaxFigures,
+    built_in: TaxFigures,
     error: Option<String>,
 }
 
 #[tauri::command]
-pub fn get_tax_figures_info(app: tauri::AppHandle) -> Result<TaxFiguresInfo, String> {
+pub fn get_tax_figures(app: tauri::AppHandle) -> Result<TaxFiguresState, String> {
     let base = plans_base_dir(&app)?;
     let loaded = tax_figures::load(&base);
-    Ok(TaxFiguresInfo {
+    Ok(TaxFiguresState {
         path: tax_figures::path(&base),
-        tax_year: loaded.figures.tax_year,
+        figures: loaded.figures,
+        built_in: TaxFigures::built_in(),
         error: loaded.error,
     })
+}
+
+/// Writes the editor's figures to `tax-figures.yaml`. Every later
+/// projection reads them; re-running the ones on screen is the caller's job.
+#[tauri::command]
+pub fn save_tax_figures(app: tauri::AppHandle, figures: TaxFigures) -> Result<(), String> {
+    tax_figures::save(&plans_base_dir(&app)?, &figures)
 }
 
 #[tauri::command]
