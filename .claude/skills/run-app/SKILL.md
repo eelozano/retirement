@@ -1,6 +1,6 @@
 ---
 name: run-app
-description: Launch and visually verify the Retirement Planner desktop app on macOS. Use whenever you need to run the app, screenshot it, or confirm a UI change works in the real app rather than in tests. Runs against the committed demo household by default, so screenshots never show the user's real finances and you can add, edit and delete plans freely. Covers the two traps that cost several past sessions - `open_application` resolving to a stale bundle, and the dev binary being invisible to screenshots.
+description: Launch and visually verify the Retirement Planner desktop app on macOS. Use whenever you need to run the app, screenshot it, or confirm a UI change works in the real app rather than in tests. Runs against the committed demo household by default, so screenshots never show the user's real finances and you can add, edit and delete plans freely. Covers the traps that cost past sessions - `open_application` resolving to a stale bundle, the dev binary being invisible to screenshots, and an installed release hijacking the launch - and how to retake the README screenshots.
 ---
 
 # Running the Retirement Planner app
@@ -61,6 +61,20 @@ committed fixtures if it is empty, then starts the dev server pointed at it.) Th
 Vite — Vite is ready in ~100ms while the Rust build can take minutes on a cold
 target dir.
 
+**Check the installed release is not running before you open anything.**
+Releases ship a `.dmg`, so the user may have
+`/Applications/Retirement Planner.app` installed and open. It has the same
+bundle id as the dev bundle, so the `open` below just re-activates *it*, and
+every screenshot after that is of the user's real finances while the dev
+build runs unseen on demo data:
+
+```bash
+pgrep -fl "/Applications/Retirement Planner.app"
+```
+
+If that prints anything, do not kill it — it is the user's own app. Ask them
+to quit it, or skip the visual check.
+
 **Do not spawn a second background task to poll for it**, and do not use a
 foreground `sleep` — the harness blocks a bare `sleep N && tail` outright.
 Fold the wait into the launch step instead: one background command that
@@ -108,7 +122,9 @@ blank-page bug. Wait and take a second one before concluding anything.
 Edits hot-reload; take another screenshot rather than relaunching.
 
 If `target/debug/bundle/` does not exist on a fresh clone, create it once with
-`pnpm tauri build --debug`, then use the copy step above from then on.
+`pnpm tauri build --debug`, then use the copy step above from then on. That
+build also runs `scripts/warm-actool.sh` before bundling (see CLAUDE.md); it
+exits cleanly without Xcode 26, so a line from it is not a failure.
 
 ## Demo data, and when you actually need real data
 
@@ -128,6 +144,11 @@ Seeding is conditional, so a restart keeps whatever you changed last time:
 - `pnpm demo:seed` — seed without running.
 - `pnpm demo:reset` — throw the root away and re-seed the five committed
   scenarios.
+
+The root holds the tax figures too: the app writes
+`/tmp/retirement-demo/tax-figures.yaml` from the built-in figures the first
+time it runs there. An edit made under Settings → Tax figures survives
+`pnpm demo` restarts like any other change, and only `demo:reset` clears it.
 
 **Change whatever you like in demo mode.** Edit inputs, add scenarios, delete
 them, rename them, restore snapshots, let autosave fire as often as it likes.
@@ -182,7 +203,11 @@ cheap, and skipping it is exactly how processes accumulate across sessions.
   every edit debounces into a real save of the user's finances: reading,
   scrolling, clicking, and opening disclosures are safe, but if you need to
   change an input, restart on demo data instead — or, if it genuinely must be
-  their numbers, duplicate into a scenario first via the Scenarios button.
+  their numbers, duplicate into a scenario first with **Duplicate current as
+  new scenario** on the Scenarios screen. Saving under Settings → Tax figures
+  in a real-data session rewrites the user's own `tax-figures.yaml`, which
+  every household reads and snapshot history does not cover — leave it
+  alone.
 - **Coordinate gate errors naming another app.** Clicks and scrolls sometimes
   fail with `would land on "Wispr Flow", which is not in the allowed
   applications` — an overlay occupying part of the screen. It is not about the
@@ -190,5 +215,68 @@ cheap, and skipping it is exactly how processes accumulate across sessions.
   coordinate; near the top of a column usually works when the middle does not.
 - **Menu bar clicks need a Finder grant**, which is usually not worth
   requesting. Prefer in-app controls.
-- The left rail is the navigation: chart icon is Plan, arrows are Cash flow,
-  sliders are Inputs, layers are Scenarios (which holds the compare view), database at the bottom is Storage.
+- The left rail is the navigation, icon-only, with each button's name as its
+  tooltip and accessible label. Top to bottom: Plan, Cash flow, Growth,
+  Inputs, Update balances, What-if, Scenarios (which holds the compare
+  view); then, pinned to the bottom, Report (the report and export dialog)
+  and Settings. Settings is one dialog with five sections — Plan storage,
+  Tax figures (whose "Edit figures…" opens the editor), Simulation (the
+  Monte Carlo path count), Snapshot history, and Export.
+
+## Retaking the README screenshots
+
+`docs/screenshots/` is the committed demo household, captured from the
+bundled app so every image has the same frame. What the last retake did:
+
+1. `pnpm demo:reset` on the branch, then the recipe above — but open the
+   bundle in **light appearance**, whatever the system is set to. The app
+   follows the system theme, and every README image is light:
+
+   ```bash
+   open --env "RETIREMENT_DATA_DIR=/tmp/retirement-demo" "$APP" --args -NSRequiresAquaSystemAppearance YES
+   ```
+
+   That flag reaches only this launch, through the argument domain; it
+   changes no setting.
+2. Confirm the demo household (the EXAMPLE badge, Alex and Jordan) and keep
+   the default 1280×800 window. Leave the dollar basis on **Nominal**.
+3. Capture the window, not the screen, to a file — `app_screenshot` only
+   returns an image to you. Take the window id from `app_list_windows`, and
+   shrink the Retina capture to the 1280×800 every committed image is:
+
+   ```bash
+   screencapture -o -x -l <window id> /tmp/cap.png && sips -z 800 1280 /tmp/cap.png --out docs/screenshots/<name>.png
+   ```
+
+   `-o` drops the window shadow; the pointer is never in a window capture.
+   Hover state still is: after any raw click or scroll, click the title bar
+   (around x 700, y 16) to park the pointer before capturing. Rail buttons
+   and the Inputs section list take `element_index` clicks, which do not move
+   the pointer at all.
+4. Look at each file before committing it: no hover state, no half-drawn
+   chart, no Monte Carlo run still in progress.
+
+What each image shows (Base plan unless it says otherwise):
+
+| File | Screen and state |
+|---|---|
+| `plan.png` | Plan, Monte Carlo off, inspector pinned to 2042 (the default) |
+| `monte-carlo.png` | The same with the Monte Carlo toggle on |
+| `why-paths-fail.png` | Plan with Monte Carlo on, scrolled to the bottom |
+| `cash-flow.png` | Cash flow, top of the screen |
+| `cash-flow-sankey.png` | Cash flow, scrolled to the bottom: the 2042 Sankey |
+| `growth.png` | Growth |
+| `inputs.png` | Inputs → People, top: Alex |
+| `pension.png` | Inputs → People, scrolled to the bottom: Jordan's Social Security and pension |
+| `accounts.png` | Inputs → Accounts, Joint brokerage selected (the default) |
+| `assumptions.png` | Inputs → Assumptions, scrolled to the bottom: investment strategies |
+| `one-time-contribution.png` | *Sell the house at retirement*: Inputs → Accounts → Joint brokerage, scrolled to the "Car paid off" and "House sale" cards |
+| `update-balances.png` | *Sell the house at retirement*: Update balances |
+| `what-if.png` | What-if with Alex retires at −2y and Spending at 92% (click the slider tracks), then **Run** for the Monte Carlo columns |
+| `scenarios.png` | Scenarios with all five compared, **Run**, scrolled to the table |
+| `tax-figures.png` | Settings → **Edit figures…**, top of the editor; close with Escape, never Save |
+
+`update-balances.png` and the Plan screen's staleness notice both say how old
+the demo's January balances are ("8 months ago"), which changes with the
+month the image is taken. Monte Carlo runs above 5,000 paths are on demand
+and slow in a dev build — wait for the columns to fill before capturing.
