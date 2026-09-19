@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getTaxFigures, saveTaxFigures, type TaxFiguresState } from "../../lib/api";
 import { usePlanStore } from "../../store/planStore";
 import type { ByFilingStatus } from "../../types/generated/ByFilingStatus";
@@ -186,6 +186,14 @@ export function TaxFiguresEditor(props: { open: boolean; onClose: () => void }) 
   const [draft, setDraft] = useState<TaxFigures | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+
+  // Save sits at the foot of a scrolled dialog and the reason it failed at
+  // the head, so bring the reason to the user rather than leave the click
+  // looking like it did nothing. (jsdom has no scrollIntoView, hence `?.`.)
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, [error]);
 
   // Read afresh on every open, so the draft is what the file says now — a
   // hand edit since the last open included.
@@ -239,7 +247,7 @@ export function TaxFiguresEditor(props: { open: boolean; onClose: () => void }) 
         </p>
       )}
       {error && (
-        <p role="alert" className="banner critical">
+        <p ref={errorRef} role="alert" className="banner critical">
           Not saved: {error}
         </p>
       )}
@@ -270,7 +278,10 @@ export function TaxFiguresEditor(props: { open: boolean; onClose: () => void }) 
             </button>
             <button
               type="button"
-              onClick={() => setDraft(structuredClone(state.built_in))}
+              onClick={() => {
+                setDraft(structuredClone(state.built_in));
+                setError(null);
+              }}
               disabled={saving}
             >
               Reset to built-in {state.built_in.tax_year}

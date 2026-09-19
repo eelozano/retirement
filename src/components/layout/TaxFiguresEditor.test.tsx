@@ -94,6 +94,10 @@ describe("TaxFiguresEditor", () => {
     );
     expect(onClose).not.toHaveBeenCalled();
     expect(taxFiguresChanged).not.toHaveBeenCalled();
+
+    // Resetting starts over, so the complaint about the old draft goes.
+    await user.click(screen.getByRole("button", { name: "Reset to built-in 2026" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("resets the draft to the built-in figures without saving", async () => {
