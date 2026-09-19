@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useRailCollapsed } from "../../lib/railPreference";
 import { usePlanStore } from "../../store/planStore";
 import { InputsScreen, type InputsSection } from "../inputs/InputsScreen";
 import { CashFlowScreen } from "./CashFlowScreen";
@@ -13,7 +14,7 @@ import { StorageSettings } from "./StorageSettings";
 import { WelcomeScreen } from "./WelcomeScreen";
 import { WhatIfScreen } from "./WhatIfScreen";
 
-// Application shell: rail on the left, then a header and one destination.
+// Application shell: labelled, collapsible rail on the left, then a header and one destination.
 //
 // Monte Carlo is no longer a mode. It is an additive overlay that paints the
 // percentile band onto the same chart, so the fan is read against the plan
@@ -45,6 +46,7 @@ export function Dashboard() {
   const [storageOpen, setStorageOpen] = useState(false);
   const [reportMenuOpen, setReportMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [railCollapsed, toggleRailCollapsed] = useRailCollapsed();
 
   // No plan, and we have finished looking: a fresh install, or the user
   // just deleted their last scenario. That is a destination, not a failure
@@ -69,12 +71,14 @@ export function Dashboard() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${railCollapsed ? "" : "app-shell-labelled"}`}>
       <Rail
         active={destination}
         onNavigate={setDestination}
         onOpenStorage={() => setStorageOpen(true)}
         onOpenReport={() => setReportMenuOpen(true)}
+        collapsed={railCollapsed}
+        onToggleCollapsed={toggleRailCollapsed}
       />
 
       <div className="shell-main">
