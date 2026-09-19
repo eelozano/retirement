@@ -1,9 +1,15 @@
-// Left icon rail — the app's primary navigation.
+// Left rail — the app's primary navigation.
 //
 // Replaces the previous flat row of six identically-styled header buttons,
 // where navigation, settings, and a display option were all peers. Kind now
 // decides placement: destinations live here, settings sit at the bottom, and
 // display options stayed in the header as a segmented control.
+//
+// Labelled by default, collapsible to icons. Icons identify nothing on their
+// own — there is no shared picture for "Update balances" — so the label is
+// the identifier and the icon is only its echo. Collapsing is the same
+// component with the labels dropped, never a second one, and the choice is
+// remembered per user (lib/railPreference.ts).
 
 export type Destination =
   | "plan"
@@ -19,6 +25,8 @@ interface RailProps {
   onNavigate: (to: Destination) => void;
   onOpenStorage: () => void;
   onOpenReport: () => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
 const ICON = {
@@ -87,11 +95,46 @@ const ICON = {
   ),
 };
 
-function RailIcon({ children }: { children: React.ReactNode }) {
+/** The rail's destinations, in two named groups. Group before you add: a new
+ * destination joins one of these or justifies a third, it never lands at the
+ * bottom of an undifferentiated list. Also the source for the command palette,
+ * so the two cannot list different screens. */
+export const NAV_GROUPS: {
+  id: string;
+  heading: string;
+  items: { id: Destination; label: string; icon: keyof typeof ICON }[];
+}[] = [
+  {
+    id: "plan",
+    heading: "Plan",
+    items: [
+      { id: "plan", label: "Plan", icon: "plan" },
+      { id: "cashflow", label: "Cash flow", icon: "cashflow" },
+      { id: "growth", label: "Growth", icon: "growth" },
+      { id: "whatif", label: "What-if", icon: "whatif" },
+      { id: "scenarios", label: "Scenarios", icon: "scenarios" },
+    ],
+  },
+  {
+    id: "setup",
+    heading: "Setup",
+    items: [
+      { id: "inputs", label: "Inputs", icon: "inputs" },
+      { id: "refresh", label: "Update balances", icon: "refresh" },
+    ],
+  },
+];
+
+function RailIcon(props: {
+  children: React.ReactNode;
+  size: number;
+  className?: string;
+}) {
   return (
     <svg
-      width="19"
-      height="19"
+      className={props.className}
+      width={props.size}
+      height={props.size}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -100,83 +143,94 @@ function RailIcon({ children }: { children: React.ReactNode }) {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      {children}
+      {props.children}
     </svg>
   );
 }
 
-function RailButton(props: {
+function RailItem(props: {
   label: string;
   icon: React.ReactNode;
+  collapsed: boolean;
   current?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
-      className={`rail-button ${props.current ? "rail-current" : ""}`}
-      // The label is the only accessible name — these are icon-only buttons.
-      aria-label={props.label}
-      title={props.label}
+      className={`rail-item ${props.current ? "rail-current" : ""}`}
+      // With the label gone the icon is the only thing left, so the name has
+      // to be stated. Expanded, the visible label is the name and a tooltip
+      // repeating it would only get in the way.
+      aria-label={props.collapsed ? props.label : undefined}
+      title={props.collapsed ? props.label : undefined}
       aria-current={props.current ? "page" : undefined}
       onClick={props.onClick}
     >
-      <RailIcon>{props.icon}</RailIcon>
+      <RailIcon size={props.collapsed ? 19 : 17}>{props.icon}</RailIcon>
+      {!props.collapsed && <span className="rail-label">{props.label}</span>}
     </button>
   );
 }
 
 export function Rail(props: RailProps) {
+  const { collapsed } = props;
   return (
-    <nav className="rail" aria-label="Screens">
-      <div className="rail-mark" aria-hidden="true">
-        R
+    <nav className={`rail ${collapsed ? "rail-collapsed" : ""}`} aria-label="Screens">
+      <div className="rail-brand">
+        <div className="rail-mark" aria-hidden="true">
+          R
+        </div>
+        {!collapsed && <span className="rail-brand-name">Retirement Planner</span>}
       </div>
-      <RailButton
-        label="Plan"
-        icon={ICON.plan}
-        current={props.active === "plan"}
-        onClick={() => props.onNavigate("plan")}
-      />
-      <RailButton
-        label="Cash flow"
-        icon={ICON.cashflow}
-        current={props.active === "cashflow"}
-        onClick={() => props.onNavigate("cashflow")}
-      />
-      <RailButton
-        label="Growth"
-        icon={ICON.growth}
-        current={props.active === "growth"}
-        onClick={() => props.onNavigate("growth")}
-      />
-      <RailButton
-        label="Inputs"
-        icon={ICON.inputs}
-        current={props.active === "inputs"}
-        onClick={() => props.onNavigate("inputs")}
-      />
-      <RailButton
-        label="Update balances"
-        icon={ICON.refresh}
-        current={props.active === "refresh"}
-        onClick={() => props.onNavigate("refresh")}
-      />
-      <RailButton
-        label="What-if"
-        icon={ICON.whatif}
-        current={props.active === "whatif"}
-        onClick={() => props.onNavigate("whatif")}
-      />
-      <RailButton
-        label="Scenarios"
-        icon={ICON.scenarios}
-        current={props.active === "scenarios"}
-        onClick={() => props.onNavigate("scenarios")}
-      />
+
+      {NAV_GROUPS.map((group) => (
+        <fieldset key={group.id} aria-label={group.heading} className="rail-group">
+          {!collapsed && (
+            <legend className="rail-group-heading" aria-hidden="true">
+              {group.heading}
+            </legend>
+          )}
+          {group.items.map((item) => (
+            <RailItem
+              key={item.id}
+              label={item.label}
+              icon={ICON[item.icon]}
+              collapsed={collapsed}
+              current={props.active === item.id}
+              onClick={() => props.onNavigate(item.id)}
+            />
+          ))}
+        </fieldset>
+      ))}
+
       <div className="rail-spacer" />
-      <RailButton label="Report" icon={ICON.report} onClick={props.onOpenReport} />
-      <RailButton label="Settings" icon={ICON.storage} onClick={props.onOpenStorage} />
+
+      <RailItem
+        label="Report"
+        icon={ICON.report}
+        collapsed={collapsed}
+        onClick={props.onOpenReport}
+      />
+      <RailItem
+        label="Settings"
+        icon={ICON.storage}
+        collapsed={collapsed}
+        onClick={props.onOpenStorage}
+      />
+      <button
+        type="button"
+        className="rail-collapse"
+        aria-label={collapsed ? "Expand sidebar" : undefined}
+        title={collapsed ? "Expand sidebar" : undefined}
+        onClick={props.onToggleCollapsed}
+      >
+        <RailIcon size={15} className="rail-collapse-icon">
+          <path d="M14 6l-6 6 6 6" />
+          <path d="M20 4v16" />
+        </RailIcon>
+        {!collapsed && <span className="rail-label">Collapse</span>}
+      </button>
     </nav>
   );
 }

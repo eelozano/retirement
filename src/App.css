@@ -170,23 +170,45 @@ body {
   flex-direction: column;
 }
 
-/* Left icon rail — primary navigation. */
+/* Left rail — primary navigation. Labelled by default; `.rail-collapsed` is
+   the same rail with the labels dropped, back to icons. */
 .rail {
+  --rail-pad-x: 10px;
   box-sizing: border-box;
-  width: 56px;
-  flex: 0 0 56px;
+  width: 208px;
+  flex: 0 0 208px;
   height: 100%;
   background: var(--surface-1);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
+  padding: var(--sp-3) var(--rail-pad-x);
+  /* Clips the labels while the width is still moving. */
+  overflow: hidden;
+  transition:
+    width 140ms ease-out,
+    flex-basis 140ms ease-out;
+}
+.rail-collapsed {
+  --rail-pad-x: 8px;
+  width: 56px;
+  flex-basis: 56px;
   align-items: center;
-  padding: var(--sp-3) 0;
   gap: var(--sp-1);
 }
+.rail-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 6px var(--sp-3);
+}
+.rail-collapsed .rail-brand {
+  padding: 0 0 10px;
+}
 .rail-mark {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
   border-radius: var(--r-2);
   background: var(--text-primary);
   color: var(--page);
@@ -194,29 +216,114 @@ body {
   place-items: center;
   font-weight: 700;
   font-size: var(--t-body);
-  margin-bottom: 10px;
+}
+.rail-collapsed .rail-mark {
+  width: 30px;
+  height: 30px;
+  flex-basis: 30px;
+}
+.rail-brand-name {
+  font-size: var(--t-body);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+/* A <fieldset> so the group is named natively; reset to a plain column. */
+.rail-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.rail-collapsed .rail-group {
+  gap: var(--sp-1);
+}
+.rail-group-heading {
+  padding: 10px 8px 5px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.rail-group + .rail-group .rail-group-heading {
+  padding-top: var(--sp-4);
 }
 .rail-spacer {
   flex: 1;
 }
-.rail-button {
-  width: 40px;
-  height: 40px;
+.rail-item,
+.rail-collapse {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   border: 0;
   border-radius: var(--r-2);
   background: transparent;
-  color: var(--muted);
-  display: grid;
-  place-items: center;
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
   cursor: pointer;
 }
-.rail-button:hover {
+.rail-item {
+  height: 34px;
+  padding: 0 8px;
+  font-size: var(--t-body);
+  color: var(--text-secondary);
+}
+.rail-item svg {
+  flex: 0 0 auto;
+}
+/* No transition on the hover fill: instant reads as more responsive here. */
+.rail-item:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+/* Fill, edge bar and weight — the active row never relies on colour alone. */
+.rail-current,
+.rail-current:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.rail-current::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--rail-pad-x));
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--text-primary);
+}
+.rail-collapsed .rail-item {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  justify-content: center;
+}
+.rail-collapse {
+  height: 30px;
+  margin-top: var(--sp-1);
+  padding: 0 8px;
+  font-size: var(--t-sm);
+  color: var(--muted);
+}
+.rail-collapse:hover {
   background: var(--surface-2);
   color: var(--text-secondary);
 }
-.rail-current {
-  background: var(--surface-3);
-  color: var(--text-primary);
+.rail-collapsed .rail-collapse {
+  width: 40px;
+  padding: 0;
+  justify-content: center;
+}
+.rail-collapsed .rail-collapse-icon {
+  transform: scaleX(-1);
 }
 
 .topbar {
@@ -1380,11 +1487,16 @@ button.remove:hover {
 /* Zone 0 — status band. Always rendered in one tone or the other, so the
    layout below it never shifts when a plan starts or stops depleting. */
 .status-band {
-  flex: 0 0 38px;
+  /* One line when it fits. When it does not — the labelled rail leaves the
+     content column 1,072px at the default window — the as-of cue drops to a
+     second line rather than squeezing the sentence into a wrapped column. */
+  flex: 0 0 auto;
+  min-height: 38px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--sp-2);
-  padding: 0 var(--sp-6);
+  gap: 2px var(--sp-2);
+  padding: 6px var(--sp-6);
   border-bottom: 1px solid var(--border);
   font-size: 12.5px;
   color: var(--text-secondary);
@@ -1398,6 +1510,7 @@ button.remove:hover {
 .status-band strong {
   color: var(--text-primary);
   font-weight: 600;
+  white-space: nowrap;
 }
 .status-dot {
   width: 7px;
@@ -2270,6 +2383,15 @@ button.remove:hover {
     gap: var(--sp-4);
   }
 }
+/* The breakpoints above were chosen for the 56px rail. The labelled rail
+   takes 152px more of the window, so the same content width is reached that
+   much sooner (1100 + 152 = 1252). */
+@media (max-width: 1252px) {
+  .app-shell-labelled .why-fail-grid {
+    grid-template-columns: 1fr;
+    gap: var(--sp-4);
+  }
+}
 
 /* ── What-if sandbox ──────────────────────────────────────────────────── */
 /* A knob column and a readout, side by side: the point of the screen is
@@ -2295,6 +2417,16 @@ button.remove:hover {
   }
 
   .what-if-knobs {
+    position: static;
+  }
+}
+/* Same content width with the labelled rail: see .why-fail-grid above. */
+@media (max-width: 1252px) {
+  .app-shell-labelled .what-if {
+    display: flex;
+  }
+
+  .app-shell-labelled .what-if-knobs {
     position: static;
   }
 }
