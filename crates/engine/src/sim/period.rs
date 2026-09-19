@@ -31,7 +31,6 @@ use crate::strategies::{
     AccountState, DrawdownStrategy, IncomeBreakdown, PeriodIndex, ReturnModel, TaxModel,
 };
 
-use super::early_access::{self, EarlyAccess};
 use super::{
     compound, contributions, growth_factor, overlap_fraction, required_distributions, OneTimeInfo,
     PeriodSnapshot, ResolvedContribution, ResolvedOneTime, ResolvedStream, SimWarning,
@@ -88,8 +87,6 @@ pub(super) struct RunContext<'a> {
     /// The month household spending steps down, and by what factor. `None`
     /// whenever it would be a no-op.
     pub survivor_step_down: Option<(YearMonth, f64)>,
-    /// Each account's early-withdrawal rules, parallel to `plan.accounts`.
-    pub early_access: &'a [EarlyAccess],
     pub returns: &'a dyn ReturnModel,
     pub tax: &'a dyn TaxModel,
     pub drawdown: &'a dyn DrawdownStrategy,
@@ -142,6 +139,8 @@ impl RunState {
                             a.plan_type,
                             PlanType::Ira | PlanType::SepIra | PlanType::SimpleIra
                         ),
+                    // Resolved once `simulate` has the whole plan in view.
+                    early: Default::default(),
                     nonqualified: 0.0,
                     penalized: 0.0,
                 })
@@ -245,6 +244,8 @@ pub(super) struct PeriodState {
     pub withdrawal_taxes: f64,
     /// The part of `withdrawal_taxes` that is the early-withdrawal penalty.
     pub early_withdrawal_penalty: f64,
+    /// The drawdown phase in force at the period's start, if any.
+    pub drawdown_phase: Option<String>,
     pub surplus: f64,
     pub withdrawals: BTreeMap<AccountId, f64>,
     /// Market growth applied to post-flow balances this period, summed
@@ -289,6 +290,7 @@ impl PeriodState {
             taxes: self.taxes,
             withdrawal_taxes: self.withdrawal_taxes,
             early_withdrawal_penalty: self.early_withdrawal_penalty,
+            drawdown_phase: self.drawdown_phase,
             contributions: self.contributions,
             contributions_by_account: self.contributions_by_account,
             employer_match: self.employer_match,
@@ -304,13 +306,16 @@ impl PeriodState {
 
 /// Runs every step of one period against `state`, and snapshots the result.
 pub(super) fn run(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) -> PeriodSnapshot {
-    let mut period = PeriodState::default();
+    let mut period = PeriodState {
+        drawdown_phase: run.drawdown.phase(ctx.period).map(str::to_owned),
+        ..Default::default()
+    };
     accrue_streams(run, ctx, &mut period);
     contribute(run, ctx, &mut period, state);
     deposit_one_time(run, ctx, &mut period, state);
     distribute(run, ctx, &mut period, state);
     accrue_interest(run, ctx, &mut period, state);
-    mark_early_access(run, ctx, state);
+    mark_early_access(ctx, state);
     settle(run, ctx, &mut period, state);
     period.growth += grow(run, ctx, state);
     state.prior_balances = Some(state.accounts.iter().map(|a| a.balance).collect());
@@ -594,10 +599,9 @@ fn accrue_interest(
 /// non-qualified share (a Roth's earnings are ordinary income) and the
 /// penalized share (the 10% additional tax). The drawdown reads both when
 /// it classifies a withdrawn dollar. See `early_access`.
-fn mark_early_access(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) {
-    for (account, access) in state.accounts.iter_mut().zip(run.early_access) {
-        (account.nonqualified, account.penalized) =
-            early_access::shares(access, ctx.start, ctx.end);
+fn mark_early_access(ctx: &PeriodContext, state: &mut RunState) {
+    for account in &mut state.accounts {
+        (account.nonqualified, account.penalized) = account.early.shares(ctx.start, ctx.end);
     }
 }
 

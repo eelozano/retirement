@@ -51,6 +51,13 @@ withdrawal_taxes: number,
  */
 early_withdrawal_penalty: number, 
 /**
+ * The id of the drawdown phase in force at the start of this period —
+ * a `DrawdownPhase::id` — or `None` under the proportional drawdown.
+ * Reported whether or not anything was drawn, so a view can mark the
+ * phases across the whole projection.
+ */
+drawdown_phase: string | null, 
+/**
  * Contributions deposited into accounts this period, out of household
  * income. Employer match is *not* included — it never passes through
  * the household's cash, so folding it in here would break the

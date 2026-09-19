@@ -25,6 +25,7 @@ const projection: Projection = {
       taxes: 12_000,
       withdrawal_taxes: 300,
       early_withdrawal_penalty: 0,
+      drawdown_phase: null,
       contributions: 20_000,
       contributions_by_account: { "acct-1": 20_000 },
       employer_match: 5_000,

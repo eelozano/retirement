@@ -711,12 +711,6 @@ fn validate_phases(plan: &Plan, phases: &[DrawdownPhase], errors: &mut Vec<Valid
         );
         return;
     };
-    if phases.len() > 1 {
-        err(
-            field.to_string(),
-            "An ordered drawdown can have only one phase for now.".to_string(),
-        );
-    }
     if first.start != PhaseStart::Boundary(StreamBoundary::PlanStart) {
         err(
             format!("{field}[0].start"),
@@ -1389,6 +1383,31 @@ mod tests {
             entry(StackSource::Kind(AccountKind::Roth), 0.0),
         ]);
         assert!(plan.validate().is_empty(), "{:?}", plan.validate());
+    }
+
+    #[test]
+    fn accepts_several_phases_and_catches_a_start_naming_a_missing_person() {
+        use crate::model::{DrawdownPhase, DrawdownPolicy, PhaseStart};
+        let mut plan = phased(vec![]);
+        let DrawdownPolicy::Phased(phases) = &mut plan.assumptions.drawdown else {
+            unreachable!()
+        };
+        phases.push(DrawdownPhase {
+            id: "standard".to_string(),
+            name: "Standard".to_string(),
+            start: PhaseStart::PenaltyFree("jordan".to_string()),
+            stack: vec![],
+        });
+        assert!(plan.validate().is_empty(), "{:?}", plan.validate());
+
+        let DrawdownPolicy::Phased(phases) = &mut plan.assumptions.drawdown else {
+            unreachable!()
+        };
+        phases[1].start = PhaseStart::PenaltyFree("nobody".to_string());
+        assert!(plan
+            .validate()
+            .iter()
+            .any(|e| e.field == "assumptions.drawdown[1].start"));
     }
 
     #[test]

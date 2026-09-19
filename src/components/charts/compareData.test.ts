@@ -31,6 +31,7 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     expenses_by_stream: {},
     withdrawal_taxes: 0,
     early_withdrawal_penalty: 0,
+    drawdown_phase: null,
     contributions_by_account: {},
     deflator: 1,
     ...overrides,

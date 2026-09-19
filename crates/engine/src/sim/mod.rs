@@ -273,7 +273,13 @@ pub fn simulate(
 
     // Early-withdrawal rules are fixed by birth and retirement dates, so
     // they resolve once; each period only turns them into shares.
-    let early_access = early_access::resolve(plan, &mut state.warnings);
+    for (account, access) in state
+        .accounts
+        .iter_mut()
+        .zip(early_access::resolve(plan, &mut state.warnings))
+    {
+        account.early = access;
+    }
 
     let run = RunContext {
         plan,
@@ -284,7 +290,6 @@ pub fn simulate(
         sweep_from,
         reinvest_into,
         survivor_step_down,
-        early_access: &early_access,
         returns,
         tax,
         drawdown,
@@ -356,7 +361,7 @@ pub(crate) fn calendar_period(start: YearMonth, period: usize) -> (YearMonth, Ye
     (first, january(start.year + period as i32 + 1))
 }
 
-fn resolve_boundary(
+pub(crate) fn resolve_boundary(
     plan: &Plan,
     boundary: &StreamBoundary,
     start: YearMonth,

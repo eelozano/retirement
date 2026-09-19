@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::model::{AccountId, AccountKind};
+use crate::model::{AccountId, AccountKind, YearMonth};
 use crate::strategies::{IncomeBreakdown, PeriodIndex, TaxModel};
 
 /// Mutable mid-simulation view of one account, owned by the engine loop.
@@ -16,15 +16,50 @@ pub struct AccountState {
     pub cost_basis: f64,
     /// A Roth IRA: withdrawals come out of contributions before earnings.
     pub basis_first: bool,
+    /// When this account's withdrawals stop being early. Fixed for the run.
+    pub early: EarlyAccess,
     /// Share of this period's withdrawals from this account that fall
-    /// before its owner's 59½, when a Roth's earnings are ordinary income.
-    /// Set every period by `sim::early_access`; 0 outside the simulation.
+    /// before its owner's 59½, when a Roth's earnings are ordinary income:
+    /// `early`, over the months being drawn for. Set every period by the
+    /// simulation; a strategy drawing for only part of a period may narrow
+    /// it to those months. 0 outside the simulation.
     pub nonqualified: f64,
     /// Share of this period's withdrawals that carry the 10% additional
     /// tax — `nonqualified`'s months, less any the Rule of 55 or a 457(b)
     /// exempts. On a pre-tax account it applies to the whole draw; on a
     /// Roth, to the earnings only.
     pub penalized: f64,
+}
+
+/// One account's early-withdrawal rules, as the months they stop applying —
+/// resolved once per run by `sim::early_access`. `None` means the rule never
+/// applies to this account.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct EarlyAccess {
+    /// Until this month, a Roth's earnings are ordinary income when drawn.
+    pub nonqualified_until: Option<YearMonth>,
+    /// Until this month, a draw carries the 10% additional tax.
+    pub penalized_until: Option<YearMonth>,
+}
+
+impl EarlyAccess {
+    /// The shares of the months `[start, end)` that fall before each date:
+    /// `(nonqualified, penalized)`.
+    pub fn shares(&self, start: YearMonth, end: YearMonth) -> (f64, f64) {
+        let before = |until: Option<YearMonth>| {
+            let months = start.months_until(end);
+            match until {
+                Some(until) if months > 0 => {
+                    start.months_until(until.min(end)).max(0) as f64 / months as f64
+                }
+                _ => 0.0,
+            }
+        };
+        (
+            before(self.nonqualified_until),
+            before(self.penalized_until),
+        )
+    }
 }
 
 /// The rate of the additional tax on an early distribution, IRC §72(t).
@@ -105,6 +140,13 @@ pub trait DrawdownStrategy {
         base: &IncomeBreakdown,
         period: PeriodIndex,
     ) -> WithdrawalResult;
+
+    /// The id of the drawdown phase in force at the start of `period`, for
+    /// a strategy that has phases — what `PeriodSnapshot::drawdown_phase`
+    /// reports.
+    fn phase(&self, _period: PeriodIndex) -> Option<&str> {
+        None
+    }
 }
 
 /// Income character of a set of withdrawals, stacked on the income the
@@ -172,6 +214,9 @@ fn income_with(
 /// `available` caps `gross` and is what depletion means: the most the
 /// strategy can supply. Callers return early when either `net_needed` or
 /// `available` is not positive.
+///
+/// Returns the withdrawal and the period's income with it stacked on
+/// `base` — what a second withdrawal in the same period stacks on in turn.
 pub(super) fn gross_up(
     net_needed: f64,
     available: f64,
@@ -180,7 +225,7 @@ pub(super) fn gross_up(
     base: &IncomeBreakdown,
     period: PeriodIndex,
     allocate: impl Fn(f64, &[AccountState], &mut [f64]),
-) -> WithdrawalResult {
+) -> (WithdrawalResult, IncomeBreakdown) {
     let mut amounts = vec![0.0; accounts.len()];
 
     // Fixed-point gross-up: find gross so that gross minus the tax that
@@ -197,7 +242,11 @@ pub(super) fn gross_up(
         allocate(gross, accounts, &mut amounts);
         let (income, penalized) = income_with(base, accounts, &amounts);
         let penalty = penalized * EARLY_WITHDRAWAL_PENALTY_RATE;
-        (tax.tax(&income, period).tax - base_tax + penalty, penalty)
+        (
+            tax.tax(&income, period).tax - base_tax + penalty,
+            penalty,
+            income,
+        )
     };
 
     let tolerance = 1e-12 * net_needed.max(1.0);
@@ -211,7 +260,7 @@ pub(super) fn gross_up(
         gross = next;
     }
 
-    let (owed, penalty) = marginal(gross);
+    let (owed, penalty, income) = marginal(gross);
     // `marginal` has just allocated `gross` itself, so `amounts` now holds
     // exactly what is withdrawn.
     let mut result = WithdrawalResult {
@@ -237,7 +286,7 @@ pub(super) fn gross_up(
         account.balance = if remaining > 0.0 { remaining } else { 0.0 };
         result.gross_by_account.insert(account.id.clone(), amount);
     }
-    result
+    (result, income)
 }
 
 /// Withdraw from every funded account in proportion to its balance — the
@@ -271,6 +320,7 @@ impl DrawdownStrategy for ProportionalDrawdown {
                 }
             },
         )
+        .0
     }
 }
 
@@ -307,6 +357,7 @@ mod tests {
             balance,
             cost_basis,
             basis_first: false,
+            early: EarlyAccess::default(),
             nonqualified: 0.0,
             penalized: 0.0,
         }

@@ -24,9 +24,18 @@
 //! `gross_up`'s fixed point needs, and it never draws an account past its
 //! balance, since the tranches of any one account sum to at most that
 //! balance.
+//!
+//! **Phases.** Each phase runs from its start month to the next phase's. A
+//! period a phase boundary falls inside is split at the month, as every
+//! boundary splits a period: the need is divided by the months each phase
+//! covers, and each part is drawn down its own phase's stack, the second
+//! stacked on the income of the first so the period still meets the tax
+//! schedule once. Each part is also judged early or not over its own
+//! months — a draw from the phase that starts at 59½ is never penalized,
+//! even in the year of the birthday.
 
-use crate::model::{AccountKind, DrawdownPolicy, Plan, StackSource, YearMonth};
-use crate::sim::calendar_period;
+use crate::model::{AccountKind, DrawdownPolicy, PhaseStart, Plan, StackSource, YearMonth};
+use crate::sim::{calendar_period, resolve_boundary};
 
 use super::drawdown::gross_up;
 use super::WithdrawalResult;
@@ -54,6 +63,9 @@ struct Rung {
 
 #[derive(Debug)]
 struct Phase {
+    id: String,
+    /// The month it takes over from the phase before.
+    start: YearMonth,
     rungs: Vec<Rung>,
     /// Accounts no rung names, in plan order: the fallback's members.
     unlisted: Vec<usize>,
@@ -69,6 +81,7 @@ struct Tranche {
 }
 
 pub struct PhasedDrawdown {
+    /// In start order.
     phases: Vec<Phase>,
     start: YearMonth,
     inflation: f64,
@@ -77,18 +90,30 @@ pub struct PhasedDrawdown {
 impl PhasedDrawdown {
     /// `None` for a plan whose policy is not `Phased`.
     ///
-    /// Stack entries are resolved here, once: an `Account` entry to its
-    /// index, a `Kind` entry to every account of that kind no earlier entry
-    /// named. An account named twice is drawn where it is first named. An
-    /// entry naming an account the plan does not have resolves to nothing —
-    /// validation refuses one, so only an unvalidated plan reaches it.
+    /// Everything is resolved here, once. A phase's start becomes a month,
+    /// the way a stream's boundary does; phases then run in the order of
+    /// those months, and two that start in the same month leave the one
+    /// listed later in force. A stack's `Account` entry becomes an index, a
+    /// `Kind` entry every account of that kind no earlier entry named, and
+    /// an account named twice is drawn where it is first named.
+    ///
+    /// A start that cannot be resolved — a person no longer in the plan —
+    /// or an entry naming a missing account drops out: validation refuses
+    /// both, so only an unvalidated plan reaches either.
     pub fn new(plan: &Plan) -> Option<Self> {
         let DrawdownPolicy::Phased(phases) = &plan.assumptions.drawdown else {
             return None;
         };
-        let phases = phases
+        let (plan_start, plan_end) = (plan.sim_config.start, plan.end_month());
+        let mut phases: Vec<Phase> = phases
             .iter()
-            .map(|phase| {
+            .filter_map(|phase| {
+                let start = match &phase.start {
+                    PhaseStart::Boundary(boundary) => {
+                        resolve_boundary(plan, boundary, plan_start, plan_end)?
+                    }
+                    PhaseStart::PenaltyFree(person) => plan.person(person)?.penalty_free_month(),
+                };
                 let mut claimed = vec![false; plan.accounts.len()];
                 let rungs = phase
                     .stack
@@ -117,9 +142,15 @@ impl PhasedDrawdown {
                     })
                     .collect();
                 let unlisted = (0..plan.accounts.len()).filter(|&i| !claimed[i]).collect();
-                Phase { rungs, unlisted }
+                Some(Phase {
+                    id: phase.id.clone(),
+                    start,
+                    rungs,
+                    unlisted,
+                })
             })
             .collect();
+        phases.sort_by_key(|phase| phase.start);
         Some(PhasedDrawdown {
             phases,
             start: plan.sim_config.start,
@@ -127,10 +158,34 @@ impl PhasedDrawdown {
         })
     }
 
-    /// The phase in force in `period`. One phase for now: validation allows
-    /// no more until phase boundaries are resolved.
-    fn phase(&self, _period: PeriodIndex) -> Option<&Phase> {
-        self.phases.first()
+    /// The phase in force in `month`: the last to start on or before it.
+    /// The first phase starts at plan start, so it also covers anything
+    /// earlier.
+    fn phase_at(&self, month: YearMonth) -> Option<usize> {
+        match self.phases.iter().rposition(|phase| phase.start <= month) {
+            Some(i) => Some(i),
+            None if self.phases.is_empty() => None,
+            None => Some(0),
+        }
+    }
+
+    /// The phases `[start, end)` falls in, each with the months of it that
+    /// phase covers.
+    fn segments(&self, start: YearMonth, end: YearMonth) -> Vec<(usize, YearMonth, YearMonth)> {
+        let mut out = Vec::new();
+        let mut from = start;
+        while from < end {
+            let Some(i) = self.phase_at(from) else {
+                break;
+            };
+            let to = self
+                .phases
+                .get(i + 1)
+                .map_or(end, |next| next.start.min(end));
+            out.push((i, from, to));
+            from = to;
+        }
+        out
     }
 
     /// What a today's-dollar floor is worth in `period`: grown by inflation
@@ -228,26 +283,27 @@ fn pour(tranches: &[Tranche], gross: f64, out: &mut [f64]) {
     }
 }
 
-impl DrawdownStrategy for PhasedDrawdown {
-    fn withdraw(
+impl PhasedDrawdown {
+    /// Draws `net_needed` down one phase's waterfall, stacked on `base`.
+    /// Returns the withdrawal and the income it leaves the period with.
+    #[allow(clippy::too_many_arguments)]
+    fn withdraw_in(
         &self,
+        phase: &Phase,
         net_needed: f64,
         accounts: &mut [AccountState],
         tax: &dyn TaxModel,
         base: &IncomeBreakdown,
         period: PeriodIndex,
-    ) -> WithdrawalResult {
-        let Some(phase) = self.phase(period) else {
-            return WithdrawalResult::default();
-        };
+    ) -> (WithdrawalResult, IncomeBreakdown) {
         let tranches = tranches(phase, accounts, self.floor_factor(period));
         let available: f64 = tranches.iter().map(|t| t.capacity).sum();
         if net_needed <= 0.0 || available <= 0.0 {
-            return WithdrawalResult::default();
+            return (WithdrawalResult::default(), *base);
         }
 
         let ids: Vec<_> = accounts.iter().map(|a| a.id.clone()).collect();
-        let mut result = gross_up(
+        let (mut result, income) = gross_up(
             net_needed,
             available,
             accounts,
@@ -276,7 +332,68 @@ impl DrawdownStrategy for PhasedDrawdown {
             }
             poured += tranche.capacity;
         }
-        result
+        (result, income)
+    }
+}
+
+impl DrawdownStrategy for PhasedDrawdown {
+    fn withdraw(
+        &self,
+        net_needed: f64,
+        accounts: &mut [AccountState],
+        tax: &dyn TaxModel,
+        base: &IncomeBreakdown,
+        period: PeriodIndex,
+    ) -> WithdrawalResult {
+        let (start, end) = calendar_period(self.start, period);
+        let segments = self.segments(start, end);
+        if let [(phase, _, _)] = segments[..] {
+            return self
+                .withdraw_in(&self.phases[phase], net_needed, accounts, tax, base, period)
+                .0;
+        }
+
+        // A phase boundary inside the period: each phase draws for its own
+        // months, judged early or not over those months alone.
+        let months = start.months_until(end) as f64;
+        let mut stacked = *base;
+        let mut total = WithdrawalResult::default();
+        for (phase, from, to) in segments {
+            for account in accounts.iter_mut() {
+                (account.nonqualified, account.penalized) = account.early.shares(from, to);
+            }
+            let share = from.months_until(to) as f64 / months;
+            let (result, income) = self.withdraw_in(
+                &self.phases[phase],
+                net_needed * share,
+                accounts,
+                tax,
+                &stacked,
+                period,
+            );
+            stacked = income;
+            for (id, amount) in result.gross_by_account {
+                *total.gross_by_account.entry(id).or_insert(0.0) += amount;
+            }
+            total.tax += result.tax;
+            total.penalty += result.penalty;
+            total.net += result.net;
+            for id in result.floors_released {
+                if !total.floors_released.contains(&id) {
+                    total.floors_released.push(id);
+                }
+            }
+        }
+        // Leave the period's own shares as the simulation marked them.
+        for account in accounts.iter_mut() {
+            (account.nonqualified, account.penalized) = account.early.shares(start, end);
+        }
+        total
+    }
+
+    fn phase(&self, period: PeriodIndex) -> Option<&str> {
+        let (start, _) = calendar_period(self.start, period);
+        self.phase_at(start).map(|i| self.phases[i].id.as_str())
     }
 }
 
@@ -287,7 +404,7 @@ mod tests {
         DrawdownPhase, FilingStatus, PhaseStart, StackEntry, StateTaxProfile, StreamBoundary,
     };
     use crate::presets::seed_plan;
-    use crate::strategies::BracketTax;
+    use crate::strategies::{BracketTax, EarlyAccess};
 
     fn assert_close(actual: f64, expected: f64, label: &str) {
         assert!(
@@ -314,6 +431,7 @@ mod tests {
             balance,
             cost_basis,
             basis_first: false,
+            early: EarlyAccess::default(),
             nonqualified: 0.0,
             penalized: 0.0,
         }
@@ -604,6 +722,49 @@ mod tests {
             "base bill plus marginal cost is the whole period's bill",
         );
         assert_close(result.net, 150_000.0, "the gross-up covers the need");
+    }
+
+    /// Phases take over at their start month, in date order whatever order
+    /// they are listed in, and a year a start falls inside is split there.
+    #[test]
+    fn a_year_is_split_at_each_phase_start() {
+        let mut plan = seed_plan();
+        let phase = |id: &str, start: PhaseStart| DrawdownPhase {
+            id: id.to_string(),
+            name: id.to_string(),
+            start,
+            stack: vec![],
+        };
+        plan.assumptions.drawdown = DrawdownPolicy::Phased(vec![
+            phase("first", PhaseStart::Boundary(StreamBoundary::PlanStart)),
+            // Listed out of order on purpose.
+            phase(
+                "third",
+                PhaseStart::Boundary(StreamBoundary::Date(YearMonth::new(2041, 1))),
+            ),
+            // Alex, born August 1983, reaches 59½ in February 2043.
+            phase("second", PhaseStart::PenaltyFree("alex".to_string())),
+        ]);
+        let drawdown = PhasedDrawdown::new(&plan).unwrap();
+        let ids = |segments: Vec<(usize, YearMonth, YearMonth)>| -> Vec<(&str, i64)> {
+            segments
+                .into_iter()
+                .map(|(i, from, to)| (drawdown.phases[i].id.as_str(), from.months_until(to)))
+                .collect()
+        };
+        let year = |y: i32| (YearMonth::new(y, 1), YearMonth::new(y + 1, 1));
+
+        let (s, e) = year(2030);
+        assert_eq!(ids(drawdown.segments(s, e)), vec![("first", 12)]);
+        let (s, e) = year(2041);
+        assert_eq!(ids(drawdown.segments(s, e)), vec![("third", 12)]);
+        let (s, e) = year(2043);
+        assert_eq!(
+            ids(drawdown.segments(s, e)),
+            vec![("third", 1), ("second", 11)]
+        );
+        let (s, e) = year(2044);
+        assert_eq!(ids(drawdown.segments(s, e)), vec![("second", 12)]);
     }
 
     /// Floors are today's dollars: at 3% inflation a $10,000 floor holds

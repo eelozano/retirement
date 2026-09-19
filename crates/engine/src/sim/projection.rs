@@ -137,6 +137,11 @@ pub struct PeriodSnapshot {
     /// early withdrawals, not income tax — see `sim::early_access`. A share
     /// of it, never an addition: `taxes` already counts it once.
     pub early_withdrawal_penalty: f64,
+    /// The id of the drawdown phase in force at the start of this period —
+    /// a `DrawdownPhase::id` — or `None` under the proportional drawdown.
+    /// Reported whether or not anything was drawn, so a view can mark the
+    /// phases across the whole projection.
+    pub drawdown_phase: Option<String>,
     /// Contributions deposited into accounts this period, out of household
     /// income. Employer match is *not* included — it never passes through
     /// the household's cash, so folding it in here would break the

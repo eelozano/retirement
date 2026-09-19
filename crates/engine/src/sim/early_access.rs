@@ -11,10 +11,11 @@
 //!
 //! Both are law with no annual publication, so they live in code rather
 //! than in `TaxFigures` (CLAUDE.md). Each is resolved once per run to the
-//! month it stops applying, then turned into a per-period share by
-//! [`shares`]: a period straddling the month is split at it, exactly as a
-//! stream's boundary splits a period, on the assumption that a year's
-//! withdrawals are spread evenly through it.
+//! month it stops applying — an [`EarlyAccess`] on each account's state —
+//! and turned into a share of each period by `EarlyAccess::shares`: a period
+//! straddling the month is split at it, exactly as a stream's boundary
+//! splits a period, on the assumption that a year's withdrawals are spread
+//! evenly through it.
 //!
 //! Out of scope, and documented as such in ARCHITECTURE.md: 72(t)/SEPP, the
 //! public-safety age-50 rule, the SIMPLE IRA's 25% first-two-years rule,
@@ -22,23 +23,10 @@
 //! withdrawals — which `AccountKind::Hsa` already assumes do not happen.
 
 use crate::model::{AccountKind, Plan, PlanType, YearMonth};
+use crate::strategies::EarlyAccess;
 
 use super::period::Warnings;
 use super::{Rule55Ineligibility, SimWarning};
-
-/// The months after the 59th birthday at which a person reaches 59½ — the
-/// IRS counts it as six calendar months on.
-const HALF_YEAR_MONTHS: i64 = 6;
-
-/// One account's early-withdrawal rules, as the months they stop applying.
-/// `None` means the rule never applies to this account.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub(super) struct EarlyAccess {
-    /// Until this month, a Roth's earnings are ordinary income when drawn.
-    pub nonqualified_until: Option<YearMonth>,
-    /// Until this month, the penalized part of a draw carries the 10%.
-    pub penalized_until: Option<YearMonth>,
-}
 
 /// Resolves every account's rules, in plan account order, and reports each
 /// Rule of 55 election that does not hold.
@@ -66,7 +54,7 @@ pub(super) fn resolve(plan: &Plan, warnings: &mut Warnings) -> Vec<EarlyAccess> 
                 // test against, so no rule is invented.
                 return EarlyAccess::default();
             };
-            let age_59_half = owner.month_at_age(59).add_months(HALF_YEAR_MONTHS);
+            let age_59_half = owner.penalty_free_month();
 
             // 457(b) distributions carry no additional tax at any age: the
             // plan is exempt from §72(t) altogether.
@@ -119,19 +107,4 @@ fn rule_of_55(
         return Err(Rule55Ineligibility::SeparatedBefore55);
     }
     Ok(person.retirement)
-}
-
-/// The share of the period `[start, end)` that falls before `until`.
-fn share_before(until: Option<YearMonth>, start: YearMonth, end: YearMonth) -> f64 {
-    until.map_or(0.0, |until| {
-        super::overlap_fraction(start, end, start, until)
-    })
-}
-
-/// This period's shares for one account: `(nonqualified, penalized)`.
-pub(super) fn shares(access: &EarlyAccess, start: YearMonth, end: YearMonth) -> (f64, f64) {
-    (
-        share_before(access.nonqualified_until, start, end),
-        share_before(access.penalized_until, start, end),
-    )
 }

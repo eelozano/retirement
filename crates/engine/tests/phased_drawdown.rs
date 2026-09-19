@@ -3,10 +3,12 @@
 //! tests beside `strategies::PhasedDrawdown`.
 
 use engine::model::{
-    DrawdownPhase, DrawdownPolicy, PhaseStart, Plan, StackEntry, StackSource, StreamBoundary,
-    StreamDirection, TaxFigures,
+    Account, AccountKind, AllocationRef, DrawdownPhase, DrawdownPolicy, FilingStatus, GrowthRule,
+    Person, PhaseStart, Plan, PlanType, StackEntry, StackSource, StateTaxProfile, StreamBoundary,
+    StreamDirection, TaxFigures, YearMonth,
 };
 use engine::presets::seed_plan;
+use engine::strategies::{BracketTax, IncomeBreakdown, TaxModel};
 use engine::{run_deterministic, run_monte_carlo, MonteCarloConfig, SimWarning};
 
 fn with_stack(mut plan: Plan, stack: Vec<StackEntry>) -> Plan {
@@ -117,4 +119,202 @@ fn monte_carlo_runs_a_phased_plan() {
     );
     assert!((0.0..=1.0).contains(&result.success_rate));
     assert_eq!(result.percentiles.len(), 58);
+}
+
+/// The household this feature was built for, with invented balances: one
+/// spouse retires in the year they turn 55 and relies on the Rule of 55 for
+/// their 403(b); the other retires at 51, and their 401(k) is not to be
+/// touched until they reach 59½. A bridge phase draws the 403(b), and a
+/// standard phase starting at the younger spouse's 59½ opens their 401(k).
+///
+/// Zero returns and inflation, so the only thing moving the balances is the
+/// drawdown.
+fn bridge_household() -> Plan {
+    let person = |id: &str, birth: YearMonth| Person {
+        id: id.to_string(),
+        name: id.to_string(),
+        birth,
+        retirement: YearMonth::new(2026, 1),
+        life_expectancy_age: 70,
+    };
+    let account = |id: &str, owner: &str, kind: AccountKind, plan_type, balance, basis| Account {
+        id: id.to_string(),
+        owner: owner.to_string(),
+        kind,
+        name: id.to_string(),
+        balance,
+        cost_basis: basis,
+        allocation: AllocationRef::FixedRate(0.0),
+        plan_type,
+        contributions: vec![],
+        one_time_contributions: vec![],
+        employer_match: None,
+        rule_of_55: false,
+    };
+    let mut his_403b = account(
+        "his-403b",
+        "him",
+        AccountKind::TraditionalPreTax,
+        PlanType::EmployerPlan,
+        1_500_000.0,
+        None,
+    );
+    his_403b.rule_of_55 = true;
+
+    let mut plan = seed_plan();
+    plan.people = vec![
+        // Turns 55 in 2026: separating in January 2026 qualifies.
+        person("him", YearMonth::new(1971, 6)),
+        // 51 in 2026; 59½ in July 2034.
+        person("her", YearMonth::new(1975, 1)),
+    ];
+    plan.accounts = vec![
+        his_403b,
+        account(
+            "her-401k",
+            "her",
+            AccountKind::TraditionalPreTax,
+            PlanType::EmployerPlan,
+            800_000.0,
+            None,
+        ),
+        account(
+            "brokerage",
+            "him",
+            AccountKind::Taxable,
+            PlanType::None,
+            300_000.0,
+            Some(300_000.0),
+        ),
+    ];
+    plan.streams
+        .retain(|s| s.direction == StreamDirection::Expense);
+    for stream in &mut plan.streams {
+        stream.owner = None;
+        stream.start = StreamBoundary::PlanStart;
+        stream.end = StreamBoundary::PlanEnd;
+        stream.annual_amount = 90_000.0;
+        stream.growth = GrowthRule::None;
+    }
+    plan.streams.truncate(1);
+    plan.social_security = vec![];
+    plan.sim_config.start = YearMonth::new(2026, 1);
+    plan.assumptions.inflation = 0.0;
+    plan.assumptions.filing_status = FilingStatus::MarriedFilingJointly;
+    plan.assumptions.state_tax = StateTaxProfile::none();
+    plan.assumptions.strategy_returns = Default::default();
+    plan.assumptions.sweep_surplus_from = None;
+    plan.assumptions.reinvest_into = None;
+    plan.assumptions.drawdown = DrawdownPolicy::Phased(vec![
+        DrawdownPhase {
+            id: "bridge".to_string(),
+            name: "Bridge to 59½".to_string(),
+            start: PhaseStart::Boundary(StreamBoundary::PlanStart),
+            stack: vec![account_entry("his-403b"), account_entry("brokerage")],
+        },
+        DrawdownPhase {
+            id: "standard".to_string(),
+            name: "Standard".to_string(),
+            start: PhaseStart::PenaltyFree("her".to_string()),
+            stack: vec![account_entry("her-401k"), account_entry("his-403b")],
+        },
+    ]);
+    plan
+}
+
+fn account_entry(id: &str) -> StackEntry {
+    account(id, 0.0)
+}
+
+#[test]
+fn the_bridge_household_validates() {
+    let errors = bridge_household().validate();
+    assert!(errors.is_empty(), "{errors:?}");
+}
+
+/// Her 401(k) is untouched until the month she reaches 59½, is drawn from
+/// then on — including the back half of the year she reaches it — and
+/// nothing the household draws is ever penalized.
+#[test]
+fn the_bridge_leaves_her_401k_alone_until_59_and_a_half() {
+    let projection = run_deterministic(&bridge_household(), &TaxFigures::built_in());
+    let drawn =
+        |s: &engine::PeriodSnapshot, id: &str| s.withdrawals.get(id).copied().unwrap_or(0.0);
+
+    for snapshot in &projection.snapshots {
+        let year = snapshot.period_start.year;
+        assert_eq!(
+            snapshot.early_withdrawal_penalty, 0.0,
+            "{year}: the 403(b) is covered by the Rule of 55 and her 401(k) waits"
+        );
+        if year < 2034 {
+            assert_eq!(
+                drawn(snapshot, "her-401k"),
+                0.0,
+                "{year}: her 401(k) touched"
+            );
+            assert!(
+                drawn(snapshot, "his-403b") > 0.0,
+                "{year}: the bridge draws the 403(b)"
+            );
+            assert_eq!(snapshot.drawdown_phase.as_deref(), Some("bridge"));
+        }
+    }
+
+    // 2034 is split at July: the first half of the year's need from the
+    // 403(b), the second from her 401(k).
+    let straddle = &projection.snapshots[8];
+    assert_eq!(straddle.period_start.year, 2034);
+    assert!(drawn(straddle, "his-403b") > 0.0);
+    assert!(drawn(straddle, "her-401k") > 0.0);
+    assert_eq!(straddle.drawdown_phase.as_deref(), Some("bridge"));
+
+    let after = &projection.snapshots[9];
+    assert_eq!(after.drawdown_phase.as_deref(), Some("standard"));
+    assert!(drawn(after, "her-401k") > 0.0);
+    assert_eq!(drawn(after, "his-403b"), 0.0, "her 401(k) comes first now");
+}
+
+/// Without the election, the same bridge pays the 10% on every 403(b)
+/// dollar he draws before his own 59½.
+#[test]
+fn without_the_rule_of_55_the_bridge_is_penalized() {
+    let mut plan = bridge_household();
+    plan.accounts[0].rule_of_55 = false;
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    assert!(projection.snapshots[0].early_withdrawal_penalty > 0.0);
+}
+
+/// A year split between two phases still meets the tax schedule once: its
+/// whole tax bill is the bill on everything drawn, whichever phase drew it.
+#[test]
+fn a_split_year_is_taxed_as_one_stack() {
+    let projection = run_deterministic(&bridge_household(), &TaxFigures::built_in());
+    let straddle = &projection.snapshots[8];
+    let gross: f64 = straddle.withdrawals.values().sum();
+    let tax = BracketTax::new(
+        &TaxFigures::built_in(),
+        FilingStatus::MarriedFilingJointly,
+        StateTaxProfile::none(),
+        0.0,
+        TaxFigures::built_in().tax_year,
+    );
+    let expected = tax
+        .tax(
+            &IncomeBreakdown {
+                ordinary: gross,
+                ..Default::default()
+            },
+            straddle.period,
+        )
+        .tax;
+    assert!(
+        (straddle.taxes - expected).abs() < 1e-6,
+        "{} vs {expected}",
+        straddle.taxes
+    );
+    assert!(
+        (gross - straddle.taxes - 90_000.0).abs() < 1e-6,
+        "the need is met"
+    );
 }
