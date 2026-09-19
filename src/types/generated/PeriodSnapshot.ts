@@ -106,7 +106,7 @@ growth: number, net_worth: number,
  * Exact for the flows (`income`, `expenses`, and the rest), which are
  * grown by the same exponent. `balances` and `net_worth` are
  * end-of-period figures, so a real-dollar balance carries one year of
- * inflation this does not remove — about 2.5% at the default
+ * inflation this does not remove — about 3% at the default
  * assumption, uniformly across the projection. Scenario deltas,
  * depletion years and success rates are unaffected. A documented
  * convention rather than a second field; see "Time conventions" in

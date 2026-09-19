@@ -3,16 +3,18 @@
 Local, privacy-first retirement projection app (ProjectionLab/Boldin-inspired).
 Tauri v2 · React 19 + TypeScript + Vite frontend · pure-Rust simulation engine.
 
-The full approved architecture blueprint (data model, traits, V2 extension
-points) lives in `docs/ARCHITECTURE.md`. Read it before changing the engine.
+How the app is built and why — the data model, the engine's conventions,
+the adapter's files and commands, what the design was shaped to accept and
+where it pushes back — lives in `docs/ARCHITECTURE.md`. Read it before
+changing the engine.
 
 ## Privacy rule (non-negotiable)
 
 Real financial data is NEVER committed to git. Plans are YAML files stored in
 a user-configurable location (Documents/Retirement Planner by default,
-changeable in-app under Storage); `data/` is the optional next-to-repo
-location and is git-ignored. Keep `.gitignore` covering both. Never add
-cloud/network dependencies for user data.
+changeable in-app under Settings → Plan storage); `data/` is the optional
+next-to-repo location and is git-ignored. Keep `.gitignore` covering both.
+Never add cloud/network dependencies for user data.
 
 The single deliberate exception is `fixtures/demo/demo-household.yaml` — one
 invented household and the five scenarios branched from it, committed so the
@@ -31,10 +33,10 @@ survives a rename, so invented balances stay labelled as invented.
 
 `pnpm demo` runs the app against a throwaway copy of those fixtures instead of
 the real plans directory — it sets `RETIREMENT_DATA_DIR`, which relocates
-settings and plans both. Anything that leaves the machine (screenshots,
-recordings, bug reports) must be produced that way. Because the root is
-disposable, adding, editing and deleting plans during a demo run needs no
-caution at all; see `.claude/skills/run-app/SKILL.md`.
+settings, plans and `tax-figures.yaml` together. Anything that leaves the
+machine (screenshots, recordings, bug reports) must be produced that way.
+Because the root is disposable, adding, editing and deleting plans during a
+demo run needs no caution at all; see `.claude/skills/run-app/SKILL.md`.
 
 ## Architecture invariants
 
@@ -63,6 +65,21 @@ caution at all; see `.claude/skills/run-app/SKILL.md`.
   behavior that fits none of them is a new **step**: a function over
   `PeriodState` in `sim/period.rs`, not new statements inside `simulate`.
 - Money is `f64`; round only at the display layer.
+- **Yearly statutory figures are data, not code.** The federal brackets, the
+  standard deduction and the contribution limits for one tax year are a
+  `TaxFigures` value that `simulate` takes as an argument; the app reads it
+  from the user's `tax-figures.yaml`. A new annually published dollar figure
+  goes into `TaxFigures`, not into an engine constant. Law with no annual
+  publication — the Social Security taxability thresholds, the RMD ages and
+  Uniform Lifetime table, the HSA age-55 catch-up — stays in code.
+- **An upgrade does not change a saved plan's projection.** Every migration
+  (the `*Wire` types, `serde(default)`) is written so a plan saved by an
+  older version projects identically after it, because reopening a plan has
+  to mean what it meant last time. Breaking that takes a reason of the
+  strength #129 had — the old default volatilities were *wrong*, making every
+  fan too narrow, not merely improvable — and the PR body and the release
+  notes say so and measure the change. The same rule is why a release never
+  overwrites a user's `tax-figures.yaml`.
 
 ## Branch & PR workflow
 
@@ -72,7 +89,16 @@ caution at all; see `.claude/skills/run-app/SKILL.md`.
 - Commit freely in small steps on a branch; squash merge keeps `main` linear.
 - Releases use a `0.x` scheme (`v0.1`, `v0.2`, …). Bump `package.json`,
   `Cargo.toml` (`workspace.package.version`), and `src-tauri/tauri.conf.json`
-  together — all three, or none — then tag `v0.N` on `main`.
+  together — all three, or none; `Cargo.lock` follows — then tag `v0.N` on
+  `main`.
+- Before the release PR, bring the docs up to what the release changed:
+  README's features and any screenshot of a screen that changed (retake from
+  `pnpm demo:reset` — the run-app skill has a section on it), and
+  `docs/ARCHITECTURE.md` for anything it states that is no longer so.
+- Release notes say plainly when saved plans will project differently (see
+  the invariant above) and by how much. When the built-in `TaxFigures`
+  changed, they also say that existing installs keep their own
+  `tax-figures.yaml` until the user resets it under Settings → Tax figures.
 - Every release carries the built `.dmg` as an asset: `pnpm app:build`, then
   `gh release create v0.N --generate-notes <dmg>`. It is unsigned and Apple
   Silicon only, and installing from the download has not been tested on a
@@ -109,7 +135,9 @@ caution at all; see `.claude/skills/run-app/SKILL.md`.
 - `pnpm app:build` — build the installable `.dmg` for real use.
 - `pnpm check` — **run this before pushing.** It chains every gate CI runs, in
   the same order: fmt, clippy, cargo test, type regeneration + drift check,
-  Biome lint, tsc, vitest. Green here means green in CI.
+  Biome lint, tsc, the production Vite build, vitest. Green here means green
+  in CI. The drift check fails on regenerated bindings that are unstaged or
+  untracked, so stage `src/types/generated/` after a type change.
 - `cargo test -p engine` — engine tests alone (also exports ts-rs bindings).
 - `UPDATE_FIXTURES=1 cargo test -p retirement --test demo_fixtures` —
   regenerate `fixtures/demo/demo-household.yaml` after an intentional schema
@@ -123,14 +151,13 @@ ts-rs output would make the CI drift check fail permanently.
 
 ## Status
 
-V1 shipped; the app is released and in real use (`v0.7`). Current and planned
-work lives in GitHub issues, not in this file — `gh issue list`.
+Released and in real use; `gh release list` has the current version. Current
+and planned work lives in GitHub issues — `gh issue list` — and nowhere else
+in the repo: there is no backlog file, and an idea becomes an issue when it
+is actually going to be built.
 
-Design intent for work not yet built is in `docs/ARCHITECTURE.md`: which
-extensions the traits and schema were shaped to accept, and why. That is
-rationale, and it stays accurate whether or not anything is built on it.
-
-`docs/BACKLOG.md` is the third place, and the loosest: feature ideas worked up
-far enough to be judged but not committed to. Nothing there is scheduled. An
-entry becomes a GitHub issue when it is actually going to be built, and is
-deleted from the backlog at that point rather than left as a stale copy.
+`docs/ARCHITECTURE.md` describes code that exists, plus which extensions the
+traits and schema were shaped to accept and where the current design would
+push back. That last part is rationale, and it stays accurate whether or not
+anything is built on it. Keep the rest current: a change that makes a
+statement there untrue updates it in the same PR.
