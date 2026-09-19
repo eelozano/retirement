@@ -11,7 +11,7 @@ you choose. No cloud, no accounts, no telemetry, no network calls.
 
 ## What it looks like
 
-![The Plan screen: a probability-of-success tile reading 94% of 5,000 paths, a
+![The Plan screen: a probability-of-success tile reading 82% of 5,000 paths, a
 fund-depletion tile reading Never, a notice that the balances are as of Jan
 2026, and a stacked area chart of net worth and account balances through 2072,
 with a year inspector pinned to 2042.](docs/screenshots/plan.png)
@@ -60,8 +60,8 @@ save it as a scenario of its own.
 ![The What-if screen with sliders for retirement dates, spending, returns,
 volatility, inflation and life expectancy, comparing the Base plan to a
 hypothetical where Alex retires two years earlier and spending is cut to 92%:
-$789K less at plan end, and a 95% probability of success against the plan's
-94%.](docs/screenshots/what-if.png)
+$769.6K less at plan end, and an 83% probability of success against the plan's
+82%.](docs/screenshots/what-if.png)
 
 **Cash flow.** Money in above the line and money out below it, year by year,
 then where it actually went in the year you pick, as a Sankey — salaries and
@@ -90,18 +90,41 @@ growth.](docs/screenshots/growth.png)
 autosaves.
 
 ![The Inputs screen with People, Accounts and Spending in a left rail, editing
-a person's birth month, retirement month, life expectancy and
-salary.](docs/screenshots/inputs.png)
+a person's birth month, retirement month — with the age it falls at — life
+expectancy and salary.](docs/screenshots/inputs.png)
+
+**Pensions.** A pension is entered the way the statement quotes it: the
+monthly check at its first payment, whether it has a cost-of-living
+adjustment, and whether it is paid over one life or two — and if two, what
+share continues to the survivor. It sits beside the same person's Social
+Security. Its start, like any income's or expense's, can be a month, a
+retirement or an age, and an end can also be a death.
+
+![Jordan's Social Security benefit above a pension card: $1,500 a month from
+Jordan's retirement, no cost-of-living adjustment, paid over both lives with
+a 50% survivor share.](docs/screenshots/pension.png)
+
+**Assumptions.** One expected return and one volatility per investment
+strategy — the level you would actually reason at, rather than a table of
+asset classes. Each figure says what it means: the real return after the
+plan's inflation, and what a Monte Carlo path compounds at once years vary.
+
+![The Assumptions pane's investment strategies: Aggressive, Moderate and
+Conservative, each with an expected return and a volatility, the accounts
+using it, and a line giving the real return and the rate Monte Carlo paths
+compound at.](docs/screenshots/assumptions.png)
 
 **Accounts.** The balance sheet as a table, with the account under the cursor
-open for editing beneath it. Each balance carries the month it was read.
+open for editing beneath it. Each balance carries the month it was read, and
+each account's growth is a strategy's return or a fixed rate of its own.
 Saving is dated: the demo household's brokerage runs two overlapping
 schedules, its 401(k) escalates from 10% to 15% of salary, and one Roth IRA
 has a zero balance because it doesn't open until 2029.
 
-![The Accounts table listing seven accounts with a contributing column reading
-"2 schedules", "10% → 15% of salary" and "Max", and an as-of column, above the
-editor for the joint brokerage.](docs/screenshots/accounts.png)
+![The Accounts table listing seven accounts with an allocation column reading
+"Aggressive (7.5%)", "Moderate (6.7%)" and "Fixed 2.0%", a contributing column
+reading "2 schedules", "10% → 15% of salary" and "Max", and an as-of column,
+above the editor for the joint brokerage.](docs/screenshots/accounts.png)
 
 **One-time contributions.** Money from outside the plan — a house sale, an
 inheritance — named, dated, and landing in one account once. The demo's "Sell
@@ -120,6 +143,15 @@ every scenario of the household at once.
 ![The Update balances screen: a month picker, then a table of seven accounts
 showing each one's last reading and date beside a field for the new balance
 and cost basis.](docs/screenshots/update-balances.png)
+
+**Tax figures.** The federal brackets, standard deduction and contribution
+limits for one tax year, in a file you can edit here or by hand when the IRS
+publishes the next year's. Every plan is projected with them, indexed
+forward from their own tax year.
+
+![The Tax figures editor from Settings: a tax year of 2026, a filing-status
+switch, the standard deduction, and the ordinary-income brackets from 10% to
+37% above the long-term capital-gains brackets.](docs/screenshots/tax-figures.png)
 
 </details>
 
@@ -342,8 +374,31 @@ there — it just doesn't bundle an installer.
 - **Social Security modeling.** Benefits are first-class (PIA + claiming age)
   rather than a hand-computed dollar figure, so changing the claiming age
   recomputes interactively.
+- **Pensions.** The monthly benefit at its first payment, an optional
+  cost-of-living adjustment, and single-life or joint payment with the share
+  that continues to the survivor.
+- **Dates that follow the plan.** Any income, expense or contribution can
+  start or end at a specific month, at someone's retirement, or at an age
+  ("Alex turns 65"), and can end at a death, so moving a retirement date or
+  a life expectancy moves everything tied to it. Each retirement date shows
+  the age it falls at.
 - **Federal and state tax brackets.** Bracket-level modeling with filing
-  status, standard deduction, and Social Security taxability thresholds.
+  status, the standard deduction, long-term capital-gains brackets, and
+  Social Security taxability thresholds. Federal figures index with the
+  plan's inflation rate from the tax year they were published for, so a
+  flat real income doesn't creep into higher brackets.
+- **Tax figures you can update.** The federal brackets, standard deduction
+  and contribution limits live in one file, editable under **Settings → Tax
+  figures** or by hand, so a new tax year doesn't have to wait for a new
+  release.
+- **Growth at the level you think about it.** Three investment strategies,
+  each one expected return and one volatility you can edit, or a fixed rate
+  on any single account. The pane says what each return means — nominal, the
+  real return after inflation, and what a year-by-year path actually
+  compounds at.
+- **Leftover cash, handled on purpose.** You choose when surplus income
+  starts being invested — never, from the start, or from a later point such
+  as a retirement — and which account it goes into.
 - **Required minimum distributions.** Forced pre-tax withdrawals once an owner
   reaches the applicable age.
 - **Per-person life expectancy.** Each person carries their own, so the
@@ -389,10 +444,18 @@ there — it just doesn't bundle an installer.
 - **Validation before simulation.** Plans are checked before they're simulated
   or saved, with plain-language error messages.
 
-The statutory figures (contribution limits, brackets, thresholds) are compiled
-in, not fetched — the app makes no network calls. They carry the tax year they
-were published for, surfaced in the UI, so a projection never implies the
-numbers are live. They go stale between releases.
+The yearly tax figures — federal brackets, the standard deduction, and every
+contribution limit — are never fetched; the app makes no network calls. The
+first time it runs it writes its built-in set to `tax-figures.yaml`, and from
+then on that file is what every plan uses: editable under **Settings → Tax
+figures** or by hand, and indexed forward from its own tax year. **A new
+release never overwrites it**, so your numbers don't move when you upgrade;
+they are as current as you keep them. To take a newer release's built-in
+figures, use **Reset to built-in** in the editor and save, or delete the file.
+If the file can't be read, the built-in figures stand in and Settings says
+why. The figures that aren't published yearly — the Social Security
+taxability thresholds, the RMD ages and table, the HSA age-55 catch-up — are
+compiled in.
 
 ## Where your data lives
 
@@ -407,9 +470,15 @@ Correct it in one and it is corrected in all of them, because there was never
 more than one copy — which is also what makes comparing two scenarios honest,
 since they cannot differ on anything but the decisions you were comparing.
 
-You can move that folder anywhere from **Storage** inside the app; the chosen
-location is recorded in a small settings file in the OS config dir, and
-existing files are copied forward when you change it.
+Beside `plans/`, not in it, sits `tax-figures.yaml`: the yearly tax figures
+every household is projected with (see [Features](#features)). There is one,
+because tax law doesn't vary by household.
+
+You can move that folder anywhere from **Settings → Plan storage** inside the
+app; the chosen location is recorded in a small settings file in the OS config
+dir, and existing files are copied forward when you change it. The tax
+figures come along too, unless the new folder already has a file of its own,
+which is left alone.
 
 If you used a version before this one, your existing plans are converted to
 households on first launch. Nothing is deleted: the old files move to
@@ -442,15 +511,20 @@ record of what the plan said the last time you looked.
 For an actual backup, the app keeps its own history: the first time you edit
 a household in a session, it snapshots the pre-edit version into
 `plans/.history/<household id>/`, capped at the last 20 snapshots per
-household. **Storage** in the app lists them by date and can restore one.
+household. **Settings → Snapshot history** lists them by date and can
+restore one.
 A snapshot is of the whole household — the balances *and* every scenario — so
 restoring brings all of them back as they were; restoring snapshots the
 current state first, so it is itself undoable.
 
+Snapshots cover households, not the tax figures: saving `tax-figures.yaml`
+from the editor keeps just the version before it, as `tax-figures.yaml.bak`.
+
 None of that leaves this machine, though. Use **Export all plans…** in
-**Storage** to write a timestamped copy of the whole plans directory to a
-folder you choose — an external drive or a synced folder — whenever you want
-an off-machine copy. The app never does this on its own.
+**Settings** to write a timestamped copy of the whole plans directory — tax
+figures included — to a folder you choose, such as an external drive or a
+synced folder, whenever you want an off-machine copy. The app never does this
+on its own.
 
 The plans directory is still an ordinary folder of small text files
 underneath all of this, so copying it by hand works too, and Time Machine
@@ -470,21 +544,22 @@ you're not on macOS.
 
 ```bash
 pnpm install
-pnpm tauri dev        # run the app against a dev server
+pnpm demo             # run the app against the invented demo household
+pnpm tauri dev        # run the app against your real plans
 pnpm check            # every gate CI runs — run this before pushing
 ```
 
 `pnpm check` chains the CI gates in the same order CI runs them: fmt, clippy,
-cargo test, type regeneration + drift check, Biome lint, tsc, vitest. Green
-here means green in CI.
+cargo test, type regeneration + drift check, Biome lint, tsc, the production
+Vite build, vitest. Green here means green in CI.
 
 ### Running against demo data
 
-The app opens your real plans by default. To run it against the committed demo
+`pnpm tauri dev` opens your real plans. To run against the committed demo
 household instead — for a screenshot, a bug report, or just to poke at it
 without touching your own finances — point `RETIREMENT_DATA_DIR` at a
-throwaway copy. It relocates settings *and* plans, so nothing reaches the real
-directory:
+throwaway copy. It relocates settings, plans *and* the tax figures, so nothing
+reaches the real directory:
 
 ```bash
 pnpm demo
@@ -492,8 +567,9 @@ pnpm demo
 
 That seeds `/tmp/retirement-demo` from the fixtures and runs against it. Seeding
 is conditional, so a restart keeps whatever you changed; `pnpm demo:reset` puts
-the committed scenarios back. Add, edit and delete plans in there as freely
-as you like — it's a throwaway copy, and reset is one command.
+the committed scenarios back, and `pnpm demo:seed` seeds without running. Add,
+edit and delete plans in there as freely as you like — it's a throwaway copy,
+and reset is one command.
 
 The fixtures under `fixtures/demo/` are generated from
 `src-tauri/tests/demo_fixtures.rs`, which also asserts they still parse,
@@ -518,8 +594,8 @@ pnpm test             # vitest
 Types in `src/types/generated/` are generated from the Rust structs and
 committed; CI fails on drift. Never hand-edit them.
 
-See `docs/ARCHITECTURE.md` for the design blueprint and `CLAUDE.md` for project
-conventions (branch strategy, architecture invariants).
+See `docs/ARCHITECTURE.md` for how it is built and why, and `CLAUDE.md` for
+project conventions (branch strategy, architecture invariants).
 
 ## License
 
