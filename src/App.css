@@ -1443,6 +1443,75 @@ button.remove:hover {
   border-color: var(--muted);
 }
 
+/* Command palette (Cmd/Ctrl-K) — a search box over a short result list,
+   hung near the top of the window rather than centred like a form. */
+.palette {
+  margin: 14vh auto auto;
+  width: 480px;
+  max-width: calc(100vw - 40px);
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-3);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-2);
+  overflow: hidden;
+}
+.palette::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+.palette-input {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  padding: var(--sp-3) var(--sp-4);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--t-header);
+}
+/* The dialog's own edge is the boundary here, so the field takes no ring of
+   its own — the global focus-visible outline would sit on top of the border. */
+.palette-input:focus-visible {
+  outline: none;
+}
+.palette-list {
+  padding: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.palette-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 34px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-2);
+  font-size: var(--t-body);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.palette-option[aria-selected="true"] {
+  background: var(--surface-3);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.palette-hint {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.palette-empty {
+  margin: 0;
+  padding: var(--sp-4);
+  font-size: var(--t-body);
+  color: var(--muted);
+}
+
 /* Report — a wide, scrollable variant of the same dialog, for content built
    to be read (and printed) rather than filled in. */
 .modal-lg {
