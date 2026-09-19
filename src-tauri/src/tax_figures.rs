@@ -64,14 +64,33 @@ fn read(path: &Path) -> Result<TaxFigures, String> {
     }
 }
 
+/// Replaces `tax-figures.yaml` with `figures`, from the in-app editor.
+/// Refuses figures `load` would reject, so a save can never leave the file
+/// in the fallback state; the previous file is kept as `.yaml.bak`.
+pub fn save(base: &Path, figures: &TaxFigures) -> Result<(), String> {
+    let problems = figures.validate();
+    if !problems.is_empty() {
+        return Err(problems.join("; "));
+    }
+    write(&path(base), figures)
+}
+
+/// Written the way `storage::write_household` writes a plan: to a temporary
+/// file renamed into place, with the file it replaces copied aside first.
 fn write(path: &Path, figures: &TaxFigures) -> Result<(), String> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
     }
     let yaml =
         serde_yaml_ng::to_string(figures).map_err(|e| format!("serializing tax figures: {e}"))?;
-    fs::write(path, format!("{}{yaml}", header()))
-        .map_err(|e| format!("writing {}: {e}", path.display()))
+    let tmp = path.with_extension("yaml.tmp");
+    fs::write(&tmp, format!("{}{yaml}", header()))
+        .map_err(|e| format!("writing {}: {e}", tmp.display()))?;
+    if path.exists() {
+        let bak = path.with_extension("yaml.bak");
+        fs::copy(path, &bak).map_err(|e| format!("backing up {}: {e}", path.display()))?;
+    }
+    fs::rename(&tmp, path).map_err(|e| format!("replacing {}: {e}", path.display()))
 }
 
 /// What the file says about itself — the only documentation a person
@@ -102,9 +121,11 @@ fn header() -> String {
 # Fixed in the app rather than here: the Social Security taxability
 # thresholds, the HSA $1,000 age-55 catch-up, and the RMD ages and table.
 #
-# If this file can't be read, the app uses its built-in {year} figures and
-# says why under Settings. Delete the file to go back to the built-in
-# figures.
+# The same figures can be edited under Settings > Tax figures, which
+# rewrites this file (keeping the previous one as tax-figures.yaml.bak) and
+# does not keep comments of your own. If this file can't be read, the app
+# uses its built-in {year} figures and says why under Settings. Delete the
+# file to go back to the built-in figures.
 
 "
     )
@@ -205,6 +226,47 @@ mod tests {
         load(&base.0);
         assert!(path(&base.0).exists());
         assert!(crate::storage::list_plans(&base.0).unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_saved_file_reads_back_with_its_header() {
+        let base = TempBase::new("save");
+        let mut figures = TaxFigures::built_in();
+        figures.tax_year = 2027;
+        figures.contribution_limits.hsa = 4_500.0;
+        save(&base.0, &figures).unwrap();
+
+        let loaded = load(&base.0);
+        assert!(loaded.error.is_none(), "{:?}", loaded.error);
+        assert_eq!(loaded.figures, figures);
+        assert!(fs::read_to_string(path(&base.0))
+            .unwrap()
+            .starts_with("# Tax figures"));
+    }
+
+    #[test]
+    fn save_refuses_invalid_figures_and_leaves_the_file_alone() {
+        let base = TempBase::new("save-invalid");
+        load(&base.0);
+        let before = fs::read_to_string(path(&base.0)).unwrap();
+
+        let mut figures = TaxFigures::built_in();
+        figures.contribution_limits.ira = -5.0;
+        let error = save(&base.0, &figures).unwrap_err();
+        assert!(error.contains("contribution_limits.ira"), "{error}");
+        assert_eq!(fs::read_to_string(path(&base.0)).unwrap(), before);
+    }
+
+    #[test]
+    fn save_keeps_the_previous_file() {
+        let base = TempBase::new("save-bak");
+        fs::write(path(&base.0), "# mine\ntax_year: [broken").unwrap();
+        save(&base.0, &TaxFigures::built_in()).unwrap();
+        assert_eq!(
+            fs::read_to_string(path(&base.0).with_extension("yaml.bak")).unwrap(),
+            "# mine\ntax_year: [broken"
+        );
+        assert!(!path(&base.0).with_extension("yaml.tmp").exists());
     }
 
     #[test]
