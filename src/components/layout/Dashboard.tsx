@@ -3,6 +3,7 @@ import { useRailCollapsed } from "../../lib/railPreference";
 import { usePlanStore } from "../../store/planStore";
 import { InputsScreen, type InputsSection } from "../inputs/InputsScreen";
 import { CashFlowScreen } from "./CashFlowScreen";
+import { CommandPalette } from "./CommandPalette";
 import { GrowthScreen } from "./GrowthScreen";
 import { PlanScreen } from "./PlanScreen";
 import { type Destination, Rail } from "./Rail";
@@ -47,6 +48,7 @@ export function Dashboard() {
   const [reportMenuOpen, setReportMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [railCollapsed, toggleRailCollapsed] = useRailCollapsed();
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   // No plan, and we have finished looking: a fresh install, or the user
   // just deleted their last scenario. That is a destination, not a failure
@@ -142,6 +144,13 @@ export function Dashboard() {
           </fieldset>
         </header>
 
+        <CommandPalette
+          open={paletteOpen}
+          onOpenChange={setPaletteOpen}
+          onNavigate={setDestination}
+          onOpenReport={() => setReportMenuOpen(true)}
+          onOpenStorage={() => setStorageOpen(true)}
+        />
         <StorageSettings open={storageOpen} onClose={() => setStorageOpen(false)} />
         <ReportMenu
           open={reportMenuOpen}
