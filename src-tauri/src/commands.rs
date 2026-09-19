@@ -768,7 +768,7 @@ pub fn reveal_storage_dir(app: tauri::AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-/// Allocation presets and default assumptions — defined once, in Rust —
+/// Default assumptions and state tax profiles — defined once, in Rust —
 /// with the tax figures actually in force in place of the built-in ones, so
 /// the limits the account editor quotes are the ones projections use.
 #[tauri::command]
