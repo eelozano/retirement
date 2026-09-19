@@ -3,7 +3,13 @@ import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
 import type { PeriodPercentiles } from "../../types/generated/PeriodPercentiles";
 import type { PeriodSnapshot } from "../../types/generated/PeriodSnapshot";
 import type { Projection } from "../../types/generated/Projection";
-import { compareRows, comparisonSummary, mergeActiveBand } from "./compareData";
+import {
+  comparedIds,
+  compareRows,
+  comparisonSummary,
+  MAX_COMPARE,
+  mergeActiveBand,
+} from "./compareData";
 
 function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
   return {
@@ -359,5 +365,28 @@ describe("mergeActiveBand", () => {
       true,
     );
     expect(merged[0]).toMatchObject({ bandBase: 40, bandHeight: 40 });
+  });
+});
+
+describe("comparedIds", () => {
+  it("drops a deleted scenario from the selection", () => {
+    expect(comparedIds(["a", "b", "c"], ["a", "c"], "a")).toEqual(["a", "c"]);
+  });
+
+  it("leads with the new active scenario after the old one is deleted", () => {
+    expect(comparedIds(["a", "b", "c"], ["b", "c"], "b")).toEqual(["b", "c"]);
+    expect(comparedIds(["a", "c"], ["b", "c"], "b")).toEqual(["b", "c"]);
+  });
+
+  it("keeps the base within the cap", () => {
+    const ids = ["a", "b", "c", "d", "e", "f"];
+    const out = comparedIds(ids.slice(0, MAX_COMPARE), ids, "f");
+    expect(out).toHaveLength(MAX_COMPARE);
+    expect(out[0]).toBe("f");
+  });
+
+  it("leaves the selection alone while the scenario list is empty", () => {
+    expect(comparedIds(["a", "b"], [], "a")).toEqual(["a", "b"]);
+    expect(comparedIds([], ["a"], "a")).toEqual([]);
   });
 });
