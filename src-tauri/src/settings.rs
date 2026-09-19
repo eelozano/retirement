@@ -42,7 +42,7 @@ struct SettingsFile {
     /// fallback).
     plans_dir: Option<PathBuf>,
     /// Id of the scenario shown on launch. `None` means "use whichever plan
-    /// `load_or_bootstrap` picks" (the first stored plan, or a fresh seed).
+    /// `load_plan` falls back to" (the first stored plan, or none at all).
     #[serde(default)]
     active_plan_id: Option<String>,
     /// Monte Carlo paths per run. `None` means `DEFAULT_MONTE_CARLO_PATHS`,
@@ -102,7 +102,7 @@ pub fn set_plans_dir(config_dir: &Path, dir: &Path) -> Result<(), String> {
 }
 
 /// The scenario to show on launch, if one has been chosen; `None` defers to
-/// `load_or_bootstrap`'s default (first stored plan, or a fresh seed).
+/// `load_plan`'s default (the first stored plan, or none at all).
 pub fn active_plan_id(config_dir: &Path) -> Option<String> {
     read(config_dir).active_plan_id
 }

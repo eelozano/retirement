@@ -219,7 +219,7 @@ fn the_uniform_lifetime_divisors_match_the_irs_table() {
 }
 
 /// The divisors are a mortality table, not a dollar figure, so they must not
-/// index with inflation the way `CONTRIBUTION_LIMITS` does. Pinned by
+/// index with inflation the way the contribution limits in `TaxFigures` do. Pinned by
 /// running the same plan under 0% and 8% inflation and checking the
 /// distribution is the same share of the prior balance in both.
 #[test]
