@@ -125,7 +125,7 @@ pub fn default_strategy_returns() -> StrategyRates {
 /// independent draws let equity diversify against equity.
 ///
 /// So this widens the fan and lowers reported probability of success on a
-/// plan nobody edited: across the five demo scenarios, by 6.7 to 10.1
+/// plan nobody edited: across the demo scenarios, by 6.7 to 10.1
 /// points (the base scenario goes 0.948 → 0.881 at 2,000 paths). It is the
 /// one place this project knowingly breaks "an upgrade never changes a
 /// saved plan's output", and it breaks it because the old number was wrong.

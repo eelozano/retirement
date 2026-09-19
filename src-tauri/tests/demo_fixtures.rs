@@ -8,11 +8,12 @@
 //! The plans are defined here in Rust and the YAML under `fixtures/demo/`
 //! is generated from them, so the fixtures cannot drift from the schema
 //! without this test failing. Since #109 that is **one file**,
-//! `demo-household.yaml`: one household's facts plus the five scenarios
-//! branched from it, which is exactly what the split claims — the five
+//! `demo-household.yaml`: one household's facts plus the six scenarios
+//! branched from it, which is exactly what the split claims — the six
 //! plans below differ only in retirement dates, claiming ages, a spending
-//! amount and a house sale, and share every balance. This test proves it,
-//! by decomposing all five and asserting the households they produce agree.
+//! amount, a house sale and a withdrawal order, and share every balance.
+//! This test proves it, by decomposing all six and asserting the households
+//! they produce agree.
 //! To re-generate after an intentional schema change:
 //!
 //! ```text
@@ -25,10 +26,10 @@
 use engine::model::PeriodLength;
 use engine::model::{
     compose, decompose, empty_household, Account, AccountKind, AllocationRef, CashFlowStream,
-    Contribution, ContributionRule, EmployerMatch, FilingStatus, GrowthRule, Household,
-    HouseholdFile, MatchDestination, MatchTier, OneTimeContribution, Person, Plan, PlanType,
-    SimConfig, SocialSecurityBenefit, StateCode, StepUp, StreamBoundary, StreamDirection,
-    StreamKind, YearMonth, SCHEMA_VERSION,
+    Contribution, ContributionRule, DrawdownPhase, DrawdownPolicy, EmployerMatch, FilingStatus,
+    GrowthRule, Household, HouseholdFile, MatchDestination, MatchTier, OneTimeContribution, Person,
+    PhaseStart, Plan, PlanType, SimConfig, SocialSecurityBenefit, StackEntry, StackSource,
+    StateCode, StepUp, StreamBoundary, StreamDirection, StreamKind, YearMonth, SCHEMA_VERSION,
 };
 use engine::presets::{default_assumptions, presets};
 use std::fs;
@@ -438,10 +439,57 @@ fn demo_plans() -> Vec<Plan> {
         date: StreamBoundary::AtRetirement(ALEX.to_string()),
     }];
 
-    vec![base, retire_early, claim_early, leaner, sell_house]
+    // Retiring before 59½, and the order that makes it work. Alex leaves
+    // work in April 2034, the year he turns 55, so the Rule of 55 frees his
+    // 401(k); Jordan leaves at 53, too early for it, so her 403(b) waits for
+    // her 59½ in March 2041. Until then the household lives on the
+    // brokerage and Alex's 401(k), and keeps $30,000 of emergency savings
+    // back; from Jordan's 59½ on, the default order takes over.
+    //
+    // Eight years early at the base plan's $145,000 runs dry in the 2040s
+    // whatever the order, so this scenario also spends $110,000 — enough to
+    // last, which is what lets the order be the thing worth looking at. The
+    // same dates drawn proportionally pay about $36,000 of penalties this
+    // order avoids.
+    let mut bridge = base.clone();
+    bridge.id = "retire-at-55-on-a-bridge".to_string();
+    bridge.name = "Retire at 55 on a bridge".to_string();
+    bridge.people[0].retirement = YearMonth::new(2034, 4);
+    bridge.people[1].retirement = YearMonth::new(2034, 9);
+    stream_mut(&mut bridge, "spending-retired").annual_amount = 110_000.0;
+    bridge
+        .accounts
+        .iter_mut()
+        .find(|a| a.id == "alex-401k")
+        .expect("demo base plan has Alex's 401(k)")
+        .rule_of_55 = true;
+    let entry = |id: &str, floor: f64| StackEntry {
+        source: StackSource::Account(id.to_string()),
+        floor,
+    };
+    bridge.assumptions.drawdown = DrawdownPolicy::Phased(vec![
+        DrawdownPhase {
+            id: "bridge".to_string(),
+            name: "Bridge to 59½".to_string(),
+            start: PhaseStart::Boundary(StreamBoundary::PlanStart),
+            stack: vec![
+                entry("joint-brokerage", 0.0),
+                entry("alex-401k", 0.0),
+                entry("emergency-savings", 30_000.0),
+            ],
+        },
+        DrawdownPhase {
+            id: "standard".to_string(),
+            name: "Standard".to_string(),
+            start: PhaseStart::PenaltyFree(JORDAN.to_string()),
+            stack: vec![],
+        },
+    ]);
+
+    vec![base, retire_early, claim_early, leaner, sell_house, bridge]
 }
 
-/// The five plans, split into the one household they describe and the five
+/// The six plans, split into the one household they describe and the six
 /// scenarios that differ. Every plan must decompose to the *same* household
 /// — that is the claim #109 makes about this fixture, and asserting it here
 /// is what keeps the claim true as the demo grows.
@@ -572,7 +620,7 @@ fn every_demo_scenario_round_trips_through_compose() {
     }
 }
 
-/// Seven accounts and five scenarios are seven balances, not thirty-five.
+/// Seven accounts and six scenarios are seven balances, not forty-two.
 #[test]
 fn the_household_writes_each_balance_once() {
     let file = demo_household_file();

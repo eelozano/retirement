@@ -270,11 +270,17 @@ pub struct Account {                 // + id, name
     pub kind: AccountKind,
     pub plan_type: PlanType,         // limit bucket; the cap is shared per person per year
     pub balance: f64,                // nominal, as of the household's as_of
-    pub cost_basis: Option<f64>,     // taxable only; splits withdrawals principal vs gains
+    // After-tax dollars in the balance: a taxable account's basis, a Roth's
+    // contributions to date. Splits a withdrawal into principal and gains,
+    // and on a Roth into what comes back free before 59½ and what does not.
+    pub cost_basis: Option<f64>,
     pub allocation: AllocationRef,   // a strategy, or a fixed rate of its own
     pub contributions: Vec<Contribution>,               // dated entries; they sum
     pub one_time_contributions: Vec<OneTimeContribution>,
     pub employer_match: Option<EmployerMatch>,
+    // Elects the Rule of 55, which the engine then checks against the
+    // owner's dates — see "Early withdrawal".
+    pub rule_of_55: bool,
 }
 
 // See "Growth is one number per strategy" for why this is not a
@@ -368,7 +374,21 @@ pub struct Assumptions {
     pub survivor_expense_factor: f64,
     pub social_security_cola: f64,   // default for benefits without their own override
     pub plan_end_age: u8,            // legacy; read only as a migration fallback
+    // Which accounts fund a shortfall, and in what order. Proportional is
+    // the default and what every plan saved before it loads as.
+    pub drawdown: DrawdownPolicy,
 }
+
+pub enum DrawdownPolicy { Proportional, Phased(Vec<DrawdownPhase>) }
+pub struct DrawdownPhase {           // + id, name
+    pub start: PhaseStart,           // runs until the next phase's start
+    pub stack: Vec<StackEntry>,      // drawn top to bottom
+}
+// A boundary, or the month a person reaches 59½ — statute the engine holds,
+// rather than an age the user has to know to type.
+pub enum PhaseStart { Boundary(StreamBoundary), PenaltyFree(PersonId) }
+pub struct StackEntry { pub source: StackSource, pub floor: f64 }  // floor: today's dollars
+pub enum StackSource { Account(AccountId), Kind(AccountKind) }
 
 // PIA and claiming age, resolved into an income stream at simulate time.
 pub struct SocialSecurityBenefit {   // + id
@@ -455,6 +475,10 @@ pub trait DrawdownStrategy {
     fn withdraw(&self, net_needed: f64, accounts: &mut [AccountState],
                 tax: &dyn TaxModel, base: &IncomeBreakdown,
                 period: PeriodIndex) -> WithdrawalResult;
+
+    // The phase in force at a period's start, for the snapshot to report.
+    // Defaulted to None: a strategy without phases answers nothing.
+    fn phase(&self, period: PeriodIndex) -> Option<&str> { None }
 }
 
 // Impls in the crate:
@@ -462,11 +486,37 @@ pub trait DrawdownStrategy {
 //   TaxModel          BracketTax (federal + state), SurvivorTax (two
 //                     BracketTax switching at a period index); FlatTax
 //                     survives only as a test fixture
-//   DrawdownStrategy  ProportionalDrawdown
+//   DrawdownStrategy  ProportionalDrawdown, PhasedDrawdown — the plan's
+//                     `DrawdownPolicy` picks which, in `lib.rs`
 ```
 
+Both drawdown impls share one solver, `gross_up` (`strategies/drawdown.rs`):
+the fixed-point gross-up, the income character of a withdrawn dollar, and
+applying the draw to balances and basis live there, and an impl supplies
+only the allocation — how much of a gross amount each account supplies. An
+allocation has to be continuous and non-decreasing in the gross, which is
+what makes the fixed point converge.
+
+`PhasedDrawdown` (`strategies/phased.rs`) is a **waterfall over tranches**: a
+tranche is a slice of one or more accounts' balances with a capacity, and a
+gross amount fills each in turn, split within a tranche in proportion to the
+balances behind it. In order: the phase's stack, entry by entry, down to each
+entry's floor; then every account the stack does not name — penalty-free
+money before penalized, and by kind within each (savings, taxable, pre-tax,
+Roth, HSA), with a Roth IRA's contributions counting as penalty-free before
+59½; then the floors. A floor is **soft**: released once everything else is
+spent, rather than reporting a plan as failed with money still in the bank,
+and reported as `FloorReleased`.
+
+A period a phase boundary falls inside is split at the month, as every
+boundary splits a period: the need is divided by the months each phase
+covers, each part is drawn down its own phase's stack, and the second stacks
+on the income of the first so the period still meets the tax schedule once.
+Each part is judged early or not over its own months, so a draw from the
+phase that begins at 59½ is never penalized in the year of the birthday.
+
 `lib.rs` assembles the standard configuration: `run_deterministic` (fixed
-returns, `SurvivorTax`, proportional drawdown) and `run_monte_carlo` /
+returns, `SurvivorTax`, and the plan's own drawdown policy) and `run_monte_carlo` /
 `run_monte_carlo_with` (the same over `StochasticReturns`, the second
 observable and cancellable through a `RunControl`).
 
@@ -498,15 +548,18 @@ One period, in order (`period::run`):
 3. `deposit_one_time` — money from outside the plan, straight into an account.
 4. `distribute` — required minimum distributions, forced once an owner is
    past their RMD age.
-5. `accrue_interest` — Savings accounts earn their rate and are taxed on it
+5. `mark_early_access` — record, on each account, the share of this
+   period's withdrawals that would fall before its owner may take them
+   freely. See "Early withdrawal".
+6. `accrue_interest` — Savings accounts earn their rate and are taxed on it
    this same period, unlike every other account's growth, which stays
    unrealized until withdrawn. It runs before `settle` so the interest is in
    `base_income` for the one tax pass. `AccountKind::Savings` is the only
    switch: this step and `grow` are exact complements, so every account is
    priced by exactly one of them.
-6. `settle` — tax the period's whole income in one pass, then reinvest the
+7. `settle` — tax the period's whole income in one pass, then reinvest the
    leftover or gross up a drawdown against that same income.
-7. `grow` — apply the period's return, then snapshot.
+8. `grow` — apply the period's return, then snapshot.
 
 This is what makes a **step** a real place to put a behavior, alongside the
 impls the strategy traits already offer.
@@ -681,6 +734,21 @@ The state schedule (`StateTaxProfile`) indexes too, by the raw compounding facto
 
 **Deliberately not indexed:** the Social Security provisional-income thresholds (`social_security_thresholds` in `strategies/tax.rs`) — fixed by statute, unchanged since 1993. Both of `SurvivorTax`'s `BracketTax`es carry the same `inflation` and figures, so indexing runs identically on either side of the filing-status switch.
 
+### Early withdrawal (`sim/early_access.rs`)
+
+Money taken out of a retirement account before the owner may take it freely costs more, and the engine did not charge it until the drawdown order arrived: any plan retiring before 59½ drew pre-tax dollars for free and projected better than it should. Two rules, asked separately because the statute asks them separately:
+
+- **Non-qualified.** A Roth's *earnings* drawn before 59½ are ordinary income. Nothing short of the age exempts them, the Rule of 55 included. Contributions — `Account::cost_basis` on a Roth — come back untaxed at any age: a Roth IRA pays them out first, a Roth employer plan pro rata, and a blank figure reads as zero, so the whole balance is earnings. The five-year clock is not modelled.
+- **Penalized.** The 10% additional tax of IRC §72(t), on pre-tax dollars and on non-qualified Roth earnings. It has exemptions the income tax does not: a 457(b) is never subject to it, and the **Rule of 55** frees an employer plan whose owner separates from service in or after the calendar year they turn 55.
+
+The Rule of 55 is **opt-in per account** (`Account::rule_of_55`) and checked rather than taken on trust — the model cannot tell which employer an account came from, so the election says "this one", and the engine verifies the account is a `PlanType::EmployerPlan` and that the owner's `retirement` falls in or after that year. An election that does not hold is reported as `Rule55Ineligible` with its reason and **not** honoured; a mistyped retirement date should not quietly waive a penalty. A rollover into an IRA loses the exemption, which is why `PlanType::Ira` never qualifies.
+
+Each rule resolves once per run to the month it stops applying — an `EarlyAccess` on each `AccountState` — and `mark_early_access` turns it into a share of each period, so a period straddling the month is split at it on the same assumption every proration makes: that a year's withdrawals are spread evenly through it. A strategy drawing for only part of a period narrows the share to its own months, which is how the phase beginning at 59½ avoids the penalty in the year of the birthday.
+
+The penalty is charged **inside the gross-up but outside the `TaxModel`**: it is a flat 10% of a known amount, so it never interacts with the brackets, no `TaxModel` impl has to know about it, and `PeriodSnapshot::early_withdrawal_penalty` is an exact share of the bill rather than an allocation. Because it is linear in the draw, the fixed point converges exactly as before.
+
+Out of scope, and each a place a plan would read better than reality: 72(t)/SEPP, the public-safety age-50 rule, the SIMPLE IRA's 25% first-two-years rule, the Roth five-year clock, state additional taxes, and HSA non-medical withdrawals — which `AccountKind::Hsa` already assumes do not happen.
+
 ### Required minimum distributions (`sim/required_distributions.rs`)
 
 Every other outflow is demand-driven — `DrawdownStrategy::withdraw` is only reached when a period's cash is negative. A retiree whose Social Security and pension cover their spending would therefore never touch a seven-figure 401(k), and the plan would show a tax bill that never arrives. RMDs are the one step that moves money because the calendar says so, which is why they are a **step** rather than a strategy impl.
@@ -736,6 +804,8 @@ pub struct PeriodSnapshot {
     pub expenses_by_stream: BTreeMap<StreamId, f64>,     // sums to `expenses`
     pub taxes: f64,
     pub withdrawal_taxes: f64,                           // the gross-up's share of `taxes`
+    pub early_withdrawal_penalty: f64,                   // the 10%'s share of `withdrawal_taxes`
+    pub drawdown_phase: Option<String>,                  // the phase in force at period start
     pub contributions: f64,
     pub contributions_by_account: BTreeMap<AccountId, f64>, // sums to `contributions`
     pub employer_match: f64,                  // outside the cash identity
@@ -855,7 +925,7 @@ Every command is registered in `generate_handler!` in `src-tauri/src/lib.rs`. Gr
 
 ### What slots in
 
-- **A new trait impl.** A historical-sequence `ReturnModel` needs no trait change: `path_id` already threads through `returns_for` and maps onto a start-year index, and a blended per-strategy series carries that year's real cross-asset correlation for free. An ordered `DrawdownStrategy` (taxable, then pre-tax, then Roth) is another impl behind an unchanged trait.
+- **A new trait impl.** A historical-sequence `ReturnModel` needs no trait change: `path_id` already threads through `returns_for` and maps onto a start-year index, and a blended per-strategy series carries that year's real cross-asset correlation for free. The ordered `DrawdownStrategy` this predicted — `PhasedDrawdown` — did land as another impl behind the trait, which gained one defaulted method (`phase`) so a snapshot can name the phase in force.
 - **A new step.** A behavior that moves money because the calendar says so — as RMDs do — is a function over `PeriodState` in `sim/period.rs`, placed in the pipeline where its money has to be. One that feeds the period's income runs before `settle`, so it is inside the single tax pass.
 - **A new field.** Schema changes go through the `*Wire` deserializers (`AccountWire`, `AssumptionsWire`, `PersonWire`) with `#[serde(default)]`, so a file written before the field loads as exactly what it meant and projects identically. That pattern is well established, and none of the extensions below needs a breaking schema change. Each new fact or choice has two possible homes since #109: a figure read off a statement — a loan balance, a property value — goes on the household with a dated observation, and a choice or an assumption — an appreciation rate, a sale year — goes on the scenario. An observation on the scenario side, or a scenario variable on the household, is the mistake to look for in review.
 - **Tests for tax law.** The golden-file and property tests pin engine *mechanics*; they say nothing about whether a threshold is right. Anything that models a rule of tax law lands with hand-computed micro-cases in the style of `strategies/tax.rs`'s test module, where the arithmetic is checkable by reading.
@@ -865,7 +935,7 @@ Every command is registered in `generate_handler!` in `src-tauri/src/lib.rs`. Gr
 Five places where the engine currently gets to assume something for free, and a new feature would take that away.
 
 1. **`net_worth` is the sum of account balances** (`PeriodState::snapshot`, `sim/period.rs`). Liabilities — a mortgage, a student loan — would redefine that figure for every existing plan, and it feeds the headline tiles, the comparison table's net-worth and delta columns, the Monte Carlo fan and every golden file. The change would be correct, but it is not additive the way a new field is: under the saved-output rule in `CLAUDE.md` it has to be announced and measured, not shipped as a quietly smaller number. Debt should be a container parallel to `Account`, never a negative balance in the account array, and amortization a step.
-2. **`ProportionalDrawdown` sells from every account it is given** (`strategies/drawdown.rs`), in proportion to balance. So any new asset container is a liquidity question first: a house modelled as an account would be sold a slice at a time to cover a bad year, and counted as spendable in every depletion test and every success rate — overstating the one number people act on. An illiquid asset needs a container that contributes to net worth and to nothing the drawdown can reach.
-3. **The withdrawal gross-up assumes tax is continuous.** It is a fixed-point iteration, `gross = net_needed + marginal(gross)`, run up to 100 times and stopped when successive values converge (`strategies/drawdown.rs`). That is correct because every tax rule modelled today is continuous and monotone in income. A cliff — IRMAA, where one dollar of income can add about $1,000 a year of premium, or an ACA subsidy — can make the iteration oscillate, exhaust its rounds and return a `gross` that does not satisfy the equation, silently; and the equation can have *no* solution, when the extra dollar drawn to pay a surcharge is what triggers it. This is the same shape of failure as #54, and it applies to any income-tested rule, including a phase-out or a state credit. Settle it before the first cliff lands: either compute the cliff outside the gross-up as a step, accepting a bounded, explainable understatement in the year a household crosses a tier, or replace the iteration with a bracketed search that has a defined answer for "no exact solution".
+2. **Every drawdown can reach every account it is given.** `ProportionalDrawdown` sells from all of them in proportion to balance; `PhasedDrawdown` draws a stack first but falls back to everything the stack leaves out, and even a floor is released rather than held (`strategies/`). That is deliberate — a household with money left has not failed — but it means any new asset container is a liquidity question first: a house modelled as an account would be sold a slice at a time to cover a bad year, and counted as spendable in every depletion test and every success rate, overstating the one number people act on. An illiquid asset needs a container that contributes to net worth and to nothing the drawdown can reach. A **hard** floor is the same question in miniature, and the answer here was to make floors soft.
+3. **The withdrawal gross-up assumes tax is continuous.** It is a fixed-point iteration, `gross = net_needed + marginal(gross)`, run up to 100 times and stopped when successive values converge (`strategies/drawdown.rs`). That is correct because every tax rule modelled today is continuous and monotone in income — the early-withdrawal penalty included, which is linear in the amount drawn, and an allocation is required to be continuous and non-decreasing for the same reason. A cliff — IRMAA, where one dollar of income can add about $1,000 a year of premium, or an ACA subsidy — can make the iteration oscillate, exhaust its rounds and return a `gross` that does not satisfy the equation, silently; and the equation can have *no* solution, when the extra dollar drawn to pay a surcharge is what triggers it. This is the same shape of failure as #54, and it applies to any income-tested rule, including a phase-out or a state credit. Settle it before the first cliff lands: either compute the cliff outside the gross-up as a step, accepting a bounded, explainable understatement in the year a household crosses a tier, or replace the iteration with a bracketed search that has a defined answer for "no exact solution".
 4. **Inflation is one scalar.** `Assumptions::inflation` is read once and feeds four unrelated things: the deflator (`PeriodContext::inflation`), every `GrowthRule::Inflation` amount, contribution-limit indexing and bracket indexing. A historical return sequence is only honest with its own years' inflation — 1970s returns without 1970s inflation flatter a plan badly — so a historical `ReturnModel` must first decide between a path-dependent deflator (correct and invasive, and "today's dollars" would then differ between paths) and historical *real* returns with the plan's own inflation layered back on (simpler, and defensible if documented).
 5. **`TaxResult` has no structure.** It is `{ tax: f64 }` (`strategies/tax.rs`); nothing can ask a `TaxModel` for a marginal rate or where the next threshold sits, which is the question a Roth conversion or any bracket-filling withdrawal is built on. The least invasive answer is a trait method with a default implementation that locates the next threshold by searching over `tax()` — correct for every impl, including ones not yet written — rather than widening `TaxResult`, which would force `FlatTax` to invent thresholds it does not have.
