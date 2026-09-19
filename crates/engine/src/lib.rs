@@ -14,8 +14,8 @@ pub use model::{Plan, YearMonth};
 pub use sim::{
     run_monte_carlo as run_monte_carlo_sim, run_monte_carlo_with as run_monte_carlo_sim_with,
     simulate, Cancelled, MonteCarloConfig, MonteCarloDiagnostics, MonteCarloResult, OneTimeInfo,
-    PathGroupStats, PeriodPercentiles, PeriodSnapshot, Projection, RunControl, SimWarning, Spread,
-    StreamInfo, EARLY_RETIREMENT_WINDOW_YEARS,
+    PathGroupStats, PeriodPercentiles, PeriodSnapshot, Projection, Rule55Ineligibility, RunControl,
+    SimWarning, Spread, StreamInfo, EARLY_RETIREMENT_WINDOW_YEARS,
 };
 
 use model::{FilingStatus, TaxFigures};

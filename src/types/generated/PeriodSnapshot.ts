@@ -45,6 +45,12 @@ taxes: number,
  */
 withdrawal_taxes: number, 
 /**
+ * The part of `withdrawal_taxes` that is the 10% additional tax on
+ * early withdrawals, not income tax — see `sim::early_access`. A share
+ * of it, never an addition: `taxes` already counts it once.
+ */
+early_withdrawal_penalty: number, 
+/**
  * Contributions deposited into accounts this period, out of household
  * income. Employer match is *not* included — it never passes through
  * the household's cash, so folding it in here would break the

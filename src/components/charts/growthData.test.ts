@@ -24,6 +24,7 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     income_by_stream: {},
     expenses_by_stream: {},
     withdrawal_taxes: 0,
+    early_withdrawal_penalty: 0,
     contributions_by_account: {},
     deflator: 1,
     ...overrides,
@@ -50,6 +51,7 @@ function account(id: string, balance: number): Account {
     contributions: [],
     one_time_contributions: [],
     employer_match: null,
+    rule_of_55: false,
   };
 }
 

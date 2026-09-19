@@ -1,4 +1,5 @@
 mod contributions;
+mod early_access;
 mod monte_carlo;
 mod period;
 mod projection;
@@ -10,7 +11,9 @@ pub use monte_carlo::{
     MonteCarloResult, PathGroupStats, PeriodPercentiles, RunControl, Spread,
     EARLY_RETIREMENT_WINDOW_YEARS,
 };
-pub use projection::{OneTimeInfo, PeriodSnapshot, Projection, SimWarning, StreamInfo};
+pub use projection::{
+    OneTimeInfo, PeriodSnapshot, Projection, Rule55Ineligibility, SimWarning, StreamInfo,
+};
 
 use crate::model::{
     Account, AccountKind, CashFlowStream, Contribution, GrowthRule, OneTimeContribution, Plan,
@@ -82,14 +85,16 @@ struct ResolvedOneTime<'a> {
 ///    cash, income or tax
 /// 4. force out each pre-tax account owner's required minimum distribution,
 ///    once they are past their RMD age — see `required_distributions`
-/// 5. tax ordinary income (gross income minus pre-tax deferrals, plus any
+/// 5. mark how much of each account's withdrawals this period would come
+///    before its owner may take them freely — see `early_access`
+/// 6. tax ordinary income (gross income minus pre-tax deferrals, plus any
 ///    required distribution), in a single pass over the whole period
-/// 6. reinvest the leftover in the taxable account — always for the forced
+/// 7. reinvest the leftover in the taxable account — always for the forced
 ///    distribution, and for ordinary surplus once the sweep boundary has
 ///    been reached — or draw down the shortfall (grossed up through the tax
 ///    model)
-/// 7. apply market growth to post-flow balances
-/// 8. snapshot
+/// 8. apply market growth to post-flow balances
+/// 9. snapshot
 pub fn simulate(
     plan: &Plan,
     figures: &TaxFigures,
@@ -266,6 +271,10 @@ pub fn simulate(
         })
         .or_else(|| plan.accounts.iter().position(is_reinvest_target));
 
+    // Early-withdrawal rules are fixed by birth and retirement dates, so
+    // they resolve once; each period only turns them into shares.
+    let early_access = early_access::resolve(plan, &mut state.warnings);
+
     let run = RunContext {
         plan,
         figures,
@@ -275,6 +284,7 @@ pub fn simulate(
         sweep_from,
         reinvest_into,
         survivor_step_down,
+        early_access: &early_access,
         returns,
         tax,
         drawdown,

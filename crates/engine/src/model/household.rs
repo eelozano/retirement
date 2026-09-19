@@ -47,8 +47,8 @@ pub type HouseholdId = String;
 pub struct Observation {
     pub as_of: YearMonth,
     pub balance: f64,
-    /// Taxable accounts only; `None` everywhere else, exactly as on
-    /// [`Account::cost_basis`].
+    /// Taxable and Roth accounts only — basis, or contributions to date;
+    /// `None` everywhere else, exactly as on [`Account::cost_basis`].
     pub cost_basis: Option<f64>,
 }
 
@@ -148,6 +148,11 @@ pub struct AccountPolicy {
     #[serde(default)]
     pub one_time_contributions: Vec<OneTimeContribution>,
     pub employer_match: Option<EmployerMatch>,
+    /// Whether withdrawals rely on the Rule of 55 — a scenario choice,
+    /// because whether it holds turns on the retirement date, and that is
+    /// scenario policy. `#[serde(default)]`: older files elect nothing.
+    #[serde(default)]
+    pub rule_of_55: bool,
 }
 
 /// What a scenario decides about a benefit: when to claim it, and whether
@@ -323,6 +328,7 @@ pub fn compose(household: &Household, scenario: &Scenario) -> Result<Plan, Compo
                 contributions: policy.contributions.clone(),
                 one_time_contributions: policy.one_time_contributions.clone(),
                 employer_match: policy.employer_match.clone(),
+                rule_of_55: policy.rule_of_55,
             })
         })
         .collect::<Result<Vec<_>, ComposeError>>()?;
@@ -481,6 +487,7 @@ pub fn decompose(plan: &Plan, previous: &Household) -> (Household, Scenario) {
                         contributions: a.contributions.clone(),
                         one_time_contributions: a.one_time_contributions.clone(),
                         employer_match: a.employer_match.clone(),
+                        rule_of_55: a.rule_of_55,
                     },
                 )
             })

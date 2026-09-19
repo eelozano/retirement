@@ -24,7 +24,7 @@ use engine::model::{
 };
 use engine::presets::{seed_plan, uniform_lifetime_divisor};
 use engine::strategies::{FixedReturns, FlatTax, ProportionalDrawdown};
-use engine::{run_deterministic, simulate, Projection};
+use engine::{run_deterministic, simulate, Projection, SimWarning};
 
 const SALARY: f64 = 120_000.0;
 const CONTRIBUTION: f64 = 12_000.0;
@@ -82,6 +82,7 @@ fn working_plan(start: YearMonth, last_year: i32, rule: ContributionRule) -> Pla
             contributions: vec![Contribution::until_retirement("c", rule, &person)],
             one_time_contributions: vec![],
             employer_match: None,
+            rule_of_55: false,
         }],
         streams: vec![
             CashFlowStream {
@@ -247,7 +248,10 @@ fn a_stub_period_caps_contributions_at_its_share_of_the_year() {
         "2027 gets the whole 2027 limit",
     );
     assert!(
-        projection.warnings.is_empty(),
+        !projection
+            .warnings
+            .iter()
+            .any(|w| matches!(w, SimWarning::ContributionClamped { .. })),
         "a cap scaled to the period is not a clamp: {:?}",
         projection.warnings
     );
@@ -285,6 +289,7 @@ fn the_stub_takes_no_required_distribution_and_the_next_year_takes_a_whole_one()
                 contributions: vec![],
                 one_time_contributions: vec![],
                 employer_match: None,
+                rule_of_55: false,
             },
             Account {
                 id: "brokerage".to_string(),
@@ -298,6 +303,7 @@ fn the_stub_takes_no_required_distribution_and_the_next_year_takes_a_whole_one()
                 contributions: vec![],
                 one_time_contributions: vec![],
                 employer_match: None,
+                rule_of_55: false,
             },
         ],
         streams: vec![],

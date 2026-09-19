@@ -207,6 +207,7 @@ describe("AccountsSection", () => {
             contributions: [],
             one_time_contributions: [],
             employer_match: null,
+            rule_of_55: false,
           },
           {
             id: "a2",
@@ -220,6 +221,7 @@ describe("AccountsSection", () => {
             contributions: [],
             one_time_contributions: [],
             employer_match: null,
+            rule_of_55: false,
           },
         ],
       },
@@ -253,6 +255,7 @@ describe("AccountsSection", () => {
             contributions: [],
             one_time_contributions: [],
             employer_match: null,
+            rule_of_55: false,
           },
           {
             id: "a2",
@@ -266,6 +269,7 @@ describe("AccountsSection", () => {
             contributions: [],
             one_time_contributions: [],
             employer_match: null,
+            rule_of_55: false,
           },
         ],
       },

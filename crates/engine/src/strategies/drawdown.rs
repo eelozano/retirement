@@ -9,10 +9,28 @@ pub struct AccountState {
     pub id: AccountId,
     pub kind: AccountKind,
     pub balance: f64,
-    /// Cost basis (taxable accounts; 0 elsewhere). Withdrawals recover basis
-    /// proportionally: gains fraction = 1 - basis/balance.
+    /// After-tax dollars in the balance: a taxable account's cost basis, a
+    /// Roth's contributions; 0 elsewhere. A taxable withdrawal recovers it
+    /// proportionally (gains fraction = 1 - basis/balance), and so does a
+    /// Roth employer plan; a Roth IRA pays it out first (`basis_first`).
     pub cost_basis: f64,
+    /// A Roth IRA: withdrawals come out of contributions before earnings.
+    pub basis_first: bool,
+    /// Share of this period's withdrawals from this account that fall
+    /// before its owner's 59½, when a Roth's earnings are ordinary income.
+    /// Set every period by `sim::early_access`; 0 outside the simulation.
+    pub nonqualified: f64,
+    /// Share of this period's withdrawals that carry the 10% additional
+    /// tax — `nonqualified`'s months, less any the Rule of 55 or a 457(b)
+    /// exempts. On a pre-tax account it applies to the whole draw; on a
+    /// Roth, to the earnings only.
+    pub penalized: f64,
 }
+
+/// The rate of the additional tax on an early distribution, IRC §72(t).
+/// Statute with no annual publication, so a constant rather than a
+/// `TaxFigures` entry.
+pub const EARLY_WITHDRAWAL_PENALTY_RATE: f64 = 0.10;
 
 impl AccountState {
     fn gains_fraction(&self) -> f64 {
@@ -20,6 +38,27 @@ impl AccountState {
             return 0.0;
         }
         (1.0 - self.cost_basis / self.balance).clamp(0.0, 1.0)
+    }
+
+    /// The earnings in a Roth withdrawal of `amount` — the part that is not
+    /// a return of contributions.
+    fn roth_earnings(&self, amount: f64) -> f64 {
+        if self.basis_first {
+            (amount - self.cost_basis.max(0.0)).max(0.0)
+        } else {
+            amount * self.gains_fraction()
+        }
+    }
+
+    /// Basis a withdrawal of `amount` returns, under the account's ordering.
+    fn basis_recovered(&self, amount: f64) -> f64 {
+        if self.basis_first {
+            amount.min(self.cost_basis.max(0.0))
+        } else if self.balance > 0.0 {
+            self.cost_basis * (amount / self.balance)
+        } else {
+            0.0
+        }
     }
 }
 
@@ -32,6 +71,8 @@ pub struct WithdrawalResult {
     /// Not a standalone bill — the caller has already paid the tax on
     /// `base` and adds this on top (#54).
     pub tax: f64,
+    /// The part of `tax` that is the early-withdrawal penalty.
+    pub penalty: f64,
     /// Net cash delivered after tax. May fall short of the request when the
     /// portfolio is depleted — the engine emits a warning in that case.
     pub net: f64,
@@ -63,20 +104,40 @@ pub trait DrawdownStrategy {
 }
 
 /// Income character of a set of withdrawals, stacked on the income the
-/// household already has. `amounts` is parallel to `accounts`.
+/// household already has, and the part of them that carries the
+/// early-withdrawal penalty. `amounts` is parallel to `accounts`.
 ///
 /// The one place a withdrawn dollar is classified, so a drawdown impl decides
 /// only *which* accounts a gross amount comes from and never how it is
 /// taxed.
+///
+/// The penalty is not income and is kept out of `IncomeBreakdown`: it is a
+/// flat 10% of a known amount, so it never interacts with the brackets, and
+/// keeping it outside the `TaxModel` is what lets the snapshot report it as
+/// an exact share of the bill rather than an estimate.
 fn income_with(
     base: &IncomeBreakdown,
     accounts: &[AccountState],
     amounts: &[f64],
-) -> IncomeBreakdown {
+) -> (IncomeBreakdown, f64) {
     let mut income = *base;
+    let mut penalized = 0.0;
     for (account, &amount) in accounts.iter().zip(amounts) {
         match account.kind {
-            AccountKind::TraditionalPreTax => income.ordinary += amount,
+            AccountKind::TraditionalPreTax => {
+                income.ordinary += amount;
+                penalized += amount * account.penalized;
+            }
+            // Contributions come back untaxed at any age. Earnings are
+            // untaxed once qualified; before 59½ they are ordinary income,
+            // and carry the penalty unless an exemption covers them.
+            AccountKind::Roth => {
+                let earnings = account.roth_earnings(amount);
+                let taxed = earnings * account.nonqualified;
+                income.ordinary += taxed;
+                income.untaxed += amount - taxed;
+                penalized += earnings * account.penalized;
+            }
             AccountKind::Taxable => {
                 let gains = amount * account.gains_fraction();
                 income.capital_gains += gains;
@@ -86,10 +147,10 @@ fn income_with(
             // accrues (`sim::period::accrue_interest`), not deferred
             // to withdrawal — see `AccountKind::Savings`. Assumes
             // qualified medical spending for HSA — see `AccountKind::Hsa`.
-            AccountKind::Roth | AccountKind::Hsa | AccountKind::Savings => income.untaxed += amount,
+            AccountKind::Hsa | AccountKind::Savings => income.untaxed += amount,
         }
     }
-    income
+    (income, penalized)
 }
 
 /// The gross-up every `DrawdownStrategy` shares: find the gross withdrawal
@@ -125,15 +186,20 @@ fn gross_up(
     // converges exactly as it did before; cap at what the strategy can
     // supply (depletion).
     let base_tax = tax.tax(base, period).tax;
+    // The marginal cost of `gross`, and the penalty's share of it. The
+    // penalty is linear in the draw, so the cost stays monotone and the
+    // iteration converges as before.
     let mut marginal = |gross: f64| {
         allocate(gross, accounts, &mut amounts);
-        tax.tax(&income_with(base, accounts, &amounts), period).tax - base_tax
+        let (income, penalized) = income_with(base, accounts, &amounts);
+        let penalty = penalized * EARLY_WITHDRAWAL_PENALTY_RATE;
+        (tax.tax(&income, period).tax - base_tax + penalty, penalty)
     };
 
     let tolerance = 1e-12 * net_needed.max(1.0);
     let mut gross = net_needed;
     for _ in 0..100 {
-        let next = (net_needed + marginal(gross)).min(available);
+        let next = (net_needed + marginal(gross).0).min(available);
         if (next - gross).abs() < tolerance {
             gross = next;
             break;
@@ -141,12 +207,13 @@ fn gross_up(
         gross = next;
     }
 
-    let owed = marginal(gross);
+    let (owed, penalty) = marginal(gross);
     // `marginal` has just allocated `gross` itself, so `amounts` now holds
     // exactly what is withdrawn.
     let mut result = WithdrawalResult {
         gross_by_account: BTreeMap::new(),
         tax: owed,
+        penalty,
         net: gross - owed,
     };
 
@@ -154,10 +221,8 @@ fn gross_up(
         if amount <= 0.0 {
             continue;
         }
-        if account.balance > 0.0 {
-            let basis_recovered = account.cost_basis * (amount / account.balance);
-            account.cost_basis = (account.cost_basis - basis_recovered).max(0.0);
-        }
+        let basis_recovered = account.basis_recovered(amount);
+        account.cost_basis = (account.cost_basis - basis_recovered).max(0.0);
         // Full depletion caps `gross` at what is available, so this
         // subtraction lands on zero mathematically but can leave
         // floating-point residue (a tiny negative, or -0.0). Clamp
@@ -236,6 +301,9 @@ mod tests {
             kind,
             balance,
             cost_basis,
+            basis_first: false,
+            nonqualified: 0.0,
+            penalized: 0.0,
         }
     }
 

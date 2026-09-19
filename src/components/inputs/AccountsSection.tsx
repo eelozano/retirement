@@ -125,6 +125,7 @@ export function AccountsSection() {
         contributions: [defaultContribution({ id, owner })],
         one_time_contributions: [],
         employer_match: null,
+        rule_of_55: false,
       });
     });
     setSelectedId(id);

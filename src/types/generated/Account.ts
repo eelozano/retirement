@@ -12,9 +12,12 @@ export type Account = { id: string, owner: string, kind: AccountKind, name: stri
  */
 balance: number, 
 /**
- * Taxable accounts only: cost basis of the starting balance. Tracked
- * from day 1 so V2 capital-gains modeling needs no migration; the V1
- * flat tax already uses it to split withdrawals into principal vs gains.
+ * After-tax dollars in the starting balance. On a `Taxable` account,
+ * its cost basis: withdrawals split into principal and gains by it. On
+ * a `Roth`, contributions to date: before 59½ they come back free of
+ * tax and penalty, and the rest is earnings (see `sim::early_access`).
+ * `None` reads as zero — for a Roth, that the whole balance is
+ * earnings, the conservative reading of a figure nobody entered.
  */
 cost_basis: number | null, allocation: AllocationRef, 
 /**
@@ -42,4 +45,13 @@ one_time_contributions: Array<OneTimeContribution>,
  * money: they do not count against the employee elective-deferral
  * limit, only against the much higher 415(c) annual-additions cap.
  */
-employer_match: EmployerMatch | null, };
+employer_match: EmployerMatch | null, 
+/**
+ * Elects the Rule of 55: withdrawals from this employer plan after the
+ * owner separates from service in or after the year they turn 55 carry
+ * no 10% additional tax. Opt-in, because not every plan allows it and
+ * not every household relies on it; checked against the owner's dates
+ * at simulate time, and reported as `SimWarning::Rule55Ineligible`
+ * when it does not hold.
+ */
+rule_of_55: boolean, };

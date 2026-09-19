@@ -60,6 +60,7 @@ fn account(id: &str, kind: AccountKind, balance: f64, basis: Option<f64>) -> Acc
         )],
         one_time_contributions: vec![],
         employer_match: None,
+        rule_of_55: false,
     }
 }
 

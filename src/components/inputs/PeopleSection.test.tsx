@@ -40,6 +40,7 @@ const plan = {
         },
       ],
       employer_match: null,
+      rule_of_55: false,
     },
   ],
   streams: [],

@@ -146,6 +146,7 @@ fn demo_base() -> Plan {
                 ],
                 one_time_contributions: vec![],
                 employer_match: None,
+                rule_of_55: false,
             },
             Account {
                 id: "alex-401k".to_string(),
@@ -175,6 +176,7 @@ fn demo_base() -> Plan {
                     &[(0.03, 1.0), (0.02, 0.5)],
                     MatchDestination::PreTax,
                 )),
+                rule_of_55: false,
             },
             Account {
                 id: "jordan-403b".to_string(),
@@ -195,6 +197,7 @@ fn demo_base() -> Plan {
                 )],
                 one_time_contributions: vec![],
                 employer_match: Some(tiered_match(&[(0.04, 0.5)], MatchDestination::PreTax)),
+                rule_of_55: false,
             },
             Account {
                 id: "jordan-roth-ira".to_string(),
@@ -212,6 +215,7 @@ fn demo_base() -> Plan {
                 )],
                 one_time_contributions: vec![],
                 employer_match: None,
+                rule_of_55: false,
             },
             // An account that does not exist yet: Alex opens a Roth IRA in
             // 2029, when the college bills are done, and funds it to the
@@ -234,6 +238,7 @@ fn demo_base() -> Plan {
                 }],
                 one_time_contributions: vec![],
                 employer_match: None,
+                rule_of_55: false,
             },
             Account {
                 id: "alex-hsa".to_string(),
@@ -251,6 +256,7 @@ fn demo_base() -> Plan {
                 )],
                 one_time_contributions: vec![],
                 employer_match: None,
+                rule_of_55: false,
             },
             Account {
                 id: "emergency-savings".to_string(),
@@ -276,6 +282,7 @@ fn demo_base() -> Plan {
                 )],
                 one_time_contributions: vec![],
                 employer_match: None,
+                rule_of_55: false,
             },
         ],
         streams: vec![
@@ -603,11 +610,8 @@ fn golden_path() -> PathBuf {
 
 /// The deterministic projection of every committed demo scenario, one row
 /// per period: net worth, the period's tax bill, the withdrawal gross-up's
-/// share of it, and the gross withdrawn from each account.
-///
-/// Printed to a micro-dollar rather than compared bit for bit, so a
-/// refactor that reorders a floating-point sum still passes and one that
-/// moves a real cent does not.
+/// share of it, the early-withdrawal penalty's share of that, and the gross
+/// withdrawn from each account.
 fn golden_projections() -> String {
     let yaml = fs::read_to_string(fixture_path()).expect("demo fixture present");
     let file: HouseholdFile = serde_yaml_ng::from_str(&yaml).expect("demo fixture parses");
@@ -615,7 +619,7 @@ fn golden_projections() -> String {
 
     let accounts: Vec<String> = file.accounts.iter().map(|a| a.id.clone()).collect();
     let mut out = format!(
-        "scenario,year,net_worth,taxes,withdrawal_taxes,{}\n",
+        "scenario,year,net_worth,taxes,withdrawal_taxes,early_withdrawal_penalty,{}\n",
         accounts
             .iter()
             .map(|id| format!("withdrawn:{id}"))
@@ -636,12 +640,13 @@ fn golden_projections() -> String {
                 })
                 .collect();
             out.push_str(&format!(
-                "{},{},{:.6},{:.6},{:.6},{}\n",
+                "{},{},{:.6},{:.6},{:.6},{:.6},{}\n",
                 scenario.id,
                 snapshot.period_start.year,
                 snapshot.net_worth,
                 snapshot.taxes,
                 snapshot.withdrawal_taxes,
+                snapshot.early_withdrawal_penalty,
                 withdrawn.join(",")
             ));
         }
@@ -678,11 +683,11 @@ fn demo_projections_match_golden() {
         )
     });
     for (line, (actual, expected)) in actual.lines().zip(expected.lines()).enumerate() {
-        assert_eq!(
-            actual,
-            expected,
+        assert!(
+            same_row(actual, expected),
             "demo projection moved at line {} of {} — if that is intended, \
-             regenerate with UPDATE_GOLDEN=1 and measure the change in the PR",
+             regenerate with UPDATE_GOLDEN=1 and measure the change in the PR\n  \
+             actual:   {actual}\n  expected: {expected}",
             line + 1,
             path.display()
         );
@@ -693,4 +698,21 @@ fn demo_projections_match_golden() {
         "demo projection has a different number of periods than {}",
         path.display()
     );
+}
+
+/// Two golden rows agree when their text fields match and every figure is
+/// within a part in a billion — the same tolerance, for the same reason, as
+/// the engine's `tests/golden.rs`: `powf` is not correctly rounded, and
+/// macOS and Linux disagree in the last bit of a mid-year plan's growth.
+fn same_row(actual: &str, expected: &str) -> bool {
+    let actual: Vec<&str> = actual.split(',').collect();
+    let expected: Vec<&str> = expected.split(',').collect();
+    actual.len() == expected.len()
+        && actual
+            .iter()
+            .zip(&expected)
+            .all(|(a, e)| match (a.parse::<f64>(), e.parse::<f64>()) {
+                (Ok(a), Ok(e)) => (a - e).abs() <= 1e-9 * e.abs().max(1.0),
+                _ => a == e,
+            })
 }

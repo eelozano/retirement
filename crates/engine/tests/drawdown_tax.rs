@@ -64,6 +64,7 @@ fn retiree() -> Plan {
             )],
             one_time_contributions: vec![],
             employer_match: None,
+            rule_of_55: false,
         }],
         streams: vec![CashFlowStream {
             id: "spending".to_string(),

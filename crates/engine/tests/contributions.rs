@@ -52,6 +52,7 @@ fn plan_with(contribution: ContributionRule, kind: AccountKind, plan_type: PlanT
             )],
             one_time_contributions: vec![],
             employer_match: None,
+            rule_of_55: false,
         }],
         streams: vec![
             CashFlowStream {

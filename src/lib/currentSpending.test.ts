@@ -29,6 +29,7 @@ function snapshot(year: number, overrides: Partial<PeriodSnapshot> = {}): Period
     income_by_stream: {},
     expenses_by_stream: {},
     withdrawal_taxes: 0,
+    early_withdrawal_penalty: 0,
     contributions_by_account: {},
     deflator: 1,
     ...overrides,

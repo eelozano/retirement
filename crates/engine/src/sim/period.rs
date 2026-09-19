@@ -24,12 +24,14 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::model::{
-    AccountId, AccountKind, PersonId, Plan, StreamDirection, StreamId, TaxFigures, YearMonth,
+    AccountId, AccountKind, PersonId, Plan, PlanType, StreamDirection, StreamId, TaxFigures,
+    YearMonth,
 };
 use crate::strategies::{
     AccountState, DrawdownStrategy, IncomeBreakdown, PeriodIndex, ReturnModel, TaxModel,
 };
 
+use super::early_access::{self, EarlyAccess};
 use super::{
     compound, contributions, growth_factor, overlap_fraction, required_distributions, OneTimeInfo,
     PeriodSnapshot, ResolvedContribution, ResolvedOneTime, ResolvedStream, SimWarning,
@@ -86,6 +88,8 @@ pub(super) struct RunContext<'a> {
     /// The month household spending steps down, and by what factor. `None`
     /// whenever it would be a no-op.
     pub survivor_step_down: Option<(YearMonth, f64)>,
+    /// Each account's early-withdrawal rules, parallel to `plan.accounts`.
+    pub early_access: &'a [EarlyAccess],
     pub returns: &'a dyn ReturnModel,
     pub tax: &'a dyn TaxModel,
     pub drawdown: &'a dyn DrawdownStrategy,
@@ -104,6 +108,9 @@ pub(super) struct RunState {
     /// Whether a forced distribution has already been reported as having
     /// nowhere to land. Same once-per-run shape as `depleted`.
     pub distribution_unallocated_reported: bool,
+    /// Whether an early-withdrawal penalty has already been reported. Same
+    /// once-per-run shape as `depleted`.
+    pub penalty_reported: bool,
     /// Closing balances of the previous period, indexed parallel to
     /// `plan.accounts`. `None` in the first period, which is why no required
     /// distribution is taken there — see `required_distributions`.
@@ -125,11 +132,22 @@ impl RunState {
                     kind: a.kind,
                     balance: a.balance,
                     cost_basis: a.cost_basis.unwrap_or(0.0),
+                    // A Roth IRA — SEP and SIMPLE Roths included — pays out
+                    // contributions first; a Roth employer plan pays out
+                    // pro rata, the way a taxable account realizes gains.
+                    basis_first: a.kind == AccountKind::Roth
+                        && matches!(
+                            a.plan_type,
+                            PlanType::Ira | PlanType::SepIra | PlanType::SimpleIra
+                        ),
+                    nonqualified: 0.0,
+                    penalized: 0.0,
                 })
                 .collect(),
             clamps_reported: BTreeSet::new(),
             depleted: false,
             distribution_unallocated_reported: false,
+            penalty_reported: false,
             prior_balances: None,
             warnings: Warnings::default(),
             one_time: Vec::new(),
@@ -222,6 +240,8 @@ pub(super) struct PeriodState {
     /// Not an allocation: it is the only tax figure the engine actually
     /// computes separately, so it is the only split the snapshot can claim.
     pub withdrawal_taxes: f64,
+    /// The part of `withdrawal_taxes` that is the early-withdrawal penalty.
+    pub early_withdrawal_penalty: f64,
     pub surplus: f64,
     pub withdrawals: BTreeMap<AccountId, f64>,
     /// Market growth applied to post-flow balances this period, summed
@@ -265,6 +285,7 @@ impl PeriodState {
             expenses_by_stream: self.expenses_by_stream,
             taxes: self.taxes,
             withdrawal_taxes: self.withdrawal_taxes,
+            early_withdrawal_penalty: self.early_withdrawal_penalty,
             contributions: self.contributions,
             contributions_by_account: self.contributions_by_account,
             employer_match: self.employer_match,
@@ -286,6 +307,7 @@ pub(super) fn run(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) -
     deposit_one_time(run, ctx, &mut period, state);
     distribute(run, ctx, &mut period, state);
     accrue_interest(run, ctx, &mut period, state);
+    mark_early_access(run, ctx, state);
     settle(run, ctx, &mut period, state);
     period.growth += grow(run, ctx, state);
     state.prior_balances = Some(state.accounts.iter().map(|a| a.balance).collect());
@@ -406,7 +428,11 @@ fn contribute(
             continue;
         }
         state.accounts[idx].balance += amount;
-        if account.kind == AccountKind::Taxable {
+        // After-tax dollars in: a taxable account's basis, and a Roth's
+        // contributions — what it can later pay out before 59½ free of tax
+        // and penalty. A Roth match counts too: it is taxed to the employee
+        // going in, so it is not earnings coming out.
+        if matches!(account.kind, AccountKind::Taxable | AccountKind::Roth) {
             state.accounts[idx].cost_basis += amount;
         }
         if matches!(
@@ -465,7 +491,7 @@ fn deposit_one_time(
         }
         let account = &mut state.accounts[resolved.account];
         account.balance += amount;
-        if account.kind == AccountKind::Taxable {
+        if matches!(account.kind, AccountKind::Taxable | AccountKind::Roth) {
             account.cost_basis += amount;
         }
         let account_id = account.id.clone();
@@ -560,7 +586,19 @@ fn accrue_interest(
     }
 }
 
-/// Steps 6 and 7 — tax the period's income, then invest what is left over
+/// Step 6 — mark, on each account, the share of this period's withdrawals
+/// that would come before its owner may take them freely: the
+/// non-qualified share (a Roth's earnings are ordinary income) and the
+/// penalized share (the 10% additional tax). The drawdown reads both when
+/// it classifies a withdrawn dollar. See `early_access`.
+fn mark_early_access(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) {
+    for (account, access) in state.accounts.iter_mut().zip(run.early_access) {
+        (account.nonqualified, account.penalized) =
+            early_access::shares(access, ctx.start, ctx.end);
+    }
+}
+
+/// Steps 7 and 8 — tax the period's income, then invest what is left over
 /// or draw down the shortfall (grossed up through the tax model).
 ///
 /// One tax pass, not two. The drawdown grosses itself up against the same
@@ -647,6 +685,13 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
     // this addition is the period's whole bill, counted once.
     period.taxes += result.tax;
     period.withdrawal_taxes = result.tax;
+    period.early_withdrawal_penalty = result.penalty;
+    if result.penalty > 0.0 && !state.penalty_reported {
+        state.penalty_reported = true;
+        state
+            .warnings
+            .push(SimWarning::EarlyWithdrawalPenalty { period: ctx.period });
+    }
     // Merged, not assigned: a forced distribution may already have taken
     // something from these same accounts this period.
     for (id, amount) in result.gross_by_account {
@@ -662,7 +707,7 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
     }
 }
 
-/// Step 8 — apply market growth to post-flow balances. Returns the total
+/// Step 9 — apply market growth to post-flow balances. Returns the total
 /// dollar growth across accounts, in nominal dollars.
 ///
 /// Savings accounts are skipped: `accrue_interest` already grew and taxed

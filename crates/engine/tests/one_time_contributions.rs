@@ -86,6 +86,7 @@ fn plan(start: YearMonth, retirement: YearMonth) -> Plan {
             contributions: vec![],
             one_time_contributions: vec![],
             employer_match: None,
+            rule_of_55: false,
         }],
         streams: vec![
             stream(

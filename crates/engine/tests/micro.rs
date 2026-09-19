@@ -76,6 +76,7 @@ fn micro_plan() -> Plan {
             )],
             one_time_contributions: vec![],
             employer_match: None,
+            rule_of_55: false,
         }],
         streams: vec![
             CashFlowStream {
@@ -217,6 +218,7 @@ fn micro_plan_with_taxable_account() -> Plan {
         )],
         one_time_contributions: vec![],
         employer_match: None,
+        rule_of_55: false,
     });
     for stream in &mut plan.streams {
         if stream.id == "spending" {
@@ -355,6 +357,7 @@ fn with_second_account(
         )],
         one_time_contributions: vec![],
         employer_match: None,
+        rule_of_55: false,
     });
     plan
 }

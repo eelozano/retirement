@@ -104,6 +104,7 @@ fn staggered_household() -> Plan {
             )],
             one_time_contributions: vec![],
             employer_match: None,
+            rule_of_55: false,
         }],
         streams: vec![
             salary("early-salary", "early", 60_000.0),

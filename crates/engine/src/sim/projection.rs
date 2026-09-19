@@ -71,6 +71,31 @@ pub enum SimWarning {
     /// contribution analogue of `UnknownPersonRef`. Reported once per
     /// account.
     ContributionBoundaryUnresolved { account: AccountId },
+    /// The account elects the Rule of 55 but does not qualify, so its
+    /// withdrawals before the owner's 59½ still carry the 10% additional
+    /// tax. Checked rather than taken on trust: the election is a claim
+    /// about dates the plan already holds, and a mistyped retirement date
+    /// should not quietly waive a penalty. Reported once per account.
+    Rule55Ineligible {
+        account: AccountId,
+        reason: Rule55Ineligibility,
+    },
+    /// A withdrawal was taken before its owner could take it freely and
+    /// paid the 10% additional tax — see `sim::early_access`. Reported
+    /// once, for the first period it happens in; the amount per period is
+    /// `PeriodSnapshot::early_withdrawal_penalty`.
+    EarlyWithdrawalPenalty { period: usize },
+}
+
+/// Why a Rule of 55 election does not hold.
+#[derive(Serialize, Deserialize, TS, Clone, Copy, Debug, PartialEq, Eq)]
+#[ts(export)]
+pub enum Rule55Ineligibility {
+    /// Only a 401(k)/403(b)-style employer plan qualifies — never an IRA,
+    /// a 457(b) (which needs no exemption), or a non-retirement account.
+    NotAnEmployerPlan,
+    /// The owner retires before the calendar year they turn 55.
+    SeparatedBefore55,
 }
 
 /// One simulated period (a year in V1), in nominal dollars.
@@ -104,6 +129,10 @@ pub struct PeriodSnapshot {
     /// of a pooled bill: the two halves meet the progressive schedule as one
     /// stack (#54), and this records what the second half added.
     pub withdrawal_taxes: f64,
+    /// The part of `withdrawal_taxes` that is the 10% additional tax on
+    /// early withdrawals, not income tax — see `sim::early_access`. A share
+    /// of it, never an addition: `taxes` already counts it once.
+    pub early_withdrawal_penalty: f64,
     /// Contributions deposited into accounts this period, out of household
     /// income. Employer match is *not* included — it never passes through
     /// the household's cash, so folding it in here would break the

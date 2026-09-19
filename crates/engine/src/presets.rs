@@ -235,6 +235,7 @@ pub fn seed_plan() -> Plan {
                 )],
                 one_time_contributions: vec![],
                 employer_match: None,
+                rule_of_55: false,
             },
             Account {
                 id: "alex-401k".to_string(),
@@ -255,6 +256,7 @@ pub fn seed_plan() -> Plan {
                 )],
                 one_time_contributions: vec![],
                 employer_match: None,
+                rule_of_55: false,
             },
             Account {
                 id: "jordan-roth".to_string(),
@@ -272,6 +274,7 @@ pub fn seed_plan() -> Plan {
                 )],
                 one_time_contributions: vec![],
                 employer_match: None,
+                rule_of_55: false,
             },
         ],
         streams: vec![
