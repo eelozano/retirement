@@ -57,8 +57,8 @@ impl ReturnModel for FixedReturns {
 /// approximations available without a correlation matrix, and it errs
 /// towards caution rather than away from it.
 ///
-/// Periods are still independent — that is the separate simplification the
-/// historical-sequence backlog item exists to lift, and it needs real return
+/// Periods are still independent — that is the separate simplification a
+/// historical-sequence `ReturnModel` would lift, and it needs real return
 /// series rather than a wider draw.
 ///
 /// The trait takes `&self`, and rayon runs paths in parallel, so this holds

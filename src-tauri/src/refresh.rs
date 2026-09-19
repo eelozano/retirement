@@ -53,10 +53,10 @@ use crate::storage;
 /// Where the household is copied to, whole, immediately before a refresh
 /// rewrites it: `plans/.refreshes/<household id>/<the as-of it is leaving>.yaml`.
 ///
-/// Deliberately **not** pruned, unlike `.history` — see `docs/BACKLOG.md`
-/// **I**. Each copy is the projection the household was living with the last
-/// time they looked, which is the baseline a plan-versus-actual view needs,
-/// and it exists at exactly the moments that matter. A household refreshed
+/// Deliberately **not** pruned, unlike `.history`. Each copy is the
+/// projection the household was living with the last time they looked,
+/// which is the baseline a plan-versus-actual view would need, and it exists
+/// at exactly the moments that matter. A household refreshed
 /// quarterly for thirty years leaves 120 files of a few kilobytes each.
 fn refreshes_dir(base: &Path, household_id: &str) -> PathBuf {
     storage::plans_dir(base)
@@ -775,7 +775,7 @@ mod tests {
         assert_eq!(
             count_yaml(&kept),
             sittings as usize,
-            "a refresh copy is the baseline a plan-versus-actual view reads (backlog I) \
+            "a refresh copy is the baseline a plan-versus-actual view would read, \
              and is never pruned"
         );
         assert!(

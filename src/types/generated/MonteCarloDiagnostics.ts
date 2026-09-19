@@ -16,7 +16,8 @@ import type { PathGroupStats } from "./PathGroupStats";
  * `StochasticReturns`), which under-produces the clustered bad decade that
  * sequence-of-returns risk actually is. These diagnostics describe what
  * *that* model produced, so sequence-shaped failure is a floor here, not
- * an estimate. Backlog entry F is the honest answer to that question.
+ * an estimate. A historical-sequence `ReturnModel` is the honest answer to
+ * that question.
  */
 export type MonteCarloDiagnostics = { 
 /**
