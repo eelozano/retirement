@@ -215,11 +215,15 @@ cheap, and skipping it is exactly how processes accumulate across sessions.
   coordinate; near the top of a column usually works when the middle does not.
 - **Menu bar clicks need a Finder grant**, which is usually not worth
   requesting. Prefer in-app controls.
-- The left rail is the navigation, icon-only, with each button's name as its
-  tooltip and accessible label. Top to bottom: Plan, Cash flow, Growth,
-  Inputs, Update balances, What-if, Scenarios (which holds the compare
-  view); then, pinned to the bottom, Report (the report and export dialog)
-  and Settings. Settings is one dialog with five sections — Plan storage,
+- The left rail is the navigation, labelled by default: PLAN (Plan, Cash flow,
+  Growth, What-if, Scenarios, which holds the compare view), SETUP (Inputs,
+  Update balances), then, pinned to the bottom, Report (the report and export
+  dialog), Settings, and Collapse. Collapsed, it is the 56px icon rail; every
+  button keeps its name as its accessible label either way, so `element_index`
+  clicks work in both. Which state it is in is remembered in the webview's
+  localStorage, not under `RETIREMENT_DATA_DIR`, so it survives `demo:reset`
+  and whatever the last session left it as is what you get.
+  Settings is one dialog with five sections — Plan storage,
   Tax figures (whose "Edit figures…" opens the editor), Simulation (the
   Monte Carlo path count), Snapshot history, and Export.
 
@@ -238,8 +242,9 @@ bundled app so every image has the same frame. What the last retake did:
 
    That flag reaches only this launch, through the argument domain; it
    changes no setting.
-2. Confirm the demo household (the EXAMPLE badge, Alex and Jordan) and keep
-   the default 1280×800 window. Leave the dollar basis on **Nominal**.
+2. Confirm the demo household (the EXAMPLE badge, Alex and Jordan), that the
+   rail is **expanded** (it stays as the last session left it), and keep the
+   default 1280×800 window. Leave the dollar basis on **Nominal**.
 3. Capture the window, not the screen, to a file — `app_screenshot` only
    returns an image to you. Take the window id from `app_list_windows`, and
    shrink the Retina capture to the 1280×800 every committed image is:
