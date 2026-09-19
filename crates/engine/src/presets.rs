@@ -168,6 +168,7 @@ pub fn default_assumptions() -> Assumptions {
         // assume benefits lose purchasing power every year without saying so.
         social_security_cola: 0.03,
         reinvest_into: None,
+        drawdown: Default::default(),
     }
 }
 

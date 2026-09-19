@@ -122,6 +122,7 @@ fn working_plan(start: YearMonth, last_year: i32, rule: ContributionRule) -> Pla
             social_security_cola: 0.0,
             strategy_volatility: Default::default(),
             reinvest_into: None,
+            drawdown: Default::default(),
         },
         sim_config: SimConfig {
             start,
@@ -319,6 +320,7 @@ fn the_stub_takes_no_required_distribution_and_the_next_year_takes_a_whole_one()
             social_security_cola: 0.0,
             strategy_volatility: Default::default(),
             reinvest_into: None,
+            drawdown: Default::default(),
         },
         sim_config: SimConfig {
             start: YearMonth::new(2026, 9),

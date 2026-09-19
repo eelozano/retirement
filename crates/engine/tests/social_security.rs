@@ -59,6 +59,7 @@ fn plan_with(
             social_security_cola: plan_cola,
             strategy_volatility: Default::default(),
             reinvest_into: None,
+            drawdown: Default::default(),
         },
         sim_config: SimConfig {
             start,

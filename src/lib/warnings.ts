@@ -140,6 +140,17 @@ export function readableWarnings(plan: Plan, projection: Projection): ReadableWa
           "Some withdrawals come out of a pre-tax account, or out of a Roth's earnings, before the owner turns 59½, so they pay a 10% penalty on top of income tax. The year inspector shows how much each year.",
       };
     }
+    if ("FloorReleased" in warning) {
+      const { account, period } = warning.FloorReleased;
+      const name = accountName(plan, account);
+      const year = periodYear(projection, period);
+      return {
+        key,
+        title: `${name}: the balance you set aside is being spent${year !== null ? ` from ${year}` : ""}`,
+        detail:
+          "Every other account had already run out, so the money this plan keeps in reserve here is paying for spending instead of the plan running dry with it still in the bank.",
+      };
+    }
     const name = streamName(plan, warning.UnknownPersonRef.stream);
     return {
       key,

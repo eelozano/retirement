@@ -85,6 +85,10 @@ pub enum SimWarning {
     /// once, for the first period it happens in; the amount per period is
     /// `PeriodSnapshot::early_withdrawal_penalty`.
     EarlyWithdrawalPenalty { period: usize },
+    /// A drawdown floor on this account was drawn into: everything else the
+    /// household holds was already spent. Floors are soft on purpose — see
+    /// `StackEntry::floor`. Reported once per account, for the first period.
+    FloorReleased { account: AccountId, period: usize },
 }
 
 /// Why a Rule of 55 election does not hold.

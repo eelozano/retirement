@@ -45,6 +45,7 @@ function makePlan(overrides: Partial<Plan> = {}): Plan {
       survivor_expense_factor: 1,
       social_security_cola: 0,
       reinvest_into: null,
+      drawdown: "Proportional",
     },
     sim_config: {
       start: { year: 2026, month: 1 },

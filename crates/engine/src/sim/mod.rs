@@ -346,7 +346,7 @@ fn period_count(start: YearMonth, end: YearMonth) -> usize {
 /// The `[start, end)` months of period `n` on the calendar-year grid: the
 /// plan start through the following January for period 0, and whole calendar
 /// years after that.
-fn calendar_period(start: YearMonth, period: usize) -> (YearMonth, YearMonth) {
+pub(crate) fn calendar_period(start: YearMonth, period: usize) -> (YearMonth, YearMonth) {
     let january = |year: i32| YearMonth::new(year, 1);
     let first = if period == 0 {
         start

@@ -319,6 +319,7 @@ scenarios:
     survivor_expense_factor: 0.75
     social_security_cola: 0.03
     reinvest_into: joint-brokerage
+    drawdown: Proportional
 - id: retire-two-years-early
   name: Retire two years early
   display_real_dollars: false
@@ -527,6 +528,7 @@ scenarios:
     survivor_expense_factor: 0.75
     social_security_cola: 0.03
     reinvest_into: joint-brokerage
+    drawdown: Proportional
 - id: claim-social-security-at-62
   name: Claim Social Security at 62
   display_real_dollars: false
@@ -735,6 +737,7 @@ scenarios:
     survivor_expense_factor: 0.75
     social_security_cola: 0.03
     reinvest_into: joint-brokerage
+    drawdown: Proportional
 - id: leaner-retirement
   name: Leaner retirement spending
   display_real_dollars: false
@@ -943,6 +946,7 @@ scenarios:
     survivor_expense_factor: 0.75
     social_security_cola: 0.03
     reinvest_into: joint-brokerage
+    drawdown: Proportional
 - id: sell-the-house-at-retirement
   name: Sell the house at retirement
   display_real_dollars: false
@@ -1156,3 +1160,4 @@ scenarios:
     survivor_expense_factor: 0.75
     social_security_cola: 0.03
     reinvest_into: joint-brokerage
+    drawdown: Proportional

@@ -73,6 +73,10 @@ pub struct WithdrawalResult {
     pub tax: f64,
     /// The part of `tax` that is the early-withdrawal penalty.
     pub penalty: f64,
+    /// Accounts whose held-back floor this withdrawal had to dip into, in
+    /// the order they were released. Always empty for a strategy with no
+    /// floors.
+    pub floors_released: Vec<AccountId>,
     /// Net cash delivered after tax. May fall short of the request when the
     /// portfolio is depleted — the engine emits a warning in that case.
     pub net: f64,
@@ -168,7 +172,7 @@ fn income_with(
 /// `available` caps `gross` and is what depletion means: the most the
 /// strategy can supply. Callers return early when either `net_needed` or
 /// `available` is not positive.
-fn gross_up(
+pub(super) fn gross_up(
     net_needed: f64,
     available: f64,
     accounts: &mut [AccountState],
@@ -215,6 +219,7 @@ fn gross_up(
         tax: owed,
         penalty,
         net: gross - owed,
+        floors_released: Vec::new(),
     };
 
     for (account, &amount) in accounts.iter_mut().zip(&amounts) {
@@ -235,9 +240,9 @@ fn gross_up(
     result
 }
 
-/// V1: withdraw from every funded account in proportion to its balance.
-/// (V2 adds `OrderedDrawdown` — e.g. Taxable → Pre-Tax → Roth — behind the
-/// same trait.)
+/// Withdraw from every funded account in proportion to its balance — the
+/// default policy, `DrawdownPolicy::Proportional`. `PhasedDrawdown` is the
+/// ordered alternative.
 pub struct ProportionalDrawdown;
 
 impl DrawdownStrategy for ProportionalDrawdown {

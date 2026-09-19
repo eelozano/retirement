@@ -111,6 +111,8 @@ pub(super) struct RunState {
     /// Whether an early-withdrawal penalty has already been reported. Same
     /// once-per-run shape as `depleted`.
     pub penalty_reported: bool,
+    /// Accounts whose drawdown floor has already been reported as released.
+    pub floors_reported: BTreeSet<AccountId>,
     /// Closing balances of the previous period, indexed parallel to
     /// `plan.accounts`. `None` in the first period, which is why no required
     /// distribution is taken there — see `required_distributions`.
@@ -148,6 +150,7 @@ impl RunState {
             depleted: false,
             distribution_unallocated_reported: false,
             penalty_reported: false,
+            floors_reported: BTreeSet::new(),
             prior_balances: None,
             warnings: Warnings::default(),
             one_time: Vec::new(),
@@ -691,6 +694,14 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
         state
             .warnings
             .push(SimWarning::EarlyWithdrawalPenalty { period: ctx.period });
+    }
+    for account in result.floors_released {
+        if state.floors_reported.insert(account.clone()) {
+            state.warnings.push(SimWarning::FloorReleased {
+                account,
+                period: ctx.period,
+            });
+        }
     }
     // Merged, not assigned: a forced distribution may already have taken
     // something from these same accounts this period.
