@@ -42,6 +42,7 @@ const plan = {
   assumptions: {
     strategy_returns: { aggressive: 0.075, moderate: 0.067, conservative: 0.059 },
     strategy_volatility: { aggressive: 0.155, moderate: 0.115, conservative: 0.09 },
+    drawdown: "Proportional",
   },
   sim_config: { start: { year: 2025, month: 1 }, period: "Year" },
 } as unknown as Plan;
@@ -641,6 +642,67 @@ describe("AccountsSection", () => {
     expect(currentAccount()?.contributions[0].end).toEqual({ AtRetirement: "p2" });
     expect(currentAccount()?.one_time_contributions[0].date).toEqual({
       AtRetirement: "p1",
+    });
+  });
+
+  it("takes a Roth's contributions to date as its basis, and keeps them across Roth types", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "roth_ira");
+    expect(currentAccount()?.cost_basis).toBeNull();
+
+    const contributions = screen.getByLabelText("Contributions to date ($)");
+    await userEvent.clear(contributions);
+    await userEvent.type(contributions, "40000");
+    await userEvent.tab();
+    expect(currentAccount()?.cost_basis).toBe(40000);
+
+    // An IRA and a Roth 401(k) are both Roth: what was entered stays.
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "employer_roth");
+    expect(currentAccount()?.cost_basis).toBe(40000);
+    // Anything else starts blank.
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "traditional_ira");
+    expect(currentAccount()?.cost_basis).toBeNull();
+  });
+
+  it("offers the Rule of 55 on an employer plan only, and clears it when the type changes", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+    expect(screen.queryByRole("checkbox", { name: /Rule of 55/ })).toBeNull();
+
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "employer_pretax");
+    await userEvent.click(screen.getByRole("checkbox", { name: /Rule of 55/ }));
+    expect(currentAccount()?.rule_of_55).toBe(true);
+    // Born 1975, retiring 2040 at 65 — in or after the year they turn 55.
+    expect(screen.getByText(/qualifies from Jan 2040/)).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "traditional_ira");
+    expect(currentAccount()?.rule_of_55).toBe(false);
+    expect(screen.queryByRole("checkbox", { name: /Rule of 55/ })).toBeNull();
+  });
+
+  it("drops a removed account from every withdrawal list", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+    const id = currentAccount()?.id ?? "";
+    usePlanStore.setState((s) => {
+      const draft = structuredClone(s.plan) as Plan;
+      draft.assumptions.drawdown = {
+        Phased: [
+          {
+            id: "only",
+            name: "Only",
+            start: { Boundary: "PlanStart" },
+            stack: [{ source: { Account: id }, floor: 0 }],
+          },
+        ],
+      };
+      return { plan: draft };
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Remove account" }));
+    const drawdown = usePlanStore.getState().plan?.assumptions.drawdown;
+    expect(drawdown).toEqual({
+      Phased: [{ id: "only", name: "Only", start: { Boundary: "PlanStart" }, stack: [] }],
     });
   });
 

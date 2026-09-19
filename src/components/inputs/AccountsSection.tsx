@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { forgetAccount, penaltyFreeMonth, rule55 } from "../../lib/drawdown";
 import { currency, ratePercent, yearMonth } from "../../lib/format";
 import { usePlanStore } from "../../store/planStore";
+import type { Account } from "../../types/generated/Account";
 import type { AllocationRef } from "../../types/generated/AllocationRef";
+import type { Plan } from "../../types/generated/Plan";
 import type { StrategyRates } from "../../types/generated/StrategyRates";
 import type { YearMonth } from "../../types/generated/YearMonth";
 import { STRATEGIES, type StrategyVariant } from "./AssumptionsSection";
@@ -15,7 +18,13 @@ import {
 import { ACCOUNT_TYPE_OPTIONS, accountTypeByValue, accountTypeFor } from "./accountTypes";
 import { ContributionCard } from "./ContributionCard";
 import { EmployerMatchFields } from "./EmployerMatchFields";
-import { NumberField, PercentField, SelectField, TextField } from "./fields";
+import {
+  CheckboxField,
+  NumberField,
+  PercentField,
+  SelectField,
+  TextField,
+} from "./fields";
 import { OneTimeContributionCard } from "./OneTimeContributionCard";
 import { FACT_VS_POLICY } from "./shared";
 
@@ -58,6 +67,27 @@ function allocationLabel(allocation: AllocationRef, returns: StrategyRates): str
   }
   const strategy = STRATEGIES.find((s) => s.variant === allocation);
   return strategy ? `${allocation} (${ratePercent(returns[strategy.key])})` : allocation;
+}
+
+/**
+ * What the Rule of 55 checkbox says under itself: whether the election would
+ * hold, and from when — the same check the engine makes, so a date that
+ * does not qualify is visible here before it is a warning on the Plan
+ * screen.
+ */
+function rule55Hint(plan: Plan, account: Account): string {
+  const owner = plan.people.find((p) => p.id === account.owner);
+  const name = owner?.name || "The owner";
+  const without = owner
+    ? ` Without it, withdrawals before ${yearMonth(penaltyFreeMonth(owner))} (59½) pay a 10% penalty.`
+    : "";
+  const check = rule55(plan, account);
+  if (check.eligible) {
+    return `Leaving this employer in or after the year they turn 55 lets ${name} withdraw from its plan without the 10% penalty, if the plan allows it. This scenario's retirement date qualifies from ${yearMonth(check.from)}.${without}`;
+  }
+  return check.reason === "SeparatedBefore55"
+    ? `Only applies when ${name} leaves this employer in or after the calendar year they turn 55, and this scenario retires them earlier — so the penalty still applies.${without}`
+    : `Only a 401(k), 403(b) or similar employer plan qualifies.${without}`;
 }
 
 /**
@@ -230,12 +260,20 @@ export function AccountsSection() {
                 if (!type) return;
                 const account = d.accounts[selectedIndex];
                 const wasSavings = account.kind === "Savings";
+                const wasRoth = account.kind === "Roth";
                 account.kind = type.kind;
                 account.plan_type = type.planType;
+                // A taxable account's basis, or a Roth's contributions — the
+                // after-tax dollars in it. A Roth moving between an IRA and
+                // an employer plan keeps what was entered; anything else
+                // starts blank, which reads as all earnings.
                 if (type.kind === "Taxable") {
                   account.cost_basis ??= account.balance;
-                } else {
+                } else if (type.kind !== "Roth" || !wasRoth) {
                   account.cost_basis = null;
+                }
+                if (type.planType !== "EmployerPlan") {
+                  account.rule_of_55 = false;
                 }
                 // A newly-typed Savings account starts on a savings rate
                 // rather than a market strategy. Leaving the Savings type no
@@ -335,6 +373,31 @@ export function AccountsSection() {
               }
             />
           )}
+          {selected.kind === "Roth" && (
+            <NumberField
+              label="Contributions to date ($)"
+              value={selected.cost_basis ?? 0}
+              hint="What you've put in, not what it has grown to. Before 59½ contributions come back tax- and penalty-free while earnings pay income tax and the 10% penalty, so this decides what the account can bridge. Left at 0, the whole balance counts as earnings."
+              onChange={(contributions) =>
+                updatePlan((d) => {
+                  d.accounts[selectedIndex].cost_basis = contributions;
+                })
+              }
+            />
+          )}
+          {selected.plan_type === "EmployerPlan" &&
+            (selected.kind === "TraditionalPreTax" || selected.kind === "Roth") && (
+              <CheckboxField
+                label="Withdraw under the Rule of 55"
+                checked={selected.rule_of_55}
+                hint={rule55Hint(plan, selected)}
+                onChange={(checked) =>
+                  updatePlan((d) => {
+                    d.accounts[selectedIndex].rule_of_55 = checked;
+                  })
+                }
+              />
+            )}
           <div className="band">
             <p className="band-label">Contributions</p>
             {selected.contributions.length === 0 &&
@@ -413,6 +476,7 @@ export function AccountsSection() {
             className="remove"
             onClick={() =>
               updatePlan((d) => {
+                forgetAccount(d, d.accounts[selectedIndex].id);
                 d.accounts.splice(selectedIndex, 1);
               })
             }

@@ -79,7 +79,14 @@ export function ComparisonTable(props: {
               <td className={row.depletionYear !== null ? "delta-negative" : ""}>
                 {row.depletionYear !== null ? `⚠ ${row.depletionYear}` : "Never"}
               </td>
-              <td>{currency(row.lifetimeTaxes)}</td>
+              <td>
+                {currency(row.lifetimeTaxes)}
+                {row.lifetimePenalty > 0 && (
+                  <span className="comparison-margin">
+                    + {currency(row.lifetimePenalty)} penalty
+                  </span>
+                )}
+              </td>
               <td className="comparison-success">
                 {row.successRate === null ? (
                   blank

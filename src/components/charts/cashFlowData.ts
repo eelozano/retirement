@@ -20,8 +20,11 @@ export interface CashFlowRow {
   requiredDistributions: number;
   /** Negative. */
   expenses: number;
-  /** Negative. */
+  /** Negative. Income tax only — the early-withdrawal penalty is `penalty`,
+   * not part of this, though the engine counts both in `taxes`. */
   taxes: number;
+  /** Negative. The 10% additional tax on withdrawals taken before 59½. */
+  penalty: number;
   /** Negative. */
   contributions: number;
   surplus: number;
@@ -43,7 +46,9 @@ export function cashFlowRows(
       withdrawals: withdrawals / d,
       requiredDistributions: s.required_distributions / d,
       expenses: -s.expenses / d,
-      taxes: -s.taxes / d,
+      taxes: -(s.taxes - s.early_withdrawal_penalty) / d,
+      // Zero rather than -0 in the many years with no penalty.
+      penalty: s.early_withdrawal_penalty > 0 ? -s.early_withdrawal_penalty / d : 0,
       contributions: -s.contributions / d,
       surplus: s.surplus / d,
     };
@@ -73,6 +78,9 @@ export interface CashFlowSummary {
    * sum of dollars from different years.
    */
   lifetimeTaxes: number;
+  /** Total early-withdrawal penalty across the projection, in the same
+   * basis — kept apart from `lifetimeTaxes`, which excludes it. */
+  lifetimePenalty: number;
 }
 
 export function cashFlowSummary(rows: CashFlowRow[]): CashFlowSummary {
@@ -80,6 +88,7 @@ export function cashFlowSummary(rows: CashFlowRow[]): CashFlowSummary {
   let peakWithdrawalYear: number | null = null;
   let peakWithdrawal = 0;
   let lifetimeTaxes = 0;
+  let lifetimePenalty = 0;
 
   for (const row of rows) {
     if (
@@ -94,7 +103,14 @@ export function cashFlowSummary(rows: CashFlowRow[]): CashFlowSummary {
     }
     // taxes are stored negative for the chart; the total reads positive.
     lifetimeTaxes += -row.taxes;
+    lifetimePenalty += -row.penalty;
   }
 
-  return { crossoverYear, peakWithdrawalYear, peakWithdrawal, lifetimeTaxes };
+  return {
+    crossoverYear,
+    peakWithdrawalYear,
+    peakWithdrawal,
+    lifetimeTaxes,
+    lifetimePenalty,
+  };
 }
