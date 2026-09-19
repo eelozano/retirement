@@ -628,7 +628,12 @@ fn golden_projections() -> String {
         for snapshot in &projection.snapshots {
             let withdrawn: Vec<String> = accounts
                 .iter()
-                .map(|id| format!("{:.6}", snapshot.withdrawals.get(id).copied().unwrap_or(0.0)))
+                .map(|id| {
+                    format!(
+                        "{:.6}",
+                        snapshot.withdrawals.get(id).copied().unwrap_or(0.0)
+                    )
+                })
                 .collect();
             out.push_str(&format!(
                 "{},{},{:.6},{:.6},{:.6},{}\n",

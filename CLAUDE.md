@@ -142,6 +142,10 @@ demo run needs no caution at all; see `.claude/skills/run-app/SKILL.md`.
 - `UPDATE_FIXTURES=1 cargo test -p retirement --test demo_fixtures` —
   regenerate `fixtures/demo/demo-household.yaml` after an intentional schema
   change.
+- `UPDATE_GOLDEN=1 cargo test -p retirement --test demo_fixtures` —
+  regenerate `fixtures/demo/golden-projections.csv`, the demo scenarios'
+  pinned projections. Only when a projection change is intended; the PR
+  and release notes then say by how much (see the upgrade invariant above).
 - `pnpm types:generate` — regenerate `src/types/generated/`.
 - `pnpm format` — apply Biome formatting and safe fixes.
 

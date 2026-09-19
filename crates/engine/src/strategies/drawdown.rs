@@ -62,6 +62,114 @@ pub trait DrawdownStrategy {
     ) -> WithdrawalResult;
 }
 
+/// Income character of a set of withdrawals, stacked on the income the
+/// household already has. `amounts` is parallel to `accounts`.
+///
+/// The one place a withdrawn dollar is classified, so a drawdown impl decides
+/// only *which* accounts a gross amount comes from and never how it is
+/// taxed.
+fn income_with(
+    base: &IncomeBreakdown,
+    accounts: &[AccountState],
+    amounts: &[f64],
+) -> IncomeBreakdown {
+    let mut income = *base;
+    for (account, &amount) in accounts.iter().zip(amounts) {
+        match account.kind {
+            AccountKind::TraditionalPreTax => income.ordinary += amount,
+            AccountKind::Taxable => {
+                let gains = amount * account.gains_fraction();
+                income.capital_gains += gains;
+                income.untaxed += amount - gains;
+            }
+            // A savings account's interest is already taxed as it
+            // accrues (`sim::period::accrue_interest`), not deferred
+            // to withdrawal — see `AccountKind::Savings`. Assumes
+            // qualified medical spending for HSA — see `AccountKind::Hsa`.
+            AccountKind::Roth | AccountKind::Hsa | AccountKind::Savings => income.untaxed += amount,
+        }
+    }
+    income
+}
+
+/// The gross-up every `DrawdownStrategy` shares: find the gross withdrawal
+/// whose net, after the tax it *adds* over `base`, covers `net_needed`, then
+/// take it out of `accounts`.
+///
+/// `allocate(gross, accounts, out)` is the strategy: it writes into `out`,
+/// parallel to `accounts`, how much of `gross` each account supplies. It is
+/// called once per iteration with the balances as they stood on entry, so
+/// it must be a pure function of its arguments, never draw an account below
+/// zero, and be continuous and non-decreasing in `gross` — the fixed point
+/// below converges because the marginal cost it produces is monotone
+/// (ARCHITECTURE.md, "Where the current design pushes back" #3).
+///
+/// `available` caps `gross` and is what depletion means: the most the
+/// strategy can supply. Callers return early when either `net_needed` or
+/// `available` is not positive.
+fn gross_up(
+    net_needed: f64,
+    available: f64,
+    accounts: &mut [AccountState],
+    tax: &dyn TaxModel,
+    base: &IncomeBreakdown,
+    period: PeriodIndex,
+    allocate: impl Fn(f64, &[AccountState], &mut [f64]),
+) -> WithdrawalResult {
+    let mut amounts = vec![0.0; accounts.len()];
+
+    // Fixed-point gross-up: find gross so that gross minus the tax that
+    // gross *adds* covers the net need. The base bill is already paid,
+    // so what has to be covered here is the marginal cost. With `base`
+    // held fixed the marginal cost is still monotone in gross, so this
+    // converges exactly as it did before; cap at what the strategy can
+    // supply (depletion).
+    let base_tax = tax.tax(base, period).tax;
+    let mut marginal = |gross: f64| {
+        allocate(gross, accounts, &mut amounts);
+        tax.tax(&income_with(base, accounts, &amounts), period).tax - base_tax
+    };
+
+    let tolerance = 1e-12 * net_needed.max(1.0);
+    let mut gross = net_needed;
+    for _ in 0..100 {
+        let next = (net_needed + marginal(gross)).min(available);
+        if (next - gross).abs() < tolerance {
+            gross = next;
+            break;
+        }
+        gross = next;
+    }
+
+    let owed = marginal(gross);
+    // `marginal` has just allocated `gross` itself, so `amounts` now holds
+    // exactly what is withdrawn.
+    let mut result = WithdrawalResult {
+        gross_by_account: BTreeMap::new(),
+        tax: owed,
+        net: gross - owed,
+    };
+
+    for (account, &amount) in accounts.iter_mut().zip(&amounts) {
+        if amount <= 0.0 {
+            continue;
+        }
+        if account.balance > 0.0 {
+            let basis_recovered = account.cost_basis * (amount / account.balance);
+            account.cost_basis = (account.cost_basis - basis_recovered).max(0.0);
+        }
+        // Full depletion caps `gross` at what is available, so this
+        // subtraction lands on zero mathematically but can leave
+        // floating-point residue (a tiny negative, or -0.0). Clamp
+        // explicitly rather than with `max`, which is free to return
+        // -0.0 for the -0.0/+0.0 pair.
+        let remaining = account.balance - amount;
+        account.balance = if remaining > 0.0 { remaining } else { 0.0 };
+        result.gross_by_account.insert(account.id.clone(), amount);
+    }
+    result
+}
+
 /// V1: withdraw from every funded account in proportion to its balance.
 /// (V2 adds `OrderedDrawdown` — e.g. Taxable → Pre-Tax → Roth — behind the
 /// same trait.)
@@ -80,80 +188,19 @@ impl DrawdownStrategy for ProportionalDrawdown {
         if net_needed <= 0.0 || total <= 0.0 {
             return WithdrawalResult::default();
         }
-
-        // Income character of one gross dollar withdrawn proportionally,
-        // stacked on the income the household already has.
-        let breakdown_for = |gross: f64| {
-            let mut income = *base;
-            for account in accounts.iter() {
-                let share = account.balance.max(0.0) / total;
-                let amount = gross * share;
-                match account.kind {
-                    AccountKind::TraditionalPreTax => income.ordinary += amount,
-                    AccountKind::Taxable => {
-                        let gains = amount * account.gains_fraction();
-                        income.capital_gains += gains;
-                        income.untaxed += amount - gains;
-                    }
-                    // A savings account's interest is already taxed as it
-                    // accrues (`sim::period::accrue_interest`), not deferred
-                    // to withdrawal — see `AccountKind::Savings`. Assumes
-                    // qualified medical spending for HSA — see `AccountKind::Hsa`.
-                    AccountKind::Roth | AccountKind::Hsa | AccountKind::Savings => {
-                        income.untaxed += amount
-                    }
+        gross_up(
+            net_needed,
+            total,
+            accounts,
+            tax,
+            base,
+            period,
+            |gross, accounts, out| {
+                for (account, amount) in accounts.iter().zip(out.iter_mut()) {
+                    *amount = gross * (account.balance.max(0.0) / total);
                 }
-            }
-            income
-        };
-
-        // Fixed-point gross-up: find gross so that gross minus the tax that
-        // gross *adds* covers the net need. The base bill is already paid,
-        // so what has to be covered here is the marginal cost. With `base`
-        // held fixed the marginal cost is still monotone in gross, so this
-        // converges exactly as it did before; cap at the portfolio total
-        // (depletion).
-        let base_tax = tax.tax(base, period).tax;
-        let marginal = |gross: f64| tax.tax(&breakdown_for(gross), period).tax - base_tax;
-
-        let tolerance = 1e-12 * net_needed.max(1.0);
-        let mut gross = net_needed;
-        for _ in 0..100 {
-            let next = (net_needed + marginal(gross)).min(total);
-            if (next - gross).abs() < tolerance {
-                gross = next;
-                break;
-            }
-            gross = next;
-        }
-
-        let owed = marginal(gross);
-        let mut result = WithdrawalResult {
-            gross_by_account: BTreeMap::new(),
-            tax: owed,
-            net: gross - owed,
-        };
-
-        for account in accounts.iter_mut() {
-            let share = account.balance.max(0.0) / total;
-            let amount = gross * share;
-            if amount <= 0.0 {
-                continue;
-            }
-            if account.balance > 0.0 {
-                let basis_recovered = account.cost_basis * (amount / account.balance);
-                account.cost_basis = (account.cost_basis - basis_recovered).max(0.0);
-            }
-            // Full depletion caps `gross` at the portfolio total, so this
-            // subtraction lands on zero mathematically but can leave
-            // floating-point residue (a tiny negative, or -0.0). Clamp
-            // explicitly rather than with `max`, which is free to return
-            // -0.0 for the -0.0/+0.0 pair.
-            let remaining = account.balance - amount;
-            account.balance = if remaining > 0.0 { remaining } else { 0.0 };
-            result.gross_by_account.insert(account.id.clone(), amount);
-        }
-        result
+            },
+        )
     }
 }
 
