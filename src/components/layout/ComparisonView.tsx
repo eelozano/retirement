@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   cancelMonteCarlo,
   loadPlanNamed,
@@ -15,6 +15,7 @@ import type { Projection } from "../../types/generated/Projection";
 import { ComparisonChart } from "../charts/ComparisonChart";
 import { ComparisonTable } from "../charts/ComparisonTable";
 import {
+  comparedIds,
   compareRows,
   compareSeriesDefs,
   comparisonSummary,
@@ -127,8 +128,22 @@ export function ComparisonView() {
     setSelectedIds([activePlan.id, ...others].slice(0, MAX_COMPARE));
   }, [activePlan, scenarios, selectedIds]);
 
+  // `selectedIds` is what was ticked; `compared` is what of it still exists.
+  // Keyed by the joined ids so a list refresh that changes nothing doesn't
+  // rerun every projection.
+  const scenarioKey = scenarios.map((s) => s.id).join("\n");
+  const comparedKey = activeId
+    ? comparedIds(selectedIds, scenarioKey ? scenarioKey.split("\n") : [], activeId).join(
+        "\n",
+      )
+    : "";
+  const compared = useMemo(
+    () => (comparedKey ? comparedKey.split("\n") : []),
+    [comparedKey],
+  );
+
   useEffect(() => {
-    if (!activePlan || selectedIds.length === 0) return;
+    if (!activePlan || compared.length === 0) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -136,9 +151,7 @@ export function ComparisonView() {
     (async () => {
       try {
         const plans: Plan[] = await Promise.all(
-          selectedIds.map((id) =>
-            id === activePlan.id ? activePlan : loadPlanNamed(id),
-          ),
+          compared.map((id) => (id === activePlan.id ? activePlan : loadPlanNamed(id))),
         );
         const projections = await runProjections(plans);
         if (cancelled) return;
@@ -165,7 +178,7 @@ export function ComparisonView() {
     return () => {
       cancelled = true;
     };
-  }, [activePlan, selectedIds]);
+  }, [activePlan, compared]);
 
   const projectable = results.filter((r) => r.projection);
   const monteCarloFor = (id: string): MonteCarloResult | null => {
@@ -268,14 +281,13 @@ export function ComparisonView() {
   if (!activePlan) return null;
 
   const toggle = (id: string, checked: boolean) => {
-    setSelectedIds((current) => {
-      if (checked) {
-        return current.includes(id) || current.length >= MAX_COMPARE
-          ? current
-          : [...current, id];
+    if (checked) {
+      if (!compared.includes(id) && compared.length < MAX_COMPARE) {
+        setSelectedIds([...compared, id]);
       }
-      return current.filter((x) => x !== id);
-    });
+    } else {
+      setSelectedIds(compared.filter((x) => x !== id));
+    }
   };
 
   const ok = projectable;
@@ -316,14 +328,14 @@ export function ComparisonView() {
       </p>
       <div className="compare-picker">
         {scenarios.map((s) => {
-          const checked = selectedIds.includes(s.id);
+          const checked = compared.includes(s.id);
           const isBase = s.id === activePlan.id;
           return (
             <label key={s.id}>
               <input
                 type="checkbox"
                 checked={checked}
-                disabled={isBase || (!checked && selectedIds.length >= MAX_COMPARE)}
+                disabled={isBase || (!checked && compared.length >= MAX_COMPARE)}
                 onChange={(e) => toggle(s.id, e.currentTarget.checked)}
               />
               {s.name}

@@ -1,9 +1,11 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../lib/api", () => ({
   getStorageInfo: vi.fn(),
-  getTaxFiguresInfo: vi.fn(),
+  getTaxFigures: vi.fn(),
+  saveTaxFigures: vi.fn(),
   listSnapshots: vi.fn(),
   chooseStorageDir: vi.fn(),
   setStorageDir: vi.fn(),
@@ -13,6 +15,7 @@ vi.mock("../../lib/api", () => ({
 
 import * as api from "../../lib/api";
 import { usePlanStore } from "../../store/planStore";
+import { taxFigures } from "../../test/fixtures";
 import { StorageSettings } from "./StorageSettings";
 
 // The yearly tax figures live in a file the user edits by hand, so the
@@ -30,6 +33,7 @@ beforeAll(() => {
   };
 });
 
+const FIGURES = taxFigures();
 const PATH = "/Users/me/Documents/Retirement Planner/tax-figures.yaml";
 
 beforeEach(() => {
@@ -43,9 +47,10 @@ beforeEach(() => {
 
 describe("StorageSettings tax figures", () => {
   it("names the tax year in force and where the file is", async () => {
-    vi.mocked(api.getTaxFiguresInfo).mockResolvedValue({
+    vi.mocked(api.getTaxFigures).mockResolvedValue({
       path: PATH,
-      tax_year: 2026,
+      figures: FIGURES,
+      built_in: FIGURES,
       error: null,
     });
     render(<StorageSettings open onClose={() => {}} />);
@@ -58,9 +63,10 @@ describe("StorageSettings tax figures", () => {
   });
 
   it("says when the file could not be used", async () => {
-    vi.mocked(api.getTaxFiguresInfo).mockResolvedValue({
+    vi.mocked(api.getTaxFigures).mockResolvedValue({
       path: PATH,
-      tax_year: 2026,
+      figures: FIGURES,
+      built_in: FIGURES,
       error: "tax-figures.yaml: contribution_limits.ira must be zero or more, not -5",
     });
     render(<StorageSettings open onClose={() => {}} />);
@@ -68,5 +74,19 @@ describe("StorageSettings tax figures", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("built-in 2026 figures are in force");
     expect(alert).toHaveTextContent("contribution_limits.ira");
+  });
+
+  it("opens the editor on the figures in the file", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.getTaxFigures).mockResolvedValue({
+      path: PATH,
+      figures: FIGURES,
+      built_in: FIGURES,
+      error: null,
+    });
+    render(<StorageSettings open onClose={() => {}} />);
+
+    await user.click(await screen.findByRole("button", { name: "Edit figures…" }));
+    expect(await screen.findByLabelText("Tax year")).toHaveValue(2026);
   });
 });

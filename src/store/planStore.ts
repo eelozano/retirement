@@ -158,6 +158,11 @@ interface PlanStore {
    * deterministic projection does not depend on it, so it is not re-run.
    * Resolves once the count is saved, not once the run lands. */
   setMonteCarloPaths: (paths: number) => Promise<void>;
+  /** The tax figures file was just saved: reload the presets (the account
+   * editor quotes limits from them) and re-run everything on screen, which
+   * the plan itself gives no reason to. Monte Carlo follows the on-demand
+   * threshold, as after an edit. */
+  taxFiguresChanged: () => Promise<void>;
   setShowMonteCarloBand: (show: boolean) => void;
   /** Runs Monte Carlo against the plan on screen, now, whatever the
    * threshold — the Run affordance on a stale tile. */
@@ -471,6 +476,28 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
     set({ monteCarloPaths: paths });
     const plan = get().plan;
     if (plan) void startMonteCarlo(set, get, plan);
+  },
+
+  taxFiguresChanged: async () => {
+    const presets = await getPresets();
+    set({ presets });
+    const plan = get().plan;
+    if (!plan) return;
+    if (onDemand(get())) {
+      set({ monteCarloStale: true });
+      get().cancelMonteCarlo();
+    } else {
+      void startMonteCarlo(set, get, plan);
+    }
+    set({ projecting: true });
+    try {
+      const projection = await runProjection(plan);
+      // Dropped if an edit or a switch landed meanwhile; that run has the
+      // new figures too.
+      if (get().plan === plan) set({ projection, projecting: false, error: null });
+    } catch (e) {
+      set({ error: String(e), projecting: false });
+    }
   },
 
   runMonteCarloNow: () => {
