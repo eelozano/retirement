@@ -121,6 +121,7 @@ fn zero_volatility_matches_deterministic() {
         plan.assumptions.state_tax.clone(),
         plan.assumptions.inflation,
         plan.sim_config.start.year,
+        plan.people.iter().map(|p| p.birth.year).collect(),
     );
     let result = run_monte_carlo_sim(
         &plan,
@@ -383,6 +384,7 @@ fn tax_for(plan: &Plan) -> BracketTax {
         plan.assumptions.state_tax.clone(),
         plan.assumptions.inflation,
         plan.sim_config.start.year,
+        plan.people.iter().map(|p| p.birth.year).collect(),
     )
 }
 
@@ -477,6 +479,7 @@ fn higher_volatility_widens_the_fan() {
         plan.assumptions.state_tax.clone(),
         plan.assumptions.inflation,
         plan.sim_config.start.year,
+        plan.people.iter().map(|p| p.birth.year).collect(),
     );
     let months = plan.sim_config.period.months();
     let config = MonteCarloConfig {
@@ -526,6 +529,7 @@ fn net_worth_never_goes_negative() {
         plan.assumptions.state_tax.clone(),
         plan.assumptions.inflation,
         plan.sim_config.start.year,
+        plan.people.iter().map(|p| p.birth.year).collect(),
     );
     let result = run_monte_carlo_sim(
         &plan,
@@ -597,6 +601,12 @@ fn net_worth_never_goes_negative() {
 /// household draws on a brokerage while collecting a benefit and the benefit
 /// is now taxed on the gains too. The success rate holds at 0.605.
 ///
+/// Re-captured when filers 65 and over started taking the additional
+/// standard deduction (#143). Alex turns 65 in 2048, so periods 0 and 12
+/// (2026, 2038) are untouched and the success rate holds at 0.605; the later
+/// medians and tails rise, the final period's median 4,986,650 -> 5,100,450
+/// (+2.3%), because every retired year after that is taxed on a little less.
+///
 /// Spot indices rather than all 58 periods: enough to catch an off-by-one or
 /// a reordering, few enough to read when it fails.
 #[test]
@@ -623,13 +633,13 @@ fn fold_reproduces_pre_refactor_output() {
 
     assert_eq!(at(0).p50, 763297.404964235);
     assert_eq!(at(12).p50, 3022873.974996055);
-    assert_eq!(at(38).p50, 4940092.452541649);
-    assert_eq!(at(57).p50, 4986650.377909337);
+    assert_eq!(at(38).p50, 4969659.834309172);
+    assert_eq!(at(57).p50, 5100449.622258396);
 
     assert_eq!(at(0).p90, 904377.7405692474);
     assert_eq!(at(12).p90, 5335775.894425642);
-    assert_eq!(at(38).p90, 26546784.853422854);
-    assert_eq!(at(57).p90, 77150284.48902819);
+    assert_eq!(at(38).p90, 26594465.779507935);
+    assert_eq!(at(57).p90, 77409352.60512203);
 }
 
 /// The observed form must not change the answer: progress counting and the
@@ -728,6 +738,7 @@ fn cancel_mid_run_short_circuits_the_sweep() {
         plan.assumptions.state_tax.clone(),
         plan.assumptions.inflation,
         plan.sim_config.start.year,
+        plan.people.iter().map(|p| p.birth.year).collect(),
     );
 
     let result = run_monte_carlo_sim_with(

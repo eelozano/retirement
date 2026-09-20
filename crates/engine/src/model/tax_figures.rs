@@ -42,6 +42,17 @@ pub struct TaxFigures {
 #[ts(export)]
 pub struct FederalTax {
     pub standard_deduction: ByFilingStatus<f64>,
+    /// The additional standard deduction for each filer who is 65 or older
+    /// by the end of the tax year (IRC 63(f)) — per person, so a joint
+    /// return with both spouses 65+ takes it twice. The Single figure is
+    /// larger than the joint one: $2,050 against $1,650 for 2026.
+    ///
+    /// Defaulted so a `tax-figures.yaml` written before this figure existed
+    /// still loads — the file is never overwritten by an upgrade, and one
+    /// that failed to parse would silently fall back to the built-in
+    /// figures for everything. The default is the published 2026 amount.
+    #[serde(default = "additional_standard_deduction_65")]
+    pub additional_standard_deduction_65: ByFilingStatus<f64>,
     pub ordinary_brackets: ByFilingStatus<Vec<TaxBracket>>,
     /// Long-term capital gains and qualified dividends.
     pub capital_gains_brackets: ByFilingStatus<Vec<TaxBracket>>,
@@ -68,6 +79,8 @@ impl<T> ByFilingStatus<T> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct FederalSchedule {
     pub standard_deduction: f64,
+    /// Per filer aged 65 or older; see [`FederalTax::additional_standard_deduction_65`].
+    pub additional_standard_deduction_65: f64,
     pub ordinary_brackets: Vec<TaxBracket>,
     pub capital_gains_brackets: Vec<TaxBracket>,
 }
@@ -76,6 +89,7 @@ impl FederalTax {
     pub fn for_status(&self, status: FilingStatus) -> FederalSchedule {
         FederalSchedule {
             standard_deduction: *self.standard_deduction.get(status),
+            additional_standard_deduction_65: *self.additional_standard_deduction_65.get(status),
             ordinary_brackets: self.ordinary_brackets.get(status).clone(),
             capital_gains_brackets: self.capital_gains_brackets.get(status).clone(),
         }
@@ -128,6 +142,15 @@ pub struct ContributionLimits {
     pub simple_ira_catch_up_60_63: f64,
 }
 
+/// Rev. Proc. 2025-32: $1,650 per spouse aged 65 or older on a joint return,
+/// $2,050 for an unmarried filer.
+fn additional_standard_deduction_65() -> ByFilingStatus<f64> {
+    ByFilingStatus {
+        single: 2_050.0,
+        married_filing_jointly: 1_650.0,
+    }
+}
+
 fn brackets(raw: &[(Option<f64>, f64)]) -> Vec<TaxBracket> {
     raw.iter()
         .map(|&(up_to, rate)| TaxBracket { up_to, rate })
@@ -151,6 +174,7 @@ impl TaxFigures {
                     single: 16_100.0,
                     married_filing_jointly: 32_200.0,
                 },
+                additional_standard_deduction_65: additional_standard_deduction_65(),
                 ordinary_brackets: ByFilingStatus {
                     single: brackets(&[
                         (Some(12_400.0), 0.10),
@@ -225,6 +249,11 @@ impl TaxFigures {
                 &mut errors,
                 &format!("standard_deduction.{label}"),
                 *self.federal.standard_deduction.get(status),
+            );
+            amount(
+                &mut errors,
+                &format!("additional_standard_deduction_65.{label}"),
+                *self.federal.additional_standard_deduction_65.get(status),
             );
             for (schedule, table) in [
                 (
@@ -409,7 +438,11 @@ mod tests {
                 .iter()
                 .chain(&schedule.capital_gains_brackets)
                 .filter_map(|b| b.up_to);
-            for value in ceilings.chain([schedule.standard_deduction]) {
+            let deductions = [
+                schedule.standard_deduction,
+                schedule.additional_standard_deduction_65,
+            ];
+            for value in ceilings.chain(deductions) {
                 assert_eq!(value % 25.0, 0.0, "{value} is not a multiple of $25");
             }
         }

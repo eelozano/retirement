@@ -44,6 +44,8 @@ beforeEach(() => {
   usePlanStore.setState({ taxFiguresChanged });
 });
 
+const AGE_65_DEDUCTION = "Additional deduction, each filer 65 or older ($)";
+
 const field = (label: string) => screen.getByLabelText(label) as HTMLInputElement;
 
 describe("TaxFiguresEditor", () => {
@@ -58,6 +60,7 @@ describe("TaxFiguresEditor", () => {
     expect(field("HSA (self-only) ($)")).toHaveValue(4500);
     // Married filing jointly is the status shown first.
     expect(field("Standard deduction ($)")).toHaveValue(32200);
+    expect(field(AGE_65_DEDUCTION)).toHaveValue(1650);
   });
 
   it("saves the draft, then re-runs what is on screen", async () => {
@@ -125,6 +128,7 @@ describe("TaxFiguresEditor", () => {
     await user.click(screen.getByRole("button", { name: "Single" }));
 
     expect(field("Standard deduction ($)")).toHaveValue(16100);
+    expect(field(AGE_65_DEDUCTION)).toHaveValue(2050);
     expect(field("Ordinary bracket 1 upper bound")).toHaveValue(12400);
     expect(field("Capital gains bracket 1 upper bound")).toHaveValue(49450);
   });

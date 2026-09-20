@@ -123,6 +123,12 @@ function FederalSection({ value, onChange }: SectionProps<"federal">) {
           step={100}
           onChange={(n) => set("standard_deduction", n)}
         />
+        <NumberField
+          label="Additional deduction, each filer 65 or older ($)"
+          value={value.additional_standard_deduction_65[status]}
+          step={50}
+          onChange={(n) => set("additional_standard_deduction_65", n)}
+        />
         <h4>Ordinary income</h4>
         <BracketTable
           label="Ordinary"

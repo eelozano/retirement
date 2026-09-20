@@ -160,6 +160,29 @@ fn scaled_state_brackets(brackets: &[TaxBracket], years: f64, inflation: f64) ->
         .collect()
 }
 
+/// The age at which a filer takes the additional standard deduction: 65 or
+/// older by the end of the tax year. Statute (IRC 63(f)), so it lives here
+/// beside the Social Security thresholds rather than in `TaxFigures` — only
+/// the dollar amount is published each year.
+///
+/// The test is the age *attained during* the calendar year, `year - birth
+/// year`, the same rule the catch-up contributions use. The IRS treats
+/// someone as 65 the day before their birthday, which at month resolution
+/// differs only for a January 1 birth.
+const SENIOR_AGE: i32 = 65;
+
+/// How many people sign a return, and so how many can each take the
+/// additional standard deduction: two on a joint return, one otherwise. A
+/// plan may model more people than that (the filing status is an assumption,
+/// not derived from the household), and a Single filer with two people on the
+/// plan still has one deduction to take.
+fn filers_on_return(status: FilingStatus) -> usize {
+    match status {
+        FilingStatus::Single => 1,
+        FilingStatus::MarriedFilingJointly => 2,
+    }
+}
+
 /// Federal + state tax from real bracket tables (#9), replacing the V1 flat
 /// rate. Ordinary income and capital gains are taxed federally via their own
 /// bracket schedules (gains stacked on top of ordinary taxable income, the
@@ -196,17 +219,30 @@ pub struct BracketTax {
     /// table grown a year rather than on it unchanged. The state schedule is
     /// the plan's own and has no tax year, so it indexes from period 0.
     pub federal_years_at_start: i32,
+    /// The calendar year of period 0. Periods are calendar years, so
+    /// period `n` is `start_year + n`; the age a filer has attained in it is
+    /// that year less their birth year.
+    pub start_year: i32,
+    /// The birth year of each person this model files for: everyone on the
+    /// plan for the joint return, the survivor(s) for the Single one after a
+    /// death (`lib::tax_model`). Each who has turned 65 by a period adds the
+    /// additional standard deduction to it, up to what one return can carry
+    /// (`filers_on_return`). Empty is a valid answer — a plan with nobody on
+    /// it, or a test that wants no age term — and takes no additional amount.
+    pub filer_birth_years: Vec<i32>,
 }
 
 impl BracketTax {
     /// The tax model for a household filing as `filing_status`, on
-    /// `figures`, for a projection whose period 0 falls in `start_year`.
+    /// `figures`, for a projection whose period 0 falls in `start_year`, for
+    /// filers born in `filer_birth_years`.
     pub fn new(
         figures: &TaxFigures,
         filing_status: FilingStatus,
         state_tax: StateTaxProfile,
         inflation: f64,
         start_year: i32,
+        filer_birth_years: Vec<i32>,
     ) -> Self {
         BracketTax {
             filing_status,
@@ -214,7 +250,18 @@ impl BracketTax {
             state_tax,
             inflation,
             federal_years_at_start: start_year - figures.tax_year,
+            start_year,
+            filer_birth_years,
         }
+    }
+
+    /// How many of the filers have attained 65 by the end of `year`.
+    fn seniors_in(&self, year: i32) -> usize {
+        self.filer_birth_years
+            .iter()
+            .filter(|&&born| year - born >= SENIOR_AGE)
+            .count()
+            .min(filers_on_return(self.filing_status))
     }
 }
 
@@ -240,8 +287,18 @@ impl TaxModel for BracketTax {
         // Tax Worksheet then bounds the gain taxed by what is left. Whatever
         // deduction ordinary income cannot absorb therefore shelters gain,
         // instead of being discarded.
+        //
+        // The age-65 additional amount is per filer and indexes on its own,
+        // like the base: each is a separately published figure.
+        let seniors = self.seniors_in(self.start_year + period as i32);
         let std_deduction =
-            indexed_federal_amount(self.federal.standard_deduction, federal_years, inflation);
+            indexed_federal_amount(self.federal.standard_deduction, federal_years, inflation)
+                + seniors as f64
+                    * indexed_federal_amount(
+                        self.federal.additional_standard_deduction_65,
+                        federal_years,
+                        inflation,
+                    );
         let taxable_income = (federal_ordinary_income + gains - std_deduction).max(0.0);
         let gains_taxed = gains.min(taxable_income);
         let taxable_ordinary = taxable_income - gains_taxed;
@@ -324,6 +381,24 @@ mod tests {
             state_tax,
             inflation,
             figures.tax_year,
+            vec![],
+        )
+    }
+
+    /// `bracket`, with filers born in `birth_years` on the return.
+    fn bracket_for(
+        filing_status: FilingStatus,
+        inflation: f64,
+        birth_years: Vec<i32>,
+    ) -> BracketTax {
+        let figures = TaxFigures::built_in();
+        BracketTax::new(
+            &figures,
+            filing_status,
+            StateTaxProfile::none(),
+            inflation,
+            figures.tax_year,
+            birth_years,
         )
     }
 
@@ -799,6 +874,7 @@ mod tests {
             StateTaxProfile::none(),
             0.03,
             figures.tax_year,
+            vec![],
         );
         let starting_a_year_later = BracketTax::new(
             &figures,
@@ -806,6 +882,7 @@ mod tests {
             StateTaxProfile::none(),
             0.03,
             figures.tax_year + 1,
+            vec![],
         );
         assert_close(
             starting_a_year_later.tax(&income, 0).tax,
@@ -815,6 +892,166 @@ mod tests {
         assert!(
             starting_a_year_later.tax(&income, 0).tax < starting_in_tax_year.tax(&income, 0).tax,
             "a year of indexing must widen the brackets"
+        );
+    }
+
+    /// The standard deduction a `BracketTax` applies, read back off the
+    /// smallest tax it can charge: taxable income inside the 10% bracket, so
+    /// `ordinary - tax / 0.10` is the deduction with no arithmetic of the
+    /// model's own in it. The income is chosen per status to keep taxable
+    /// income under that bracket's ceiling ($12,400 Single, $24,800 joint).
+    fn deduction_applied(tax: &BracketTax) -> f64 {
+        let ordinary = match tax.filing_status {
+            FilingStatus::Single => 25_000.0,
+            FilingStatus::MarriedFilingJointly => 40_000.0,
+        };
+        let result = tax.tax(
+            &IncomeBreakdown {
+                ordinary,
+                ..Default::default()
+            },
+            0,
+        );
+        ordinary - result.tax / 0.10
+    }
+
+    /// The 2026 totals as Rev. Proc. 2025-32 states them, typed in rather than
+    /// derived: $32,200 plus $1,650 per spouse aged 65 or older on a joint
+    /// return, $16,100 plus $2,050 for a single filer.
+    #[test]
+    fn the_2026_published_deductions_for_filers_aged_65_and_over() {
+        // Born in 1950, so 76 in 2026.
+        let both = bracket_for(FilingStatus::MarriedFilingJointly, 0.0, vec![1950, 1950]);
+        assert_close(deduction_applied(&both), 35_500.0, "MFJ, both 65+");
+
+        // One 76, one 55.
+        let one = bracket_for(FilingStatus::MarriedFilingJointly, 0.0, vec![1950, 1971]);
+        assert_close(deduction_applied(&one), 33_850.0, "MFJ, one 65+");
+
+        let single = bracket_for(FilingStatus::Single, 0.0, vec![1950]);
+        assert_close(deduction_applied(&single), 18_150.0, "Single, 65+");
+    }
+
+    /// Nobody 65 means the base deduction and nothing else, for either status
+    /// and however many people are on the plan.
+    #[test]
+    fn a_household_under_65_is_unaffected() {
+        let joint = bracket_for(FilingStatus::MarriedFilingJointly, 0.0, vec![1971, 1973]);
+        assert_close(deduction_applied(&joint), 32_200.0, "MFJ under 65");
+
+        let single = bracket_for(FilingStatus::Single, 0.0, vec![1971]);
+        assert_close(deduction_applied(&single), 16_100.0, "Single under 65");
+    }
+
+    /// Age attained *during* the year, the rule the catch-up contributions
+    /// use: born in 1961, a filer is 64 in 2025 and takes the additional
+    /// amount from 2026 — the whole of the year they turn 65, whatever the
+    /// month. With no inflation 2025 and 2026 share a table, so the age term
+    /// is all that can move between them.
+    ///
+    /// $40,000 of ordinary income, Single. 2025: taxable 40,000 - 16,100 =
+    /// 23,900 -> 10% * 12,400 + 12% * 11,500 = 1,240 + 1,380 = 2,620.
+    /// 2026: taxable 40,000 - 18,150 = 21,850 -> 1,240 + 12% * 9,450 =
+    /// 1,240 + 1,134 = 2,374.
+    #[test]
+    fn the_additional_deduction_starts_in_the_year_the_filer_turns_65() {
+        let figures = TaxFigures::built_in();
+        let tax = BracketTax::new(
+            &figures,
+            FilingStatus::Single,
+            StateTaxProfile::none(),
+            0.0,
+            2025,
+            vec![1961],
+        );
+        let income = IncomeBreakdown {
+            ordinary: 40_000.0,
+            ..Default::default()
+        };
+        assert_close(tax.tax(&income, 0).tax, 2_620.0, "64 in 2025");
+        assert_close(tax.tax(&income, 1).tax, 2_374.0, "65 in 2026");
+        assert_close(tax.tax(&income, 2).tax, 2_374.0, "66 in 2027");
+    }
+
+    /// The Single figure is larger per person than the joint one, so the
+    /// survivor's return takes more per head than the couple's did (#34).
+    ///
+    /// $40,000 of ordinary income. Couple, both 65+: taxable 40,000 - 35,500 =
+    /// 4,500 at 10% = 450. Survivor, 65+: taxable 40,000 - 18,150 = 21,850 ->
+    /// 1,240 + 12% * 9,450 = 2,374.
+    #[test]
+    fn a_survivor_takes_the_larger_single_amount() {
+        let survivor = SurvivorTax {
+            household: bracket_for(FilingStatus::MarriedFilingJointly, 0.0, vec![1950, 1950]),
+            survivor: bracket_for(FilingStatus::Single, 0.0, vec![1950]),
+            survivor_from: Some(3),
+        };
+        let income = IncomeBreakdown {
+            ordinary: 40_000.0,
+            ..Default::default()
+        };
+        assert_close(survivor.tax(&income, 2).tax, 450.0, "couple, both 65+");
+        assert_close(survivor.tax(&income, 3).tax, 2_374.0, "survivor, 65+");
+    }
+
+    /// The measured case in #143: MFJ, both 65+, $68,000 of Social Security
+    /// and $40,000 drawn from pre-tax accounts. Provisional income =
+    /// 40,000 + 34,000 = 74,000; the 85% tier is the lesser of 85% of the
+    /// benefit and 6,000 + 85% * (74,000 - 44,000) = 31,500, so 31,500 of the
+    /// benefit is taxable and federal ordinary income is 71,500. Less the
+    /// $35,500 deduction, 36,000 is taxable: 10% * 24,800 + 12% * 11,200 =
+    /// 2,480 + 1,344 = 3,824. The base deduction alone gave 4,220.
+    #[test]
+    fn a_retired_couple_with_social_security_pays_the_measured_tax() {
+        let income = IncomeBreakdown {
+            ordinary: 40_000.0,
+            social_security: 68_000.0,
+            ..Default::default()
+        };
+        let both = bracket_for(FilingStatus::MarriedFilingJointly, 0.0, vec![1950, 1950]);
+        assert_close(both.tax(&income, 0).tax, 3_824.0, "both 65+");
+        let neither = bracket_for(FilingStatus::MarriedFilingJointly, 0.0, vec![]);
+        assert_close(neither.tax(&income, 0).tax, 4_220.0, "no additional amount");
+    }
+
+    /// A return carries one additional amount per signer: a Single filer with
+    /// two people on the plan still has one to take, and a joint return with
+    /// three has two.
+    #[test]
+    fn additional_deductions_are_capped_at_the_filers_on_the_return() {
+        let single = bracket_for(FilingStatus::Single, 0.0, vec![1950, 1950]);
+        assert_close(deduction_applied(&single), 18_150.0, "Single, two 65+");
+
+        let joint = bracket_for(
+            FilingStatus::MarriedFilingJointly,
+            0.0,
+            vec![1950, 1950, 1950],
+        );
+        assert_close(deduction_applied(&joint), 35_500.0, "MFJ, three 65+");
+    }
+
+    /// The additional amount indexes with the table, like the base, each
+    /// floored to its own $25 step. Ten years at 3% takes the Single base
+    /// $16,100 -> $21,625 and the additional $2,050 -> $2,750.
+    #[test]
+    fn the_additional_deduction_indexes_with_inflation() {
+        let tax = bracket_for(FilingStatus::Single, 0.03, vec![1950]);
+        let income = IncomeBreakdown {
+            ordinary: 60_000.0,
+            ..Default::default()
+        };
+        let brackets =
+            indexed_federal_brackets(&federal(FilingStatus::Single).ordinary_brackets, 10.0, 0.03);
+        let base = indexed_federal_amount(16_100.0, 10.0, 0.03);
+        let additional = indexed_federal_amount(2_050.0, 10.0, 0.03);
+        assert!(
+            additional > 2_050.0,
+            "sanity: ten years of 3% must index it"
+        );
+        assert_close(
+            tax.tax(&income, 10).tax,
+            bracket_tax(60_000.0 - base - additional, &brackets),
+            "base and additional indexed separately",
         );
     }
 }

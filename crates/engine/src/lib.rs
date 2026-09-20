@@ -40,6 +40,10 @@ const MONTHS_PER_PERIOD: i64 = 12;
 /// `StateTaxProfile` is a single editable bracket table with no filing-status
 /// dimension, and inventing a survivor variant of the user's own brackets
 /// would be worse than leaving them alone.
+///
+/// Each side is also told whose return it is, because the age-65 additional
+/// standard deduction depends on who is on it: everyone through the year of
+/// the first death, and only those who outlive it after.
 fn tax_model(plan: &Plan, figures: &TaxFigures) -> SurvivorTax {
     let start_year = plan.sim_config.start.year;
     let household = BracketTax::new(
@@ -48,12 +52,17 @@ fn tax_model(plan: &Plan, figures: &TaxFigures) -> SurvivorTax {
         plan.assumptions.state_tax.clone(),
         plan.assumptions.inflation,
         start_year,
+        birth_years(plan.people.iter()),
     );
     let survivor_from = match (plan.assumptions.filing_status, plan.first_death()) {
         (FilingStatus::MarriedFilingJointly, Some((month, _))) => {
             Some(plan.sim_config.first_period_after(month))
         }
         _ => None,
+    };
+    let survivors = match plan.first_death() {
+        Some((month, _)) => birth_years(plan.survivors_after(month)),
+        None => household.filer_birth_years.clone(),
     };
     SurvivorTax {
         survivor: BracketTax::new(
@@ -62,10 +71,15 @@ fn tax_model(plan: &Plan, figures: &TaxFigures) -> SurvivorTax {
             household.state_tax.clone(),
             household.inflation,
             start_year,
+            survivors,
         ),
         household,
         survivor_from,
     }
+}
+
+fn birth_years<'a>(people: impl Iterator<Item = &'a model::Person>) -> Vec<i32> {
+    people.map(|p| p.birth.year).collect()
 }
 
 /// The plan's drawdown policy, as the strategy that carries it out.
@@ -143,4 +157,37 @@ fn stochastic_returns(plan: &Plan, config: &MonteCarloConfig) -> StochasticRetur
 /// Engine version, surfaced to the frontend to prove the IPC pipeline.
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::presets::seed_plan;
+
+    /// The age-65 additional deduction depends on whose return it is: both
+    /// spouses' through the year of the first death, and only the one who
+    /// outlives them after — the decedent's birth year must not follow the
+    /// household onto the Single return.
+    #[test]
+    fn the_survivors_return_carries_only_the_survivor() {
+        let mut plan = seed_plan();
+        plan.assumptions.filing_status = FilingStatus::MarriedFilingJointly;
+        // Alex (born 1983) is expected to die at 88, Jordan (born 1987) at 96.
+        let tax = tax_model(&plan, &TaxFigures::built_in());
+        assert_eq!(tax.household.filer_birth_years, vec![1983, 1987]);
+        assert_eq!(tax.survivor.filer_birth_years, vec![1987]);
+        assert!(tax.survivor_from.is_some());
+    }
+
+    /// With no death that leaves anyone behind there is no survivor return
+    /// in use, and the household's own filers stand in for it.
+    #[test]
+    fn a_plan_with_no_survivor_transition_keeps_its_filers() {
+        let mut plan = seed_plan();
+        plan.people.truncate(1);
+        let tax = tax_model(&plan, &TaxFigures::built_in());
+        assert_eq!(tax.household.filer_birth_years, vec![1983]);
+        assert_eq!(tax.survivor.filer_birth_years, vec![1983]);
+        assert!(tax.survivor_from.is_none());
+    }
 }

@@ -27,13 +27,17 @@ fn assert_close(actual: f64, expected: f64, label: &str) {
     );
 }
 
-fn single_filer() -> BracketTax {
+/// The tax model the engine applies to `plan`, for hand-checking its
+/// snapshots: the same filers, so the age-65 deduction lands where it does
+/// in the run.
+fn single_filer(plan: &Plan) -> BracketTax {
     BracketTax::new(
         &TaxFigures::built_in(),
         FilingStatus::Single,
         StateTaxProfile::none(),
         0.0,
         TaxFigures::built_in().tax_year,
+        plan.people.iter().map(|p| p.birth.year).collect(),
     )
 }
 
@@ -388,7 +392,7 @@ fn reinvested_proceeds_carry_their_cost_basis() {
     );
 
     let ordinary = s.income + s.withdrawals["401k"];
-    let tax = single_filer();
+    let tax = single_filer(&plan);
     let no_gain = tax
         .tax(
             &IncomeBreakdown {
@@ -575,7 +579,8 @@ fn a_distribution_stacked_on_social_security_costs_more_than_the_two_taxed_apart
         .push(stream("spending", StreamDirection::Expense, 30_000.0));
     fixture.social_security = Some(40_000.0);
 
-    let projection = run_deterministic(&fixture.plan(), &TaxFigures::built_in());
+    let plan = fixture.plan();
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
     let s = year_of(&projection, 2027);
     let rmd = s.required_distributions;
     assert_close(rmd, 1_500_000.0 / 24.6, "the distribution");
@@ -585,7 +590,7 @@ fn a_distribution_stacked_on_social_security_costs_more_than_the_two_taxed_apart
         "the benefit and the distribution cover spending, so nothing else is sold",
     );
 
-    let tax = single_filer();
+    let tax = single_filer(&plan);
     let benefit_alone = tax
         .tax(
             &IncomeBreakdown {

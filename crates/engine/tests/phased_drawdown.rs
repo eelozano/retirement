@@ -289,7 +289,8 @@ fn without_the_rule_of_55_the_bridge_is_penalized() {
 /// whole tax bill is the bill on everything drawn, whichever phase drew it.
 #[test]
 fn a_split_year_is_taxed_as_one_stack() {
-    let projection = run_deterministic(&bridge_household(), &TaxFigures::built_in());
+    let plan = bridge_household();
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
     let straddle = &projection.snapshots[8];
     let gross: f64 = straddle.withdrawals.values().sum();
     let tax = BracketTax::new(
@@ -298,6 +299,7 @@ fn a_split_year_is_taxed_as_one_stack() {
         StateTaxProfile::none(),
         0.0,
         TaxFigures::built_in().tax_year,
+        plan.people.iter().map(|p| p.birth.year).collect(),
     );
     let expected = tax
         .tax(
