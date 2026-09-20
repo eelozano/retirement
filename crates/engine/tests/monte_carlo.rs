@@ -589,6 +589,14 @@ fn net_worth_never_goes_negative() {
 /// rate holds at 0.605; the late medians and upper tails come down by about
 /// 0.5–1.1%.
 ///
+/// Re-captured when the standard deduction started sheltering capital gains
+/// (#142) and realized gains started counting toward Social Security
+/// provisional income. Most of the diff is last-bit float noise from
+/// re-associated arithmetic; the one figure that really moved is the final
+/// period's median, 4,999,515 -> 4,986,650 (-0.26%), because the seed
+/// household draws on a brokerage while collecting a benefit and the benefit
+/// is now taxed on the gains too. The success rate holds at 0.605.
+///
 /// Spot indices rather than all 58 periods: enough to catch an off-by-one or
 /// a reordering, few enough to read when it fails.
 #[test]
@@ -615,13 +623,13 @@ fn fold_reproduces_pre_refactor_output() {
 
     assert_eq!(at(0).p50, 763297.404964235);
     assert_eq!(at(12).p50, 3022873.974996055);
-    assert_eq!(at(38).p50, 4940092.452541652);
-    assert_eq!(at(57).p50, 4999515.02167712);
+    assert_eq!(at(38).p50, 4940092.452541649);
+    assert_eq!(at(57).p50, 4986650.377909337);
 
     assert_eq!(at(0).p90, 904377.7405692474);
     assert_eq!(at(12).p90, 5335775.894425642);
-    assert_eq!(at(38).p90, 26546784.853422865);
-    assert_eq!(at(57).p90, 77150284.48902825);
+    assert_eq!(at(38).p90, 26546784.853422854);
+    assert_eq!(at(57).p90, 77150284.48902819);
 }
 
 /// The observed form must not change the answer: progress counting and the
