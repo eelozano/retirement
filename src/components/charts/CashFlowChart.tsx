@@ -39,6 +39,7 @@ const INFLOWS = [
 const OUTFLOWS = [
   { key: "expenses", label: "Expenses", color: "var(--series-3)" },
   { key: "taxes", label: "Taxes", color: "var(--series-7)" },
+  { key: "penalty", label: "Early-withdrawal penalty", color: "var(--series-5)" },
   { key: "contributions", label: "Contributions", color: "var(--series-6)" },
 ] as const;
 

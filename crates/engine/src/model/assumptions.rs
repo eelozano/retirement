@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{legacy, AccountId, FilingStatus, StateTaxProfile, StrategyRates, StreamBoundary};
+use super::{
+    legacy, AccountId, DrawdownPolicy, FilingStatus, StateTaxProfile, StrategyRates, StreamBoundary,
+};
 
 /// Market and tax assumptions. All rates are annual decimals (0.07 = 7%).
 ///
@@ -148,6 +150,11 @@ pub struct Assumptions {
     /// `None`, projecting identically to today.
     #[serde(default)]
     pub reinvest_into: Option<AccountId>,
+    /// Which accounts pay for a shortfall, and in what order. `#[serde(default)]`
+    /// (→ `Proportional`) so plans saved before drawdown order existed keep
+    /// the order they had.
+    #[serde(default)]
+    pub drawdown: DrawdownPolicy,
 }
 
 /// Historical default for `plan_end_age`, matching `presets::default_assumptions`.
@@ -210,6 +217,8 @@ struct AssumptionsWire {
     social_security_cola: f64,
     #[serde(default)]
     reinvest_into: Option<AccountId>,
+    #[serde(default)]
+    drawdown: DrawdownPolicy,
 }
 
 impl<'de> Deserialize<'de> for Assumptions {
@@ -248,6 +257,7 @@ impl<'de> Deserialize<'de> for Assumptions {
             survivor_expense_factor: w.survivor_expense_factor,
             social_security_cola: w.social_security_cola,
             reinvest_into: w.reinvest_into,
+            drawdown: w.drawdown,
         })
     }
 }

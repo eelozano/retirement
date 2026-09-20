@@ -8,11 +8,12 @@
 //! The plans are defined here in Rust and the YAML under `fixtures/demo/`
 //! is generated from them, so the fixtures cannot drift from the schema
 //! without this test failing. Since #109 that is **one file**,
-//! `demo-household.yaml`: one household's facts plus the five scenarios
-//! branched from it, which is exactly what the split claims — the five
+//! `demo-household.yaml`: one household's facts plus the six scenarios
+//! branched from it, which is exactly what the split claims — the six
 //! plans below differ only in retirement dates, claiming ages, a spending
-//! amount and a house sale, and share every balance. This test proves it,
-//! by decomposing all five and asserting the households they produce agree.
+//! amount, a house sale and a withdrawal order, and share every balance.
+//! This test proves it, by decomposing all six and asserting the households
+//! they produce agree.
 //! To re-generate after an intentional schema change:
 //!
 //! ```text
@@ -25,10 +26,10 @@
 use engine::model::PeriodLength;
 use engine::model::{
     compose, decompose, empty_household, Account, AccountKind, AllocationRef, CashFlowStream,
-    Contribution, ContributionRule, EmployerMatch, FilingStatus, GrowthRule, Household,
-    HouseholdFile, MatchDestination, MatchTier, OneTimeContribution, Person, Plan, PlanType,
-    SimConfig, SocialSecurityBenefit, StateCode, StepUp, StreamBoundary, StreamDirection,
-    StreamKind, YearMonth, SCHEMA_VERSION,
+    Contribution, ContributionRule, DrawdownPhase, DrawdownPolicy, EmployerMatch, FilingStatus,
+    GrowthRule, Household, HouseholdFile, MatchDestination, MatchTier, OneTimeContribution, Person,
+    PhaseStart, Plan, PlanType, SimConfig, SocialSecurityBenefit, StackEntry, StackSource,
+    StateCode, StepUp, StreamBoundary, StreamDirection, StreamKind, YearMonth, SCHEMA_VERSION,
 };
 use engine::presets::{default_assumptions, presets};
 use std::fs;
@@ -146,6 +147,7 @@ fn demo_base() -> Plan {
                 ],
                 one_time_contributions: vec![],
                 employer_match: None,
+                rule_of_55: false,
             },
             Account {
                 id: "alex-401k".to_string(),
@@ -175,6 +177,7 @@ fn demo_base() -> Plan {
                     &[(0.03, 1.0), (0.02, 0.5)],
                     MatchDestination::PreTax,
                 )),
+                rule_of_55: false,
             },
             Account {
                 id: "jordan-403b".to_string(),
@@ -195,6 +198,7 @@ fn demo_base() -> Plan {
                 )],
                 one_time_contributions: vec![],
                 employer_match: Some(tiered_match(&[(0.04, 0.5)], MatchDestination::PreTax)),
+                rule_of_55: false,
             },
             Account {
                 id: "jordan-roth-ira".to_string(),
@@ -212,6 +216,7 @@ fn demo_base() -> Plan {
                 )],
                 one_time_contributions: vec![],
                 employer_match: None,
+                rule_of_55: false,
             },
             // An account that does not exist yet: Alex opens a Roth IRA in
             // 2029, when the college bills are done, and funds it to the
@@ -234,6 +239,7 @@ fn demo_base() -> Plan {
                 }],
                 one_time_contributions: vec![],
                 employer_match: None,
+                rule_of_55: false,
             },
             Account {
                 id: "alex-hsa".to_string(),
@@ -251,6 +257,7 @@ fn demo_base() -> Plan {
                 )],
                 one_time_contributions: vec![],
                 employer_match: None,
+                rule_of_55: false,
             },
             Account {
                 id: "emergency-savings".to_string(),
@@ -276,6 +283,7 @@ fn demo_base() -> Plan {
                 )],
                 one_time_contributions: vec![],
                 employer_match: None,
+                rule_of_55: false,
             },
         ],
         streams: vec![
@@ -431,10 +439,57 @@ fn demo_plans() -> Vec<Plan> {
         date: StreamBoundary::AtRetirement(ALEX.to_string()),
     }];
 
-    vec![base, retire_early, claim_early, leaner, sell_house]
+    // Retiring before 59½, and the order that makes it work. Alex leaves
+    // work in April 2034, the year he turns 55, so the Rule of 55 frees his
+    // 401(k); Jordan leaves at 53, too early for it, so her 403(b) waits for
+    // her 59½ in March 2041. Until then the household lives on the
+    // brokerage and Alex's 401(k), and keeps $30,000 of emergency savings
+    // back; from Jordan's 59½ on, the default order takes over.
+    //
+    // Eight years early at the base plan's $145,000 runs dry in the 2040s
+    // whatever the order, so this scenario also spends $110,000 — enough to
+    // last, which is what lets the order be the thing worth looking at. The
+    // same dates drawn proportionally pay about $36,000 of penalties this
+    // order avoids.
+    let mut bridge = base.clone();
+    bridge.id = "retire-at-55-on-a-bridge".to_string();
+    bridge.name = "Retire at 55 on a bridge".to_string();
+    bridge.people[0].retirement = YearMonth::new(2034, 4);
+    bridge.people[1].retirement = YearMonth::new(2034, 9);
+    stream_mut(&mut bridge, "spending-retired").annual_amount = 110_000.0;
+    bridge
+        .accounts
+        .iter_mut()
+        .find(|a| a.id == "alex-401k")
+        .expect("demo base plan has Alex's 401(k)")
+        .rule_of_55 = true;
+    let entry = |id: &str, floor: f64| StackEntry {
+        source: StackSource::Account(id.to_string()),
+        floor,
+    };
+    bridge.assumptions.drawdown = DrawdownPolicy::Phased(vec![
+        DrawdownPhase {
+            id: "bridge".to_string(),
+            name: "Bridge to 59½".to_string(),
+            start: PhaseStart::Boundary(StreamBoundary::PlanStart),
+            stack: vec![
+                entry("joint-brokerage", 0.0),
+                entry("alex-401k", 0.0),
+                entry("emergency-savings", 30_000.0),
+            ],
+        },
+        DrawdownPhase {
+            id: "standard".to_string(),
+            name: "Standard".to_string(),
+            start: PhaseStart::PenaltyFree(JORDAN.to_string()),
+            stack: vec![],
+        },
+    ]);
+
+    vec![base, retire_early, claim_early, leaner, sell_house, bridge]
 }
 
-/// The five plans, split into the one household they describe and the five
+/// The six plans, split into the one household they describe and the six
 /// scenarios that differ. Every plan must decompose to the *same* household
 /// — that is the claim #109 makes about this fixture, and asserting it here
 /// is what keeps the claim true as the demo grows.
@@ -565,7 +620,7 @@ fn every_demo_scenario_round_trips_through_compose() {
     }
 }
 
-/// Seven accounts and five scenarios are seven balances, not thirty-five.
+/// Seven accounts and six scenarios are seven balances, not forty-two.
 #[test]
 fn the_household_writes_each_balance_once() {
     let file = demo_household_file();
@@ -595,4 +650,117 @@ fn demo_plan_ids_are_unique() {
         ids.len(),
         "demo scenario ids collide, so scenarios overwrite"
     );
+}
+
+fn golden_path() -> PathBuf {
+    fixtures_dir().join("golden-projections.csv")
+}
+
+/// The deterministic projection of every committed demo scenario, one row
+/// per period: net worth, the period's tax bill, the withdrawal gross-up's
+/// share of it, the early-withdrawal penalty's share of that, and the gross
+/// withdrawn from each account.
+fn golden_projections() -> String {
+    let yaml = fs::read_to_string(fixture_path()).expect("demo fixture present");
+    let file: HouseholdFile = serde_yaml_ng::from_str(&yaml).expect("demo fixture parses");
+    let figures = engine::model::TaxFigures::built_in();
+
+    let accounts: Vec<String> = file.accounts.iter().map(|a| a.id.clone()).collect();
+    let mut out = format!(
+        "scenario,year,net_worth,taxes,withdrawal_taxes,early_withdrawal_penalty,{}\n",
+        accounts
+            .iter()
+            .map(|id| format!("withdrawn:{id}"))
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    for scenario in &file.scenarios {
+        let plan = compose(&file.household(), scenario).expect("composes");
+        let projection = engine::run_deterministic(&plan, &figures);
+        for snapshot in &projection.snapshots {
+            let withdrawn: Vec<String> = accounts
+                .iter()
+                .map(|id| {
+                    format!(
+                        "{:.6}",
+                        snapshot.withdrawals.get(id).copied().unwrap_or(0.0)
+                    )
+                })
+                .collect();
+            out.push_str(&format!(
+                "{},{},{:.6},{:.6},{:.6},{:.6},{}\n",
+                scenario.id,
+                snapshot.period_start.year,
+                snapshot.net_worth,
+                snapshot.taxes,
+                snapshot.withdrawal_taxes,
+                snapshot.early_withdrawal_penalty,
+                withdrawn.join(",")
+            ));
+        }
+    }
+    out
+}
+
+/// An upgrade does not change a saved plan's projection (CLAUDE.md). The
+/// committed demo scenarios are saved plans, so their projections are
+/// pinned here: an engine change that moves them fails until it is made on
+/// purpose.
+///
+/// Regenerated by its own variable rather than `UPDATE_FIXTURES`, so that
+/// refreshing the fixture YAML after a schema change cannot quietly accept
+/// a projection change along with it. When this moves, the PR body and the
+/// release notes say by how much.
+///
+/// ```text
+/// UPDATE_GOLDEN=1 cargo test -p retirement --test demo_fixtures
+/// ```
+#[test]
+fn demo_projections_match_golden() {
+    let path = golden_path();
+    let actual = golden_projections();
+    if std::env::var("UPDATE_GOLDEN").is_ok() {
+        fs::write(&path, &actual).expect("writing golden projections");
+        return;
+    }
+    let expected = fs::read_to_string(&path).unwrap_or_else(|e| {
+        panic!(
+            "golden projections {} missing ({e}) — generate with \
+             UPDATE_GOLDEN=1 cargo test -p retirement --test demo_fixtures",
+            path.display()
+        )
+    });
+    for (line, (actual, expected)) in actual.lines().zip(expected.lines()).enumerate() {
+        assert!(
+            same_row(actual, expected),
+            "demo projection moved at line {} of {} — if that is intended, \
+             regenerate with UPDATE_GOLDEN=1 and measure the change in the PR\n  \
+             actual:   {actual}\n  expected: {expected}",
+            line + 1,
+            path.display()
+        );
+    }
+    assert_eq!(
+        actual.lines().count(),
+        expected.lines().count(),
+        "demo projection has a different number of periods than {}",
+        path.display()
+    );
+}
+
+/// Two golden rows agree when their text fields match and every figure is
+/// within a part in a billion — the same tolerance, for the same reason, as
+/// the engine's `tests/golden.rs`: `powf` is not correctly rounded, and
+/// macOS and Linux disagree in the last bit of a mid-year plan's growth.
+fn same_row(actual: &str, expected: &str) -> bool {
+    let actual: Vec<&str> = actual.split(',').collect();
+    let expected: Vec<&str> = expected.split(',').collect();
+    actual.len() == expected.len()
+        && actual
+            .iter()
+            .zip(&expected)
+            .all(|(a, e)| match (a.parse::<f64>(), e.parse::<f64>()) {
+                (Ok(a), Ok(e)) => (a - e).abs() <= 1e-9 * e.abs().max(1.0),
+                _ => a == e,
+            })
 }

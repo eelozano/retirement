@@ -75,6 +75,7 @@ export const HUB_KEY = "__household__";
 export const SHORTFALL_KEY = "__shortfall__";
 export const INCOME_TAX_KEY = "__tax_on_income__";
 export const WITHDRAWAL_TAX_KEY = "__tax_on_withdrawals__";
+export const PENALTY_KEY = "__early_withdrawal_penalty__";
 export const RESIDUAL_KEY = "__residual__";
 
 const LABEL_MAX = 28;
@@ -162,7 +163,9 @@ export function yearComposition(
   ];
 
   const incomeTax = (s.taxes - s.withdrawal_taxes) / d;
-  const withdrawalTax = s.withdrawal_taxes / d;
+  // The penalty is part of `withdrawal_taxes`; it gets its own node.
+  const penalty = s.early_withdrawal_penalty / d;
+  const withdrawalTax = s.withdrawal_taxes / d - penalty;
   const outflows = [
     ...streamNodes("Expense", s.expenses_by_stream, "var(--series-3)", "out"),
     node(INCOME_TAX_KEY, "Tax on income", "var(--series-7)", "out", incomeTax),
@@ -173,6 +176,7 @@ export function yearComposition(
       "out",
       withdrawalTax,
     ),
+    node(PENALTY_KEY, "Early-withdrawal penalty", "var(--series-5)", "out", penalty),
     ...accountNodes(s.contributions_by_account, series, "out", d, "contribution:"),
     // While anyone is still earning this is what the household lives on,
     // not money looking for a home (#50) — same renaming as the inspector.

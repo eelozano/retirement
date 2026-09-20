@@ -890,6 +890,14 @@ button.remove:hover {
   border-color: var(--muted);
 }
 
+button.add:disabled,
+button.remove:disabled {
+  opacity: 0.4;
+  cursor: default;
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+
 /* State tax bracket editor (AssumptionsSection) */
 .tax-bracket-table {
   border-collapse: collapse;
@@ -929,6 +937,54 @@ button.remove:hover {
 
 .tax-bracket-table button.remove {
   margin-top: 0;
+}
+
+/* Drawdown stack editor (DrawdownSection): the bracket table's shape, with
+   a penalty note under a source and a row of small actions. */
+.preset-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.drawdown-stack {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+  margin: 6px 0;
+}
+
+.drawdown-stack th,
+.drawdown-stack td {
+  text-align: left;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--grid);
+  vertical-align: top;
+}
+
+.drawdown-stack th {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.drawdown-stack input {
+  width: 110px;
+  padding: 4px 6px;
+}
+
+.drawdown-stack .penalty-note {
+  display: block;
+  color: var(--series-5);
+  font-size: 11px;
+}
+
+.stack-actions {
+  white-space: nowrap;
+}
+
+.stack-actions button.remove {
+  margin-top: 0;
+  margin-left: 4px;
 }
 
 /* Main charts column */

@@ -119,6 +119,38 @@ export function readableWarnings(plan: Plan, projection: Projection): ReadableWa
           "One of its contributions is tied to the retirement or death of someone who is no longer in this plan, so there is no date to apply it at and nothing is being contributed from it. Pick a new date for it.",
       };
     }
+    if ("Rule55Ineligible" in warning) {
+      const { account, reason } = warning.Rule55Ineligible;
+      const name = accountName(plan, account);
+      return {
+        key,
+        title: `${name}: the Rule of 55 does not apply`,
+        detail:
+          reason === "NotAnEmployerPlan"
+            ? "The Rule of 55 only covers a 401(k), 403(b) or similar employer plan — not an IRA or a taxable account. Withdrawals from it before 59½ still pay the 10% early-withdrawal penalty."
+            : "The Rule of 55 needs its owner to leave work in or after the calendar year they turn 55, and this plan has them retiring earlier. Withdrawals from it before 59½ still pay the 10% early-withdrawal penalty.",
+      };
+    }
+    if ("EarlyWithdrawalPenalty" in warning) {
+      const year = periodYear(projection, warning.EarlyWithdrawalPenalty.period);
+      return {
+        key,
+        title: `Early-withdrawal penalty paid${year !== null ? ` from ${year}` : ""}`,
+        detail:
+          "Some withdrawals come out of a pre-tax account, or out of a Roth's earnings, before the owner turns 59½, so they pay a 10% penalty on top of income tax. The year inspector shows how much each year.",
+      };
+    }
+    if ("FloorReleased" in warning) {
+      const { account, period } = warning.FloorReleased;
+      const name = accountName(plan, account);
+      const year = periodYear(projection, period);
+      return {
+        key,
+        title: `${name}: the balance you set aside is being spent${year !== null ? ` from ${year}` : ""}`,
+        detail:
+          "Every other account had already run out, so the money this plan keeps in reserve here is paying for spending instead of the plan running dry with it still in the bank.",
+      };
+    }
     const name = streamName(plan, warning.UnknownPersonRef.stream);
     return {
       key,

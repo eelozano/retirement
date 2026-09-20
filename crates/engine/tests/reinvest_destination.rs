@@ -45,6 +45,7 @@ fn taxable(id: &str, allocation: AllocationRef) -> Account {
         )],
         one_time_contributions: vec![],
         employer_match: None,
+        rule_of_55: false,
     }
 }
 
@@ -68,6 +69,7 @@ fn pretax(id: &str, balance: f64) -> Account {
         )],
         one_time_contributions: vec![],
         employer_match: None,
+        rule_of_55: false,
     }
 }
 
@@ -130,6 +132,7 @@ fn plan(accounts: Vec<Account>, sweep_from_start: bool, reinvest_into: Option<&s
             social_security_cola: 0.0,
             strategy_volatility: Default::default(),
             reinvest_into: reinvest_into.map(str::to_string),
+            drawdown: Default::default(),
         },
         sim_config: SimConfig {
             start: YearMonth::new(START_YEAR, 1),

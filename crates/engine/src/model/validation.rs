@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::{
-    AccountKind, ContributionRule, Plan, PlanType, StreamBoundary, StreamDirection, StreamKind,
-    YearMonth,
+    AccountKind, ContributionRule, DrawdownPhase, DrawdownPolicy, PhaseStart, Plan, PlanType,
+    StackSource, StreamBoundary, StreamDirection, StreamKind, YearMonth,
 };
 
 /// Bounds on any date in a plan. `YearMonth::new` asserts the month range,
@@ -688,7 +688,95 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
         }
     }
 
+    if let DrawdownPolicy::Phased(phases) = &plan.assumptions.drawdown {
+        validate_phases(plan, phases, &mut errors);
+    }
+
     errors
+}
+
+/// An ordered drawdown has to say what happens from plan start, and every
+/// account and person it names has to exist — an entry naming a deleted
+/// account would otherwise quietly drop out of the stack.
+fn validate_phases(plan: &Plan, phases: &[DrawdownPhase], errors: &mut Vec<ValidationError>) {
+    let mut err = |field: String, message: String| {
+        errors.push(ValidationError { field, message });
+    };
+    let field = "assumptions.drawdown";
+
+    let Some(first) = phases.first() else {
+        err(
+            field.to_string(),
+            "An ordered drawdown needs at least one phase.".to_string(),
+        );
+        return;
+    };
+    if first.start != PhaseStart::Boundary(StreamBoundary::PlanStart) {
+        err(
+            format!("{field}[0].start"),
+            format!(
+                "\"{}\" is the first phase, so it has to start at the start of the plan.",
+                first.name
+            ),
+        );
+    }
+
+    let mut seen_ids = HashSet::new();
+    for (i, phase) in phases.iter().enumerate() {
+        let at = format!("{field}[{i}]");
+        if !seen_ids.insert(phase.id.as_str()) {
+            err(
+                format!("{at}.id"),
+                format!("Duplicate phase id \"{}\".", phase.id),
+            );
+        }
+        let person = match &phase.start {
+            PhaseStart::PenaltyFree(person)
+            | PhaseStart::Boundary(
+                StreamBoundary::AtRetirement(person)
+                | StreamBoundary::AtDeath(person)
+                | StreamBoundary::AtAge(person, _),
+            ) => Some(person),
+            PhaseStart::Boundary(_) => None,
+        };
+        if person.is_some_and(|p| plan.person(p).is_none()) {
+            err(
+                format!("{at}.start"),
+                format!(
+                    "\"{}\" starts at a date of someone who isn't in the plan.",
+                    phase.name
+                ),
+            );
+        }
+
+        let mut seen_sources = HashSet::new();
+        for (j, entry) in phase.stack.iter().enumerate() {
+            let at = format!("{at}.stack[{j}]");
+            if !seen_sources.insert(format!("{:?}", entry.source)) {
+                err(
+                    at.clone(),
+                    format!("\"{}\" lists the same source twice.", phase.name),
+                );
+            }
+            if let StackSource::Account(id) = &entry.source {
+                if !plan.accounts.iter().any(|a| &a.id == id) {
+                    err(
+                        at.clone(),
+                        format!(
+                            "\"{}\" draws from an account that isn't on this plan.",
+                            phase.name
+                        ),
+                    );
+                }
+            }
+            if !entry.floor.is_finite() || entry.floor < 0.0 {
+                err(
+                    format!("{at}.floor"),
+                    "A balance to keep can't be negative.".to_string(),
+                );
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1266,6 +1354,108 @@ mod tests {
         assert!(errors
             .iter()
             .any(|e| e.field == "assumptions.reinvest_into"));
+    }
+
+    fn phased(stack: Vec<crate::model::StackEntry>) -> crate::model::Plan {
+        use crate::model::{DrawdownPhase, DrawdownPolicy, PhaseStart, StreamBoundary};
+        let mut plan = seed_plan();
+        plan.assumptions.drawdown = DrawdownPolicy::Phased(vec![DrawdownPhase {
+            id: "bridge".to_string(),
+            name: "Bridge".to_string(),
+            start: PhaseStart::Boundary(StreamBoundary::PlanStart),
+            stack,
+        }]);
+        plan
+    }
+
+    fn entry(source: crate::model::StackSource, floor: f64) -> crate::model::StackEntry {
+        crate::model::StackEntry { source, floor }
+    }
+
+    #[test]
+    fn accepts_an_ordered_drawdown() {
+        use crate::model::{AccountKind, StackSource};
+        let plan = phased(vec![
+            entry(
+                StackSource::Account("taxable-brokerage".to_string()),
+                20_000.0,
+            ),
+            entry(StackSource::Kind(AccountKind::Roth), 0.0),
+        ]);
+        assert!(plan.validate().is_empty(), "{:?}", plan.validate());
+    }
+
+    #[test]
+    fn accepts_several_phases_and_catches_a_start_naming_a_missing_person() {
+        use crate::model::{DrawdownPhase, DrawdownPolicy, PhaseStart};
+        let mut plan = phased(vec![]);
+        let DrawdownPolicy::Phased(phases) = &mut plan.assumptions.drawdown else {
+            unreachable!()
+        };
+        phases.push(DrawdownPhase {
+            id: "standard".to_string(),
+            name: "Standard".to_string(),
+            start: PhaseStart::PenaltyFree("jordan".to_string()),
+            stack: vec![],
+        });
+        assert!(plan.validate().is_empty(), "{:?}", plan.validate());
+
+        let DrawdownPolicy::Phased(phases) = &mut plan.assumptions.drawdown else {
+            unreachable!()
+        };
+        phases[1].start = PhaseStart::PenaltyFree("nobody".to_string());
+        assert!(plan
+            .validate()
+            .iter()
+            .any(|e| e.field == "assumptions.drawdown[1].start"));
+    }
+
+    #[test]
+    fn catches_a_stack_entry_naming_a_missing_account() {
+        use crate::model::StackSource;
+        let plan = phased(vec![entry(StackSource::Account("gone".to_string()), 0.0)]);
+        assert!(plan
+            .validate()
+            .iter()
+            .any(|e| e.field == "assumptions.drawdown[0].stack[0]"));
+    }
+
+    #[test]
+    fn catches_a_source_listed_twice_and_a_negative_floor() {
+        use crate::model::StackSource;
+        let id = || StackSource::Account("alex-401k".to_string());
+        let errors = phased(vec![entry(id(), 0.0), entry(id(), -1.0)]).validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "assumptions.drawdown[0].stack[1]"));
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "assumptions.drawdown[0].stack[1].floor"));
+    }
+
+    #[test]
+    fn catches_a_first_phase_that_does_not_start_at_plan_start() {
+        use crate::model::{DrawdownPolicy, PhaseStart};
+        let mut plan = phased(vec![]);
+        let DrawdownPolicy::Phased(phases) = &mut plan.assumptions.drawdown else {
+            unreachable!()
+        };
+        phases[0].start = PhaseStart::PenaltyFree("alex".to_string());
+        assert!(plan
+            .validate()
+            .iter()
+            .any(|e| e.field == "assumptions.drawdown[0].start"));
+    }
+
+    #[test]
+    fn catches_an_ordered_drawdown_with_no_phases() {
+        use crate::model::DrawdownPolicy;
+        let mut plan = seed_plan();
+        plan.assumptions.drawdown = DrawdownPolicy::Phased(vec![]);
+        assert!(plan
+            .validate()
+            .iter()
+            .any(|e| e.field == "assumptions.drawdown"));
     }
 
     #[test]

@@ -6,6 +6,7 @@ import {
   type Composition,
   HUB_KEY,
   INCOME_TAX_KEY,
+  PENALTY_KEY,
   RESIDUAL_KEY,
   SHORTFALL_KEY,
   WITHDRAWAL_TAX_KEY,
@@ -32,6 +33,8 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     income_by_stream: {},
     expenses_by_stream: {},
     withdrawal_taxes: 0,
+    early_withdrawal_penalty: 0,
+    drawdown_phase: null,
     contributions_by_account: {},
     deflator: 1,
     ...overrides,
@@ -75,6 +78,30 @@ function balance(c: Composition): { intoHub: number; outOfHub: number } {
 }
 
 describe("yearComposition", () => {
+  it("gives the early-withdrawal penalty its own outflow, out of the withdrawal tax", () => {
+    const c = yearComposition(
+      plan,
+      projection([
+        snapshot({
+          withdrawals: { ira: 50_000 },
+          expenses: 40_000,
+          expenses_by_stream: { spending: 40_000 },
+          taxes: 10_000,
+          withdrawal_taxes: 10_000,
+          early_withdrawal_penalty: 5_000,
+        }),
+      ]),
+      2040,
+      series,
+      false,
+    );
+    if (!c) throw new Error("expected a composition");
+    const value = (key: string) => c.nodes.find((n) => n.key === key)?.value;
+    expect(value(WITHDRAWAL_TAX_KEY)).toBe(5_000);
+    expect(value(PENALTY_KEY)).toBe(5_000);
+    expect(balance(c)).toEqual({ intoHub: 50_000, outOfHub: 50_000 });
+  });
+
   it("decomposes a retired year into streams and accounts around a balanced hub", () => {
     const c = yearComposition(
       plan,
@@ -87,6 +114,8 @@ describe("yearComposition", () => {
           expenses_by_stream: { spending: 60_000 },
           taxes: 9_000,
           withdrawal_taxes: 4_000,
+          early_withdrawal_penalty: 0,
+          drawdown_phase: null,
           surplus: 11_000,
         }),
       ]),
@@ -182,6 +211,8 @@ describe("yearComposition", () => {
           expenses_by_stream: { spending: 60_000 },
           taxes: 1_000,
           withdrawal_taxes: 1_000,
+          early_withdrawal_penalty: 0,
+          drawdown_phase: null,
           surplus: 0,
         }),
       ]),

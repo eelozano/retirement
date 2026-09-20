@@ -68,6 +68,7 @@ fn plan_with_two_lifespans() -> Plan {
             social_security_cola: 0.0,
             strategy_volatility: Default::default(),
             reinvest_into: None,
+            drawdown: Default::default(),
         },
         sim_config: SimConfig {
             start: START,

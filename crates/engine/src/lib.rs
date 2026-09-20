@@ -14,12 +14,15 @@ pub use model::{Plan, YearMonth};
 pub use sim::{
     run_monte_carlo as run_monte_carlo_sim, run_monte_carlo_with as run_monte_carlo_sim_with,
     simulate, Cancelled, MonteCarloConfig, MonteCarloDiagnostics, MonteCarloResult, OneTimeInfo,
-    PathGroupStats, PeriodPercentiles, PeriodSnapshot, Projection, RunControl, SimWarning, Spread,
-    StreamInfo, EARLY_RETIREMENT_WINDOW_YEARS,
+    PathGroupStats, PeriodPercentiles, PeriodSnapshot, Projection, Rule55Ineligibility, RunControl,
+    SimWarning, Spread, StreamInfo, EARLY_RETIREMENT_WINDOW_YEARS,
 };
 
 use model::{FilingStatus, TaxFigures};
-use strategies::{BracketTax, FixedReturns, ProportionalDrawdown, StochasticReturns, SurvivorTax};
+use strategies::{
+    BracketTax, DrawdownStrategy, FixedReturns, PhasedDrawdown, ProportionalDrawdown,
+    StochasticReturns, SurvivorTax,
+};
 
 /// What a return model scales its annual rates to. A period is a calendar
 /// year by construction (#106) — the loop lays its grid on calendar
@@ -65,8 +68,16 @@ fn tax_model(plan: &Plan, figures: &TaxFigures) -> SurvivorTax {
     }
 }
 
+/// The plan's drawdown policy, as the strategy that carries it out.
+fn drawdown(plan: &Plan) -> Box<dyn DrawdownStrategy + Sync> {
+    match PhasedDrawdown::new(plan) {
+        Some(phased) => Box::new(phased),
+        None => Box::new(ProportionalDrawdown),
+    }
+}
+
 /// The V1 configuration: deterministic fixed returns, federal + state
-/// bracket tax, proportional drawdown — all read from the plan's
+/// bracket tax, and the plan's drawdown policy — all read from the plan's
 /// assumptions, under the given yearly tax `figures`.
 pub fn run_deterministic(plan: &Plan, figures: &TaxFigures) -> Projection {
     let returns = FixedReturns::new(&plan.assumptions.strategy_returns, MONTHS_PER_PERIOD);
@@ -75,14 +86,14 @@ pub fn run_deterministic(plan: &Plan, figures: &TaxFigures) -> Projection {
         figures,
         &returns,
         &tax_model(plan, figures),
-        &ProportionalDrawdown,
+        &*drawdown(plan),
         0,
     )
 }
 
 /// V2: Monte Carlo over `StochasticReturns`, reading both the mean
 /// (`strategy_returns`) and the spread (`strategy_volatility`) from the plan
-/// — same tax/drawdown strategies as `run_deterministic`.
+/// — same tax and drawdown strategies as `run_deterministic`.
 pub fn run_monte_carlo(
     plan: &Plan,
     figures: &TaxFigures,
@@ -94,7 +105,7 @@ pub fn run_monte_carlo(
         figures,
         &returns,
         &tax_model(plan, figures),
-        &ProportionalDrawdown,
+        &*drawdown(plan),
         config,
     )
 }
@@ -114,7 +125,7 @@ pub fn run_monte_carlo_with(
         figures,
         &returns,
         &tax_model(plan, figures),
-        &ProportionalDrawdown,
+        &*drawdown(plan),
         config,
         control,
     )

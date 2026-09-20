@@ -253,7 +253,7 @@ function RefreshForm(props: { plan: Plan; household: Household }) {
                   <th>Account</th>
                   <th>Last read</th>
                   <th className="num">Balance</th>
-                  <th className="num">Cost basis</th>
+                  <th className="num">Cost basis · Roth contributions</th>
                 </tr>
               </thead>
               <tbody>
@@ -286,7 +286,7 @@ function RefreshForm(props: { plan: Plan; household: Household }) {
                           <span className="field-hint">n/a</span>
                         ) : (
                           <AmountInput
-                            ariaLabel={`${account.name} cost basis`}
+                            ariaLabel={`${account.name} ${account.kind === "Roth" ? "contributions to date" : "cost basis"}`}
                             value={bases[account.id] ?? account.cost_basis}
                             onChange={(v) =>
                               setBases((prev) => ({ ...prev, [account.id]: v }))

@@ -1,16 +1,23 @@
 import { usePlanStore } from "../../store/planStore";
 import { AccountsSection } from "./AccountsSection";
 import { AssumptionsSection } from "./AssumptionsSection";
+import { DrawdownSection } from "./DrawdownSection";
 import { PeopleSection } from "./PeopleSection";
 import { SpendingSection } from "./SpendingSection";
 import { ownedBy } from "./shared";
 
-export type InputsSection = "people" | "accounts" | "spending" | "assumptions";
+export type InputsSection =
+  | "people"
+  | "accounts"
+  | "spending"
+  | "withdrawals"
+  | "assumptions";
 
 const DESTINATIONS: { id: InputsSection; label: string }[] = [
   { id: "people", label: "People" },
   { id: "accounts", label: "Accounts" },
   { id: "spending", label: "Spending" },
+  { id: "withdrawals", label: "Withdrawals" },
 ];
 
 /**
@@ -32,6 +39,10 @@ export function InputsScreen(props: {
     people: plan.people.length,
     accounts: plan.accounts.length,
     spending: ownedBy(plan.streams, null).length,
+    withdrawals:
+      plan.assumptions.drawdown === "Proportional"
+        ? "by balance"
+        : plan.assumptions.drawdown.Phased.length,
     assumptions: "rarely",
   };
 
@@ -120,6 +131,15 @@ export function InputsScreen(props: {
         hidden={props.section !== "spending"}
       >
         <SpendingSection />
+      </section>
+      <section
+        className="inputs-pane"
+        id="inputs-pane-withdrawals"
+        role="tabpanel"
+        aria-labelledby="inputs-tab-withdrawals"
+        hidden={props.section !== "withdrawals"}
+      >
+        <DrawdownSection />
       </section>
       <section
         className="inputs-pane"

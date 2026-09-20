@@ -24,6 +24,13 @@ impl Person {
     pub fn month_at_age(&self, age: u8) -> YearMonth {
         self.birth.add_years(age as i32)
     }
+
+    /// The month this person reaches 59½ — six calendar months after the
+    /// 59th birthday, as the IRS counts it — and their withdrawals stop
+    /// being early. Statute, so it lives here rather than in `TaxFigures`.
+    pub fn penalty_free_month(&self) -> YearMonth {
+        self.month_at_age(59).add_months(6)
+    }
 }
 
 /// Deserialization shape for `Person`. Plans written before #28 have no

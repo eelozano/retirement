@@ -87,6 +87,7 @@ export function YearInspector(props: {
           )
           .join(" · ")}
       </div>
+      {detail.phase && <div className="inspector-ages">Withdrawals: {detail.phase}</div>}
       {detail.transition && <p className="inspector-note">{detail.transition}</p>}
 
       <div className="inspector-block">

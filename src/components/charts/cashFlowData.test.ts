@@ -22,6 +22,8 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     income_by_stream: {},
     expenses_by_stream: {},
     withdrawal_taxes: 0,
+    early_withdrawal_penalty: 0,
+    drawdown_phase: null,
     contributions_by_account: {},
     deflator: 1,
     ...overrides,
@@ -59,9 +61,25 @@ describe("cashFlowRows", () => {
       requiredDistributions: 0,
       expenses: -60,
       taxes: -20,
+      penalty: 0,
       contributions: -10,
       surplus: 10,
     });
+  });
+
+  it("splits the early-withdrawal penalty out of taxes, and totals it apart", () => {
+    const rows = cashFlowRows(
+      projection([
+        snapshot({ taxes: 30, withdrawal_taxes: 12, early_withdrawal_penalty: 5 }),
+        snapshot({ taxes: 10, deflator: 2 }),
+      ]),
+      false,
+    );
+    expect(rows[0].taxes).toBe(-25);
+    expect(rows[0].penalty).toBe(-5);
+    const summary = cashFlowSummary(rows);
+    expect(summary.lifetimeTaxes).toBe(35);
+    expect(summary.lifetimePenalty).toBe(5);
   });
 
   it("deflates every flow when showing today's dollars", () => {

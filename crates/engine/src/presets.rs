@@ -125,7 +125,7 @@ pub fn default_strategy_returns() -> StrategyRates {
 /// independent draws let equity diversify against equity.
 ///
 /// So this widens the fan and lowers reported probability of success on a
-/// plan nobody edited: across the five demo scenarios, by 6.7 to 10.1
+/// plan nobody edited: across the demo scenarios, by 6.7 to 10.1
 /// points (the base scenario goes 0.948 → 0.881 at 2,000 paths). It is the
 /// one place this project knowingly breaks "an upgrade never changes a
 /// saved plan's output", and it breaks it because the old number was wrong.
@@ -168,6 +168,7 @@ pub fn default_assumptions() -> Assumptions {
         // assume benefits lose purchasing power every year without saying so.
         social_security_cola: 0.03,
         reinvest_into: None,
+        drawdown: Default::default(),
     }
 }
 
@@ -235,6 +236,7 @@ pub fn seed_plan() -> Plan {
                 )],
                 one_time_contributions: vec![],
                 employer_match: None,
+                rule_of_55: false,
             },
             Account {
                 id: "alex-401k".to_string(),
@@ -255,6 +257,7 @@ pub fn seed_plan() -> Plan {
                 )],
                 one_time_contributions: vec![],
                 employer_match: None,
+                rule_of_55: false,
             },
             Account {
                 id: "jordan-roth".to_string(),
@@ -272,6 +275,7 @@ pub fn seed_plan() -> Plan {
                 )],
                 one_time_contributions: vec![],
                 employer_match: None,
+                rule_of_55: false,
             },
         ],
         streams: vec![

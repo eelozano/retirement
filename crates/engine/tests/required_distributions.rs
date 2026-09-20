@@ -60,6 +60,7 @@ fn account(id: &str, kind: AccountKind, balance: f64, basis: Option<f64>) -> Acc
         )],
         one_time_contributions: vec![],
         employer_match: None,
+        rule_of_55: false,
     }
 }
 
@@ -155,6 +156,7 @@ impl Fixture {
                 social_security_cola: 0.0,
                 strategy_volatility: Default::default(),
                 reinvest_into: None,
+                drawdown: Default::default(),
             },
             sim_config: SimConfig {
                 start: YearMonth {
