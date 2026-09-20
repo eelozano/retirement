@@ -51,16 +51,17 @@ const ICON = {
       <circle cx="8" cy="17" r="2" fill="var(--surface-1)" />
     </>
   ),
-  // A statement and an arrow back round to it: the sitting where every
-  // figure is read again. Deliberately not a clock or a calendar — the
-  // destination is about re-reading the numbers, and the month is what the
-  // screen asks for, not what it is for.
+  // Every account ticked off in one sitting. The tick is the point: the
+  // screen is not a document, it is the confirmation that each figure has
+  // been read again this month. Deliberately not a clock or a calendar —
+  // the month is what the screen asks for, not what it is for — and
+  // deliberately not another folded sheet, which is Report's silhouette.
   refresh: (
     <>
-      <path d="M6 3h9l4 4v14H6z" />
-      <path d="M15 3v4h4" />
-      <path d="M9 15a3.5 3.5 0 015.9-2.5M15 17a3.5 3.5 0 01-5.9 2.5" />
-      <path d="M9 11.5V15h3.5M15 20.5V17h-3.5" />
+      <path d="M9.2 4.5H7.5A1.5 1.5 0 006 6v13.5A1.5 1.5 0 007.5 21h9a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5h-1.7" />
+      <rect x="9" y="2.6" width="6" height="3.4" rx="1.2" />
+      <path d="M9.2 12.3l1.7 1.7 3.9-3.9" />
+      <path d="M9.2 17.3h5.6" />
     </>
   ),
   // Two futures out of one point — the sandbox's whole proposition, and the
