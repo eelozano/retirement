@@ -161,10 +161,10 @@ every scenario of the household at once.
 showing each one's last reading and date beside a field for the new balance
 and cost basis.](docs/screenshots/update-balances.png)
 
-**Tax figures.** The federal brackets, standard deduction and contribution
-limits for one tax year, in a file you can edit here or by hand when the IRS
-publishes the next year's. Every plan is projected with them, indexed
-forward from their own tax year.
+**Tax figures.** The federal brackets, standard deduction (with the extra
+amount for filers 65 and older) and contribution limits for one tax year, in
+a file you can edit here or by hand when the IRS publishes the next year's.
+Every plan is projected with them, indexed forward from their own tax year.
 
 ![The Tax figures editor from Settings: a tax year of 2026, a filing-status
 switch, the standard deduction, and the ordinary-income brackets from 10% to

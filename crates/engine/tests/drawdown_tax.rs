@@ -119,6 +119,7 @@ fn single_filer() -> BracketTax {
         StateTaxProfile::none(),
         0.0,
         TaxFigures::built_in().tax_year,
+        retiree().people.iter().map(|p| p.birth.year).collect(),
     )
 }
 
