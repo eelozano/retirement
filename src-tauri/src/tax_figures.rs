@@ -106,9 +106,11 @@ fn header() -> String {
 # the IRS publishes a new year. The app reads it on every recalculation.
 #
 #   tax_year             The year every figure below is for.
-#   federal              Standard deduction and income-tax brackets, published
-#                        each October or November (an IRS Revenue Procedure on
-#                        inflation adjustments). up_to is the top of a bracket
+#   federal              Standard deduction (and the additional amount for each
+#                        filer aged 65 or older) and income-tax brackets,
+#                        published each October or November (an IRS Revenue
+#                        Procedure on inflation adjustments). up_to is the top
+#                        of a bracket
 #                        (null means no top, and only the last may be null);
 #                        rate is a fraction, so 0.22 is 22%. Capital-gains
 #                        brackets are shaped the same way.
@@ -196,6 +198,50 @@ mod tests {
         assert!(loaded.error.is_none(), "{:?}", loaded.error);
         assert_eq!(loaded.figures.federal.standard_deduction.single, 17_000.0);
         assert_eq!(fs::read_to_string(&file).unwrap(), edited);
+    }
+
+    /// A file written before the age-65 additional deduction existed has no
+    /// such figure. It must still load — a file that failed to parse would
+    /// drop *every* figure to the built-in ones, silently discarding whatever
+    /// the user had edited — and take the published amount for it.
+    #[test]
+    fn a_file_from_before_the_additional_deduction_still_loads() {
+        let base = TempBase::new("pre-65");
+        load(&base.0);
+        let file = path(&base.0);
+        let written = fs::read_to_string(&file).unwrap();
+        let mut lines = written.lines().peekable();
+        let mut old = Vec::new();
+        while let Some(line) = lines.next() {
+            if line
+                .trim_start()
+                .starts_with("additional_standard_deduction_65:")
+            {
+                // Its two children go with it.
+                lines.next();
+                lines.next();
+                continue;
+            }
+            old.push(line);
+        }
+        let old = old.join("\n").replace("single: 16100.0", "single: 17000.0");
+        assert!(!old.contains("additional_standard_deduction_65"));
+        fs::write(&file, &old).unwrap();
+
+        let loaded = load(&base.0);
+        assert!(loaded.error.is_none(), "{:?}", loaded.error);
+        assert_eq!(loaded.figures.federal.standard_deduction.single, 17_000.0);
+        assert_eq!(
+            loaded.figures.federal.additional_standard_deduction_65,
+            TaxFigures::built_in()
+                .federal
+                .additional_standard_deduction_65
+        );
+        assert_eq!(
+            fs::read_to_string(&file).unwrap(),
+            old,
+            "left as the user had it"
+        );
     }
 
     #[test]

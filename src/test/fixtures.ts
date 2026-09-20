@@ -75,6 +75,10 @@ export function taxFigures(): TaxFigures {
     tax_year: 2026,
     federal: {
       standard_deduction: { single: 16_100, married_filing_jointly: 32_200 },
+      additional_standard_deduction_65: {
+        single: 2_050,
+        married_filing_jointly: 1_650,
+      },
       ordinary_brackets: {
         single: [
           { up_to: 12_400, rate: 0.1 },

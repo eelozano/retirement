@@ -6,7 +6,19 @@ import type { TaxBracket } from "./TaxBracket";
  * Federal income tax: the standard deduction and both bracket schedules,
  * for each filing status. Published each October or November.
  */
-export type FederalTax = { standard_deduction: ByFilingStatus<number>, ordinary_brackets: ByFilingStatus<Array<TaxBracket>>, 
+export type FederalTax = { standard_deduction: ByFilingStatus<number>, 
+/**
+ * The additional standard deduction for each filer who is 65 or older
+ * by the end of the tax year (IRC 63(f)) — per person, so a joint
+ * return with both spouses 65+ takes it twice. The Single figure is
+ * larger than the joint one: $2,050 against $1,650 for 2026.
+ *
+ * Defaulted so a `tax-figures.yaml` written before this figure existed
+ * still loads — the file is never overwritten by an upgrade, and one
+ * that failed to parse would silently fall back to the built-in
+ * figures for everything. The default is the published 2026 amount.
+ */
+additional_standard_deduction_65: ByFilingStatus<number>, ordinary_brackets: ByFilingStatus<Array<TaxBracket>>, 
 /**
  * Long-term capital gains and qualified dividends.
  */

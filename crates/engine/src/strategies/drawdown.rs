@@ -346,6 +346,7 @@ mod tests {
                 StateTaxProfile::none(),
                 0.0,
                 figures.tax_year,
+                vec![],
             )
         }
     }
