@@ -64,19 +64,15 @@ fn social_security_thresholds(status: FilingStatus) -> (f64, f64) {
 
 /// The fraction of a Social Security benefit that's federally taxable,
 /// applying the standard IRS provisional-income formula: up to 50% taxable
-/// once provisional income (other ordinary income + half the benefit)
+/// once provisional income (all other income + half the benefit)
 /// crosses the base threshold, up to 85% once it crosses the additional
 /// threshold.
-fn federally_taxable_social_security(
-    other_ordinary: f64,
-    benefit: f64,
-    status: FilingStatus,
-) -> f64 {
+fn federally_taxable_social_security(other_income: f64, benefit: f64, status: FilingStatus) -> f64 {
     if benefit <= 0.0 {
         return 0.0;
     }
     let (base, additional) = social_security_thresholds(status);
-    let provisional = other_ordinary.max(0.0) + 0.5 * benefit;
+    let provisional = other_income.max(0.0) + 0.5 * benefit;
 
     if provisional <= base {
         return 0.0;
@@ -167,8 +163,9 @@ fn scaled_state_brackets(brackets: &[TaxBracket], years: f64, inflation: f64) ->
 /// Federal + state tax from real bracket tables (#9), replacing the V1 flat
 /// rate. Ordinary income and capital gains are taxed federally via their own
 /// bracket schedules (gains stacked on top of ordinary taxable income, the
-/// standard IRS stacking method); Social Security is taxed via the
-/// provisional-income partial-taxability rule. State tax applies
+/// standard IRS stacking method) after one standard deduction off the total;
+/// Social Security is taxed via the provisional-income partial-taxability
+/// rule, whose "other income" includes realized gains. State tax applies
 /// `state_tax`'s bracket schedule to ordinary income plus capital gains —
 /// Social Security is excluded from the state base as a simplification
 /// (most states with an income tax exempt it, fully or in large part).
@@ -228,13 +225,26 @@ impl TaxModel for BracketTax {
         let federal_years = (self.federal_years_at_start + period as i32) as f64;
         let inflation = self.inflation;
 
-        let taxable_ss =
-            federally_taxable_social_security(income.ordinary, income.social_security, status);
+        // Pub 915 Worksheet 1 line 3 is *all* other income in AGI, so realized
+        // gains count toward provisional income alongside ordinary income.
+        let gains = income.capital_gains.max(0.0);
+        let taxable_ss = federally_taxable_social_security(
+            income.ordinary + gains,
+            income.social_security,
+            status,
+        );
         let federal_ordinary_income = (income.ordinary + taxable_ss).max(0.0);
 
+        // The deduction comes off total income, gains included, exactly as
+        // Form 1040 line 15 does; the Qualified Dividends and Capital Gain
+        // Tax Worksheet then bounds the gain taxed by what is left. Whatever
+        // deduction ordinary income cannot absorb therefore shelters gain,
+        // instead of being discarded.
         let std_deduction =
             indexed_federal_amount(self.federal.standard_deduction, federal_years, inflation);
-        let taxable_ordinary = (federal_ordinary_income - std_deduction).max(0.0);
+        let taxable_income = (federal_ordinary_income + gains - std_deduction).max(0.0);
+        let gains_taxed = gains.min(taxable_income);
+        let taxable_ordinary = taxable_income - gains_taxed;
         let ordinary_brackets =
             indexed_federal_brackets(&self.federal.ordinary_brackets, federal_years, inflation);
         let federal_ordinary_tax = bracket_tax(taxable_ordinary, &ordinary_brackets);
@@ -242,13 +252,12 @@ impl TaxModel for BracketTax {
         // Capital gains stack on top of ordinary taxable income: tax the
         // combined total through the LTCG schedule, then back out the
         // portion attributable to ordinary income alone.
-        let gains = income.capital_gains.max(0.0);
         let ltcg_brackets = indexed_federal_brackets(
             &self.federal.capital_gains_brackets,
             federal_years,
             inflation,
         );
-        let federal_gains_tax = bracket_tax(taxable_ordinary + gains, &ltcg_brackets)
+        let federal_gains_tax = bracket_tax(taxable_ordinary + gains_taxed, &ltcg_brackets)
             - bracket_tax(taxable_ordinary, &ltcg_brackets);
 
         let state_std_deduction =
@@ -382,6 +391,138 @@ mod tests {
         );
     }
 
+    /// The deduction comes off total income, so what ordinary income cannot
+    /// absorb shelters gain (#142). MFJ 2026: deduction $32,200, 0% LTCG band
+    /// to $98,900, 15% above. Worksheet on paper, no ordinary income:
+    /// taxable income = 0 + 200,000 - 32,200 = 167,800, all of it gain;
+    /// 0% on the first 98,900, 15% on 167,800 - 98,900 = 68,900
+    /// -> 68,900 * 15% = 10,335. The engine used to charge 15,165, taxing the
+    /// full 200,000 and discarding the deduction.
+    #[test]
+    fn unabsorbed_standard_deduction_shelters_capital_gains() {
+        let tax = bracket(
+            FilingStatus::MarriedFilingJointly,
+            StateTaxProfile::none(),
+            0.0,
+        );
+        let result = tax.tax(
+            &IncomeBreakdown {
+                capital_gains: 200_000.0,
+                ..Default::default()
+            },
+            0,
+        );
+        assert_close(result.tax, 10_335.0, "gains with no ordinary income");
+    }
+
+    /// Partly absorbed: 10,000 of ordinary income uses 10,000 of the 32,200
+    /// deduction and the other 22,200 shelters gain. Taxable income =
+    /// 10,000 + 130,000 - 32,200 = 107,800, of which the ordinary part is
+    /// 0 (the ordinary income is wholly offset by the deduction) and the gain
+    /// taxed is 107,800; 15% * (107,800 - 98,900) = 15% * 8,900 = 1,335.
+    #[test]
+    fn deduction_is_shared_between_ordinary_income_and_gains() {
+        let tax = bracket(
+            FilingStatus::MarriedFilingJointly,
+            StateTaxProfile::none(),
+            0.0,
+        );
+        let result = tax.tax(
+            &IncomeBreakdown {
+                ordinary: 10_000.0,
+                capital_gains: 130_000.0,
+                ..Default::default()
+            },
+            0,
+        );
+        assert_close(result.tax, 1_335.0, "gains with partly absorbed deduction");
+    }
+
+    /// Above the deduction the change is a no-op: ordinary income absorbs all
+    /// of it and the whole gain is taxed. MFJ 2026, 50,000 ordinary and
+    /// 200,000 gains: taxable ordinary = 50,000 - 32,200 = 17,800, taxed at
+    /// 10% (under 24,800) = 1,780. Gains stack from 17,800 to 217,800; the
+    /// 0% band ends at 98,900, so 217,800 - 98,900 = 118,900 is at 15%
+    /// = 17,835. Total 19,615.
+    #[test]
+    fn deduction_change_is_a_no_op_when_ordinary_income_exceeds_it() {
+        let tax = bracket(
+            FilingStatus::MarriedFilingJointly,
+            StateTaxProfile::none(),
+            0.0,
+        );
+        let result = tax.tax(
+            &IncomeBreakdown {
+                ordinary: 50_000.0,
+                capital_gains: 200_000.0,
+                ..Default::default()
+            },
+            0,
+        );
+        assert_close(result.tax, 19_615.0, "gains above an absorbed deduction");
+    }
+
+    /// The boundary: ordinary income exactly equal to the 32,200 deduction
+    /// leaves taxable ordinary income at 0 and nothing to shelter gain, so
+    /// the whole 200,000 is taxed: 15% * (200,000 - 98,900) = 15% * 101,100
+    /// = 15,165. This is the figure the old code charged with no ordinary
+    /// income at all, which is what made it wrong there.
+    #[test]
+    fn ordinary_income_exactly_equal_to_the_deduction_shelters_no_gain() {
+        let tax = bracket(
+            FilingStatus::MarriedFilingJointly,
+            StateTaxProfile::none(),
+            0.0,
+        );
+        let result = tax.tax(
+            &IncomeBreakdown {
+                ordinary: 32_200.0,
+                capital_gains: 200_000.0,
+                ..Default::default()
+            },
+            0,
+        );
+        assert_close(result.tax, 15_165.0, "ordinary income equal to deduction");
+    }
+
+    /// Realized gains count as "other income" in the Social Security
+    /// worksheet (Pub 915, Worksheet 1, line 3). MFJ, benefit 68,000, no
+    /// ordinary income, gains 80,000:
+    ///   line 1 = 68,000; line 2 = 34,000; line 3 = 80,000;
+    ///   line 5 = 114,000; line 7 = 114,000
+    ///   line 9 = 114,000 - 32,000 = 82,000; line 10 = 12,000;
+    ///   line 11 = 70,000; line 12 = min(82,000, 12,000) = 12,000;
+    ///   line 13 = 6,000; line 14 = min(34,000, 6,000) = 6,000;
+    ///   line 15 = 85% * 70,000 = 59,500; line 16 = 65,500;
+    ///   line 17 = 85% * 68,000 = 57,800; line 18 = min(65,500, 57,800)
+    ///   = 57,800 taxable.
+    /// Ignoring the gains gave provisional income 34,000 and only 1,000.
+    #[test]
+    fn capital_gains_count_toward_social_security_provisional_income() {
+        let tax = bracket(
+            FilingStatus::MarriedFilingJointly,
+            StateTaxProfile::none(),
+            0.0,
+        );
+        // Federal: 57,800 + 80,000 - 32,200 = 105,600 taxable income, of
+        // which 80,000 is gain and 25,600 ordinary. Ordinary: 10% * 24,800
+        // + 12% * 800 = 2,480 + 96 = 2,576. Gains stack from 25,600 to
+        // 105,600 through a 0% band ending at 98,900: 15% * 6,700 = 1,005.
+        let result = tax.tax(
+            &IncomeBreakdown {
+                capital_gains: 80_000.0,
+                social_security: 68_000.0,
+                ..Default::default()
+            },
+            0,
+        );
+        assert_close(
+            result.tax,
+            3_581.0,
+            "benefit taxed with gains in provisional income",
+        );
+    }
+
     #[test]
     fn social_security_untaxed_below_base_threshold() {
         // Provisional income = 0 + 0.5*20k = 10k, well under the 25k base.
@@ -391,7 +532,7 @@ mod tests {
 
     #[test]
     fn social_security_partially_taxed_in_middle_tier() {
-        // other_ordinary 20k + 0.5*20k = 30k provisional, between 25k/34k base/additional.
+        // other income 20k + 0.5*20k = 30k provisional, between 25k/34k base/additional.
         // tier1 = min(0.5*(30k-25k), 0.5*20k) = min(2500, 10000) = 2500.
         let taxable = federally_taxable_social_security(20_000.0, 20_000.0, FilingStatus::Single);
         assert_close(taxable, 2_500.0, "SS middle tier");
