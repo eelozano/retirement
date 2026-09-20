@@ -123,7 +123,9 @@ export interface ComparisonSummaryRow {
   finalNetWorth: number;
   deltaVsBase: number;
   depletionYear: number | null;
+  /** Income tax only; the early-withdrawal penalty is `lifetimePenalty`. */
   lifetimeTaxes: number;
+  lifetimePenalty: number;
   /** Null where this scenario has no Monte Carlo result — the batch has not
    * landed yet, or this scenario's own run failed. The table shows "—", as
    * the headline tile does. */
@@ -154,7 +156,15 @@ function finalNetWorth(projection: Projection, realDollars: boolean): number {
 
 function lifetimeTaxes(projection: Projection, realDollars: boolean): number {
   return projection.snapshots.reduce(
-    (sum, s) => sum + s.taxes / (realDollars ? s.deflator : 1),
+    (sum, s) =>
+      sum + (s.taxes - s.early_withdrawal_penalty) / (realDollars ? s.deflator : 1),
+    0,
+  );
+}
+
+function lifetimePenalty(projection: Projection, realDollars: boolean): number {
+  return projection.snapshots.reduce(
+    (sum, s) => sum + s.early_withdrawal_penalty / (realDollars ? s.deflator : 1),
     0,
   );
 }
@@ -204,6 +214,7 @@ export function comparisonSummary(
       deltaVsBase: final - baseFinal,
       depletionYear: depletionYear(s.projection),
       lifetimeTaxes: lifetimeTaxes(s.projection, realDollars),
+      lifetimePenalty: lifetimePenalty(s.projection, realDollars),
       successRate: mc ? mc.success_rate : null,
       successMargin: mc ? successMargin(mc.success_rate, mc.n_paths) : null,
       successDeltaVsBase:

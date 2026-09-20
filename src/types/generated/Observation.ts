@@ -11,7 +11,7 @@ import type { YearMonth } from "./YearMonth";
  */
 export type Observation = { as_of: YearMonth, balance: number, 
 /**
- * Taxable accounts only; `None` everywhere else, exactly as on
- * [`Account::cost_basis`].
+ * Taxable and Roth accounts only — basis, or contributions to date;
+ * `None` everywhere else, exactly as on [`Account::cost_basis`].
  */
 cost_basis: number | null, };

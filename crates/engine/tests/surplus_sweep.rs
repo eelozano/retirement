@@ -104,6 +104,7 @@ fn staggered_household() -> Plan {
             )],
             one_time_contributions: vec![],
             employer_match: None,
+            rule_of_55: false,
         }],
         streams: vec![
             salary("early-salary", "early", 60_000.0),
@@ -133,6 +134,7 @@ fn staggered_household() -> Plan {
             social_security_cola: 0.0,
             strategy_volatility: Default::default(),
             reinvest_into: None,
+            drawdown: Default::default(),
         },
         sim_config: SimConfig {
             start: YearMonth::new(2026, 1),

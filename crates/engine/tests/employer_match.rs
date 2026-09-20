@@ -51,6 +51,7 @@ fn account(id: &str, kind: AccountKind, contribution: ContributionRule) -> Accou
         )],
         one_time_contributions: vec![],
         employer_match: None,
+        rule_of_55: false,
     }
 }
 
@@ -107,6 +108,7 @@ fn plan_with(accounts: Vec<Account>) -> Plan {
             social_security_cola: 0.0,
             strategy_volatility: Default::default(),
             reinvest_into: None,
+            drawdown: Default::default(),
         },
         sim_config: SimConfig {
             start: YearMonth::new(2026, 1),

@@ -582,6 +582,13 @@ fn net_worth_never_goes_negative() {
 /// statutory figure changing is a legitimate reason for these to move; a
 /// refactor is not.
 ///
+/// Re-captured when early withdrawals started paying the 10% additional
+/// tax: the seed household's Alex retires at 55 and draws on a 401(k)
+/// before 59½, which the engine used to let him do for free. Periods 0 and
+/// 12 are untouched — the first penalized draw is in 2039 — and the success
+/// rate holds at 0.605; the late medians and upper tails come down by about
+/// 0.5–1.1%.
+///
 /// Spot indices rather than all 58 periods: enough to catch an off-by-one or
 /// a reordering, few enough to read when it fails.
 #[test]
@@ -608,13 +615,13 @@ fn fold_reproduces_pre_refactor_output() {
 
     assert_eq!(at(0).p50, 763297.404964235);
     assert_eq!(at(12).p50, 3022873.974996055);
-    assert_eq!(at(38).p50, 4963847.00520493);
-    assert_eq!(at(57).p50, 5056887.539316564);
+    assert_eq!(at(38).p50, 4940092.452541652);
+    assert_eq!(at(57).p50, 4999515.02167712);
 
     assert_eq!(at(0).p90, 904377.7405692474);
     assert_eq!(at(12).p90, 5335775.894425642);
-    assert_eq!(at(38).p90, 26588869.63595321);
-    assert_eq!(at(57).p90, 77355612.43248141);
+    assert_eq!(at(38).p90, 26546784.853422865);
+    assert_eq!(at(57).p90, 77150284.48902825);
 }
 
 /// The observed form must not change the answer: progress counting and the

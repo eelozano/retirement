@@ -1,4 +1,5 @@
 import { atOrAfter, isWorkingPeriod } from "../../lib/currentSpending";
+import { phaseName } from "../../lib/drawdown";
 import { yearBoundary } from "../../lib/yearBoundary";
 import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
 import type { PeriodSnapshot } from "../../types/generated/PeriodSnapshot";
@@ -407,6 +408,9 @@ export interface YearDetail {
    * equation below. Empty in almost every year.
    */
   oneTime: { key: string; label: string; value: number }[];
+  /** The drawdown phase in force at the start of the year, by name, or null
+   * under the proportional drawdown. */
+  phase: string | null;
   /** Income plus gross withdrawals: everything that reached the household. */
   moneyIn: number;
   /**
@@ -492,7 +496,25 @@ export function yearDetail(
       group: "out",
       value: s.expenses / d,
     },
-    { key: "taxes", label: "Taxes", group: "out", value: s.taxes / d },
+    {
+      key: "taxes",
+      label: "Taxes",
+      group: "out",
+      value: (s.taxes - s.early_withdrawal_penalty) / d,
+    },
+    // Its own outflow rather than folded into taxes: it is the cost of
+    // withdrawing before 59½, which the drawdown order can avoid and income
+    // tax cannot. Shown only in the years there is one.
+    ...(s.early_withdrawal_penalty > 0
+      ? [
+          {
+            key: "early_withdrawal_penalty",
+            label: "Early-withdrawal penalty",
+            group: "out" as const,
+            value: s.early_withdrawal_penalty / d,
+          },
+        ]
+      : []),
     {
       key: "contributions",
       label: "Contributions",
@@ -583,6 +605,7 @@ export function yearDetail(
       };
     }),
     flows,
+    phase: phaseName(plan, s.drawdown_phase),
     growth: { value: s.growth / d, critical: s.growth < 0 },
     moneyIn,
     leftOver,

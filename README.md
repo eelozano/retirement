@@ -45,8 +45,9 @@ the first death, and at plan end.](docs/screenshots/why-paths-fail.png)
 
 **Scenarios.** Branch a plan, then overlay them and read the differences off a
 summary table — net worth at plan end, delta against the base, depletion year,
-lifetime taxes, and a Monte Carlo run of every scenario on the same paths for
-probability of success, its delta, and the 10th percentile at the end.
+lifetime taxes and any early-withdrawal penalties, and a Monte Carlo run of
+every scenario on the same paths for probability of success, its delta, and
+the 10th percentile at the end.
 
 ![Five scenarios overlaid on one chart, above a table comparing each one's
 deterministic projection and its Monte Carlo probability of
@@ -66,7 +67,8 @@ $769.6K less at plan end, and an 83% probability of success against the plan's
 **Cash flow.** Money in above the line and money out below it, year by year,
 then where it actually went in the year you pick, as a Sankey — salaries and
 withdrawals in on the left, spending, taxes and contributions out on the
-right.
+right. An early-withdrawal penalty is its own outflow wherever tax is shown,
+never folded into it.
 
 ![A chart of income, withdrawals, contributions, expenses and taxes stacked
 above and below a zero line from 2026 to 2072, under tiles for the year
@@ -89,9 +91,24 @@ growth.](docs/screenshots/growth.png)
 **Inputs.** A two-pane editor rather than a wizard. Every edit re-projects and
 autosaves.
 
-![The Inputs screen with People, Accounts and Spending in a left rail, editing
-a person's birth month, retirement month — with the age it falls at — life
-expectancy and salary.](docs/screenshots/inputs.png)
+![The Inputs screen with People, Accounts, Spending and Withdrawals in a left
+rail, editing a person's birth month, retirement month — with the age it falls
+at — life expectancy and salary.](docs/screenshots/inputs.png)
+
+**Withdrawals.** Which accounts pay when spending outruns income, and in what
+order. The default spreads each year's shortfall across every account in
+proportion to its balance; the alternative is phases — stretches of the plan,
+each with a list drawn top to bottom, and a balance you can keep back. A
+phase can start when someone reaches 59½, which is the age the 10%
+early-withdrawal penalty stops applying, so an early retirement can bridge on
+taxable money and a 401(k) freed by the Rule of 55 while the rest waits. Rows
+warn when the account they name would still be penalized, and one button
+builds the bridge.
+
+![The Withdrawals pane: a "Bridge to 59½" phase drawing the joint brokerage,
+then Alex's 401(k), then emergency savings down to a $30,000 floor, with a
+second phase starting when Jordan reaches
+59½.](docs/screenshots/withdrawals.png)
 
 **Pensions.** A pension is entered the way the statement quotes it: the
 monthly check at its first payment, whether it has a cost-of-living

@@ -1,5 +1,6 @@
 import type { Plan } from "../types/generated/Plan";
 import type { Projection } from "../types/generated/Projection";
+import { phaseName } from "./drawdown";
 import { dateStamp, sanitizedPlanName } from "./exportFilename";
 
 // The CSV twin of the year table, minus the account-count cap the chart
@@ -61,6 +62,7 @@ export function buildProjectionCsv(
     ...expenseStreams.map((s) => `${s.name} expense`),
     "Taxes",
     "Tax on withdrawals",
+    "Early-withdrawal penalty (in taxes)",
     "Contributions",
     ...plan.accounts.map((a) => `${a.name} contribution`),
     "Employer match",
@@ -69,6 +71,7 @@ export function buildProjectionCsv(
     "Required distributions",
     "Surplus",
     ...plan.accounts.map((a) => `${a.name} withdrawal`),
+    "Withdrawal phase",
     "Growth",
     "Net worth",
     "Deflator",
@@ -85,6 +88,7 @@ export function buildProjectionCsv(
       ...expenseStreams.map((st) => m(s.expenses_by_stream[st.id] ?? 0)),
       m(s.taxes),
       m(s.withdrawal_taxes),
+      m(s.early_withdrawal_penalty),
       m(s.contributions),
       ...plan.accounts.map((a) => m(s.contributions_by_account[a.id] ?? 0)),
       m(s.employer_match),
@@ -93,6 +97,7 @@ export function buildProjectionCsv(
       m(s.required_distributions),
       m(s.surplus),
       ...plan.accounts.map((a) => m(s.withdrawals[a.id] ?? 0)),
+      phaseName(plan, s.drawdown_phase) ?? "",
       m(s.growth),
       m(s.net_worth),
       s.deflator,

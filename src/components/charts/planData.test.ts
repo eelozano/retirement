@@ -34,6 +34,8 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     income_by_stream: {},
     expenses_by_stream: {},
     withdrawal_taxes: 0,
+    early_withdrawal_penalty: 0,
+    drawdown_phase: null,
     contributions_by_account: {},
     deflator: 1,
     ...overrides,
@@ -465,6 +467,43 @@ describe("milestones (survivor transition)", () => {
 });
 
 describe("yearDetail", () => {
+  it("shows the early-withdrawal penalty as its own outflow, and names the phase", () => {
+    const p = {
+      ...plan([person("a", 1980, 2030)], [account("x")]),
+      assumptions: {
+        drawdown: {
+          Phased: [
+            {
+              id: "bridge",
+              name: "Bridge to 59½",
+              start: { Boundary: "PlanStart" },
+              stack: [],
+            },
+          ],
+        },
+      },
+    } as unknown as Plan;
+    const proj = projection([
+      snapshot({
+        period_start: { year: 2030, month: 1 },
+        withdrawals: { x: 100 },
+        expenses: 70,
+        taxes: 30,
+        withdrawal_taxes: 30,
+        early_withdrawal_penalty: 10,
+        drawdown_phase: "bridge",
+      }),
+    ]);
+
+    const detail = yearDetail(p, proj, 2030, seriesDefs(p), false);
+    const flows = new Map(detail?.flows.map((f) => [f.key, f.value]));
+    expect(flows.get("taxes")).toBe(20);
+    expect(flows.get("early_withdrawal_penalty")).toBe(10);
+    // Still one identity: the penalty is an outflow, not beside the total.
+    expect(detail?.leftOver).toBe(0);
+    expect(detail?.phase).toBe("Bridge to 59½");
+  });
+
   it("totals withdrawals across accounts and flags a negative surplus", () => {
     const p = plan([person("a", 1980, 2030)], [account("x"), account("y")]);
     const proj = projection([

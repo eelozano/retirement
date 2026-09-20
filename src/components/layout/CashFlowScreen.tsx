@@ -65,7 +65,11 @@ export function CashFlowScreen() {
           <div className="tile">
             <span className="tile-label">Lifetime taxes</span>
             <div className="tile-metric">{currencyCompact(summary.lifetimeTaxes)}</div>
-            <div className="tile-sub">Summed across the projection, {basisNote}.</div>
+            <div className="tile-sub">
+              Summed across the projection, {basisNote}.
+              {summary.lifetimePenalty > 0 &&
+                ` Plus ${currencyCompact(summary.lifetimePenalty)} of early-withdrawal penalties.`}
+            </div>
           </div>
         </section>
 

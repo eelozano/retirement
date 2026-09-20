@@ -145,6 +145,7 @@ scenarios:
         - employee_percent: 0.02
           match_percent: 0.5
         destination: PreTax
+      rule_of_55: false
     alex-hsa:
       contributions:
       - id: alex-hsa-contribution
@@ -154,6 +155,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     alex-roth-ira:
       contributions:
       - id: alex-roth-ira-contribution
@@ -165,6 +167,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     emergency-savings:
       contributions:
       - id: emergency-savings-contribution
@@ -176,6 +179,7 @@ scenarios:
         end: !AtRetirement jordan
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     joint-brokerage:
       contributions:
       - id: joint-brokerage-contribution
@@ -196,6 +200,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     jordan-403b:
       contributions:
       - id: jordan-403b-contribution
@@ -211,6 +216,7 @@ scenarios:
         - employee_percent: 0.04
           match_percent: 0.5
         destination: PreTax
+      rule_of_55: false
     jordan-roth-ira:
       contributions:
       - id: jordan-roth-ira-contribution
@@ -220,6 +226,7 @@ scenarios:
         end: !AtRetirement jordan
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
   social_security:
     alex-social-security:
       claiming_age: 70
@@ -312,6 +319,7 @@ scenarios:
     survivor_expense_factor: 0.75
     social_security_cola: 0.03
     reinvest_into: joint-brokerage
+    drawdown: Proportional
 - id: retire-two-years-early
   name: Retire two years early
   display_real_dollars: false
@@ -346,6 +354,7 @@ scenarios:
         - employee_percent: 0.02
           match_percent: 0.5
         destination: PreTax
+      rule_of_55: false
     alex-hsa:
       contributions:
       - id: alex-hsa-contribution
@@ -355,6 +364,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     alex-roth-ira:
       contributions:
       - id: alex-roth-ira-contribution
@@ -366,6 +376,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     emergency-savings:
       contributions:
       - id: emergency-savings-contribution
@@ -377,6 +388,7 @@ scenarios:
         end: !AtRetirement jordan
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     joint-brokerage:
       contributions:
       - id: joint-brokerage-contribution
@@ -397,6 +409,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     jordan-403b:
       contributions:
       - id: jordan-403b-contribution
@@ -412,6 +425,7 @@ scenarios:
         - employee_percent: 0.04
           match_percent: 0.5
         destination: PreTax
+      rule_of_55: false
     jordan-roth-ira:
       contributions:
       - id: jordan-roth-ira-contribution
@@ -421,6 +435,7 @@ scenarios:
         end: !AtRetirement jordan
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
   social_security:
     alex-social-security:
       claiming_age: 70
@@ -513,6 +528,7 @@ scenarios:
     survivor_expense_factor: 0.75
     social_security_cola: 0.03
     reinvest_into: joint-brokerage
+    drawdown: Proportional
 - id: claim-social-security-at-62
   name: Claim Social Security at 62
   display_real_dollars: false
@@ -547,6 +563,7 @@ scenarios:
         - employee_percent: 0.02
           match_percent: 0.5
         destination: PreTax
+      rule_of_55: false
     alex-hsa:
       contributions:
       - id: alex-hsa-contribution
@@ -556,6 +573,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     alex-roth-ira:
       contributions:
       - id: alex-roth-ira-contribution
@@ -567,6 +585,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     emergency-savings:
       contributions:
       - id: emergency-savings-contribution
@@ -578,6 +597,7 @@ scenarios:
         end: !AtRetirement jordan
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     joint-brokerage:
       contributions:
       - id: joint-brokerage-contribution
@@ -598,6 +618,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     jordan-403b:
       contributions:
       - id: jordan-403b-contribution
@@ -613,6 +634,7 @@ scenarios:
         - employee_percent: 0.04
           match_percent: 0.5
         destination: PreTax
+      rule_of_55: false
     jordan-roth-ira:
       contributions:
       - id: jordan-roth-ira-contribution
@@ -622,6 +644,7 @@ scenarios:
         end: !AtRetirement jordan
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
   social_security:
     alex-social-security:
       claiming_age: 62
@@ -714,6 +737,7 @@ scenarios:
     survivor_expense_factor: 0.75
     social_security_cola: 0.03
     reinvest_into: joint-brokerage
+    drawdown: Proportional
 - id: leaner-retirement
   name: Leaner retirement spending
   display_real_dollars: false
@@ -748,6 +772,7 @@ scenarios:
         - employee_percent: 0.02
           match_percent: 0.5
         destination: PreTax
+      rule_of_55: false
     alex-hsa:
       contributions:
       - id: alex-hsa-contribution
@@ -757,6 +782,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     alex-roth-ira:
       contributions:
       - id: alex-roth-ira-contribution
@@ -768,6 +794,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     emergency-savings:
       contributions:
       - id: emergency-savings-contribution
@@ -779,6 +806,7 @@ scenarios:
         end: !AtRetirement jordan
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     joint-brokerage:
       contributions:
       - id: joint-brokerage-contribution
@@ -799,6 +827,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     jordan-403b:
       contributions:
       - id: jordan-403b-contribution
@@ -814,6 +843,7 @@ scenarios:
         - employee_percent: 0.04
           match_percent: 0.5
         destination: PreTax
+      rule_of_55: false
     jordan-roth-ira:
       contributions:
       - id: jordan-roth-ira-contribution
@@ -823,6 +853,7 @@ scenarios:
         end: !AtRetirement jordan
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
   social_security:
     alex-social-security:
       claiming_age: 70
@@ -915,6 +946,7 @@ scenarios:
     survivor_expense_factor: 0.75
     social_security_cola: 0.03
     reinvest_into: joint-brokerage
+    drawdown: Proportional
 - id: sell-the-house-at-retirement
   name: Sell the house at retirement
   display_real_dollars: false
@@ -949,6 +981,7 @@ scenarios:
         - employee_percent: 0.02
           match_percent: 0.5
         destination: PreTax
+      rule_of_55: false
     alex-hsa:
       contributions:
       - id: alex-hsa-contribution
@@ -958,6 +991,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     alex-roth-ira:
       contributions:
       - id: alex-roth-ira-contribution
@@ -969,6 +1003,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     emergency-savings:
       contributions:
       - id: emergency-savings-contribution
@@ -980,6 +1015,7 @@ scenarios:
         end: !AtRetirement jordan
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
     joint-brokerage:
       contributions:
       - id: joint-brokerage-contribution
@@ -1005,6 +1041,7 @@ scenarios:
         growth: Inflation
         date: !AtRetirement alex
       employer_match: null
+      rule_of_55: false
     jordan-403b:
       contributions:
       - id: jordan-403b-contribution
@@ -1020,6 +1057,7 @@ scenarios:
         - employee_percent: 0.04
           match_percent: 0.5
         destination: PreTax
+      rule_of_55: false
     jordan-roth-ira:
       contributions:
       - id: jordan-roth-ira-contribution
@@ -1029,6 +1067,7 @@ scenarios:
         end: !AtRetirement jordan
       one_time_contributions: []
       employer_match: null
+      rule_of_55: false
   social_security:
     alex-social-security:
       claiming_age: 70
@@ -1121,3 +1160,227 @@ scenarios:
     survivor_expense_factor: 0.75
     social_security_cola: 0.03
     reinvest_into: joint-brokerage
+    drawdown: Proportional
+- id: retire-at-55-on-a-bridge
+  name: Retire at 55 on a bridge
+  display_real_dollars: false
+  people:
+    alex:
+      retirement:
+        year: 2034
+        month: 4
+      life_expectancy_age: 88
+    jordan:
+      retirement:
+        year: 2034
+        month: 9
+      life_expectancy_age: 91
+  accounts:
+    alex-401k:
+      contributions:
+      - id: alex-401k-contribution
+        name: ''
+        rule: !PercentOfSalary
+          percent: 0.1
+          step_up:
+            points_per_year: 0.01
+            cap: 0.15
+        start: PlanStart
+        end: !AtRetirement alex
+      one_time_contributions: []
+      employer_match:
+        tiers:
+        - employee_percent: 0.03
+          match_percent: 1.0
+        - employee_percent: 0.02
+          match_percent: 0.5
+        destination: PreTax
+      rule_of_55: true
+    alex-hsa:
+      contributions:
+      - id: alex-hsa-contribution
+        name: ''
+        rule: FederalMaximum
+        start: PlanStart
+        end: !AtRetirement alex
+      one_time_contributions: []
+      employer_match: null
+      rule_of_55: false
+    alex-roth-ira:
+      contributions:
+      - id: alex-roth-ira-contribution
+        name: ''
+        rule: FederalMaximum
+        start: !Date
+          year: 2029
+          month: 1
+        end: !AtRetirement alex
+      one_time_contributions: []
+      employer_match: null
+      rule_of_55: false
+    emergency-savings:
+      contributions:
+      - id: emergency-savings-contribution
+        name: ''
+        rule: !FlatAmount
+          amount: 0.0
+          growth: None
+        start: PlanStart
+        end: !AtRetirement jordan
+      one_time_contributions: []
+      employer_match: null
+      rule_of_55: false
+    joint-brokerage:
+      contributions:
+      - id: joint-brokerage-contribution
+        name: ''
+        rule: !FlatAmount
+          amount: 6000.0
+          growth: None
+        start: PlanStart
+        end: !AtRetirement alex
+      - id: joint-brokerage-contribution-2027
+        name: Car paid off
+        rule: !FlatAmount
+          amount: 8400.0
+          growth: None
+        start: !Date
+          year: 2027
+          month: 1
+        end: !AtRetirement alex
+      one_time_contributions: []
+      employer_match: null
+      rule_of_55: false
+    jordan-403b:
+      contributions:
+      - id: jordan-403b-contribution
+        name: ''
+        rule: !PercentOfSalary
+          percent: 0.08
+          step_up: null
+        start: PlanStart
+        end: !AtRetirement jordan
+      one_time_contributions: []
+      employer_match:
+        tiers:
+        - employee_percent: 0.04
+          match_percent: 0.5
+        destination: PreTax
+      rule_of_55: false
+    jordan-roth-ira:
+      contributions:
+      - id: jordan-roth-ira-contribution
+        name: ''
+        rule: FederalMaximum
+        start: PlanStart
+        end: !AtRetirement jordan
+      one_time_contributions: []
+      employer_match: null
+      rule_of_55: false
+  social_security:
+    alex-social-security:
+      claiming_age: 70
+      cola_override: null
+    jordan-social-security:
+      claiming_age: 67
+      cola_override: null
+  streams:
+  - id: alex-salary
+    name: Alex salary
+    owner: alex
+    direction: Income
+    annual_amount: 145000.0
+    start: PlanStart
+    end: !AtRetirement alex
+    growth: Inflation
+    survivor_percentage: null
+    kind: General
+  - id: jordan-salary
+    name: Jordan salary
+    owner: jordan
+    direction: Income
+    annual_amount: 105000.0
+    start: PlanStart
+    end: !AtRetirement jordan
+    growth: Inflation
+    survivor_percentage: null
+    kind: General
+  - id: spending-working
+    name: Household spending (working)
+    owner: null
+    direction: Expense
+    annual_amount: 150000.0
+    start: PlanStart
+    end: !AtRetirement alex
+    growth: Inflation
+    survivor_percentage: null
+    kind: General
+  - id: spending-retired
+    name: Household spending (retired)
+    owner: null
+    direction: Expense
+    annual_amount: 110000.0
+    start: !AtRetirement alex
+    end: PlanEnd
+    growth: Inflation
+    survivor_percentage: null
+    kind: General
+  - id: healthcare-bridge
+    name: Pre-Medicare health insurance
+    owner: null
+    direction: Expense
+    annual_amount: 26000.0
+    start: !AtRetirement alex
+    end: !Date
+      year: 2044
+      month: 4
+    growth: Inflation
+    survivor_percentage: null
+    kind: General
+  - id: jordan-pension
+    name: Jordan pension
+    owner: jordan
+    direction: Income
+    annual_amount: 18000.0
+    start: !AtRetirement jordan
+    end: PlanEnd
+    growth: None
+    survivor_percentage: 0.5
+    kind: Pension
+  assumptions:
+    inflation: 0.03
+    strategy_returns:
+      aggressive: 0.075
+      moderate: 0.067
+      conservative: 0.059
+    strategy_volatility:
+      aggressive: 0.155
+      moderate: 0.115
+      conservative: 0.09
+    filing_status: MarriedFilingJointly
+    state_tax:
+      state: Colorado
+      brackets:
+      - up_to: null
+        rate: 0.044
+      standard_deduction: 0.0
+    plan_end_age: 95
+    sweep_surplus_from: !AtRetirement alex
+    survivor_expense_factor: 0.75
+    social_security_cola: 0.03
+    reinvest_into: joint-brokerage
+    drawdown: !Phased
+    - id: bridge
+      name: Bridge to 59½
+      start: !Boundary PlanStart
+      stack:
+      - source: !Account joint-brokerage
+        floor: 0.0
+      - source: !Account alex-401k
+        floor: 0.0
+      - source: !Account emergency-savings
+        floor: 30000.0
+    - id: standard
+      name: Standard
+      start: !PenaltyFree jordan
+      stack: []
