@@ -1,5 +1,5 @@
 import { currency, currencyCompact } from "../../lib/format";
-import type { FlowRow, YearDetail } from "./planData";
+import { type FlowRow, medianGapNote, type YearDetail } from "./planData";
 
 // Right-hand readout for one year of the projection. The cash-flow fields on
 // PeriodSnapshot are shown as the two sides of the identity the engine pins
@@ -147,6 +147,13 @@ export function YearInspector(props: {
               <span>{currencyCompact(props.percentiles.p90)}</span>
             </div>
           </div>
+          {/* The one place the deterministic figure and the median path are
+              side by side, so the gap between them can be a measured
+              multiple rather than the general claim the chart carries
+              (#144). */}
+          <p className="inspector-note">
+            {medianGapNote(detail.netWorth, props.percentiles.p50)}
+          </p>
         </div>
       )}
 

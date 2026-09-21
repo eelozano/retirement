@@ -12,7 +12,11 @@ import { chartRows, seriesDefs } from "../charts/chartData";
 import { DataTable } from "../charts/DataTable";
 import { HeadlineTiles } from "../charts/HeadlineTiles";
 import { ProjectionChart } from "../charts/ProjectionChart";
-import { headlineMetrics } from "../charts/planData";
+import {
+  DETERMINISTIC_LINE_NOTE,
+  hasVolatility,
+  headlineMetrics,
+} from "../charts/planData";
 import { WhyPathsFail } from "../charts/WhyPathsFail";
 import {
   FILING_STATUS_OPTIONS,
@@ -231,6 +235,13 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
           {series.length > 0 && (
             <section className="report-section" aria-label="Net worth and balances">
               <h2>Net worth &amp; account balances</h2>
+              {/* The chart prints without the percentile band, so the report
+                  carries only the single run — and it travels away from the
+                  app that would otherwise let the reader toggle the fan on
+                  and see the difference (#144). */}
+              {hasVolatility(plan) && (
+                <p className="chart-note">{DETERMINISTIC_LINE_NOTE}</p>
+              )}
               <ProjectionChart
                 rows={rows}
                 series={series}

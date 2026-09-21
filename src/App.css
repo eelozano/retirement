@@ -1923,6 +1923,17 @@ button.remove:disabled {
   height: 9px;
   border-radius: 2px;
 }
+/* Says what the solid line is — a single run at the expected return, above
+   the Monte Carlo median rather than on it (#144). Between the legend, which
+   names the line, and the chart that draws it. Muted and one line tall: it
+   qualifies the chart, it does not warn about it. */
+.chart-note {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--muted);
+  margin: 0 0 var(--sp-2);
+  max-width: 78ch;
+}
 .projection-chart,
 .cash-flow-chart {
   border-radius: var(--r-2);
