@@ -26,6 +26,7 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     drawdown_phase: null,
     contributions_by_account: {},
     deflator: 1,
+    deflator_end: 1,
     ...overrides,
   };
 }

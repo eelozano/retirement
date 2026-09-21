@@ -31,10 +31,13 @@ function money(nominal: number, deflator: number, realDollars: boolean): number 
 
 /**
  * One row per period, every `PeriodSnapshot` figure in the currently
- * displayed basis, plus the `deflator` itself so the other basis is always
- * recoverable from the file alone. The basis is also named in a metadata
- * block up top — filename and header row are both easy to lose track of
- * once a file has been saved, forwarded, or opened in something else.
+ * displayed basis, plus both deflators so the other basis is always
+ * recoverable from the file alone. Balances and net worth are end-of-period
+ * figures and are divided by the end factor; every flow by the start factor
+ * (#146) — which is why there are two columns and not one. The basis is also
+ * named in a metadata block up top — filename and header row are both easy
+ * to lose track of once a file has been saved, forwarded, or opened in
+ * something else.
  */
 export function buildProjectionCsv(
   plan: Plan,
@@ -74,14 +77,16 @@ export function buildProjectionCsv(
     "Withdrawal phase",
     "Growth",
     "Net worth",
-    "Deflator",
+    "Deflator (start of year)",
+    "Deflator (end of year)",
   ];
 
   const rows = projection.snapshots.map((s) => {
     const m = (nominal: number) => money(nominal, s.deflator, realDollars);
+    const balance = (nominal: number) => money(nominal, s.deflator_end, realDollars);
     return [
       s.period_start.year,
-      ...plan.accounts.map((a) => m(s.balances[a.id] ?? 0)),
+      ...plan.accounts.map((a) => balance(s.balances[a.id] ?? 0)),
       m(s.income),
       ...incomeStreams.map((st) => m(s.income_by_stream[st.id] ?? 0)),
       m(s.expenses),
@@ -99,8 +104,9 @@ export function buildProjectionCsv(
       ...plan.accounts.map((a) => m(s.withdrawals[a.id] ?? 0)),
       phaseName(plan, s.drawdown_phase) ?? "",
       m(s.growth),
-      m(s.net_worth),
+      balance(s.net_worth),
       s.deflator,
+      s.deflator_end,
     ];
   });
 

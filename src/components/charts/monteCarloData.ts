@@ -1,3 +1,4 @@
+import { balanceDivisor } from "../../lib/deflate";
 import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
 
 // Recharts draws a band as a stacked area pair: a transparent base at the
@@ -20,7 +21,7 @@ export interface FanRow {
 
 export function fanRows(result: MonteCarloResult, realDollars: boolean): FanRow[] {
   return result.percentiles.map((p) => {
-    const d = realDollars ? p.deflator : 1;
+    const d = balanceDivisor(p, realDollars);
     const [p10, p25, p50, p75, p90] = [p.p10, p.p25, p.p50, p.p75, p.p90].map(
       (v) => v / d,
     );
