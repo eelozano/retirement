@@ -1,3 +1,4 @@
+import { balanceDivisor, flowDivisor } from "../../lib/deflate";
 import { depletionYear } from "../../lib/projection";
 import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
 import type { Projection } from "../../types/generated/Projection";
@@ -60,7 +61,7 @@ interface ScenarioProjection {
 
 /** One row per year across every scenario's simulated range (a year-keyed
  * outer join, not index alignment — scenarios can start or end in
- * different years). Each scenario is deflated by its own `deflator`, since
+ * different years). Each scenario is deflated by its own factors, since
  * scenarios can carry different inflation assumptions. */
 export function compareRows(
   scenarios: readonly ScenarioProjection[],
@@ -82,7 +83,7 @@ export function compareRows(
       const row: CompareRow = { year };
       for (const { id, snapshots } of byYear) {
         const snap = snapshots.get(year);
-        row[id] = snap ? snap.net_worth / (realDollars ? snap.deflator : 1) : null;
+        row[id] = snap ? snap.net_worth / balanceDivisor(snap, realDollars) : null;
       }
       return row;
     });
@@ -151,32 +152,32 @@ export interface ComparisonSummaryRow {
 function finalNetWorth(projection: Projection, realDollars: boolean): number {
   const last = projection.snapshots[projection.snapshots.length - 1];
   if (!last) return 0;
-  return last.net_worth / (realDollars ? last.deflator : 1);
+  return last.net_worth / balanceDivisor(last, realDollars);
 }
 
 function lifetimeTaxes(projection: Projection, realDollars: boolean): number {
   return projection.snapshots.reduce(
     (sum, s) =>
-      sum + (s.taxes - s.early_withdrawal_penalty) / (realDollars ? s.deflator : 1),
+      sum + (s.taxes - s.early_withdrawal_penalty) / flowDivisor(s, realDollars),
     0,
   );
 }
 
 function lifetimePenalty(projection: Projection, realDollars: boolean): number {
   return projection.snapshots.reduce(
-    (sum, s) => sum + s.early_withdrawal_penalty / (realDollars ? s.deflator : 1),
+    (sum, s) => sum + s.early_withdrawal_penalty / flowDivisor(s, realDollars),
     0,
   );
 }
 
 /** The 10th-percentile net worth at this scenario's own last period — "at
  * end" means each scenario's end, not a shared year, exactly as
- * `finalNetWorth` does. Deflated by that period's own deflator, since
- * scenarios can carry different inflation assumptions. */
+ * `finalNetWorth` does. Deflated by that period's own end-of-period factor,
+ * since scenarios can carry different inflation assumptions. */
 function p10AtEnd(monteCarlo: MonteCarloResult, realDollars: boolean): number | null {
   const last = monteCarlo.percentiles[monteCarlo.percentiles.length - 1];
   if (!last) return null;
-  return last.p10 / (realDollars ? last.deflator : 1);
+  return last.p10 / balanceDivisor(last, realDollars);
 }
 
 interface ScenarioSummaryInput {

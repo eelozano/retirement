@@ -35,6 +35,7 @@ const projection: Projection = {
       growth: 8_000,
       net_worth: 150_000,
       deflator: 1.05,
+      deflator_end: 1.08,
     },
   ],
   warnings: [],
@@ -132,22 +133,29 @@ describe("buildProjectionCsv", () => {
     expect(csv).toContain('"Taxable, Alex balance"');
   });
 
-  it("keeps nominal figures as-is and always carries the raw deflator", () => {
+  it("keeps nominal figures as-is and always carries both raw deflators", () => {
     const csv = buildProjectionCsv(plan, projection, false);
     const [dataLine] = dataLines(csv);
     const cells = dataLine.split(",");
     expect(cells[0]).toBe("2026");
-    expect(cells[cells.length - 1]).toBe("1.05");
+    expect(cells[cells.length - 2]).toBe("1.05");
+    expect(cells[cells.length - 1]).toBe("1.08");
     expect(dataLine).toContain("150000");
   });
 
-  it("deflates every dollar figure but not the deflator itself when real dollars is on", () => {
+  it("deflates balances by the year-end factor and flows by the year-start one when real dollars is on", () => {
     const csv = buildProjectionCsv(plan, projection, true);
     const [dataLine] = dataLines(csv);
     const cells = dataLine.split(",");
-    // net_worth (150000) / deflator (1.05), rounded to cents.
-    expect(Number(cells[cells.length - 2])).toBeCloseTo(150_000 / 1.05, 2);
-    expect(cells[cells.length - 1]).toBe("1.05");
+    // The row ends: growth, net worth, start factor, end factor.
+    const [growth, netWorth] = [cells[cells.length - 4], cells[cells.length - 3]];
+    // Net worth is a year-end figure: 150000 / 1.08 (#146), rounded to cents.
+    expect(Number(netWorth)).toBeCloseTo(150_000 / 1.08, 2);
+    // Growth is a flow: 8000 / 1.05.
+    expect(Number(growth)).toBeCloseTo(8_000 / 1.05, 2);
+    // Neither deflator is itself deflated.
+    expect(cells[cells.length - 2]).toBe("1.05");
+    expect(cells[cells.length - 1]).toBe("1.08");
   });
 
   it("names the basis in a metadata block, since a filename or header alone is easy to lose", () => {

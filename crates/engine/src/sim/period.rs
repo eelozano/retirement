@@ -183,10 +183,17 @@ impl PeriodContext {
         overlap_fraction(self.start, self.end, start, end)
     }
 
-    /// Cumulative inflation factor at period start: divide any nominal value
+    /// Cumulative inflation factor at period start: divide any nominal flow
     /// by it to get simulation-start dollars.
     fn deflator(&self) -> f64 {
         (1.0 + self.inflation).powf(self.years_elapsed)
+    }
+
+    /// Cumulative inflation factor at period end — the next period's
+    /// `deflator`, since periods tile the timeline. What a balance, which is
+    /// an end-of-period figure, is divided by.
+    fn deflator_end(&self) -> f64 {
+        (1.0 + self.inflation).powf(self.years_elapsed + self.fraction)
     }
 }
 
@@ -300,6 +307,7 @@ impl PeriodState {
             withdrawals: self.withdrawals,
             growth: self.growth,
             deflator: ctx.deflator(),
+            deflator_end: ctx.deflator_end(),
         }
     }
 }

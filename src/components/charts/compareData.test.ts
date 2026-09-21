@@ -34,6 +34,7 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     drawdown_phase: null,
     contributions_by_account: {},
     deflator: 1,
+    deflator_end: 1,
     ...overrides,
   };
 }
@@ -99,11 +100,22 @@ describe("compareRows", () => {
   it("deflates each scenario by its own per-period deflator", () => {
     // Two scenarios can carry different inflation assumptions, so the
     // deflator that converts a given year to today's dollars differs too.
+    // Net worth is an end-of-period figure, so it is the end factor (#146).
     const highInflation = projection([
-      snapshot({ period_start: { year: 2025, month: 1 }, net_worth: 200, deflator: 2 }),
+      snapshot({
+        period_start: { year: 2025, month: 1 },
+        net_worth: 200,
+        deflator: 1.94,
+        deflator_end: 2,
+      }),
     ]);
     const lowInflation = projection([
-      snapshot({ period_start: { year: 2025, month: 1 }, net_worth: 150, deflator: 1.5 }),
+      snapshot({
+        period_start: { year: 2025, month: 1 },
+        net_worth: 150,
+        deflator: 1.46,
+        deflator_end: 1.5,
+      }),
     ]);
 
     const rows = compareRows(
@@ -123,6 +135,7 @@ function percentiles(overrides: Partial<PeriodPercentiles>): PeriodPercentiles {
     period: 0,
     period_start: { year: 2025, month: 1 },
     deflator: 1,
+    deflator_end: 1,
     p10: 0,
     p25: 0,
     p50: 0,
@@ -245,9 +258,14 @@ describe("comparisonSummary — Monte Carlo columns", () => {
     expect(row.p10AtEnd).toBe(55);
   });
 
-  it("deflates p10 at end by its own period's deflator when real", () => {
+  it("deflates p10 at end by its own period's end factor when real", () => {
     const withInflation = monteCarlo(0.8, 1000, [
-      percentiles({ period_start: { year: 2026, month: 1 }, p10: 200, deflator: 2 }),
+      percentiles({
+        period_start: { year: 2026, month: 1 },
+        p10: 200,
+        deflator: 1.94,
+        deflator_end: 2,
+      }),
     ]);
     const [row] = comparisonSummary(
       [{ id: "base", name: "Base", projection: flat, monteCarlo: withInflation }],
@@ -361,7 +379,8 @@ describe("mergeActiveBand", () => {
           period_start: { year: 2025, month: 1 },
           p10: 80,
           p90: 160,
-          deflator: 2,
+          deflator: 1.94,
+          deflator_end: 2,
         }),
       ]),
       true,

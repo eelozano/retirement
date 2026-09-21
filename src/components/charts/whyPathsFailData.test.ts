@@ -12,6 +12,7 @@ function percentiles(startYear: number, n: number): PeriodPercentiles[] {
     period: i,
     period_start: { year: startYear + i, month: 1 },
     deflator: 1,
+    deflator_end: 1,
     p10: 0,
     p25: 0,
     p50: 0,
