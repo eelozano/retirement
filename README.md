@@ -117,9 +117,10 @@ share continues to the survivor. It sits beside the same person's Social
 Security. Its start, like any income's or expense's, can be a month, a
 retirement or an age, and an end can also be a death.
 
-![Jordan's Social Security benefit above a pension card: $1,500 a month from
-Jordan's retirement, no cost-of-living adjustment, paid over both lives with
-a 50% survivor share.](docs/screenshots/pension.png)
+![Jordan's Social Security benefit, its full retirement age taken from a 1981
+birth rather than typed, above a pension card: $1,500 a month from Jordan's
+retirement, no cost-of-living adjustment, paid over both lives with a 50%
+survivor share.](docs/screenshots/pension.png)
 
 **Assumptions.** One expected return and one volatility per investment
 strategy — the level you would actually reason at, rather than a table of
