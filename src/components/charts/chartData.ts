@@ -1,3 +1,4 @@
+import { balanceDivisor } from "../../lib/deflate";
 import type { Plan } from "../../types/generated/Plan";
 import type { Projection } from "../../types/generated/Projection";
 
@@ -39,7 +40,8 @@ export function chartRows(
 ): ChartRow[] {
   const shown = new Set(plan.accounts.slice(0, MAX_SERIES).map((a) => a.id));
   return projection.snapshots.map((s) => {
-    const divide = realDollars ? s.deflator : 1;
+    // Every figure here is a balance, so the end-of-period factor.
+    const divide = balanceDivisor(s, realDollars);
     const row: ChartRow = {
       year: s.period_start.year,
       net_worth: s.net_worth / divide,

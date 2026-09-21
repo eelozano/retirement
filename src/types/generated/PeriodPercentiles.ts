@@ -10,6 +10,13 @@ export type PeriodPercentiles = { period: number, period_start: YearMonth,
 /**
  * Cumulative inflation factor at period start, carried here for the
  * same reason `PeriodSnapshot` carries it: the real-dollar toggle is a
- * frontend-only division, with no engine round-trip.
+ * frontend-only division, with no engine round-trip. Nothing in this
+ * struct is a flow, so the frontend reads `deflator_end` — but the pair
+ * stays whole so the two snapshot types mean the same by each name.
  */
-deflator: number, p10: number, p25: number, p50: number, p75: number, p90: number, };
+deflator: number, 
+/**
+ * Cumulative inflation factor at period end. The percentiles are of net
+ * worth, an end-of-period figure, so this is what they are divided by.
+ */
+deflator_end: number, p10: number, p25: number, p50: number, p75: number, p90: number, };

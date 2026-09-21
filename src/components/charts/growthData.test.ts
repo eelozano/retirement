@@ -28,6 +28,7 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     drawdown_phase: null,
     contributions_by_account: {},
     deflator: 1,
+    deflator_end: 1,
     ...overrides,
   };
 }
@@ -121,7 +122,7 @@ describe("growthRows", () => {
     expect(rows[1].totalAdded).toBe(rows[0].totalAdded);
   });
 
-  it("deflates each year's flows by that year's own deflator before summing", () => {
+  it("deflates each year's flows by that year's own deflator before summing, and net worth by its end factor", () => {
     const rows = growthRows(
       projection([
         snapshot({ contributions: 100, growth: 100, net_worth: 1000, deflator: 1 }),
@@ -131,6 +132,7 @@ describe("growthRows", () => {
           growth: 400,
           net_worth: 3000,
           deflator: 2,
+          deflator_end: 3,
         }),
       ]),
       plan(),
@@ -142,7 +144,7 @@ describe("growthRows", () => {
       growth: 200,
       totalAdded: 300,
       totalGrowth: 300,
-      netWorth: 1500,
+      netWorth: 1000,
     });
   });
 

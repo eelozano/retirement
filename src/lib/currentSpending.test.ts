@@ -33,6 +33,7 @@ function snapshot(year: number, overrides: Partial<PeriodSnapshot> = {}): Period
     drawdown_phase: null,
     contributions_by_account: {},
     deflator: 1,
+    deflator_end: 1,
     ...overrides,
   };
 }

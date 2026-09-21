@@ -32,7 +32,8 @@ in without refactoring core state, and they did.
    simpler and stable, with no macro coupling to Tauri command signatures.
    Revisit specta if typed `invoke` bindings are ever wanted.)
 3. **Nominal dollars, with a deflator.** The engine simulates in nominal
-   dollars and emits a cumulative `deflator` per period; the today's-dollars
+   dollars and emits a cumulative inflation factor per period, at the period's
+   start (`deflator`) and at its end (`deflator_end`); the today's-dollars
    view is a frontend division. `strategy_returns` are nominal *and
    arithmetic* annual means — see "The return is an arithmetic mean" below.
 4. **Month-native time, year-stepped.** Every date is a `YearMonth`, so
@@ -403,7 +404,7 @@ pub struct SimConfig {
     pub start: YearMonth,            // composed from the household's as_of
     pub period: PeriodLength,        // Year. Month is in the schema, unsupported,
                                      // and unread by the loop since #106
-    pub display_real_dollars: bool,  // UI hint; the engine always outputs nominal + deflator
+    pub display_real_dollars: bool,  // UI hint; the engine always outputs nominal + deflators
 }
 ```
 
@@ -576,7 +577,7 @@ Every timing bug shipped so far (#29, #43, #50, #78, #92, and the survivor work 
 - **Statutory ages are "age attained during the calendar year"**, `year - birth.year`. Catch-up tiers, the SECURE 2.0 60–63 tier and the RMD beginning age all use it, which is the statutory rule.
 - **Growth, tax and RMDs are whole-period operations.** Growth applies to the whole period's post-flow balance no matter when in the period a flow landed — for a stub, that is the period's own months: `compound(rate, fraction)` raises the period's return to its share of a year. Tax is one pass over the period's totals (#54); the RMD divides the prior period's closing balance, and period 0 has no prior period so it never takes one.
 - **A one-time contribution lands once, in the period its month falls in**, and is grown to that period's start rather than to its month — the deflator's own exponent, so an amount typed in today's dollars reads back exactly in the real-dollar view. Like any other flow it then earns the whole period's return: $400,000 arriving in October at 7% is credited about $21,000 it did not earn that year. Documented rather than prorated, as for contributions. A month outside `[start, horizon)` never lands at all.
-- **The deflator is the price level at the period's start**, `(1 + inflation)^years_elapsed`. Income and expenses are grown by the same exponent, so they deflate exactly. Balances and `net_worth` are end-of-period figures, so a real-dollar balance carries one year of inflation the deflator does not remove, about 3% at the default assumption, uniformly across the projection. Scenario deltas, depletion years and success rates are unaffected. Kept as a documented convention rather than a second deflator field.
+- **A snapshot carries two price levels, and a figure is divided by the one for the moment it describes** (#146). `deflator` is the price level at the period's start, `(1 + inflation)^years_elapsed`; `deflator_end` is at its end, `(1 + inflation)^(years_elapsed + fraction)`, which is the next period's `deflator` because periods tile the timeline (for a stub period 0 it is the factor at the January the stub runs to, not a year on). Flows — income, expenses, taxes, contributions, growth — are grown by the same exponent as `deflator`, so they deflate exactly by it. `balances` and `net_worth` are end-of-period figures and take `deflator_end`: divided by the start factor they would carry a year of inflation the factor does not remove, reading every real balance about 3% high at the default assumption. An account earning exactly the inflation rate is the pin — flat in real dollars, in every period including a stub — and `tests/real_dollars.rs` holds it to 1e-9. `PeriodPercentiles` carries the same pair, and its percentiles are net worth, so they take the end factor. The frontend picks by name, `flowDivisor` or `balanceDivisor` in `src/lib/deflate.ts`, never by field, because the wrong one type-checks and looks plausible on screen. `coverYears` is the one ratio of the two and is deliberately taken from the nominal figures.
 - **The final period runs to December.** The horizon is `Plan::end_month`, the last survivor's death month, which is rarely January; the last period is the calendar year it falls in. Streams stop at the horizon, but that year's growth, tax and any required distribution are computed for the whole year, so "at plan end" figures include the months after the last death. Documented rather than fixed: it moves one figure, on one year, by a few percent. The fraction-scaled growth #106 added does *not* reach it — the last period is a whole calendar year by construction, so its fraction is 1; making the tail exact would mean truncating the final period the way period 0 is truncated, which is a separate change and not one anything currently needs.
 - **Monthly periods are not supported.** `PeriodLength::Month` stays in the schema so nothing migrates, but running it would apply annual brackets to one month of income, cut every contribution cap to a twelfth, switch filing status the month after a death, and compute RMDs on the prior month's balance.
 
@@ -872,7 +873,8 @@ pub struct PeriodSnapshot {
     pub withdrawals: BTreeMap<AccountId, f64>,
     pub growth: f64,                          // market growth and savings interest (#61)
     pub net_worth: f64,
-    pub deflator: f64,                        // cumulative inflation → real-dollar view
+    pub deflator: f64,                        // price level at period start: divide flows by it
+    pub deflator_end: f64,                    // at period end: divide balances and net worth by it
 }
 
 pub struct Projection {
@@ -969,7 +971,7 @@ Every command is registered in `generate_handler!` in `src-tauri/src/lib.rs`. Gr
 - **Monte Carlo runs beside the deterministic projection**, never awaited with it, on the path count and auto-run threshold the backend reports. The chart's Monte Carlo band toggle is session-only.
 - **Pure view-models.** Chart components draw from `*Data.ts` builders in `components/charts/` — plain functions from a `Projection` to chart rows, tested with vitest — so the charting library is not load-bearing.
 - **The rail is labelled, and collapses to icons.** `Rail.tsx` holds the destinations in two named groups (`NAV_GROUPS`, Plan and Setup) with Report and Settings below them; collapsing is the same component with the labels dropped, not a second one. Which destination is current is `Dashboard`'s `destination` state — there is no router. Whether the rail is collapsed is a per-user display preference kept in the webview's `localStorage` (`lib/railPreference.ts`), not in `settings.json`: it is read synchronously, so the first paint is already the right width, where a value fetched over IPC would arrive after the rail had rendered at the default. It holds no financial data, so it sits outside the `RETIREMENT_DATA_DIR` root on purpose.
-- **Real dollars are a division.** The today's-dollars toggle divides by each snapshot's `deflator` client-side; no engine round-trip.
+- **Real dollars are a division.** The today's-dollars toggle divides each flow by its snapshot's `deflator` and each balance or net worth by its `deflator_end` client-side (`lib/deflate.ts`); no engine round-trip.
 - **Warnings are text.** `src/lib/warnings.ts` renders each `SimWarning` from the numbers it carries.
 - **The What-if sandbox** (`lib/whatIf.ts`, `WhatIfScreen`) is a pure function from the saved plan and a set of knobs — whole-year retirement shifts, a spending scale, return, volatility and inflation shifts, longevity — to a hypothetical `Plan`. It has no store, no IPC and no persistence, because its one invariant is that a hypothetical never reaches disk; the only path to a file is `promoteToScenario`, which the user asks for by name. Both sides run at the same seed and path count, so the difference is the change and not the draw.
 - **The report** (`ReportView`) is the Plan screen assembled once for printing or filing, exported to PDF through `export_report_pdf`. The CSV export is built on the frontend and written through `export_text_file`.

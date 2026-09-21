@@ -1,4 +1,5 @@
 import { atOrAfter, isWorkingPeriod } from "../../lib/currentSpending";
+import { balanceDivisor, flowDivisor } from "../../lib/deflate";
 import { phaseName } from "../../lib/drawdown";
 import { yearBoundary } from "../../lib/yearBoundary";
 import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
@@ -14,11 +15,6 @@ import { failureFindings } from "./whyPathsFailData";
 // Derivations for the Plan screen's headline, milestones, and year inspector.
 // Everything here reads fields that already exist on PeriodSnapshot or
 // MonteCarloResult — nothing is estimated or invented.
-
-/** Divisor that converts a nominal figure in `s` to the displayed basis. */
-function basis(s: { deflator: number }, realDollars: boolean): number {
-  return realDollars ? s.deflator : 1;
-}
 
 /** 1.96 — the standard normal quantile for a two-sided 95% interval. */
 const Z_95 = 1.96;
@@ -173,8 +169,10 @@ export interface HeadlineMetrics {
    * Net worth divided by expenses at the first full period after the
    * earliest retirement.
    *
-   * Basis-independent: both figures come from the same snapshot and so carry
-   * the same deflator, which cancels. Null if no full retirement period
+   * Basis-independent because it is taken from the nominal figures and never
+   * deflated. It is not the ratio of the two real-dollar figures the year
+   * inspector shows: those divide by different factors (#146), so that
+   * ratio is a year's inflation lower. Null if no full retirement period
    * falls within the projection or expenses are zero.
    */
   coverYears: number | null;
@@ -307,7 +305,7 @@ export function headlineMetrics(
       ? successMargin(monteCarlo.success_rate, monteCarlo.n_paths)
       : null,
     successStale: monteCarlo !== null && monteCarloStale,
-    p10AtEnd: lastPct ? lastPct.p10 / basis(lastPct, realDollars) : null,
+    p10AtEnd: lastPct ? lastPct.p10 / balanceDivisor(lastPct, realDollars) : null,
     medianFailureYear: diagnostics?.timing.medianYear ?? null,
     depletionYear,
     coverYears,
@@ -343,7 +341,7 @@ export function milestones(
     return {
       key: person.id,
       label: `At ${person.name}'s retirement`,
-      value: s ? s.net_worth / basis(s, realDollars) : null,
+      value: s ? s.net_worth / balanceDivisor(s, realDollars) : null,
       // A mid-year retirement's stub year is not a full year of it, so the
       // value shown — net worth at that year's end — needs to say which
       // year it is: the first full year (age `firstFullYear`) would be a
@@ -365,7 +363,7 @@ export function milestones(
     out.push({
       key: "__first-death__",
       label: `At ${death.decedent.name}'s death`,
-      value: s ? s.net_worth / basis(s, realDollars) : null,
+      value: s ? s.net_worth / balanceDivisor(s, realDollars) : null,
       sub: `${death.date.year} · ${
         death.survivors.length === 1
           ? `${survivor.name} alone`
@@ -387,7 +385,7 @@ export function milestones(
     out.push({
       key: "__end__",
       label: "At plan end",
-      value: last.net_worth / basis(last, realDollars),
+      value: last.net_worth / balanceDivisor(last, realDollars),
       sub: `${last.period_start.year} · age ${planEndAge(plan) ?? "?"} · ${realDollars ? "today's dollars" : "nominal"}`,
     });
   }
@@ -504,7 +502,9 @@ export function yearDetail(
 ): YearDetail | null {
   const s = snapshotForYear(projection, year);
   if (!s) return null;
-  const d = basis(s, realDollars);
+  // Flows deflate by the period-start factor, balances by the period-end one.
+  const d = flowDivisor(s, realDollars);
+  const dEnd = balanceDivisor(s, realDollars);
 
   const withdrawals = Object.values(s.withdrawals).reduce<number>(
     (sum, v) => sum + (v ?? 0),
@@ -606,7 +606,7 @@ export function yearDetail(
   let other = 0;
   const byId = new Map<string, number>();
   for (const [id, balance] of Object.entries(s.balances)) {
-    const value = (balance ?? 0) / d;
+    const value = (balance ?? 0) / dEnd;
     if (shown.has(id)) byId.set(id, value);
     else other += value;
   }
@@ -630,7 +630,7 @@ export function yearDetail(
 
   return {
     year,
-    netWorth: s.net_worth / d,
+    netWorth: s.net_worth / dEnd,
     oneTime,
     ages: plan.people.map((p) => {
       const death = deathMonth(p);

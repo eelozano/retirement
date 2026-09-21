@@ -13,6 +13,7 @@ function result(): MonteCarloResult {
         period: 0,
         period_start: { year: 2026, month: 1 },
         deflator: 1,
+        deflator_end: 2,
         p10: 100,
         p25: 200,
         p50: 300,
@@ -23,6 +24,7 @@ function result(): MonteCarloResult {
         period: 1,
         period_start: { year: 2027, month: 1 },
         deflator: 2,
+        deflator_end: 4,
         p10: 200,
         p25: 400,
         p50: 600,
@@ -46,12 +48,13 @@ describe("fanRows", () => {
     expect(first.innerBase + first.innerBand).toBe(400); // p75
   });
 
-  it("divides by the deflator in real dollars only", () => {
+  it("divides by the end-of-period deflator in real dollars only", () => {
+    // Percentiles are of net worth, an end-of-period figure (#146).
     const nominal = fanRows(result(), false)[1];
     const real = fanRows(result(), true)[1];
     expect(nominal.p50).toBe(600);
-    expect(real.p50).toBe(300);
-    expect(real.outerBand).toBe(400);
+    expect(real.p50).toBe(150);
+    expect(real.outerBand).toBe(200);
   });
 });
 

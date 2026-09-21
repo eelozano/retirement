@@ -9,6 +9,6 @@ export type SimConfig = {
 start: YearMonth, period: PeriodLength, 
 /**
  * UI hint only: whether charts default to today's-dollars display. The
- * engine always outputs nominal values plus a per-period deflator.
+ * engine always outputs nominal values plus per-period deflators.
  */
 display_real_dollars: boolean, };

@@ -40,6 +40,7 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     drawdown_phase: null,
     contributions_by_account: {},
     deflator: 1,
+    deflator_end: 1,
     ...overrides,
   };
 }
@@ -150,8 +151,9 @@ describe("headlineMetrics", () => {
   });
 
   it("reports coverage identically in both dollar bases", () => {
-    // Net worth and expenses come from the same snapshot, so the deflator
-    // cancels — the ratio must not move when the basis toggles.
+    // The ratio is taken from the nominal figures whichever basis is shown,
+    // so toggling the basis must not move it — even though the real-dollar
+    // net worth and expenses divide by different factors (#146).
     const p = plan([person("a", 1980, 2030)], []);
     const proj = projection([
       snapshot({
@@ -159,6 +161,7 @@ describe("headlineMetrics", () => {
         net_worth: 2400,
         expenses: 100,
         deflator: 1.8,
+        deflator_end: 1.854,
       }),
     ]);
 
@@ -241,6 +244,7 @@ describe("headlineMetrics", () => {
           period: 0,
           period_start: { year: 2030, month: 1 },
           deflator: 1,
+          deflator_end: 1.03,
           p10: 500,
           p25: 700,
           p50: 900,
@@ -251,6 +255,7 @@ describe("headlineMetrics", () => {
           period: 1,
           period_start: { year: 2040, month: 1 },
           deflator: 2,
+          deflator_end: 2.06,
           p10: 0,
           p25: 0,
           p50: 0,
@@ -289,6 +294,7 @@ describe("headlineMetrics", () => {
           period: 0,
           period_start: { year: 2040, month: 1 },
           deflator: 2,
+          deflator_end: 2.5,
           p10: 1000,
           p25: 1200,
           p50: 1400,
@@ -298,7 +304,9 @@ describe("headlineMetrics", () => {
       ],
     });
 
-    expect(headlineMetrics(p, projection([]), result, null, true).p10AtEnd).toBe(500);
+    // The percentile is a net worth, an end-of-period figure: it takes the
+    // end factor (2.5), not the start one (2).
+    expect(headlineMetrics(p, projection([]), result, null, true).p10AtEnd).toBe(400);
     expect(headlineMetrics(p, projection([]), result, null, false).p10AtEnd).toBe(1000);
   });
 
@@ -438,6 +446,32 @@ describe("milestones", () => {
   });
 });
 
+describe("milestones (real dollars)", () => {
+  it("deflates each net worth by its snapshot's end-of-period factor (#146)", () => {
+    // 1,030 nominal at the end of a year that started at factor 1.00 and
+    // ended at 1.03 is exactly 1,000 of today's dollars.
+    const p = plan([person("a", 1980, 2030, 1, 90)], []);
+    const proj = projection([
+      snapshot({
+        period_start: { year: 2030, month: 1 },
+        net_worth: 1030,
+        deflator: 1,
+        deflator_end: 1.03,
+      }),
+      snapshot({
+        period_start: { year: 2070, month: 1 },
+        net_worth: 2060,
+        deflator: 2,
+        deflator_end: 2.06,
+      }),
+    ]);
+
+    const [retirement, end] = milestones(p, proj, null, true);
+    expect(retirement.value).toBeCloseTo(1000, 9);
+    expect(end.value).toBeCloseTo(1000, 9);
+  });
+});
+
 describe("milestones (survivor transition)", () => {
   it("reports net worth at the first death and names who is left", () => {
     const p = household([
@@ -465,6 +499,35 @@ describe("milestones (survivor transition)", () => {
     expect(
       milestones(p, proj, null, false).some((m) => m.key === "__first-death__"),
     ).toBe(false);
+  });
+});
+
+describe("yearDetail (real dollars)", () => {
+  it("deflates balances by the end-of-period factor and flows by the start one (#146)", () => {
+    const p = plan([person("a", 1980, 2030)], [account("x")]);
+    const proj = projection([
+      snapshot({
+        period_start: { year: 2030, month: 1 },
+        balances: { x: 1030 },
+        net_worth: 1030,
+        income: 200,
+        expenses: 200,
+        deflator: 2,
+        deflator_end: 2.06,
+      }),
+    ]);
+
+    const detail = yearDetail(p, proj, 2030, seriesDefs(p), true);
+    // 1,030 / 2.06 — not 1,030 / 2, which would leave a year of inflation in.
+    expect(detail?.netWorth).toBeCloseTo(500, 9);
+    expect(detail?.balances.map((b) => b.value)).toEqual([expect.closeTo(500, 9)]);
+    // The flows are unchanged: still over the start factor.
+    expect(detail?.flows.find((f) => f.key === "income")?.value).toBe(100);
+
+    // And nominal is nominal.
+    const nominal = yearDetail(p, proj, 2030, seriesDefs(p), false);
+    expect(nominal?.netWorth).toBe(1030);
+    expect(nominal?.flows.find((f) => f.key === "income")?.value).toBe(200);
   });
 });
 

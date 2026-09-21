@@ -28,8 +28,13 @@ pub struct PeriodPercentiles {
     pub period_start: YearMonth,
     /// Cumulative inflation factor at period start, carried here for the
     /// same reason `PeriodSnapshot` carries it: the real-dollar toggle is a
-    /// frontend-only division, with no engine round-trip.
+    /// frontend-only division, with no engine round-trip. Nothing in this
+    /// struct is a flow, so the frontend reads `deflator_end` — but the pair
+    /// stays whole so the two snapshot types mean the same by each name.
     pub deflator: f64,
+    /// Cumulative inflation factor at period end. The percentiles are of net
+    /// worth, an end-of-period figure, so this is what they are divided by.
+    pub deflator_end: f64,
     pub p10: f64,
     pub p25: f64,
     pub p50: f64,
@@ -261,15 +266,15 @@ pub fn run_monte_carlo_with(
         return Err(Cancelled);
     }
 
-    // Timeline metadata (period start, deflator) is identical across paths —
+    // Timeline metadata (period start, deflators) is identical across paths —
     // only returns vary, and the deflator comes from a fixed inflation
     // assumption. Take it from one path up front so the parallel sweep below
-    // can discard everything but the two numbers the aggregate needs. The
+    // can discard everything but the numbers the aggregate needs. The
     // duplicated path costs 1/n of the run.
-    let timeline: Vec<(YearMonth, f64)> = simulate(plan, figures, returns, tax, drawdown, 0)
+    let timeline: Vec<(YearMonth, f64, f64)> = simulate(plan, figures, returns, tax, drawdown, 0)
         .snapshots
         .iter()
-        .map(|s| (s.period_start, s.deflator))
+        .map(|s| (s.period_start, s.deflator, s.deflator_end))
         .collect();
     let n_periods = timeline.len();
     let anchor = DiagnosticsAnchor::for_plan(plan, n_periods);
@@ -307,11 +312,12 @@ pub fn run_monte_carlo_with(
         .map(|period| {
             let mut net_worths: Vec<f64> = summaries.iter().map(|s| s.net_worth[period]).collect();
             net_worths.sort_by(|a, b| a.total_cmp(b));
-            let (period_start, deflator) = timeline[period];
+            let (period_start, deflator, deflator_end) = timeline[period];
             PeriodPercentiles {
                 period,
                 period_start,
                 deflator,
+                deflator_end,
                 p10: percentile(&net_worths, 0.10),
                 p25: percentile(&net_worths, 0.25),
                 p50: percentile(&net_worths, 0.50),

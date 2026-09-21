@@ -112,17 +112,23 @@ withdrawals: { [key in string]?: number },
  */
 growth: number, net_worth: number, 
 /**
- * Cumulative inflation factor at period **start**: divide any nominal
- * value in this snapshot by it to get simulation-start (today's)
- * dollars.
+ * Cumulative inflation factor at period **start**: divide a nominal
+ * *flow* in this snapshot (`income`, `expenses`, `taxes`, and the rest)
+ * by it to get simulation-start (today's) dollars. Those are grown by
+ * the same exponent, so they deflate exactly.
  *
- * Exact for the flows (`income`, `expenses`, and the rest), which are
- * grown by the same exponent. `balances` and `net_worth` are
- * end-of-period figures, so a real-dollar balance carries one year of
- * inflation this does not remove — about 3% at the default
- * assumption, uniformly across the projection. Scenario deltas,
- * depletion years and success rates are unaffected. A documented
- * convention rather than a second field; see "Time conventions" in
- * `docs/ARCHITECTURE.md`.
+ * Not for `balances` or `net_worth` — those are end-of-period figures
+ * and take `deflator_end`.
  */
-deflator: number, };
+deflator: number, 
+/**
+ * Cumulative inflation factor at period **end**: divide `balances` and
+ * `net_worth` by it. The next period's `deflator`, since periods tile
+ * the timeline; for a stub first period it is the factor at the January
+ * the stub runs to, not a full year's worth.
+ *
+ * Dividing a balance by the start factor instead would leave one year
+ * of inflation in it — an account earning exactly the inflation rate
+ * would read 3% high, flat, at the default assumption (#146).
+ */
+deflator_end: number, };

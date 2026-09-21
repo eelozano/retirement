@@ -58,8 +58,10 @@ demo run needs no caution at all; see `.claude/skills/run-app/SKILL.md`.
   Boundaries are month-exact and prorated within the year. Monthly stepping
   is *not* a config flip: tax, limits, filing status and RMDs are
   calendar-year rules — see "Time conventions" in `docs/ARCHITECTURE.md`.
-- The engine computes in **nominal dollars** and emits a cumulative `deflator`
-  per period; real-dollar display is a frontend-only division.
+- The engine computes in **nominal dollars** and emits cumulative inflation
+  factors per period — `deflator` at its start, for flows, and `deflator_end`
+  at its end, for balances (#146); real-dollar display is a frontend-only
+  division.
 - New behaviors go behind the strategy traits (`ReturnModel`, `TaxModel`,
   `DrawdownStrategy`) as new impls — do not fork the simulation loop. A
   behavior that fits none of them is a new **step**: a function over

@@ -1,3 +1,4 @@
+import { balanceDivisor, flowDivisor } from "../../lib/deflate";
 import type { Plan } from "../../types/generated/Plan";
 import type { Projection } from "../../types/generated/Projection";
 
@@ -60,7 +61,7 @@ export function growthRows(
   let totalAdded = startingBalance(plan);
   let totalGrowth = 0;
   return projection.snapshots.map((s) => {
-    const d = realDollars ? s.deflator : 1;
+    const d = flowDivisor(s, realDollars);
     const added = (s.contributions + s.employer_match + s.one_time_contributions) / d;
     const growth = s.growth / d;
     totalAdded += added;
@@ -71,7 +72,7 @@ export function growthRows(
       growth,
       totalAdded,
       totalGrowth,
-      netWorth: s.net_worth / d,
+      netWorth: s.net_worth / balanceDivisor(s, realDollars),
     };
   });
 }
