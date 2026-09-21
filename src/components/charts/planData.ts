@@ -74,6 +74,52 @@ export function defaultPinYear(plan: Plan, projection: Projection): number {
 export const CURRENT_SPENDING_NOTE =
   "You enter what you save, not what you spend, so what's left over here is what the household lives on. It only reads right if every dollar you save is in this plan.";
 
+/**
+ * What the net-worth line is, said wherever that line is drawn (#144).
+ *
+ * `strategy_returns` is the expected return of a *single year* and the
+ * deterministic run reads it as a certainty, so it compounds at the typed
+ * figure while a sequence of varying years compounds at roughly
+ * `μ − σ²/2` — see `medianCompoundedReturn` in `src/lib/returns.ts` and
+ * "The return is an arithmetic mean, not a compound rate" in
+ * docs/ARCHITECTURE.md. On the example household the line ends about 4.4×
+ * the Monte Carlo median, on a screen that elsewhere reports a 61% chance
+ * of never running dry. Both are true, about different things, and only
+ * this sentence says which is which.
+ *
+ * Shown only when some strategy actually carries volatility — at σ = 0 the
+ * deterministic run *is* the median path, and the sentence would be false.
+ */
+export const DETERMINISTIC_LINE_NOTE =
+  "The net-worth line is a single run where every year earns the expected return. Varying years compound more slowly, so it runs above the Monte Carlo median rather than through it.";
+
+/** Whether any strategy is drawn with a spread — see `DETERMINISTIC_LINE_NOTE`. */
+export function hasVolatility(plan: Plan): boolean {
+  return Object.values(plan.assumptions.strategy_volatility).some((v) => v > 0);
+}
+
+/**
+ * The same point as `DETERMINISTIC_LINE_NOTE`, measured for one year: what
+ * the inspected year's deterministic net worth is as a multiple of the same
+ * year's median path. Shown under the percentile block, where the two
+ * numbers are already side by side, so the gap is a figure rather than a
+ * claim.
+ */
+export function medianGapNote(netWorth: number, p50: number): string {
+  const lead = "The net worth above is one run at the expected return";
+  if (p50 <= 0) {
+    return `${lead}. Half the paths have run dry by this year.`;
+  }
+  if (netWorth <= 0) {
+    return `${lead}, and it has run dry by this year.`;
+  }
+  const ratio = netWorth / p50;
+  if (ratio > 0.95 && ratio < 1.05) {
+    return `${lead} — about level with this year's median path.`;
+  }
+  return `${lead} — ${ratio.toFixed(1)}× this year's median path.`;
+}
+
 export interface HeadlineMetrics {
   /** Fraction of paths that never deplete, or null before the first run. */
   successRate: number | null;

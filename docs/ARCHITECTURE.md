@@ -643,6 +643,38 @@ be: the two answer "what if every year is average" and "what does the middle
 path do when years vary". The gap is variance drag, and it is the honest
 consequence of having stated a volatility at all.
 
+**What that is worth in dollars.** Measured on `presets::seed_plan` — 58
+periods, 20,000 paths — the deterministic run ends at **$29.2M** while the
+Monte Carlo median ends at **$6.6M** and the 10th percentile at zero. The
+line is **4.4× the median**, on a plan whose probability of success is
+**61%**. Drag alone explains less than half of that: at the aggressive
+strategy's 7.5% against its 6.4% median CAGR, `(1.075/1.064)^58 ≈ 1.8×`. The
+remaining 2.4× is spending: a portfolio being drawn on has a floor and no
+ceiling above it, so a path that dips early depletes, *stays* at zero, and
+no later good decade brings it back. Both numbers are true, about different
+things, and a screen showing both has to say which is which (#144).
+
+**And how it compares to the published studies.** Configured to the Trinity
+study's setup — 4% inflation-adjusted withdrawal, 30 years, one 50/50
+portfolio, no tax — the engine reports **85.7%** success at Trinity-era
+return assumptions (7.7% nominal, 11.0% volatility, 3.1% inflation), against
+the study's published ~95%; **71.5%** at the shipped conservative defaults
+(5.9% / 9.0% / 3.0%); and **100%** at those same means with the volatility
+taken out. The withdrawal-rate ladder at Trinity-era assumptions runs 3.0% →
+97.5%, 3.5% → 93.4%, 4.0% → 85.7%, 4.5% → 75.3%, 5.0% → 62.0%.
+
+Those are two different gaps. The **nine points** at matched assumptions are
+i.i.d.-normal draws against historical sequences: real markets mean-revert
+and the engine's do not, so it has no mechanism for recovering from a bad
+decade, and it errs towards caution. The drop from there to 71.5% is not the
+model at all — it is the shipped conservative return sitting about two points
+of *real* return below what Trinity's historical window delivered. Neither is
+a defect to fix. But anyone who has internalised "4% is 95% safe" will find
+this app alarming for reasons that are modelling choices rather than facts
+about their plan. (The comparison reconstructs the study's assumptions from
+its published description. Nine points is the right order of magnitude for
+i.i.d. against historical sequence, not a precise measurement of it.)
+
 Two alternatives were weighed and rejected:
 
 - **Draw log-normally** — `(1+μ)·exp(σZ − σ²/2)` — so the median path compounds
@@ -656,10 +688,26 @@ Two alternatives were weighed and rejected:
   pane says 7.5% — the exact opposite of the #52 rule that the fan's width must
   not come from numbers nobody can see.
 
-The convention therefore stays arithmetic and the UI says so instead.
-`src/lib/returns.ts` derives the implied median compounded rate and the implied
-real return, and `AssumptionsSection` prints both next to the figure they
-qualify.
+The convention therefore stays arithmetic and the UI says so instead, in
+three places (#132, #144):
+
+- **At the input.** `src/lib/returns.ts` derives the implied median
+  compounded rate and the implied real return, and `AssumptionsSection`
+  prints both next to the figure they qualify.
+- **At the chart.** `DETERMINISTIC_LINE_NOTE` (`charts/planData.ts`) names
+  the net-worth line, under the legend on the Plan screen and above the same
+  chart in the printable report — the two surfaces that draw that line, the
+  report being the one that travels away from the Monte Carlo toggle. It is
+  gated on `hasVolatility`: at σ = 0 the deterministic run *is* the median
+  path and the sentence would be false.
+- **At the year.** `medianGapNote` restates it as a measured multiple in the
+  year inspector, under the percentile block, where that year's
+  deterministic figure and its median path are already side by side. A
+  median of zero is reported as depletion rather than divided by.
+
+None of this is said near the success rate itself. The tile already reports
+a count of paths ("61% · of 20,000 paths"), which is what it is about; the
+number that needed qualifying is the one drawn as a single confident line.
 
 ### Contributions
 
