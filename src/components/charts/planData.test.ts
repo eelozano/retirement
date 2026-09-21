@@ -9,7 +9,9 @@ import type { Projection } from "../../types/generated/Projection";
 import { seriesDefs } from "./chartData";
 import {
   firstDeath,
+  hasVolatility,
   headlineMetrics,
+  medianGapNote,
   milestones,
   successMargin,
   yearDetail,
@@ -806,5 +808,46 @@ describe("yearDetail", () => {
     const p = plan([person("a", 1980, 2030)], []);
     const proj = projection([snapshot({ period_start: { year: 2030, month: 1 } })]);
     expect(yearDetail(p, proj, 2099, seriesDefs(p), false)).toBeNull();
+  });
+});
+
+describe("hasVolatility", () => {
+  const withVol = (v: Partial<Record<string, number>>) =>
+    ({ assumptions: { strategy_volatility: v } }) as unknown as Plan;
+
+  it("is true when any strategy carries a spread", () => {
+    expect(
+      hasVolatility(withVol({ aggressive: 0, moderate: 0, conservative: 0.09 })),
+    ).toBe(true);
+  });
+
+  // At zero volatility the deterministic run *is* the median path, so the
+  // note it gates would state something false.
+  it("is false when every strategy is certain", () => {
+    expect(hasVolatility(withVol({ aggressive: 0, moderate: 0, conservative: 0 }))).toBe(
+      false,
+    );
+  });
+});
+
+describe("medianGapNote", () => {
+  it("states the multiple the deterministic run sits above the median at", () => {
+    expect(medianGapNote(4_400_000, 1_000_000)).toContain("4.4× this year's median");
+  });
+
+  it("says so plainly when the two are level", () => {
+    expect(medianGapNote(1_020_000, 1_000_000)).toContain("about level");
+  });
+
+  // A multiple against a median of zero is not a number, and the fact worth
+  // reporting is the depletion itself.
+  it("reports a dry median rather than dividing by it", () => {
+    const note = medianGapNote(4_400_000, 0);
+    expect(note).toContain("run dry");
+    expect(note).not.toContain("×");
+  });
+
+  it("reports a dry deterministic run too", () => {
+    expect(medianGapNote(0, 1_000_000)).toContain("it has run dry");
   });
 });

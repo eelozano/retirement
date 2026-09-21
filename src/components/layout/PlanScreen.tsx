@@ -10,7 +10,9 @@ import { HeadlineTiles } from "../charts/HeadlineTiles";
 import { fanRows } from "../charts/monteCarloData";
 import { mergeFan, ProjectionChart } from "../charts/ProjectionChart";
 import {
+  DETERMINISTIC_LINE_NOTE,
   defaultPinYear,
+  hasVolatility,
   headlineMetrics,
   milestones,
   yearDetail,
@@ -257,6 +259,16 @@ export function PlanScreen(props: {
                     </>
                   )}
                 </div>
+                {/* What the solid line is, on the card that draws it. The
+                    fan is the answer to a different question, and a reader
+                    who has both on one screen — a net worth here, a
+                    probability of success on the tile above — is otherwise
+                    left to assume they describe the same outcome (#144).
+                    Silent at zero volatility, where the deterministic run
+                    *is* the median path. */}
+                {hasVolatility(plan) && (
+                  <p className="chart-note">{DETERMINISTIC_LINE_NOTE}</p>
+                )}
                 <ProjectionChart
                   rows={chartData}
                   series={series}
