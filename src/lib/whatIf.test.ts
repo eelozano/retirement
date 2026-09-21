@@ -101,7 +101,7 @@ const plan = {
       id: "ss1",
       owner: "p1",
       benefit_at_fra: 42_000,
-      full_retirement_age: 67,
+      full_retirement_age: { years: 67, months: 0 },
       claiming_age: 70,
       cola_override: null,
     },

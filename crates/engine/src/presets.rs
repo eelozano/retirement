@@ -320,7 +320,10 @@ pub fn seed_plan() -> Plan {
             id: "alex-social-security".to_string(),
             owner: alex,
             benefit_at_fra: 32_000.0,
-            full_retirement_age: 67,
+            // Derived from the birth year rather than stated: 1983 is in the
+            // 1960-and-later cohort, so this is 67 — the figure the seed
+            // always carried.
+            full_retirement_age: None,
             claiming_age: 70,
             cola_override: None,
         }],

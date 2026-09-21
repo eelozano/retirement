@@ -7,9 +7,9 @@
 
 use engine::model::TaxFigures;
 use engine::model::{
-    Assumptions, CashFlowStream, FilingStatus, GrowthRule, PeriodLength, Person, Plan, SimConfig,
-    SocialSecurityBenefit, StateTaxProfile, StreamBoundary, StreamDirection, StreamKind, YearMonth,
-    SCHEMA_VERSION,
+    Assumptions, CashFlowStream, FilingStatus, FullRetirementAge, GrowthRule, PeriodLength, Person,
+    Plan, SimConfig, SocialSecurityBenefit, StateTaxProfile, StreamBoundary, StreamDirection,
+    StreamKind, YearMonth, SCHEMA_VERSION,
 };
 use engine::run_deterministic;
 use engine::sim::Projection;
@@ -90,7 +90,7 @@ fn benefit(owner: &str, annual: f64) -> SocialSecurityBenefit {
         id: format!("ss-{owner}"),
         owner: owner.to_string(),
         benefit_at_fra: annual,
-        full_retirement_age: 70,
+        full_retirement_age: Some(FullRetirementAge::new(70, 0)),
         claiming_age: 70,
         cola_override: None,
     }

@@ -9,9 +9,9 @@
 use engine::model::TaxFigures;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
-    ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
-    SocialSecurityBenefit, StateTaxProfile, StreamBoundary, StreamDirection, StreamKind, YearMonth,
-    SCHEMA_VERSION,
+    ContributionRule, FilingStatus, FullRetirementAge, GrowthRule, PeriodLength, Person, Plan,
+    PlanType, SimConfig, SocialSecurityBenefit, StateTaxProfile, StreamBoundary, StreamDirection,
+    StreamKind, YearMonth, SCHEMA_VERSION,
 };
 use engine::presets::{rmd_age, uniform_lifetime_divisor};
 use engine::strategies::{BracketTax, IncomeBreakdown, TaxModel};
@@ -142,7 +142,7 @@ impl Fixture {
                     id: "ss".to_string(),
                     owner: "p1".to_string(),
                     benefit_at_fra: benefit,
-                    full_retirement_age: 67,
+                    full_retirement_age: Some(FullRetirementAge::new(67, 0)),
                     claiming_age: 67,
                     cola_override: None,
                 })

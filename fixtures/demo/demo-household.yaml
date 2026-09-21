@@ -105,11 +105,11 @@ social_security:
 - id: alex-social-security
   owner: alex
   benefit_at_fra: 42000.0
-  full_retirement_age: 67
+  full_retirement_age: null
 - id: jordan-social-security
   owner: jordan
   benefit_at_fra: 34000.0
-  full_retirement_age: 67
+  full_retirement_age: null
 scenarios:
 - id: base-plan
   name: Base plan

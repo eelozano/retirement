@@ -1,5 +1,10 @@
 import { currency } from "../../lib/format";
-import { adjustmentFactor } from "../../lib/socialSecurity";
+import {
+  adjustmentFactor,
+  formatFullRetirementAge,
+  fullRetirementAgeForBirthYear,
+  totalMonths,
+} from "../../lib/socialSecurity";
 import type { Plan } from "../../types/generated/Plan";
 import { CheckboxField, NumberField, PercentField, SelectField } from "./fields";
 import { FACT_VS_POLICY, ownedBy, type UpdatePlan } from "./shared";
@@ -19,9 +24,16 @@ export function SocialSecurityFields(props: {
 }) {
   const { plan, benefitIndex: i, updatePlan } = props;
   const benefit = plan.social_security[i];
+  // The owner's birth year drives the derived full retirement age. An
+  // unknown owner is already a validation error, so fall back to the
+  // 1960-and-later cohort rather than inventing a birth year.
+  const owner = plan.people.find((p) => p.id === benefit.owner);
+  const derivedFra = owner
+    ? fullRetirementAgeForBirthYear(owner.birth.year)
+    : { years: 67, months: 0 };
+  const fra = benefit.full_retirement_age ?? derivedFra;
   const annualBenefit =
-    benefit.benefit_at_fra *
-    adjustmentFactor(benefit.full_retirement_age, benefit.claiming_age);
+    benefit.benefit_at_fra * adjustmentFactor(totalMonths(fra), benefit.claiming_age);
 
   // The owner's name, not a position in `plan.social_security` — that index
   // counts across the whole household, so the second person's only benefit
@@ -54,18 +66,51 @@ export function SocialSecurityFields(props: {
           })
         }
       />
-      <NumberField
-        label="Full retirement age"
-        value={benefit.full_retirement_age}
-        step={1}
-        min={60}
-        max={70}
-        onChange={(age) =>
+      <CheckboxField
+        label="Set full retirement age myself"
+        hint="When off, this takes SSA's published age for the owner's birth year — which is not a whole number of years for births from 1938 to 1942 or 1955 to 1959."
+        checked={benefit.full_retirement_age !== null}
+        onChange={(checked) =>
           updatePlan((d) => {
-            d.social_security[i].full_retirement_age = age;
+            d.social_security[i].full_retirement_age = checked ? derivedFra : null;
           })
         }
       />
+      {benefit.full_retirement_age === null ? (
+        <p className="field-hint">
+          {`Full retirement age: ${formatFullRetirementAge(derivedFra)}`}
+          {owner ? ` — SSA's age for a ${owner.birth.year} birth.` : "."}
+        </p>
+      ) : (
+        <>
+          <NumberField
+            label="Full retirement age (years)"
+            value={benefit.full_retirement_age.years}
+            step={1}
+            min={60}
+            max={70}
+            onChange={(years) =>
+              updatePlan((d) => {
+                const own = d.social_security[i].full_retirement_age;
+                if (own) own.years = years;
+              })
+            }
+          />
+          <NumberField
+            label="…and months"
+            value={benefit.full_retirement_age.months}
+            step={1}
+            min={0}
+            max={11}
+            onChange={(months) =>
+              updatePlan((d) => {
+                const own = d.social_security[i].full_retirement_age;
+                if (own) own.months = months;
+              })
+            }
+          />
+        </>
+      )}
       <SelectField
         label="Claiming age"
         value={String(benefit.claiming_age)}

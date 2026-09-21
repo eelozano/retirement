@@ -545,11 +545,21 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                 "Claiming age must be between 62 and 70.",
             ));
         }
-        if !(60..=70).contains(&ss.full_retirement_age) {
-            errors.push(err(
-                &format!("social_security[{i}].full_retirement_age"),
-                "Full retirement age must be between 60 and 70.",
-            ));
+        // Only an explicit override is checked: `None` derives from the
+        // birth year off SSA's own table, which is valid by construction.
+        if let Some(fra) = ss.full_retirement_age {
+            if !(60..=70).contains(&fra.years) {
+                errors.push(err(
+                    &format!("social_security[{i}].full_retirement_age"),
+                    "Full retirement age must be between 60 and 70.",
+                ));
+            }
+            if fra.months > 11 {
+                errors.push(err(
+                    &format!("social_security[{i}].full_retirement_age"),
+                    "The months part of full retirement age must be between 0 and 11.",
+                ));
+            }
         }
         if ss.benefit_at_fra < 0.0 {
             errors.push(err(
@@ -782,6 +792,7 @@ fn validate_phases(plan: &Plan, phases: &[DrawdownPhase], errors: &mut Vec<Valid
 #[cfg(test)]
 mod tests {
     use super::{StreamDirection, StreamKind};
+    use crate::model::FullRetirementAge;
     use crate::presets::seed_plan;
 
     #[test]
@@ -1198,7 +1209,7 @@ mod tests {
     #[test]
     fn catches_out_of_range_full_retirement_age() {
         let mut plan = seed_plan();
-        plan.social_security[0].full_retirement_age = 71;
+        plan.social_security[0].full_retirement_age = Some(FullRetirementAge::new(71, 0));
         let errors = plan.validate();
         assert!(errors
             .iter()

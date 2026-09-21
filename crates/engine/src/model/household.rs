@@ -30,8 +30,9 @@ use ts_rs::TS;
 
 use super::{
     Account, AccountId, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
-    EmployerMatch, OneTimeContribution, PeriodLength, Person, PersonId, Plan, PlanId, PlanType,
-    SimConfig, SocialSecurityBenefit, SocialSecurityBenefitId, YearMonth, SCHEMA_VERSION,
+    EmployerMatch, FullRetirementAge, OneTimeContribution, PeriodLength, Person, PersonId, Plan,
+    PlanId, PlanType, SimConfig, SocialSecurityBenefit, SocialSecurityBenefitId, YearMonth,
+    SCHEMA_VERSION,
 };
 
 pub type HouseholdId = String;
@@ -101,7 +102,10 @@ pub struct HouseholdBenefit {
     pub id: SocialSecurityBenefitId,
     pub owner: PersonId,
     pub benefit_at_fra: f64,
-    pub full_retirement_age: u8,
+    /// `None` takes SSA's published age for the owner's birth year; `Some`
+    /// is the user's own override. See [`SocialSecurityBenefit`].
+    #[serde(default)]
+    pub full_retirement_age: Option<FullRetirementAge>,
 }
 
 /// Everything true of a household regardless of which scenario is open:

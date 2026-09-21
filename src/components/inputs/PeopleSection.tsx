@@ -89,7 +89,9 @@ export function PeopleSection() {
               id: `ss-${Date.now()}`,
               owner: person.id,
               benefit_at_fra: 0,
-              full_retirement_age: 67,
+              // Derived from the owner's birth year unless the user says
+              // otherwise — see SocialSecurityFields.
+              full_retirement_age: null,
               claiming_age: 67,
               cola_override: null,
             });

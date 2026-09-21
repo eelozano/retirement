@@ -4,7 +4,8 @@
 
 use engine::model::TaxFigures;
 use engine::model::{
-    PeriodLength, Person, Plan, SimConfig, SocialSecurityBenefit, YearMonth, SCHEMA_VERSION,
+    FullRetirementAge, PeriodLength, Person, Plan, SimConfig, SocialSecurityBenefit, YearMonth,
+    SCHEMA_VERSION,
 };
 use engine::run_deterministic;
 
@@ -44,7 +45,7 @@ fn plan_with(
             id: "ss1".to_string(),
             owner,
             benefit_at_fra: BENEFIT_AT_FRA,
-            full_retirement_age,
+            full_retirement_age: Some(FullRetirementAge::new(full_retirement_age, 0)),
             claiming_age,
             cola_override,
         }],
@@ -101,6 +102,36 @@ fn claiming_delayed_applies_credit() {
     assert_close(
         projection.snapshots[0].income,
         BENEFIT_AT_FRA * 1.32,
+        "p0 income",
+    );
+}
+
+/// A mid-year FRA all the way through the simulation, not just the pure
+/// formula: born 1957, FRA 66y6m, claimed at 62 is 54 months early and pays
+/// 72.5% of the PIA. Neither 66 nor 67 can express it, which is #149.
+#[test]
+fn a_mid_year_full_retirement_age_is_projected_exactly() {
+    let mut plan = plan_with(67, 62, 0.0, Some(0.0));
+    plan.social_security[0].full_retirement_age = Some(FullRetirementAge::new(66, 6));
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    assert_close(
+        projection.snapshots[0].income,
+        BENEFIT_AT_FRA * 0.725,
+        "p0 income",
+    );
+}
+
+/// With no override the engine takes SSA's age for the owner's birth year.
+/// `plan_with` births everyone in 2000, which is the 1960-and-later cohort,
+/// so the benefit pays exactly what a stated FRA of 67 would.
+#[test]
+fn an_absent_full_retirement_age_derives_from_the_birth_year() {
+    let mut plan = plan_with(67, 62, 0.0, Some(0.0));
+    plan.social_security[0].full_retirement_age = None;
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    assert_close(
+        projection.snapshots[0].income,
+        BENEFIT_AT_FRA * 0.70,
         "p0 income",
     );
 }
