@@ -324,7 +324,10 @@ fn fact_lines(household: &Household) -> BTreeMap<String, String> {
         facts.insert(key("benefit at FRA"), money(b.benefit_at_fra));
         facts.insert(
             key("full retirement age"),
-            b.full_retirement_age.to_string(),
+            match b.full_retirement_age {
+                Some(fra) => format!("{}y{}m", fra.years, fra.months),
+                None => "SSA's age for the birth year".to_string(),
+            },
         );
     }
     facts

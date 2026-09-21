@@ -137,6 +137,58 @@ describe("PeopleSection", () => {
     expect(usePlanStore.getState().plan?.social_security[0].benefit_at_fra).toBe(32000);
   });
 
+  it("derives full retirement age from the birth year, including the mid-year cohorts", async () => {
+    // Born 1957, so SSA's full retirement age is 66 years 6 months — a value
+    // the old whole-year field could not express at all (#149).
+    usePlanStore.setState((s) => {
+      const draft = structuredClone(s.plan) as Plan;
+      draft.people[0].birth = { year: 1957, month: 8 };
+      return { plan: draft };
+    });
+    render(<PeopleSection />);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add Social Security benefit" }),
+    );
+
+    expect(
+      usePlanStore.getState().plan?.social_security[0].full_retirement_age,
+    ).toBeNull();
+    expect(screen.getByText(/66 years 6 months/)).toBeTruthy();
+    // While it is derived there is no field to type a wrong one into.
+    expect(screen.queryByLabelText("Full retirement age (years)")).toBeNull();
+  });
+
+  it("overrides full retirement age from the derived one, and goes back", async () => {
+    render(<PeopleSection />);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add Social Security benefit" }),
+    );
+
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: /Set full retirement age myself/ }),
+    );
+    // Seeded from the derived age — Alex is born 1983, so 67 — rather than
+    // from a blank the user has to fill in.
+    expect(usePlanStore.getState().plan?.social_security[0].full_retirement_age).toEqual({
+      years: 67,
+      months: 0,
+    });
+
+    const months = screen.getByLabelText("…and months");
+    await userEvent.clear(months);
+    await userEvent.type(months, "6");
+    expect(
+      usePlanStore.getState().plan?.social_security[0].full_retirement_age?.months,
+    ).toBe(6);
+
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: /Set full retirement age myself/ }),
+    );
+    expect(
+      usePlanStore.getState().plan?.social_security[0].full_retirement_age,
+    ).toBeNull();
+  });
+
   it("heads a benefit with its owner's name, numbering only a second one", async () => {
     render(<PeopleSection />);
     const add = screen.getByRole("button", { name: "Add Social Security benefit" });

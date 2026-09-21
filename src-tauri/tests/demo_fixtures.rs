@@ -369,7 +369,9 @@ fn demo_base() -> Plan {
                 id: "alex-social-security".to_string(),
                 owner: ALEX.to_string(),
                 benefit_at_fra: 42_000.0,
-                full_retirement_age: 67,
+                // Derived from the birth year, which is how the app writes a
+                // new benefit: Alex was born in 1979, so SSA's age is 67.
+                full_retirement_age: None,
                 claiming_age: 70,
                 cola_override: None,
             },
@@ -377,7 +379,7 @@ fn demo_base() -> Plan {
                 id: "jordan-social-security".to_string(),
                 owner: JORDAN.to_string(),
                 benefit_at_fra: 34_000.0,
-                full_retirement_age: 67,
+                full_retirement_age: None,
                 claiming_age: 67,
                 cola_override: None,
             },
