@@ -85,8 +85,8 @@ pub(super) fn social_security_streams(
     let larger = [own, resolved.iter().find(|(_, p)| p.id == decedent.id)]
         .into_iter()
         .flatten()
-        .max_by(|(a, _), (b, _)| a.annual_benefit().total_cmp(&b.annual_benefit()));
-    if let Some((benefit, _)) = larger {
+        .max_by(|(a, ap), (b, bp)| a.annual_benefit(ap).total_cmp(&b.annual_benefit(bp)));
+    if let Some((benefit, benefit_owner)) = larger {
         let start = match own {
             Some((ss, _)) => survivor.month_at_age(ss.claiming_age).max(death),
             None => death,
@@ -96,7 +96,7 @@ pub(super) fn social_security_streams(
             name: format!("{}'s survivor Social Security", survivor.name),
             owner: Some(survivor.id.clone()),
             direction: StreamDirection::Income,
-            annual_amount: benefit.annual_benefit(),
+            annual_amount: benefit.annual_benefit(benefit_owner),
             start: StreamBoundary::Date(start),
             end: StreamBoundary::AtDeath(survivor.id.clone()),
             growth: GrowthRule::Fixed(benefit.cola_override.unwrap_or(cola)),

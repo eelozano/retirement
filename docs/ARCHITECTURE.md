@@ -395,7 +395,8 @@ pub enum StackSource { Account(AccountId), Kind(AccountKind) }
 pub struct SocialSecurityBenefit {   // + id
     pub owner: PersonId,
     pub benefit_at_fra: f64,         // today's dollars, from the SSA statement
-    pub full_retirement_age: u8,
+    pub full_retirement_age: Option<FullRetirementAge>, // None derives it from
+                                     // the owner's birth year (#149)
     pub claiming_age: u8,            // 62..=70
     pub cola_override: Option<f64>,
 }
@@ -440,8 +441,10 @@ the user is told. The in-app editor (#136) saves through the same validator,
 atomically, keeping the previous file as `tax-figures.yaml.bak`.
 
 Law with no annual publication stays in code: the Social Security
-provisional-income thresholds (fixed since 1993), the HSA age-55 catch-up
-(`HSA_CATCH_UP_55`) and the RMD ages and Uniform Lifetime table. The legacy
+provisional-income thresholds (fixed since 1993) and full-retirement-age
+table (`FullRetirementAge::for_birth_year`, fixed by the 1983 amendments),
+the HSA age-55 catch-up (`HSA_CATCH_UP_55`) and the RMD ages and Uniform
+Lifetime table. The legacy
 contribution-bucket migration keeps its own frozen limits, so opening an old
 file never depends on which year's figures are loaded.
 
@@ -820,6 +823,38 @@ The conventions, each a choice: age *attained during* the calendar year, matchin
 Because the distribution enters `base_income` before `settle` runs, it is taxed in the same single pass as everything else: it stacks on the household's real marginal rate and drags Social Security into taxability. That is the whole finding RMDs exist to surface, and it is only expressible because #54 landed first. In a shortfall year the distribution counts as cash *toward* the need rather than being taken on top of it, so the household draws `max(need, RMD)` and not their sum.
 
 Downstream, `PeriodSnapshot::required_distributions` is the forced share of `withdrawals`, not an addition to it. The Plan screen's year inspector breaks it out beneath Withdrawals, and `cashFlowSummary` subtracts it before testing for the retirement crossover — otherwise the year an owner turns 73 would read as the year they started living off their portfolio, for a household that changed nothing.
+
+### Social Security (`model/social_security.rs`)
+
+A benefit is the PIA from the user's statement plus a claiming age, resolved
+into a plain income stream by `to_stream` so the sim loop never knows Social
+Security exists. `adjustment_factor` is SSA's graduated schedule — +2/3 of 1%
+per month delayed past FRA, −5/9 of 1% for each of the first 36 months early
+and −5/12 of 1% beyond that — and it works in **months**, not years.
+
+That matters because full retirement age is not a whole number of years for
+everyone. The 1983 amendments raised it from 65 to 67 in two-month steps, so
+births in 1938–1942 and 1955–1959 land mid-year: someone born in 1957 reaches
+FRA at 66 years 6 months. Until #149 the field was a `u8`, which gave those
+cohorts no way to enter their own age — rounding to 66 overstated a benefit
+claimed at 62 by 3.4%, rounding to 67 understated it by 3.6%, for life, on one
+of the largest levers the app has.
+
+`FullRetirementAge` therefore carries years *and* months, and
+`full_retirement_age` is an `Option`: `None` takes
+`FullRetirementAge::for_birth_year`, the published table, from the birth month
+already on `Person`. This is the same shape of birth-year lookup as
+`presets::rmd_age` and lives in code for the same reason — fixed law with no
+annual publication. Deriving it removes an input rather than adding one, which
+is also how the wrong value stops being enterable in the first place; `Some` is
+kept as an override for a user whose statement says something else.
+
+The `Option` is what preserves the upgrade invariant. Every plan saved before
+#149 wrote the field out, so its whole-year scalar deserializes (through
+`FullRetirementAgeWire`, the same hand-written-`Deserialize` idiom as
+`AllocationRef`) to N years and **zero** months — exactly the age it was
+already projected with. Only a new benefit, or one the user clears the
+override on, picks up the corrected table.
 
 ### Surplus has two regimes (`Assumptions::sweep_surplus_from`)
 
