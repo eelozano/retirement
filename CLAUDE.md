@@ -89,10 +89,11 @@ demo run needs no caution at all; see `.claude/skills/run-app/SKILL.md`.
 - One short-lived branch + one squash-merged PR per milestone. Claude Code
   session branches (`claude/*`) serve as milestone branches.
 - Commit freely in small steps on a branch; squash merge keeps `main` linear.
-- Releases use a `0.x` scheme (`v0.1`, `v0.2`, …). Bump `package.json`,
+- Releases ran a `0.x` scheme (`v0.1` … `v0.9`) up to v1.0. From v1.0 the
+  scheme is `vMAJOR.MINOR`: a minor for ordinary work, a major only for a
+  change a user has to know about before upgrading. Bump `package.json`,
   `Cargo.toml` (`workspace.package.version`), and `src-tauri/tauri.conf.json`
-  together — all three, or none; `Cargo.lock` follows — then tag `v0.N` on
-  `main`.
+  together — all three, or none; `Cargo.lock` follows — then tag on `main`.
 - Before the release PR, bring the docs up to what the release changed:
   README's features and any screenshot of a screen that changed (retake from
   `pnpm demo:reset` — the run-app skill has a section on it), and

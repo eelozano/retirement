@@ -390,7 +390,10 @@ there — it just doesn't bundle an installer.
   deferral limit.
 - **Social Security modeling.** Benefits are first-class (PIA + claiming age)
   rather than a hand-computed dollar figure, so changing the claiming age
-  recomputes interactively.
+  recomputes interactively. Full retirement age is taken from your birth year
+  off SSA's published table, months and all — it is 66 years 6 months for a
+  1957 birth, not 66 or 67 — and you can override it if your statement says
+  otherwise.
 - **Pensions.** The monthly benefit at its first payment, an optional
   cost-of-living adjustment, and single-life or joint payment with the share
   that continues to the survivor.
@@ -418,6 +421,15 @@ there — it just doesn't bundle an installer.
   as a retirement — and which account it goes into.
 - **Required minimum distributions.** Forced pre-tax withdrawals once an owner
   reaches the applicable age.
+- **Which accounts pay, and when.** By default a year's shortfall is spread
+  across every account in proportion to its balance. The alternative is
+  phases: stretches of the plan, each with accounts listed in the order they
+  are drawn, and a balance you can hold back from each. A phase can begin when
+  someone reaches 59½ — the age the 10% early-withdrawal penalty stops
+  applying — so an early retirement can bridge on taxable money and a 401(k)
+  freed by the Rule of 55 while the rest waits. The penalty is modelled where
+  it is owed, shown as its own outflow rather than folded into tax, and rows
+  warn when the account they name would still be penalized.
 - **Per-person life expectancy.** Each person carries their own, so the
   projection runs to the last survivor and streams that end at a death end at
   *that person's*.
@@ -457,6 +469,8 @@ there — it just doesn't bundle an installer.
   markers, a nominal/today's-dollars toggle, and a table view of every plotted
   value. The Plan screen, the comparison and the report each say how old the
   balances behind them are.
+- **Getting around.** A labelled sidebar that collapses to icons, and a
+  Cmd/Ctrl-K palette that jumps to any screen by name.
 - **Export.** CSV of the projection, and a paginated printable PDF report.
 - **Validation before simulation.** Plans are checked before they're simulated
   or saved, with plain-language error messages.
@@ -473,6 +487,45 @@ If the file can't be read, the built-in figures stand in and Settings says
 why. The figures that aren't published yearly — the Social Security
 taxability thresholds, the RMD ages and table, the HSA age-55 catch-up — are
 compiled in.
+
+## What it doesn't model
+
+A projection is only as honest as its gaps, so here are the ones that are
+known. Each is tracked as an
+[open issue](https://github.com/eelozano/retirement/issues); none is a
+rounding detail, and any of them can matter more than the return assumption
+you spent an afternoon on.
+
+- **Payroll tax (FICA).** Social Security and Medicare withholding is not
+  taken out of a salary at all, so working years show more take-home money
+  than they will have. It does not touch retirement years.
+- **ACA premium subsidies.** Health insurance before Medicare is whatever you
+  enter as an expense. The subsidy is a cliff-free but steep function of MAGI,
+  which means the withdrawal order you choose silently moves your premiums —
+  and the app will not show it.
+- **Dividends and distributions in a taxable account.** Growth there is
+  treated as entirely deferred until you sell, so a taxable brokerage compounds
+  a little faster here than a real one paying out dividends each year, and the
+  tax on those dividends never appears.
+- **Spousal Social Security while both are alive.** Each person's benefit is
+  their own. A spouse entitled to up to half the higher earner's benefit
+  instead of their own record will be understated. The *survivor* transition
+  after a death is modelled.
+- **HSA family coverage.** The contribution limit is always the self-only
+  one, so a family-coverage HSA is capped well below what you could actually
+  put in.
+- **The 2026 Roth catch-up mandate.** High earners must make catch-up
+  contributions as Roth; the app still treats them as pre-tax, which overstates
+  the deduction in those years.
+- **Illiquid assets.** A house is not in net worth. You can model selling one
+  as a one-time contribution, but until that year it isn't there — so compare
+  such scenarios on probability of success and depletion year rather than on
+  net worth.
+
+Smaller deliberate omissions — the Roth five-year clock, the additional
+standard deduction for blindness, the OBBBA senior deduction and its
+2025–2028 window — are stated with their reasoning in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Where your data lives
 
