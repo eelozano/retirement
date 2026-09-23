@@ -119,9 +119,9 @@ export function CashFlowScreen() {
                 )}
                 {composition.employerMatch > 0 && (
                   <li>
-                    An employer match of {currency(composition.employerMatch)} went
-                    straight into accounts. It never passed through household cash, so it
-                    is not a flow here.
+                    Employer contributions of {currency(composition.employerMatch)} went
+                    straight into accounts. They never passed through household cash, so
+                    they are not a flow here.
                   </li>
                 )}
                 {composition.oneTime.map((o) => (

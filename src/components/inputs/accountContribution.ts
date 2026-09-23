@@ -30,11 +30,14 @@ export const MATCH_DESTINATIONS = [
 ] as const;
 
 /**
- * A new match starts as the single most common formula — 100% of the first
- * 3% — rather than empty, so switching it on produces a working plan and the
- * one-tier case needs no assembly. More tiers are added below it.
+ * A new employer band starts as the single most common formula — 100% of
+ * the first 3% — rather than empty, so switching it on produces a working
+ * plan and the one-tier case needs no assembly. More tiers are added below
+ * it, and the non-elective percent starts at zero: a plan that pays on
+ * salary alone is entered by typing that figure and removing the tier.
  */
 export const DEFAULT_MATCH: EmployerMatch = {
+  nonelective_percent: 0,
   tiers: [{ employee_percent: 0.03, match_percent: 1.0 }],
   destination: "PreTax",
 };

@@ -419,15 +419,32 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                 errors.push(err(
                     &field,
                     &format!(
-                        "\"{}\" isn't an employer plan, so it can't have an employer match.",
+                        "\"{}\" isn't an employer plan, so it can't have employer contributions.",
                         account.name
                     ),
                 ));
             }
-            if employer.tiers.is_empty() {
+            // A plan whose employer adds a flat percent of salary needs no
+            // tiers at all, so "no tiers" is only an error when there is no
+            // non-elective share either — the employer band would then be
+            // switched on and paying nothing.
+            if employer.tiers.is_empty() && employer.nonelective_percent <= 0.0 {
                 errors.push(err(
                     &field,
-                    &format!("\"{}\" has a match with no tiers.", account.name),
+                    &format!(
+                        "\"{}\" has employer contributions that add nothing — set a percent the employer adds, a match tier, or turn them off.",
+                        account.name
+                    ),
+                ));
+            }
+            if employer.nonelective_percent < 0.0 || employer.nonelective_percent > 1.0 {
+                errors.push(err(
+                    &field,
+                    &format!(
+                        "\"{}\" has the employer adding {:.0}% of salary — it has to be between 0% and 100%.",
+                        account.name,
+                        employer.nonelective_percent * 100.0
+                    ),
                 ));
             }
             // Tiers are consecutive slices of salary, so together they cannot

@@ -68,7 +68,7 @@ export function buildProjectionCsv(
     "Early-withdrawal penalty (in taxes)",
     "Contributions",
     ...plan.accounts.map((a) => `${a.name} contribution`),
-    "Employer match",
+    "Employer contributions",
     "One-time contributions",
     ...oneTime.map((o) => `${o.name.trim() || "One-time contribution"} (one-time)`),
     "Required distributions",

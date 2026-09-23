@@ -317,9 +317,11 @@ pub struct OneTimeContribution {     // + id (shares the account's id space), na
     pub date: StreamBoundary,        // Date | AtRetirement | AtAge | AtDeath
 }
 
-// Per account, because a match belongs to one employer's plan document.
-// Vesting is deliberately deferred: every matched dollar counts as vested.
+// Per account, because the formula belongs to one employer's plan document.
+// Vesting is deliberately deferred: every employer dollar counts as vested.
+// The name is historical — it held only a match before #160.
 pub struct EmployerMatch {
+    pub nonelective_percent: f64,    // paid on salary alone, no deferral needed
     pub tiers: Vec<MatchTier>,       // ordered: "first 3%", "next 2%"
     pub destination: MatchDestination,   // PreTax | Roth
 }
@@ -733,7 +735,7 @@ An account's contributions are a **list of dated entries** (#78), each a `Contri
 
 `PercentOfSalary` is the mode with a trap. The salary it resolves against is already prorated to the months the owner worked, so an entry is scaled by `min(1, active / working_share)` — months of salary the entry covers over months of salary earned — not by `active` a second time, which would dock a partial retirement year twice. A full working year gives 1; an entry ending at retirement gives 1 in the retirement year; an entry starting in July of a full year gives ½; with no working months there is no salary for a percentage to be of, whatever owned income (a pension) the period holds. `FlatAmount` and `FederalMaximum` are simply the annual figure times `active`.
 
-The **statutory cap is not prorated by the working share** either — only by the period length. The statute does not prorate a limit for a partial year of work, and an IRA funded after retirement needs a non-zero cap. The employer match and the 415(c) cap keep the working share: both are bound to salary, and a match on months not worked is not a thing.
+The **statutory cap is not prorated by the working share** either — only by the period length. The statute does not prorate a limit for a partial year of work, and an IRA funded after retirement needs a non-zero cap. The employer's contributions and the 415(c) cap keep the working share: both are bound to salary, and employer money for months not worked is not a thing.
 
 Migration goes through `AccountWire` like every shape change before it: the tuple-shaped pre-#78 rule survives as a private `LegacyContributionRule` read only there, `SCHEMA_VERSION` is unchanged because nothing migrates behind it, and the dated list wins whenever present.
 
@@ -745,7 +747,7 @@ Migration goes through `AccountWire` like every shape change before it: the tupl
 
 Both fields are `#[serde(default)]` members of the struct variants #78 introduced, which is what makes escalation purely additive: a plan written with neither key loads as the unescalated rules it meant, and `SCHEMA_VERSION` does not move.
 
-**The UI edits entries on the account** (#80–#82): contributions and the employer match live on the account card rather than in a separate pane, each entry carrying its own rule, window and escalation controls. One convention is display-only and deliberately not persisted — a flat amount can be typed per month or per year, but `AmountField` always reads and writes the **annual** figure, so the unit toggle is local component state and the schema stays one number per entry.
+**The UI edits entries on the account** (#80–#82): contributions and the employer's own contributions live on the account card rather than in a separate pane, each entry carrying its own rule, window and escalation controls. One convention is display-only and deliberately not persisted — a flat amount can be typed per month or per year, but `AmountField` always reads and writes the **annual** figure, so the unit toggle is local component state and the schema stays one number per entry.
 
 The demo household (#83) is the worked example of all three: the joint brokerage runs two overlapping entries that sum ($6,000/yr from plan start, plus $8,400/yr from January 2027), Alex's 401(k) steps up a point a year from 10% to 15%, and Alex's Roth IRA is an account with a zero balance and a `FederalMaximum` entry that does not open until 2029.
 
@@ -767,11 +769,17 @@ A house sale or an inheritance: money that arrives from outside the plan, once, 
 
 **Known omissions.** The asset the money came from is not modelled before it is sold, so net worth jumps in the year a sale lands against a scenario that never counted the house; compare such scenarios on probability of success and depletion rather than on net worth. Modelling the house itself — in net worth, with its basis, the §121 exclusion and its mortgage — needs an illiquid asset container the drawdown cannot reach (see "Where the current design pushes back"), and its sale event should deposit through this path. The demo household's *Sell the house at retirement* scenario is the worked example, and its 2027 brokerage transfer is named *Car paid off*.
 
-#### Employer match (`sim/contributions.rs`)
+#### Employer contributions (`sim/contributions.rs`)
+
+An employer's formula has **two parts, and only one of them is a match**. `nonelective_percent` is paid on salary alone — safe-harbor non-elective or profit-sharing money, which a plan document pays whether or not the employee defers a cent — and the `tiers` are matched against what the employee did defer. The employer's fraction of salary is the sum, and either part may be zero: a plan that adds 10% of pay and matches nothing is `{nonelective_percent: 0.10, tiers: []}`, which is why validation rejects an empty tier list only when the non-elective share is zero too. Both are bound to salary, which is already prorated to the months the owner worked, so both stop when the paychecks do.
+
+The non-elective share is #160. Before it, the only employer contribution was a match, and a plan that pays regardless could be approximated only by matching 100% of whatever the employee happened to defer — which tracks the deferral rather than salary, so it collapses to zero when the employee stops deferring and is wrong at every other deferral. A safe-harbor non-elective is an ordinary plan design, not an edge case, and the approximation understated employer money for the whole accumulation horizon.
 
 Tiers apply in order, each consuming the employee's deferral percentage until it runs out: `[{3%, 100%}, {2%, 50%}]` on an 8% deferral pays 3% + 1% = 4% of salary. The gate is the **person's** deferral percentage across all their employer plans, derived from what actually went in post-clamp — so a `FlatAmount` or `FederalMaximum` contribution still produces an effective percentage, and splitting deferrals between a Roth and a traditional 401(k) at one employer still earns one match on the combined figure.
 
-Matched dollars are **not** held to the employee elective-deferral limit — applying it to them would silently destroy most of the match, which is the failure mode this exists to prevent. They are held to the 415(c) annual-additions cap instead, shared with the employee's own deferrals, and only the match gives way when it binds. 415(c) is statutorily per employer plan; with no employer grouping in the model it is applied per person, which is the stricter reading.
+The formula is deliberately **undated**, unlike a contribution entry. An employer that changes its formula is re-entered rather than scheduled: a dated employer entry is a second window system, a migration and a busier account card, bought for a timing difference of at most a year of one part of one salary.
+
+Employer dollars are **not** held to the employee elective-deferral limit — applying it to them would silently destroy most of the match, which is the failure mode this exists to prevent. They are held to the 415(c) annual-additions cap instead, shared with the employee's own deferrals, and only the employer's share gives way when it binds. 415(c) is statutorily per employer plan; with no employer grouping in the model it is applied per person, which is the stricter reading.
 
 `MatchDestination` selects *which account receives the money*, not just a label: `AccountKind` is what the tax and drawdown paths read, so pre-tax dollars parked in a Roth account would be withdrawn untaxed. The declared account is preferred when its kind already agrees; otherwise the owner's first other employer-plan account of that kind takes it, and a `MatchUnallocated` warning fires when there is none — a Roth deferral account plus a pre-tax match account is how a real statement splits the two sources.
 

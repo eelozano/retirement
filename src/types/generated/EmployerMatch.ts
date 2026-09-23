@@ -3,9 +3,18 @@ import type { MatchDestination } from "./MatchDestination";
 import type { MatchTier } from "./MatchTier";
 
 /**
- * Employer matching contributions on an employer plan.
+ * The employer's side of an employer plan: what it puts in, and how.
  *
- * Declared **per account**, not per person: the match belongs to an
+ * Two parts, because plan documents have two. `nonelective_percent` is
+ * paid on salary alone; `tiers` are paid only against what the employee
+ * defers. A plan may have either, or both, and they sum.
+ *
+ * The type name is **historical**. It held only a match until #160, and it
+ * is the `employer_match` key on every saved plan, the `PeriodSnapshot`
+ * field and a CSV column — renaming it would buy a nicer word at the cost
+ * of a migration across all four.
+ *
+ * Declared **per account**, not per person: the formula belongs to an
  * employer's plan document, and an account is what stands for a plan here.
  * Someone with two jobs has two plans with two different formulas, which
  * a per-person field could not express.
@@ -13,10 +22,26 @@ import type { MatchTier } from "./MatchTier";
  * Vesting is **deliberately deferred**, not forgotten. An unvested balance
  * that never vests is a real planning consideration for someone changing
  * jobs, and modelling it needs a schedule plus a leaving date — neither of
- * which exists yet. Until then every matched dollar is treated as vested.
+ * which exists yet. Until then every employer dollar is treated as vested.
  */
 export type EmployerMatch = { 
 /**
- * Applied in order. Empty means no match.
+ * What the employer adds regardless of the employee's own deferral, as
+ * a fraction of salary (0.10 = "10% of pay, match or no match").
+ *
+ * A safe-harbor non-elective or profit-sharing contribution: the
+ * employer's share of a plan whose document does not ask the employee
+ * to defer anything to earn it. It is paid whenever there is salary,
+ * so it stands alone — `tiers` may be empty — and it stacks on the
+ * tiers when a plan has both.
+ *
+ * `#[serde(default)]` so a plan saved before #160 loads at 0.0 and
+ * projects identically, the `social_security` precedent. The default
+ * is field-local, so no `Wire` shape is needed for it.
+ */
+nonelective_percent: number, 
+/**
+ * Applied in order. Empty means the employer matches nothing — which
+ * is a complete plan when `nonelective_percent` is set.
  */
 tiers: Array<MatchTier>, destination: MatchDestination, };

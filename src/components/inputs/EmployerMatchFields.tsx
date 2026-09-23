@@ -5,9 +5,16 @@ import { CheckboxField, PercentField, SelectField } from "./fields";
 import type { UpdatePlan } from "./shared";
 
 /**
- * The employer's side of an employer plan: whether there is a match, what
- * it goes in as, and the tiered formula. Only an `EmployerPlan` has one, so
- * the caller renders this band only for that bucket.
+ * The employer's side of an employer plan: whether the employer puts
+ * anything in, what it goes in as, the percent it adds outright and the
+ * tiered match on top. Only an `EmployerPlan` has one, so the caller
+ * renders this band only for that bucket.
+ *
+ * The two halves are shown in the order a plan document reads them: what
+ * the employer gives regardless comes first, then what it gives back for
+ * deferring. A plan with only one of them leaves the other at zero — and a
+ * non-elective-only plan removes the last tier, which is why the remove
+ * button is offered on a single tier once the percent is set.
  */
 export function EmployerMatchFields(props: {
   account: Account;
@@ -20,7 +27,7 @@ export function EmployerMatchFields(props: {
   return (
     <>
       <CheckboxField
-        label="Employer match"
+        label="Employer contributions"
         checked={match !== null}
         hint={
           match !== null
@@ -36,14 +43,27 @@ export function EmployerMatchFields(props: {
       {match !== null && (
         <>
           <SelectField
-            label="Match goes in as"
+            label="Employer money goes in as"
             value={match.destination}
             options={MATCH_DESTINATIONS}
-            hint="A pre-tax match reduces this year's taxable income; a Roth match does not. It lands in an employer-plan account of that kind."
+            hint="Pre-tax employer money reduces this year's taxable income; Roth does not. It lands in an employer-plan account of that kind."
             onChange={(destination: MatchDestination) =>
               updatePlan((d) => {
                 const draft = d.accounts[i].employer_match;
                 if (draft) draft.destination = destination;
+              })
+            }
+          />
+          <PercentField
+            label="Employer adds, whatever you contribute"
+            rate={match.nonelective_percent}
+            minPercent={0}
+            maxPercent={100}
+            hint="A percent of salary the employer puts in without asking you to contribute anything — a safe-harbor or profit-sharing contribution. Leave at 0% if your employer only matches."
+            onChange={(rate) =>
+              updatePlan((d) => {
+                const draft = d.accounts[i].employer_match;
+                if (draft) draft.nonelective_percent = rate;
               })
             }
           />
@@ -76,7 +96,7 @@ export function EmployerMatchFields(props: {
                   })
                 }
               />
-              {match.tiers.length > 1 && (
+              {(match.tiers.length > 1 || match.nonelective_percent > 0) && (
                 <button
                   type="button"
                   className="remove"

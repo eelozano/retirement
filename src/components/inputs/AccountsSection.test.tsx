@@ -517,11 +517,12 @@ describe("AccountsSection", () => {
   it("adds an employer match with a tiered formula, only on an employer plan", async () => {
     render(<AccountsSection />);
     await addAccount();
-    expect(screen.queryByLabelText("Employer match")).toBeNull();
+    expect(screen.queryByLabelText("Employer contributions")).toBeNull();
 
     await userEvent.selectOptions(screen.getByLabelText("Type"), "employer_pretax");
-    await userEvent.click(screen.getByLabelText("Employer match"));
+    await userEvent.click(screen.getByLabelText("Employer contributions"));
     expect(currentAccount()?.employer_match).toEqual({
+      nonelective_percent: 0,
       tiers: [{ employee_percent: 0.03, match_percent: 1 }],
       destination: "PreTax",
     });
@@ -532,7 +533,25 @@ describe("AccountsSection", () => {
     // Retyping away from an employer plan takes the match with it.
     await userEvent.selectOptions(screen.getByLabelText("Type"), "roth_ira");
     expect(currentAccount()?.employer_match).toBeNull();
-    expect(screen.queryByLabelText("Employer match")).toBeNull();
+    expect(screen.queryByLabelText("Employer contributions")).toBeNull();
+  });
+
+  it("takes an employer contribution that does not depend on a match", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+    await userEvent.selectOptions(screen.getByLabelText("Type"), "employer_pretax");
+    await userEvent.click(screen.getByLabelText("Employer contributions"));
+
+    // A plan that puts in 10% of pay whether or not the employee defers:
+    // type the percent, then drop the tier the default started with.
+    const adds = screen.getByLabelText("Employer adds, whatever you contribute (%)");
+    await userEvent.clear(adds);
+    await userEvent.type(adds, "10");
+    await userEvent.tab();
+    expect(currentAccount()?.employer_match?.nonelective_percent).toBeCloseTo(0.1);
+
+    await userEvent.click(screen.getByRole("button", { name: "Remove tier" }));
+    expect(currentAccount()?.employer_match?.tiers).toHaveLength(0);
   });
 
   it("names a recurring contribution ahead of its derived description", async () => {
