@@ -139,6 +139,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match:
+        nonelective_percent: 0.0
         tiers:
         - employee_percent: 0.03
           match_percent: 1.0
@@ -212,6 +213,7 @@ scenarios:
         end: !AtRetirement jordan
       one_time_contributions: []
       employer_match:
+        nonelective_percent: 0.0
         tiers:
         - employee_percent: 0.04
           match_percent: 0.5
@@ -348,6 +350,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match:
+        nonelective_percent: 0.0
         tiers:
         - employee_percent: 0.03
           match_percent: 1.0
@@ -421,6 +424,7 @@ scenarios:
         end: !AtRetirement jordan
       one_time_contributions: []
       employer_match:
+        nonelective_percent: 0.0
         tiers:
         - employee_percent: 0.04
           match_percent: 0.5
@@ -557,6 +561,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match:
+        nonelective_percent: 0.0
         tiers:
         - employee_percent: 0.03
           match_percent: 1.0
@@ -630,6 +635,7 @@ scenarios:
         end: !AtRetirement jordan
       one_time_contributions: []
       employer_match:
+        nonelective_percent: 0.0
         tiers:
         - employee_percent: 0.04
           match_percent: 0.5
@@ -766,6 +772,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match:
+        nonelective_percent: 0.0
         tiers:
         - employee_percent: 0.03
           match_percent: 1.0
@@ -839,6 +846,7 @@ scenarios:
         end: !AtRetirement jordan
       one_time_contributions: []
       employer_match:
+        nonelective_percent: 0.0
         tiers:
         - employee_percent: 0.04
           match_percent: 0.5
@@ -975,6 +983,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match:
+        nonelective_percent: 0.0
         tiers:
         - employee_percent: 0.03
           match_percent: 1.0
@@ -1053,6 +1062,7 @@ scenarios:
         end: !AtRetirement jordan
       one_time_contributions: []
       employer_match:
+        nonelective_percent: 0.0
         tiers:
         - employee_percent: 0.04
           match_percent: 0.5
@@ -1189,6 +1199,7 @@ scenarios:
         end: !AtRetirement alex
       one_time_contributions: []
       employer_match:
+        nonelective_percent: 0.0
         tiers:
         - employee_percent: 0.03
           match_percent: 1.0
@@ -1262,6 +1273,7 @@ scenarios:
         end: !AtRetirement jordan
       one_time_contributions: []
       employer_match:
+        nonelective_percent: 0.0
         tiers:
         - employee_percent: 0.04
           match_percent: 0.5

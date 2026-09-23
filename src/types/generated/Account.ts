@@ -41,9 +41,11 @@ contributions: Array<Contribution>,
  */
 one_time_contributions: Array<OneTimeContribution>, 
 /**
- * Employer match on this plan, if any. Matched dollars are employer
- * money: they do not count against the employee elective-deferral
- * limit, only against the much higher 415(c) annual-additions cap.
+ * What the employer puts into this plan, if anything: a percent of
+ * salary it adds outright, a tiered match on the employee's own
+ * deferrals, or both. Either way these are employer dollars: they do
+ * not count against the employee elective-deferral limit, only against
+ * the much higher 415(c) annual-additions cap.
  */
 employer_match: EmployerMatch | null, 
 /**

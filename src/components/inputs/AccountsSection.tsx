@@ -463,7 +463,7 @@ export function AccountsSection() {
           </div>
           {selected.plan_type === "EmployerPlan" && (
             <div className="band">
-              <p className="band-label">Employer match</p>
+              <p className="band-label">Employer contributions</p>
               <EmployerMatchFields
                 account={selected}
                 accountIndex={selectedIndex}

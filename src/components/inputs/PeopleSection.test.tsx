@@ -216,6 +216,6 @@ describe("PeopleSection", () => {
     expect(screen.queryByText("Saving")).toBeNull();
     expect(screen.queryByText(/^Into /)).toBeNull();
     expect(screen.queryByLabelText("Contribution")).toBeNull();
-    expect(screen.queryByLabelText("Employer match")).toBeNull();
+    expect(screen.queryByLabelText("Employer contributions")).toBeNull();
   });
 });

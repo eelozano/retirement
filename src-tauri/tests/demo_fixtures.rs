@@ -54,6 +54,7 @@ const JORDAN: &str = "jordan";
 
 fn tiered_match(tiers: &[(f64, f64)], destination: MatchDestination) -> EmployerMatch {
     EmployerMatch {
+        nonelective_percent: 0.0,
         tiers: tiers
             .iter()
             .map(|(employee_percent, match_percent)| MatchTier {

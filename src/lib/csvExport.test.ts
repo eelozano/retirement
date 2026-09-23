@@ -118,9 +118,9 @@ describe("buildProjectionCsv", () => {
     const csv = buildProjectionCsv(plan, projection, false);
     const header = splitCsv(headerLine(csv));
     const cells = splitCsv(dataLines(csv)[0]);
-    const match = header.indexOf("Employer match");
+    const match = header.indexOf("Employer contributions");
     expect(header.slice(match, match + 3)).toEqual([
-      "Employer match",
+      "Employer contributions",
       "One-time contributions",
       "House sale (one-time)",
     ]);

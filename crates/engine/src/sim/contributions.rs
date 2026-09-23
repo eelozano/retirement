@@ -282,9 +282,10 @@ fn match_target(plan: &Plan, source: usize, destination: MatchDestination) -> Op
     })
 }
 
-/// The fraction of salary the employer adds, given how much of their salary
-/// the employee deferred. Tiers apply in order, each consuming deferral
-/// percentage until it runs out.
+/// The fraction of salary the employer adds *as a match*, given how much of
+/// their salary the employee deferred. Tiers apply in order, each consuming
+/// deferral percentage until it runs out. The non-elective share is not
+/// here: it is not a function of the deferral at all.
 fn matched_fraction(tiers: &[crate::model::MatchTier], deferral_percent: f64) -> f64 {
     let mut remaining = deferral_percent.max(0.0);
     let mut matched = 0.0;
@@ -299,20 +300,32 @@ fn matched_fraction(tiers: &[crate::model::MatchTier], deferral_percent: f64) ->
     matched
 }
 
-/// Employer match per account for this period, indexed parallel to
+/// Employer contributions per account for this period, indexed parallel to
 /// `plan.accounts` — so entry `i` is what account `i` *receives*, which is
-/// not necessarily the account the match was declared on.
+/// not necessarily the account the formula was declared on.
 ///
-/// `employee` is the post-clamp employee contribution for each account, from
-/// `allowed_contributions`. The match is gated on the employee's own deferral
-/// percentage, derived from what actually went in rather than from what the
-/// account asked for — so a `FlatAmount` or `FederalMaximum` contribution
-/// still produces an effective percentage for the tiers to bite on, and an
-/// employee whose deferral was clamped is matched on the clamped figure.
+/// The employer's fraction of salary is the sum of two parts, and only the
+/// second is gated on the employee:
 ///
-/// Matched dollars are **not** subject to the elective-deferral limit — that
-/// is the failure mode this exists to prevent. They are held to the 415(c)
-/// annual-additions cap instead, shared with the employee's own deferrals.
+/// - `nonelective_percent` is paid on salary alone — safe-harbor
+///   non-elective or profit-sharing money, which a plan document pays
+///   whether or not the employee defers a cent. Someone contributing
+///   nothing still receives it.
+/// - the `tiers` are matched against the employee's own deferral
+///   percentage, derived from what actually went in (`employee`, the
+///   post-clamp figures from `allowed_contributions`) rather than from what
+///   the account asked for — so a `FlatAmount` or `FederalMaximum`
+///   contribution still produces an effective percentage for the tiers to
+///   bite on, and an employee whose deferral was clamped is matched on the
+///   clamped figure.
+///
+/// Both are bound to salary, which is already prorated to the months the
+/// owner worked, so both stop when the paychecks do.
+///
+/// Employer dollars are **not** subject to the elective-deferral limit —
+/// that is the failure mode this exists to prevent. They are held to the
+/// 415(c) annual-additions cap instead, shared with the employee's own
+/// deferrals.
 pub(super) fn employer_match(
     plan: &Plan,
     inputs: &Inputs,
@@ -344,7 +357,9 @@ pub(super) fn employer_match(
             continue;
         }
         let deferral_percent = deferrals.get(&account.owner).copied().unwrap_or(0.0) / salary;
-        let amount = matched_fraction(&employer.tiers, deferral_percent) * salary;
+        let fraction = employer.nonelective_percent.max(0.0)
+            + matched_fraction(&employer.tiers, deferral_percent);
+        let amount = fraction * salary;
         if amount <= 0.0 {
             continue;
         }

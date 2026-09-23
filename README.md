@@ -385,10 +385,12 @@ there — it just doesn't bundle an installer.
   figure. Unlike a contribution it isn't paid out of that year's income, so the
   plan doesn't sell investments to fund it, and it isn't taxed: enter what
   actually arrives.
-- **Employer match.** Tiered formulas ("100% of the first 3%, 50% of the next
-  2%"), matched against your household deferral rate, landing in a pre-tax or
-  Roth account and held to the annual-additions cap rather than your own
-  deferral limit.
+- **Employer contributions.** A percent of salary the employer adds whether or
+  not you contribute — safe-harbor non-elective or profit-sharing — plus tiered
+  match formulas ("100% of the first 3%, 50% of the next 2%") matched against
+  your household deferral rate. Either alone or both together, landing in a
+  pre-tax or Roth account and held to the annual-additions cap rather than your
+  own deferral limit.
 - **Social Security modeling.** Benefits are first-class (PIA + claiming age)
   rather than a hand-computed dollar figure, so changing the claiming age
   recomputes interactively. Full retirement age is taken from your birth year

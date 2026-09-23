@@ -328,9 +328,18 @@ pub enum MatchDestination {
     Roth,
 }
 
-/// Employer matching contributions on an employer plan.
+/// The employer's side of an employer plan: what it puts in, and how.
 ///
-/// Declared **per account**, not per person: the match belongs to an
+/// Two parts, because plan documents have two. `nonelective_percent` is
+/// paid on salary alone; `tiers` are paid only against what the employee
+/// defers. A plan may have either, or both, and they sum.
+///
+/// The type name is **historical**. It held only a match until #160, and it
+/// is the `employer_match` key on every saved plan, the `PeriodSnapshot`
+/// field and a CSV column — renaming it would buy a nicer word at the cost
+/// of a migration across all four.
+///
+/// Declared **per account**, not per person: the formula belongs to an
 /// employer's plan document, and an account is what stands for a plan here.
 /// Someone with two jobs has two plans with two different formulas, which
 /// a per-person field could not express.
@@ -338,11 +347,26 @@ pub enum MatchDestination {
 /// Vesting is **deliberately deferred**, not forgotten. An unvested balance
 /// that never vests is a real planning consideration for someone changing
 /// jobs, and modelling it needs a schedule plus a leaving date — neither of
-/// which exists yet. Until then every matched dollar is treated as vested.
+/// which exists yet. Until then every employer dollar is treated as vested.
 #[derive(Serialize, Deserialize, TS, Clone, Debug, PartialEq)]
 #[ts(export)]
 pub struct EmployerMatch {
-    /// Applied in order. Empty means no match.
+    /// What the employer adds regardless of the employee's own deferral, as
+    /// a fraction of salary (0.10 = "10% of pay, match or no match").
+    ///
+    /// A safe-harbor non-elective or profit-sharing contribution: the
+    /// employer's share of a plan whose document does not ask the employee
+    /// to defer anything to earn it. It is paid whenever there is salary,
+    /// so it stands alone — `tiers` may be empty — and it stacks on the
+    /// tiers when a plan has both.
+    ///
+    /// `#[serde(default)]` so a plan saved before #160 loads at 0.0 and
+    /// projects identically, the `social_security` precedent. The default
+    /// is field-local, so no `Wire` shape is needed for it.
+    #[serde(default)]
+    pub nonelective_percent: f64,
+    /// Applied in order. Empty means the employer matches nothing — which
+    /// is a complete plan when `nonelective_percent` is set.
     pub tiers: Vec<MatchTier>,
     pub destination: MatchDestination,
 }
@@ -452,9 +476,11 @@ pub struct Account {
     /// household cash; see `OneTimeContribution`. Validation allows them
     /// only on a `Taxable` or `Savings` account.
     pub one_time_contributions: Vec<OneTimeContribution>,
-    /// Employer match on this plan, if any. Matched dollars are employer
-    /// money: they do not count against the employee elective-deferral
-    /// limit, only against the much higher 415(c) annual-additions cap.
+    /// What the employer puts into this plan, if anything: a percent of
+    /// salary it adds outright, a tiered match on the employee's own
+    /// deferrals, or both. Either way these are employer dollars: they do
+    /// not count against the employee elective-deferral limit, only against
+    /// the much higher 415(c) annual-additions cap.
     pub employer_match: Option<EmployerMatch>,
     /// Elects the Rule of 55: withdrawals from this employer plan after the
     /// owner separates from service in or after the year they turn 55 carry
@@ -625,6 +651,22 @@ mod tests {
         );
         assert_eq!(account.plan_type, PlanType::EmployerPlan);
         assert_eq!(account.employer_match, None, "no match until one is set");
+    }
+
+    /// A match written before #160 has no `nonelective_percent` key. It
+    /// loads at zero, so the account's employer contribution is the tiers
+    /// alone and the plan projects exactly as it did.
+    #[test]
+    fn a_match_without_a_non_elective_percent_loads_at_zero() {
+        let yaml = "
+tiers:
+- employee_percent: 0.03
+  match_percent: 1.0
+destination: PreTax
+";
+        let employer: EmployerMatch = serde_yaml_ng::from_str(yaml).expect("pre-#160 match parses");
+        assert_eq!(employer.nonelective_percent, 0.0);
+        assert_eq!(employer.tiers.len(), 1);
     }
 
     /// A plan file written between #32 and #78 carries one tuple-shaped
