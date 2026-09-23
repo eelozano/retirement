@@ -144,6 +144,44 @@ pub(crate) fn fresh_id(taken: &BTreeSet<String>, name: &str) -> String {
         .expect("an unused id")
 }
 
+/// Tries `serde_yaml_ng` directly first — its normal output, and what every
+/// file on disk was written and read with before this workaround existed.
+///
+/// A household can nest one enum inside another (a drawdown phase's start
+/// is a `PhaseStart::Boundary` holding a `StreamBoundary`, itself non-unit
+/// for anything but plan start/end), and `serde_yaml_ng` — like the
+/// `serde_yaml` it forked from — cannot serialize that directly
+/// ("serializing nested enums in YAML is not supported yet"). Only then do
+/// these fall back to going through a `serde_json::Value`: flattening the
+/// tagging before YAML ever sees an enum sidesteps the limitation, at the
+/// cost of that one document switching from `!Tag value` to `Tag: value`
+/// for every enum in it — still valid YAML, just not what a household
+/// without the problem field would normally look like on disk, so the
+/// fallback is worth keeping rare. `from_yaml` is the mirror on the way in:
+/// a file only the fallback could have written needs the fallback to read
+/// back, since direct parsing hits the same limitation nested enums hit on
+/// the way out.
+fn to_yaml<T: serde::Serialize>(value: &T) -> Result<String, String> {
+    if let Ok(direct) = serde_yaml_ng::to_string(value) {
+        return Ok(direct);
+    }
+    let json = serde_json::to_value(value).map_err(|e| e.to_string())?;
+    serde_yaml_ng::to_string(&json).map_err(|e| e.to_string())
+}
+
+/// See `to_yaml`. Tried directly first so a legacy file that uses YAML's
+/// native `!Tag value` spelling of an enum (pre-#129 asset classes) still
+/// parses — a `Value` round trip would turn that into a literal `"!Tag"`
+/// key and fail to match the variant it names.
+fn from_yaml<T: serde::de::DeserializeOwned>(yaml: &str) -> Result<T, String> {
+    if let Ok(direct) = serde_yaml_ng::from_str(yaml) {
+        return Ok(direct);
+    }
+    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(yaml).map_err(|e| e.to_string())?;
+    let json = serde_json::to_value(&value).map_err(|e| e.to_string())?;
+    serde_json::from_value(json).map_err(|e| e.to_string())
+}
+
 /// Atomic write: a temp file, the previous version kept as `.bak`, then a
 /// rename into place so a crash never leaves a torn file.
 pub fn save_household_file(base: &Path, file: &HouseholdFile) -> Result<(), String> {
@@ -160,7 +198,7 @@ pub fn save_household_file(base: &Path, file: &HouseholdFile) -> Result<(), Stri
     fs::create_dir_all(&dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
 
     let path = household_path(base, &file.id);
-    let yaml = serde_yaml_ng::to_string(file).map_err(|e| format!("serializing household: {e}"))?;
+    let yaml = to_yaml(file).map_err(|e| format!("serializing household: {e}"))?;
 
     let tmp = path.with_extension("yaml.tmp");
     fs::write(&tmp, &yaml).map_err(|e| format!("writing {}: {e}", tmp.display()))?;
@@ -175,7 +213,7 @@ pub fn save_household_file(base: &Path, file: &HouseholdFile) -> Result<(), Stri
 pub fn load_household_file(path: &Path) -> Result<HouseholdFile, String> {
     let yaml = fs::read_to_string(path).map_err(|e| format!("reading {}: {e}", path.display()))?;
     let file: HouseholdFile =
-        serde_yaml_ng::from_str(&yaml).map_err(|e| format!("parsing {}: {e}", path.display()))?;
+        from_yaml(&yaml).map_err(|e| format!("parsing {}: {e}", path.display()))?;
     if file.schema_version != SCHEMA_VERSION {
         return Err(format!(
             "{} has schema version {}, this app supports {} — migration needed",
@@ -619,7 +657,9 @@ pub fn cleanup(base: &Path) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use engine::model::{ContributionRule, YearMonth};
+    use engine::model::{
+        ContributionRule, DrawdownPhase, DrawdownPolicy, PhaseStart, StreamBoundary, YearMonth,
+    };
 
     use super::*;
 
@@ -694,6 +734,35 @@ mod tests {
         assert_eq!(reloaded.assumptions.inflation, 0.035);
         // Previous version preserved as .bak.
         assert!(plans_dir(&base.0).join("base-plan.yaml.bak").exists());
+    }
+
+    /// A phase starting on a calendar date, not plan start or someone's
+    /// 59½, nests one enum inside another: `PhaseStart::Boundary` holding a
+    /// non-unit `StreamBoundary::Date`. `serde_yaml_ng` cannot serialize
+    /// that directly — see `to_yaml`'s doc comment — so this pins the
+    /// workaround against the shape that broke it.
+    #[test]
+    fn a_phase_starting_on_a_date_saves_and_reloads() {
+        let base = TempBase::new("nested-enum-boundary");
+        let mut plan = seed(&base.0);
+        plan.assumptions.drawdown = DrawdownPolicy::Phased(vec![
+            DrawdownPhase {
+                id: "first".to_string(),
+                name: "First".to_string(),
+                start: PhaseStart::Boundary(StreamBoundary::PlanStart),
+                stack: vec![],
+            },
+            DrawdownPhase {
+                id: "second".to_string(),
+                name: "Second".to_string(),
+                start: PhaseStart::Boundary(StreamBoundary::Date(YearMonth::new(2041, 1))),
+                stack: vec![],
+            },
+        ]);
+        save_plan(&base.0, &plan).unwrap();
+
+        let reloaded = load_plan(&base.0, &plan.id).unwrap();
+        assert_eq!(reloaded.assumptions.drawdown, plan.assumptions.drawdown);
     }
 
     /// The point of the whole split: seven accounts and four scenarios are
