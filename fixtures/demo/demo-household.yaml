@@ -320,6 +320,7 @@ scenarios:
     sweep_surplus_from: !AtRetirement alex
     survivor_expense_factor: 0.75
     social_security_cola: 0.03
+    social_security_reduction: null
     reinvest_into: joint-brokerage
     drawdown: Proportional
 - id: retire-two-years-early
@@ -531,6 +532,7 @@ scenarios:
     sweep_surplus_from: !AtRetirement alex
     survivor_expense_factor: 0.75
     social_security_cola: 0.03
+    social_security_reduction: null
     reinvest_into: joint-brokerage
     drawdown: Proportional
 - id: claim-social-security-at-62
@@ -742,6 +744,7 @@ scenarios:
     sweep_surplus_from: !AtRetirement alex
     survivor_expense_factor: 0.75
     social_security_cola: 0.03
+    social_security_reduction: null
     reinvest_into: joint-brokerage
     drawdown: Proportional
 - id: leaner-retirement
@@ -953,6 +956,7 @@ scenarios:
     sweep_surplus_from: !AtRetirement alex
     survivor_expense_factor: 0.75
     social_security_cola: 0.03
+    social_security_reduction: null
     reinvest_into: joint-brokerage
     drawdown: Proportional
 - id: sell-the-house-at-retirement
@@ -1169,6 +1173,7 @@ scenarios:
     sweep_surplus_from: !AtRetirement alex
     survivor_expense_factor: 0.75
     social_security_cola: 0.03
+    social_security_reduction: null
     reinvest_into: joint-brokerage
     drawdown: Proportional
 - id: retire-at-55-on-a-bridge
@@ -1380,6 +1385,7 @@ scenarios:
     sweep_surplus_from: !AtRetirement alex
     survivor_expense_factor: 0.75
     social_security_cola: 0.03
+    social_security_reduction: null
     reinvest_into: joint-brokerage
     drawdown: !Phased
     - id: bridge

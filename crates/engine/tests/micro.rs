@@ -116,6 +116,7 @@ fn micro_plan() -> Plan {
             sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
+            social_security_reduction: None,
             strategy_volatility: Default::default(),
             reinvest_into: None,
             drawdown: Default::default(),

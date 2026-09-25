@@ -660,6 +660,14 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
             "Social Security COLA can't be -100% or lower.",
         ));
     }
+    if let Some(cut) = &plan.assumptions.social_security_reduction {
+        if !(0.0..=1.0).contains(&cut.payable_fraction) {
+            errors.push(err(
+                "assumptions.social_security_reduction",
+                "The share of Social Security still paid must be between 0% and 100%.",
+            ));
+        }
+    }
     let returns = plan.assumptions.strategy_returns;
     for (field, label, rate) in [
         ("aggressive", "Aggressive", returns.aggressive),
@@ -1261,6 +1269,19 @@ mod tests {
         assert!(errors
             .iter()
             .any(|e| e.field == "assumptions.survivor_expense_factor"));
+    }
+
+    #[test]
+    fn catches_out_of_range_social_security_reduction() {
+        let mut plan = seed_plan();
+        plan.assumptions.social_security_reduction = Some(crate::model::SocialSecurityReduction {
+            from: plan.sim_config.start,
+            payable_fraction: 1.2,
+        });
+        let errors = plan.validate();
+        assert!(errors
+            .iter()
+            .any(|e| e.field == "assumptions.social_security_reduction"));
     }
 
     #[test]

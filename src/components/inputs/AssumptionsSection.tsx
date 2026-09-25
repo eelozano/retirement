@@ -1,11 +1,15 @@
 import { currencyCompact, ratePercent } from "../../lib/format";
 import { medianCompoundedReturn, realReturn } from "../../lib/returns";
+import {
+  SS_TRUST_FUND_DEPLETION_YEAR,
+  SS_TRUSTEES_PAYABLE_FRACTION,
+} from "../../lib/socialSecurity";
 import { usePlanStore } from "../../store/planStore";
 import type { FilingStatus } from "../../types/generated/FilingStatus";
 import type { Plan } from "../../types/generated/Plan";
 import type { StateCode } from "../../types/generated/StateCode";
 import { BoundaryDetail } from "./BoundaryDetail";
-import { PercentField, SelectField } from "./fields";
+import { CheckboxField, PercentField, SelectField, YearMonthField } from "./fields";
 import { boundaryOptions, boundaryToChoice, choiceToBoundary } from "./streamBoundary";
 import { TaxBracketEditor } from "./TaxBracketEditor";
 
@@ -138,6 +142,7 @@ export function AssumptionsSection() {
 
   const assumptions = plan.assumptions;
   const sweep = assumptions.sweep_surplus_from;
+  const ssCut = assumptions.social_security_reduction;
   const sweepChoice = sweep === null ? NEVER : boundaryToChoice(sweep);
   const reinvestChoice = assumptions.reinvest_into ?? DEFAULT_DESTINATION;
   return (
@@ -240,6 +245,49 @@ export function AssumptionsSection() {
             })
           }
         />
+        <CheckboxField
+          label="Assume a Social Security cut"
+          hint={`The Trustees project the trust funds run dry in ${SS_TRUST_FUND_DEPLETION_YEAR}, after which payroll tax covers about ${Math.round(SS_TRUSTEES_PAYABLE_FRACTION * 100)}% of scheduled benefits unless Congress acts. Ticking this starts from those figures; both are yours to change. Survivor benefits are cut alike.`}
+          checked={ssCut !== null}
+          onChange={(checked) =>
+            updatePlan((d) => {
+              d.assumptions.social_security_reduction = checked
+                ? {
+                    from: { year: SS_TRUST_FUND_DEPLETION_YEAR, month: 1 },
+                    payable_fraction: SS_TRUSTEES_PAYABLE_FRACTION,
+                  }
+                : null;
+            })
+          }
+        />
+        {ssCut !== null && (
+          <>
+            <PercentField
+              label="Share of benefits still paid"
+              rate={ssCut.payable_fraction}
+              minPercent={0}
+              maxPercent={100}
+              onChange={(rate) =>
+                updatePlan((d) => {
+                  if (d.assumptions.social_security_reduction) {
+                    d.assumptions.social_security_reduction.payable_fraction = rate;
+                  }
+                })
+              }
+            />
+            <YearMonthField
+              label="Cut starts"
+              value={ssCut.from}
+              onChange={(from) =>
+                updatePlan((d) => {
+                  if (d.assumptions.social_security_reduction) {
+                    d.assumptions.social_security_reduction.from = from;
+                  }
+                })
+              }
+            />
+          </>
+        )}
       </fieldset>
       {plan.people.length > 1 && (
         <fieldset>

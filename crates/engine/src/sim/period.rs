@@ -87,6 +87,10 @@ pub(super) struct RunContext<'a> {
     /// The month household spending steps down, and by what factor. `None`
     /// whenever it would be a no-op.
     pub survivor_step_down: Option<(YearMonth, f64)>,
+    /// The month Social Security starts paying only part of its scheduled
+    /// benefit, and what part — `Assumptions::social_security_reduction`.
+    /// `None` whenever it would be a no-op.
+    pub ss_reduction: Option<(YearMonth, f64)>,
     pub returns: &'a dyn ReturnModel,
     pub tax: &'a dyn TaxModel,
     pub drawdown: &'a dyn DrawdownStrategy,
@@ -352,7 +356,17 @@ fn accrue_streams(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodStat
                 ctx.overlap(resolved.start, resolved.end.min(death))
                     + factor * ctx.overlap(resolved.start.max(death), resolved.end)
             }
-            _ => fraction,
+            // A Social Security cut splits the window the same way. Survivor
+            // benefits are Social Security streams too, so they are cut
+            // alike; `ss_income` below sums this amount, so the taxable
+            // share of benefits falls with it.
+            _ => match run.ss_reduction {
+                Some((cut, payable)) if resolved.source == StreamSource::SocialSecurity => {
+                    ctx.overlap(resolved.start, resolved.end.min(cut))
+                        + payable * ctx.overlap(resolved.start.max(cut), resolved.end)
+                }
+                _ => fraction,
+            },
         };
         // Counted from the stream's own anchor rather than
         // `ctx.years_elapsed`: the two agree for every stream but a pension,
