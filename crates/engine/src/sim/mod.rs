@@ -249,6 +249,14 @@ pub fn simulate(
         .map(|(month, _)| (month, plan.assumptions.survivor_expense_factor))
         .filter(|(_, factor)| *factor != 1.0);
 
+    // Social Security's assumed cut, resolved the same way: `None` when
+    // absent or a no-op, so plans without one are arithmetically untouched.
+    let ss_reduction = plan
+        .assumptions
+        .social_security_reduction
+        .map(|r| (r.from, r.payable_fraction))
+        .filter(|(_, payable)| *payable != 1.0);
+
     // Which account receives the sweep and any forced-distribution
     // remainder. `Assumptions::reinvest_into` names one directly;
     // `Plan::validate` rejects it unless it names a `Taxable` or `Savings`
@@ -290,6 +298,7 @@ pub fn simulate(
         sweep_from,
         reinvest_into,
         survivor_step_down,
+        ss_reduction,
         returns,
         tax,
         drawdown,

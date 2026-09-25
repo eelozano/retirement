@@ -7,6 +7,10 @@ import {
 } from "../../lib/api";
 import { depletionYear as computeDepletionYear } from "../../lib/projection";
 import {
+  SS_TRUST_FUND_DEPLETION_YEAR,
+  SS_TRUSTEES_PAYABLE_FRACTION,
+} from "../../lib/socialSecurity";
+import {
   applyOverrides,
   applyOverridesTo,
   BASELINE,
@@ -17,9 +21,12 @@ import {
   MAX_SPENDING_MULTIPLIER,
   MAX_VOLATILITY_MULTIPLIER,
   MIN_SPENDING_MULTIPLIER,
+  MIN_SS_PAYABLE,
   MIN_VOLATILITY_MULTIPLIER,
   overrideLabels,
   retirementShiftBounds,
+  savedSsPayable,
+  ssCutYear,
   suggestScenarioName,
   type WhatIfOverrides,
 } from "../../lib/whatIf";
@@ -431,6 +438,8 @@ export function WhatIfScreen() {
     }
   };
 
+  const ssPayable = overrides.ssPayableFraction ?? savedSsPayable(plan);
+
   return (
     <main className="charts what-if">
       <section className="card what-if-knobs" aria-label="What-if controls">
@@ -555,6 +564,28 @@ export function WhatIfScreen() {
             max={lifeExpectancyShiftBounds(plan).max}
             step={1}
             onChange={(value) => setKnob({ lifeExpectancyShiftYears: value })}
+          />
+
+          <Knob
+            label="Social Security pays"
+            display={
+              ssPayable === 1
+                ? "In full"
+                : `${Math.round(ssPayable * 100)}% from ${ssCutYear(plan)}`
+            }
+            hint={`Of scheduled benefits, survivor benefits included. The Trustees project the trust funds run dry in ${SS_TRUST_FUND_DEPLETION_YEAR}, leaving about ${Math.round(SS_TRUSTEES_PAYABLE_FRACTION * 100)}% payable unless Congress acts.`}
+            value={ssPayable}
+            baseline={savedSsPayable(plan)}
+            min={Math.min(MIN_SS_PAYABLE, savedSsPayable(plan))}
+            max={1}
+            step={0.01}
+            onChange={(value) =>
+              setKnob({
+                // Back on the saved figure is back at rest, so the sandbox
+                // reuses the saved plan's own result rather than re-running it.
+                ssPayableFraction: value === savedSsPayable(plan) ? null : value,
+              })
+            }
           />
         </div>
       </section>

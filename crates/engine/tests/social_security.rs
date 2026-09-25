@@ -4,8 +4,8 @@
 
 use engine::model::TaxFigures;
 use engine::model::{
-    FullRetirementAge, PeriodLength, Person, Plan, SimConfig, SocialSecurityBenefit, YearMonth,
-    SCHEMA_VERSION,
+    FullRetirementAge, PeriodLength, Person, Plan, SimConfig, SocialSecurityBenefit,
+    SocialSecurityReduction, YearMonth, SCHEMA_VERSION,
 };
 use engine::run_deterministic;
 
@@ -58,6 +58,7 @@ fn plan_with(
             sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: plan_cola,
+            social_security_reduction: None,
             strategy_volatility: Default::default(),
             reinvest_into: None,
             drawdown: Default::default(),
@@ -158,5 +159,62 @@ fn cola_override_beats_plan_default() {
         projection.snapshots[1].income,
         BENEFIT_AT_FRA * 1.05,
         "p1 income",
+    );
+}
+
+fn cut(from: YearMonth, payable_fraction: f64) -> Option<SocialSecurityReduction> {
+    Some(SocialSecurityReduction {
+        from,
+        payable_fraction,
+    })
+}
+
+/// A cut that pays everything is no cut: the projection is identical to a
+/// plan with none, which is what keeps the default inert.
+#[test]
+fn a_cut_paying_in_full_changes_nothing() {
+    let baseline = plan_with(67, 67, 0.02, None);
+    let mut plan = baseline.clone();
+    plan.assumptions.social_security_reduction = cut(plan.sim_config.start, 1.0);
+    let a = run_deterministic(&baseline, &TaxFigures::built_in());
+    let b = run_deterministic(&plan, &TaxFigures::built_in());
+    for (x, y) in a.snapshots.iter().zip(&b.snapshots) {
+        assert_eq!(x.income, y.income);
+        assert_eq!(x.taxes, y.taxes);
+    }
+}
+
+/// From the cut onward the benefit pays the payable share, and the COLA
+/// keeps compounding on the reduced amount.
+#[test]
+fn a_cut_pays_the_payable_share_from_its_month() {
+    let mut plan = plan_with(67, 67, 0.02, None);
+    plan.assumptions.social_security_reduction = cut(plan.sim_config.start.add_years(1), 0.77);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    assert_close(projection.snapshots[0].income, BENEFIT_AT_FRA, "p0 income");
+    assert_close(
+        projection.snapshots[1].income,
+        BENEFIT_AT_FRA * 1.02 * 0.77,
+        "p1 income",
+    );
+    assert_close(
+        projection.snapshots[2].income,
+        BENEFIT_AT_FRA * 1.02 * 1.02 * 0.77,
+        "p2 income",
+    );
+}
+
+/// A cut in the middle of a year is prorated by month, like every other
+/// boundary: a July cut pays six months in full and six at the reduced share.
+#[test]
+fn a_mid_year_cut_is_prorated_by_month() {
+    let mut plan = plan_with(67, 67, 0.0, Some(0.0));
+    let start = plan.sim_config.start;
+    plan.assumptions.social_security_reduction = cut(YearMonth::new(start.year, 7), 0.5);
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    assert_close(
+        projection.snapshots[0].income,
+        BENEFIT_AT_FRA * (0.5 + 0.5 * 0.5),
+        "p0 income",
     );
 }

@@ -864,6 +864,23 @@ The `Option` is what preserves the upgrade invariant. Every plan saved before
 already projected with. Only a new benefit, or one the user clears the
 override on, picks up the corrected table.
 
+**An assumed cut** (`Assumptions::social_security_reduction`) is the
+trust-fund-depletion question: from a month on, every benefit pays a share
+of what it otherwise would, for life. It is scenario policy, not a household
+fact — a what-if about the law — so "cut" and "no cut" are two scenarios of
+one household. It cannot be folded into `to_stream`, because a stream has one
+amount and the cut changes it mid-life, so it is applied where the survivor
+expense step-down is: `accrue_streams` splits a Social Security stream's
+active window at the cut month and scales the part after it. Survivor
+benefits are Social Security streams too, so they are cut alike, and
+`ss_income` is summed from the same amount, so the taxable share falls with
+it. The COLA keeps compounding on the reduced benefit. `None` — the default,
+and what every older plan loads as — leaves the arithmetic untouched. The
+Trustees' depletion year and payable share are a republished projection, not
+law, so they live in the frontend (`lib/socialSecurity.ts`) as the prefill
+for the setting and the start of the What-if knob's cut, never as an engine
+default.
+
 ### Surplus has two regimes (`Assumptions::sweep_surplus_from`)
 
 A period's leftover cash is one arithmetic result standing for two different quantities, and the boolean this replaced (#50) could only be right about one of them at a time.

@@ -45,3 +45,14 @@ export function formatFullRetirementAge(fra: FullRetirementAge): string {
   if (fra.months === 0) return `${fra.years}`;
   return `${fra.years} years ${fra.months} month${fra.months === 1 ? "" : "s"}`;
 }
+
+/**
+ * When, and how far, the Social Security Trustees project benefits to be cut
+ * if Congress does nothing: the combined OASDI trust funds run dry in 2034,
+ * after which incoming payroll tax covers about 81% of scheduled benefits
+ * (2025 Trustees Report). A projection, not law, and republished every year
+ * — so it lives here as the prefill for "assume a cut" and the start of the
+ * What-if knob's cut, never as something a plan silently assumes.
+ */
+export const SS_TRUST_FUND_DEPLETION_YEAR = 2034;
+export const SS_TRUSTEES_PAYABLE_FRACTION = 0.81;
