@@ -8,6 +8,8 @@ import {
   lifeExpectancyShiftBounds,
   overrideLabels,
   retirementShiftBounds,
+  savedSsPayable,
+  ssCutYear,
   suggestScenarioName,
   type WhatIfOverrides,
 } from "./whatIf";
@@ -158,6 +160,7 @@ const EVERY_KNOB: [string, Partial<WhatIfOverrides>][] = [
   ["volatility", { volatilityMultiplier: 1.8 }],
   ["inflation", { inflationShiftBp: 300 }],
   ["life expectancy", { lifeExpectancyShiftYears: 5 }],
+  ["social security", { ssPayableFraction: 0.77 }],
 ];
 
 describe("applyOverrides", () => {
@@ -222,6 +225,29 @@ describe("applyOverrides", () => {
     expect(draft.people.map((p) => p.life_expectancy_age)).toEqual([98, 100]);
   });
 
+  it("cuts Social Security from the Trustees' year when the plan assumes no cut", () => {
+    const draft = applyOverrides(plan, overrides({ ssPayableFraction: 0.77 }));
+    expect(draft.assumptions.social_security_reduction).toEqual({
+      from: { year: 2034, month: 1 },
+      payable_fraction: 0.77,
+    });
+  });
+
+  it("keeps the plan's own cut date and moves only its share", () => {
+    const cut = structuredClone(plan);
+    cut.assumptions.social_security_reduction = {
+      from: { year: 2031, month: 7 },
+      payable_fraction: 0.81,
+    };
+    const draft = applyOverrides(cut, overrides({ ssPayableFraction: 0.6 }));
+    expect(draft.assumptions.social_security_reduction).toEqual({
+      from: { year: 2031, month: 7 },
+      payable_fraction: 0.6,
+    });
+    expect(savedSsPayable(cut)).toBe(0.81);
+    expect(ssCutYear(cut)).toBe(2031);
+  });
+
   it("keeps life expectancy a serializable age however far the knob is pushed", () => {
     const draft = applyOverrides(plan, overrides({ lifeExpectancyShiftYears: -200 }));
     expect(draft.people.every((p) => p.life_expectancy_age >= 1)).toBe(true);
@@ -237,6 +263,7 @@ describe("isBaseline", () => {
   it("is false once any knob moves", () => {
     expect(isBaseline(overrides({ retirementShiftYears: { p1: 1 } }))).toBe(false);
     expect(isBaseline(overrides({ volatilityMultiplier: 1.01 }))).toBe(false);
+    expect(isBaseline(overrides({ ssPayableFraction: 0.9 }))).toBe(false);
   });
 });
 
@@ -306,6 +333,15 @@ describe("labels", () => {
         overrides({ retirementShiftYears: { p1: -2, p2: 0 }, spendingMultiplier: 0.9 }),
       ),
     ).toEqual(["Alex retires 2 years earlier", "Spending −10%"]);
+  });
+
+  it("says when and how far Social Security is cut", () => {
+    expect(overrideLabels(plan, overrides({ ssPayableFraction: 0.77 }))).toEqual([
+      "Social Security pays 77% from 2034",
+    ]);
+    expect(suggestScenarioName(plan, overrides({ ssPayableFraction: 0.77 }))).toBe(
+      "Base — Social Security 77%",
+    );
   });
 
   it("says nothing when nothing moved", () => {

@@ -54,7 +54,8 @@ deterministic projection and its Monte Carlo probability of
 success.](docs/screenshots/scenarios.png)
 
 **What-if.** A sandbox for questions you don't want to save yet: retire
-earlier, spend less, assume worse returns or higher inflation, and read the
+earlier, spend less, assume worse returns, higher inflation or a Social
+Security cut, and read the
 hypothetical against the plan it started from. Nothing is written until you
 save it as a scenario of its own.
 
@@ -396,7 +397,9 @@ there — it just doesn't bundle an installer.
   recomputes interactively. Full retirement age is taken from your birth year
   off SSA's published table, months and all — it is 66 years 6 months for a
   1957 birth, not 66 or 67 — and you can override it if your statement says
-  otherwise.
+  otherwise. A scenario can assume a cut — benefits paying, say, 81% from
+  2034, when the Trustees project the trust funds run dry — survivor benefits
+  included.
 - **Pensions.** The monthly benefit at its first payment, an optional
   cost-of-living adjustment, and single-life or joint payment with the share
   that continues to the survivor.
@@ -447,7 +450,7 @@ there — it just doesn't bundle an installer.
   paths that ran dry for when they failed, the returns they drew early in
   retirement, and how hard they were withdrawing.
 - **What-if sandbox.** Sliders for retirement dates, spending, returns,
-  volatility, inflation and life expectancy, projected and Monte Carlo'd
+  volatility, inflation, life expectancy and a Social Security cut, projected and Monte Carlo'd
   against the saved plan on the same paths, so the difference is the change
   and not the draw. Nothing touches the plan on disk until you save the
   hypothetical as a scenario of its own.

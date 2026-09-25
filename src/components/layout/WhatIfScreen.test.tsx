@@ -89,6 +89,7 @@ const plan = {
     sweep_surplus_from: null,
     survivor_expense_factor: 1,
     social_security_cola: 0,
+    social_security_reduction: null,
     reinvest_into: null,
   },
   sim_config: {
@@ -145,6 +146,7 @@ describe("the sandbox never writes", () => {
     drag("Volatility", 1.75);
     drag("Inflation", 100);
     drag("Everyone lives", 7);
+    drag("Social Security pays", 0.77);
     await settle();
 
     expect(api.savePlan).not.toHaveBeenCalled();
@@ -165,6 +167,26 @@ describe("the sandbox never writes", () => {
     expect(draft?.assumptions.inflation).toBeCloseTo(0.035, 10);
     expect(draft?.assumptions.strategy_returns.aggressive).toBeCloseTo(0.05, 10);
     expect(draft?.assumptions.strategy_volatility.aggressive).toBeCloseTo(0.28, 10);
+    expect(draft?.assumptions.social_security_reduction).toEqual({
+      from: { year: 2034, month: 1 },
+      payable_fraction: 0.77,
+    });
+    expect(plan.assumptions.social_security_reduction).toBeNull();
+  });
+
+  it("puts the Social Security knob back at rest on the saved figure", async () => {
+    render(<WhatIfScreen />);
+
+    drag("Social Security pays", 0.8);
+    await settle();
+    expect(screen.getByText("80% from 2034")).toBeTruthy();
+    drag("Social Security pays", 1);
+    await settle();
+    expect(screen.getByText("In full")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Reset" })).toHaveProperty(
+      "disabled",
+      true,
+    );
   });
 
   it("throws the hypothetical away when a knob comes back to rest", async () => {

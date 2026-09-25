@@ -56,6 +56,7 @@ function makePlan(overrides: Partial<Plan>): Plan {
       sweep_surplus_from: null,
       survivor_expense_factor: 1,
       social_security_cola: 0,
+      social_security_reduction: null,
       reinvest_into: null,
       drawdown: "Proportional",
     },

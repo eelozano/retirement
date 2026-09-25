@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::{
-    legacy, AccountId, DrawdownPolicy, FilingStatus, StateTaxProfile, StrategyRates, StreamBoundary,
+    legacy, AccountId, DrawdownPolicy, FilingStatus, StateTaxProfile, StrategyRates,
+    StreamBoundary, YearMonth,
 };
 
 /// Market and tax assumptions. All rates are annual decimals (0.07 = 7%).
@@ -132,6 +133,16 @@ pub struct Assumptions {
     /// have no `social_security` entries to apply it to.
     #[serde(default)]
     pub social_security_cola: f64,
+    /// An assumed cut to Social Security from a given month: the trust-fund
+    /// depletion scenario, where only part of scheduled benefits stays
+    /// payable. `None` — the default — pays every benefit in full, so a plan
+    /// saved before this field existed projects identically.
+    ///
+    /// Scenario policy rather than a household fact: it is a what-if about
+    /// the law, not about the household, and comparing "cut" against "no
+    /// cut" is exactly what scenarios are for.
+    #[serde(default)]
+    pub social_security_reduction: Option<SocialSecurityReduction>,
     /// Which account receives reinvested cash: swept surplus (above), and
     /// the after-tax remainder of a required minimum distribution,
     /// unconditionally (#49). `None` — the default — is today's behaviour:
@@ -155,6 +166,19 @@ pub struct Assumptions {
     /// the order they had.
     #[serde(default)]
     pub drawdown: DrawdownPolicy,
+}
+
+/// Every Social Security benefit — own and survivor alike — pays
+/// `payable_fraction` of what it otherwise would from `from` onward, for
+/// life. The COLA keeps compounding on the reduced amount, which is how a
+/// payable-benefit cut works: the schedule is unchanged, only the share of
+/// it paid falls.
+#[derive(Serialize, Deserialize, TS, Clone, Copy, Debug, PartialEq)]
+#[ts(export)]
+pub struct SocialSecurityReduction {
+    pub from: YearMonth,
+    /// Share of scheduled benefits still paid, 0.0..=1.0 (0.77 = a 23% cut).
+    pub payable_fraction: f64,
 }
 
 /// Historical default for `plan_end_age`, matching `presets::default_assumptions`.
@@ -216,6 +240,8 @@ struct AssumptionsWire {
     #[serde(default)]
     social_security_cola: f64,
     #[serde(default)]
+    social_security_reduction: Option<SocialSecurityReduction>,
+    #[serde(default)]
     reinvest_into: Option<AccountId>,
     #[serde(default)]
     drawdown: DrawdownPolicy,
@@ -256,6 +282,7 @@ impl<'de> Deserialize<'de> for Assumptions {
             }),
             survivor_expense_factor: w.survivor_expense_factor,
             social_security_cola: w.social_security_cola,
+            social_security_reduction: w.social_security_reduction,
             reinvest_into: w.reinvest_into,
             drawdown: w.drawdown,
         })

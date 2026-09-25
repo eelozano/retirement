@@ -8,8 +8,8 @@
 use engine::model::TaxFigures;
 use engine::model::{
     Assumptions, CashFlowStream, FilingStatus, FullRetirementAge, GrowthRule, PeriodLength, Person,
-    Plan, SimConfig, SocialSecurityBenefit, StateTaxProfile, StreamBoundary, StreamDirection,
-    StreamKind, YearMonth, SCHEMA_VERSION,
+    Plan, SimConfig, SocialSecurityBenefit, SocialSecurityReduction, StateTaxProfile,
+    StreamBoundary, StreamDirection, StreamKind, YearMonth, SCHEMA_VERSION,
 };
 use engine::run_deterministic;
 use engine::sim::Projection;
@@ -58,6 +58,7 @@ fn household() -> Plan {
             sweep_surplus_from: None,
             survivor_expense_factor: 1.0,
             social_security_cola: 0.0,
+            social_security_reduction: None,
             strategy_volatility: Default::default(),
             reinvest_into: None,
             drawdown: Default::default(),
@@ -569,4 +570,25 @@ fn a_survivor_share_keeps_the_pensions_cola_anchor() {
 
     assert_close(year(&projection, 2034).income, 60_000.0 * 1.02_f64.powi(2));
     assert_close(year(&projection, 2035).income, 30_000.0 * 1.02_f64.powi(3));
+}
+
+/// An assumed Social Security cut reaches the survivor benefit too: the
+/// step-up is still a Social Security stream, so it pays the same reduced
+/// share as the benefits it replaced.
+#[test]
+fn a_social_security_cut_also_reduces_the_survivor_benefit() {
+    let mut plan = household();
+    plan.social_security = vec![benefit("first", 40_000.0), benefit("second", 25_000.0)];
+    plan.assumptions.social_security_reduction = Some(SocialSecurityReduction {
+        from: YearMonth {
+            year: 2034,
+            month: 1,
+        },
+        payable_fraction: 0.8,
+    });
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+
+    assert_eq!(year(&projection, 2033).income, 65_000.0);
+    assert!((year(&projection, 2034).income - 52_000.0).abs() < 1e-6);
+    assert!((year(&projection, 2040).income - 32_000.0).abs() < 1e-6);
 }

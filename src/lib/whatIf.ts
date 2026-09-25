@@ -1,6 +1,7 @@
 import type { Plan } from "../types/generated/Plan";
 import type { StreamBoundary } from "../types/generated/StreamBoundary";
 import type { YearMonth } from "../types/generated/YearMonth";
+import { SS_TRUST_FUND_DEPLETION_YEAR } from "./socialSecurity";
 
 // The knobs behind the What-if sandbox, and the pure function that turns the
 // saved plan into the hypothetical one.
@@ -23,6 +24,7 @@ export const MAX_RETURN_SHIFT_BP = 300;
 export const MIN_VOLATILITY_MULTIPLIER = 0.5;
 export const MAX_VOLATILITY_MULTIPLIER = 2;
 export const MAX_INFLATION_SHIFT_BP = 300;
+export const MIN_SS_PAYABLE = 0.5;
 
 /** Basis points to a decimal rate: 100 bp = 0.01. */
 const BP = 10_000;
@@ -49,6 +51,12 @@ export interface WhatIfOverrides {
    * years — "what if we live to 100", the stress test that also moves the
    * survivor transition and the plan horizon with it. */
   lifeExpectancyShiftYears: number;
+  /** Share of scheduled Social Security still paid once a cut starts, or
+   * `null` to leave the plan's own assumption alone. Absolute rather than a
+   * shift, unlike the knobs above, because "Social Security pays 77%" is the
+   * sentence people actually say. The cut starts where the plan's own does,
+   * or at the Trustees' depletion year when the plan assumes none. */
+  ssPayableFraction: number | null;
 }
 
 /** Every knob at rest: the saved plan, unchanged. */
@@ -59,6 +67,7 @@ export const BASELINE: WhatIfOverrides = {
   volatilityMultiplier: 1,
   inflationShiftBp: 0,
   lifeExpectancyShiftYears: 0,
+  ssPayableFraction: null,
 };
 
 /** True when the draft would be the saved plan. The sandbox reads the
@@ -70,6 +79,7 @@ export function isBaseline(o: WhatIfOverrides): boolean {
     o.volatilityMultiplier === 1 &&
     o.inflationShiftBp === 0 &&
     o.lifeExpectancyShiftYears === 0 &&
+    o.ssPayableFraction === null &&
     Object.values(o.retirementShiftYears).every((years) => years === 0)
   );
 }
@@ -139,6 +149,27 @@ export function applyOverridesTo(draft: Plan, o: WhatIfOverrides): void {
   if (o.inflationShiftBp !== 0) {
     draft.assumptions.inflation += o.inflationShiftBp / BP;
   }
+
+  if (o.ssPayableFraction !== null) {
+    const saved = draft.assumptions.social_security_reduction;
+    draft.assumptions.social_security_reduction = {
+      from: saved?.from ?? { year: SS_TRUST_FUND_DEPLETION_YEAR, month: 1 },
+      payable_fraction: o.ssPayableFraction,
+    };
+  }
+}
+
+/** The share of Social Security the saved plan pays once its cut starts —
+ * 1 when it assumes no cut. Where the knob's baseline tick sits. */
+export function savedSsPayable(plan: Plan): number {
+  return plan.assumptions.social_security_reduction?.payable_fraction ?? 1;
+}
+
+/** The year the knob's cut starts: the plan's own, else the Trustees'. */
+export function ssCutYear(plan: Plan): number {
+  return (
+    plan.assumptions.social_security_reduction?.from.year ?? SS_TRUST_FUND_DEPLETION_YEAR
+  );
 }
 
 /** The hypothetical plan: `plan` with the knobs applied, and nothing else
@@ -317,6 +348,11 @@ export function overrideLabels(plan: Plan, o: WhatIfOverrides): string[] {
       `Everyone lives ${years(n)} ${o.lifeExpectancyShiftYears < 0 ? "less" : "longer"}`,
     );
   }
+  if (o.ssPayableFraction !== null) {
+    labels.push(
+      `Social Security pays ${Math.round(o.ssPayableFraction * 100)}% from ${ssCutYear(plan)}`,
+    );
+  }
 
   return labels;
 }
@@ -342,6 +378,9 @@ export function suggestScenarioName(plan: Plan, o: WhatIfOverrides): string {
   if (o.lifeExpectancyShiftYears !== 0) {
     const shift = o.lifeExpectancyShiftYears;
     parts.push(`lifespan ${shift > 0 ? "+" : "−"}${Math.abs(shift)}y`);
+  }
+  if (o.ssPayableFraction !== null) {
+    parts.push(`Social Security ${Math.round(o.ssPayableFraction * 100)}%`);
   }
 
   return parts.length === 0 ? `${plan.name} copy` : `${plan.name} — ${parts.join(", ")}`;
