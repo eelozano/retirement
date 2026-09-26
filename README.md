@@ -55,14 +55,13 @@ success.](docs/screenshots/scenarios.png)
 
 **What-if.** A sandbox for questions you don't want to save yet: retire
 earlier, spend less, assume worse returns, higher inflation or a Social
-Security cut, and read the
-hypothetical against the plan it started from. Nothing is written until you
-save it as a scenario of its own.
+Security cut, and read the hypothetical against the plan it started from.
+Nothing is written until you save it as a scenario of its own.
 
 ![The What-if screen with sliders for retirement dates, spending, returns,
-volatility, inflation and life expectancy, comparing the Base plan to a
-hypothetical where Alex retires two years earlier and spending is cut to 92%:
-$769.6K less at plan end, and an 83% probability of success against the plan's
+volatility, inflation, life expectancy and Social Security, comparing the
+Base plan to a hypothetical where Alex retires two years earlier and spending is cut to 92%:
+$793.2K less at plan end, and an 83% probability of success against the plan's
 82%.](docs/screenshots/what-if.png)
 
 **Cash flow.** Money in above the line and money out below it, year by year,
