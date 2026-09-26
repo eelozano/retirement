@@ -2545,6 +2545,13 @@ button.remove:disabled {
   grid-row: 1 / span 2;
   position: sticky;
   top: 0;
+  /* Pinned, the column never scrolls with the page, so a column taller than
+     the window would hide its last knobs for good. Held to the height left
+     under the 57px topbar and the screen's 20px padding above and below, it
+     scrolls on its own instead. */
+  max-height: calc(100vh - 97px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 @media (max-width: 1100px) {
@@ -2554,6 +2561,7 @@ button.remove:disabled {
 
   .what-if-knobs {
     position: static;
+    max-height: none;
   }
 }
 /* Same content width with the labelled rail: see .why-fail-grid above. */
