@@ -840,9 +840,14 @@ body {
 .info-tooltip-bubble {
   position: absolute;
   z-index: 20;
-  left: 50%;
+  /* Left-anchored to the trigger rather than centered on it: the trigger
+     always sits right after left-aligned label or heading text, so it is
+     often close to its container's left edge — centering would push half
+     the bubble past that edge and clip it. Opening rightward from here
+     has never been short of room; every label lives well inside its
+     pane's right edge. */
+  left: 0;
   bottom: calc(100% + 6px);
-  transform: translateX(-50%);
   min-width: 150px;
   max-width: 220px;
   padding: 6px 8px;
@@ -864,6 +869,13 @@ body {
 .info-tooltip-trigger:focus-visible + .info-tooltip-bubble {
   opacity: 1;
   visibility: visible;
+}
+
+/* A heading sits at the top of its own section, with a scroll edge above
+   it rather than the room a field label has — open downward instead. */
+.info-tooltip-bubble-below {
+  top: calc(100% + 6px);
+  bottom: auto;
 }
 
 .field input:focus,

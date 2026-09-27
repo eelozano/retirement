@@ -20,6 +20,7 @@ import { ContributionCard } from "./ContributionCard";
 import { EmployerMatchFields } from "./EmployerMatchFields";
 import {
   CheckboxField,
+  InfoTooltip,
   NumberField,
   PercentField,
   SelectField,
@@ -73,9 +74,11 @@ function allocationLabel(allocation: AllocationRef, returns: StrategyRates): str
  * What the Rule of 55 checkbox says under itself: whether the election would
  * hold, and from when — the same check the engine makes, so a date that
  * does not qualify is visible here before it is a warning on the Plan
- * screen.
+ * screen. The glanceable dates stay inline as the hint; the mechanism they
+ * depend on (why leaving at 55 matters, why 59½ is the alternative) is
+ * background explanation, so it lives in the tooltip instead.
  */
-function rule55Hint(plan: Plan, account: Account): string {
+function rule55Hint(plan: Plan, account: Account): { hint: string; tooltip: string } {
   const owner = plan.people.find((p) => p.id === account.owner);
   const name = owner?.name || "The owner";
   const without = owner
@@ -83,11 +86,21 @@ function rule55Hint(plan: Plan, account: Account): string {
     : "";
   const check = rule55(plan, account);
   if (check.eligible) {
-    return `Leaving this employer in or after the year they turn 55 lets ${name} withdraw from its plan without the 10% penalty, if the plan allows it. This scenario's retirement date qualifies from ${yearMonth(check.from)}.${without}`;
+    return {
+      hint: `This scenario's retirement date qualifies from ${yearMonth(check.from)}.${without}`,
+      tooltip: `Leaving this employer in or after the year they turn 55 lets ${name} withdraw from its plan without the 10% penalty, if the plan allows it.`,
+    };
   }
   return check.reason === "SeparatedBefore55"
-    ? `Only applies when ${name} leaves this employer in or after the calendar year they turn 55, and this scenario retires them earlier — so the penalty still applies.${without}`
-    : `Only a 401(k), 403(b) or similar employer plan qualifies.${without}`;
+    ? {
+        hint: `This scenario retires ${name} before the year they turn 55, so the penalty still applies.${without}`,
+        tooltip:
+          "Only applies when leaving this employer in or after the calendar year you turn 55.",
+      }
+    : {
+        hint: `Only a 401(k), 403(b) or similar employer plan qualifies.${without}`,
+        tooltip: "",
+      };
 }
 
 /**
@@ -126,6 +139,7 @@ export function AccountsSection() {
   // removed) rather than leaving the editor empty.
   const selected = accounts.find((a) => a.id === selectedId) ?? accounts[0] ?? null;
   const selectedIndex = selected ? accounts.findIndex((a) => a.id === selected.id) : -1;
+  const rule55Info = selected ? rule55Hint(plan, selected) : null;
 
   // The household's own reading of this account's last balance, not the
   // plan's start date — a partially refreshed household can have accounts
@@ -238,8 +252,10 @@ export function AccountsSection() {
 
       {selected && (
         <fieldset className="input-card" key={selected.id} ref={editorRef}>
-          <legend>Editing: {selected.name || "Untitled account"}</legend>
-          <p className="field-hint">{FACT_VS_POLICY.account}</p>
+          <legend>
+            Editing: {selected.name || "Untitled account"}
+            <InfoTooltip text={FACT_VS_POLICY.account} placement="below" />
+          </legend>
           <TextField
             label="Name"
             value={selected.name}
@@ -253,7 +269,7 @@ export function AccountsSection() {
             label="Type"
             value={accountTypeFor(selected.kind, selected.plan_type)?.value ?? "taxable"}
             options={ACCOUNT_TYPE_OPTIONS}
-            hint={accountTypeFor(selected.kind, selected.plan_type)?.description}
+            tooltip={accountTypeFor(selected.kind, selected.plan_type)?.description}
             onChange={(value) =>
               updatePlan((d) => {
                 const type = accountTypeByValue(value);
@@ -345,7 +361,7 @@ export function AccountsSection() {
               rate={selected.allocation.FixedRate}
               minPercent={0}
               maxPercent={30}
-              hint="A rate this account grows at every year, instead of one of the plan's investment strategies — a bank savings or money-market rate, a CD ladder, or a mix the three strategies don't describe."
+              tooltip="A rate this account grows at every year, instead of one of the plan's investment strategies — a bank savings or money-market rate, a CD ladder, or a mix the three strategies don't describe."
               onChange={(rate) =>
                 updatePlan((d) => {
                   d.accounts[selectedIndex].allocation = { FixedRate: rate };
@@ -377,7 +393,7 @@ export function AccountsSection() {
             <NumberField
               label="Contributions to date ($)"
               value={selected.cost_basis ?? 0}
-              hint="What you've put in, not what it has grown to. Before 59½ contributions come back tax- and penalty-free while earnings pay income tax and the 10% penalty, so this decides what the account can bridge. Left at 0, the whole balance counts as earnings."
+              tooltip="What you've put in, not what it has grown to. Before 59½ contributions come back tax- and penalty-free while earnings pay income tax and the 10% penalty, so this decides what the account can bridge. Left at 0, the whole balance counts as earnings."
               onChange={(contributions) =>
                 updatePlan((d) => {
                   d.accounts[selectedIndex].cost_basis = contributions;
@@ -390,7 +406,8 @@ export function AccountsSection() {
               <CheckboxField
                 label="Withdraw under the Rule of 55"
                 checked={selected.rule_of_55}
-                hint={rule55Hint(plan, selected)}
+                hint={rule55Info?.hint}
+                tooltip={rule55Info?.tooltip || undefined}
                 onChange={(checked) =>
                   updatePlan((d) => {
                     d.accounts[selectedIndex].rule_of_55 = checked;

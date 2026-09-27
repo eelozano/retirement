@@ -35,7 +35,7 @@ type LimitGroup = "Workplace plans" | "IRAs" | "HSA" | "SEP and SIMPLE IRAs";
  * the order they first appear here. */
 const LIMIT_FIELDS: Record<
   keyof ContributionLimits,
-  { label: string; hint?: string; group: LimitGroup }
+  { label: string; hint?: string; tooltip?: string; group: LimitGroup }
 > = {
   employer_plan: {
     label: "401(k) / 403(b) deferral",
@@ -69,7 +69,8 @@ const LIMIT_FIELDS: Record<
   ira_catch_up_50: { label: "IRA catch-up, age 50+", group: "IRAs" },
   hsa: {
     label: "HSA (self-only)",
-    hint: "Published each spring. The $1,000 age-55 catch-up is fixed by law.",
+    hint: "Published each spring.",
+    tooltip: "The $1,000 age-55 catch-up is fixed by law.",
     group: "HSA",
   },
   sep_ira: { label: "SEP-IRA", group: "SEP and SIMPLE IRAs" },
@@ -165,6 +166,7 @@ function LimitsSection({ value, onChange }: SectionProps<"contribution_limits">)
                 key={k}
                 label={`${LIMIT_FIELDS[k].label} ($)`}
                 hint={LIMIT_FIELDS[k].hint}
+                tooltip={LIMIT_FIELDS[k].tooltip}
                 value={value[k]}
                 step={50}
                 onChange={(n) => onChange({ ...value, [k]: n })}

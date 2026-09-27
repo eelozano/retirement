@@ -6,7 +6,13 @@ import {
   totalMonths,
 } from "../../lib/socialSecurity";
 import type { Plan } from "../../types/generated/Plan";
-import { CheckboxField, NumberField, PercentField, SelectField } from "./fields";
+import {
+  CheckboxField,
+  InfoTooltip,
+  NumberField,
+  PercentField,
+  SelectField,
+} from "./fields";
 import { FACT_VS_POLICY, ownedBy, type UpdatePlan } from "./shared";
 
 const CLAIMING_AGES = Array.from({ length: 9 }, (_, i) => String(62 + i));
@@ -53,8 +59,10 @@ export function SocialSecurityFields(props: {
 
   return (
     <fieldset>
-      <legend>{`${ownerName}'s Social Security${ordinal}`}</legend>
-      <p className="field-hint">{FACT_VS_POLICY.benefit}</p>
+      <legend>
+        {`${ownerName}'s Social Security${ordinal}`}
+        <InfoTooltip text={FACT_VS_POLICY.benefit} placement="below" />
+      </legend>
       <NumberField
         label="Benefit at full retirement age ($/yr, today's)"
         value={benefit.benefit_at_fra}
@@ -68,7 +76,7 @@ export function SocialSecurityFields(props: {
       />
       <CheckboxField
         label="Set full retirement age myself"
-        hint="When off, this takes SSA's published age for the owner's birth year — which is not a whole number of years for births from 1938 to 1942 or 1955 to 1959."
+        tooltip="When off, this takes SSA's published age for the owner's birth year — which is not a whole number of years for births from 1938 to 1942 or 1955 to 1959."
         checked={benefit.full_retirement_age !== null}
         onChange={(checked) =>
           updatePlan((d) => {
