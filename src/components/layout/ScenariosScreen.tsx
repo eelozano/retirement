@@ -142,7 +142,10 @@ export function ScenariosScreen() {
         <p className="field-hint">
           A new scenario branches{" "}
           {activeHousehold ? `“${activeHousehold.name}”` : "this household"}.
-          <InfoTooltip text="It shares the same balances, and carries its own retirement dates, contributions, spending and claiming ages." />
+          <InfoTooltip
+            text="It shares the same balances, and carries its own retirement dates, contributions, spending and claiming ages."
+            placement="below"
+          />
         </p>
       </section>
 

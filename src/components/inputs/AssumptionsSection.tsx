@@ -300,7 +300,10 @@ export function AssumptionsSection() {
         <fieldset>
           <legend>
             After the first death
-            <InfoTooltip text="From the first death the projection draws one Social Security benefit — the larger of the two — and a joint filer becomes a single filer the following year, against roughly half the brackets and half the standard deduction." />
+            <InfoTooltip
+              text="From the first death the projection draws one Social Security benefit — the larger of the two — and a joint filer becomes a single filer the following year, against roughly half the brackets and half the standard deduction."
+              placement="below"
+            />
           </legend>
           <PercentField
             label="Surviving household's spending"
@@ -320,7 +323,10 @@ export function AssumptionsSection() {
       <fieldset>
         <legend>
           Investment strategies
-          <InfoTooltip text="Each account picks one of these on the Accounts pane. Returns are nominal — inflation comes off them — and each is the average of a single year, not the rate a balance compounds at over decades. The volatility is how wide the Monte Carlo fan gets, and width has a price: the same average return compounds more slowly the more it varies, so the median Monte Carlo path ends below the deterministic projection even though both were given this number. Whole-portfolio figures, prefilled but yours to change." />
+          <InfoTooltip
+            text="Each account picks one of these on the Accounts pane. Returns are nominal — inflation comes off them — and each is the average of a single year, not the rate a balance compounds at over decades. The volatility is how wide the Monte Carlo fan gets, and width has a price: the same average return compounds more slowly the more it varies, so the median Monte Carlo path ends below the deterministic projection even though both were given this number. Whole-portfolio figures, prefilled but yours to change."
+            placement="below"
+          />
         </legend>
         {STRATEGIES.map(({ key, variant }) => {
           const held = plan.accounts.filter((a) => a.allocation === variant);

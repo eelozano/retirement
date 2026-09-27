@@ -97,6 +97,7 @@ export function SpendingSection() {
                 "spending from in here, so treat it as a starting point to sanity-check " +
                 "rather than a measurement."
               }
+              placement="below"
             />
           </p>
           <button

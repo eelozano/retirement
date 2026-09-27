@@ -61,7 +61,7 @@ export function SocialSecurityFields(props: {
     <fieldset>
       <legend>
         {`${ownerName}'s Social Security${ordinal}`}
-        <InfoTooltip text={FACT_VS_POLICY.benefit} />
+        <InfoTooltip text={FACT_VS_POLICY.benefit} placement="below" />
       </legend>
       <NumberField
         label="Benefit at full retirement age ($/yr, today's)"

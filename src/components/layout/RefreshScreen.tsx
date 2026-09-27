@@ -228,7 +228,10 @@ function RefreshForm(props: { plan: Plan; household: Household }) {
         <div className="band">
           <p className="band-label">
             People
-            <InfoTooltip text="Shown, not edited — a birth month is not a reading. Retirement dates belong to a scenario and live on the Inputs screen." />
+            <InfoTooltip
+              text="Shown, not edited — a birth month is not a reading. Retirement dates belong to a scenario and live on the Inputs screen."
+              placement="below"
+            />
           </p>
           <ul className="refresh-people">
             {household.people.map((p) => (
@@ -243,7 +246,10 @@ function RefreshForm(props: { plan: Plan; household: Household }) {
         <div className="band">
           <p className="band-label">
             Accounts
-            <InfoTooltip text="Leave an account alone and it keeps the figure it has, and the date it was read — nothing is estimated forward for it. Adding, renaming or removing an account is the Inputs screen's job." />
+            <InfoTooltip
+              text="Leave an account alone and it keeps the figure it has, and the date it was read — nothing is estimated forward for it. Adding, renaming or removing an account is the Inputs screen's job."
+              placement="below"
+            />
           </p>
           <div className="table-scroll">
             <table className="input-table">
@@ -320,7 +326,10 @@ function RefreshForm(props: { plan: Plan; household: Household }) {
           <div className="band band-social-security">
             <p className="band-label">
               Social Security
-              <InfoTooltip text="The benefit at full retirement age, as this year's statement estimates it. Full retirement age is fixed by birth year, and when to claim is a scenario's choice." />
+              <InfoTooltip
+                text="The benefit at full retirement age, as this year's statement estimates it. Full retirement age is fixed by birth year, and when to claim is a scenario's choice."
+                placement="below"
+              />
             </p>
             <div className="table-scroll">
               <table className="input-table">

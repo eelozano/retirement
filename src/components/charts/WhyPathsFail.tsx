@@ -13,6 +13,7 @@ import {
 import { ratePercent } from "../../lib/format";
 import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
 import type { Spread } from "../../types/generated/Spread";
+import { InfoTooltip } from "../inputs/fields";
 import {
   failureFindings,
   REFERENCE_BAND,
@@ -253,7 +254,13 @@ function SpendingFindingBlock(props: { spending: SpendingFinding }) {
 
   return (
     <div className="why-fail-finding">
-      <span className="tile-label">Spending</span>
+      <span className="tile-label">
+        Spending
+        <InfoTooltip
+          text="Offered as a reference, not as a rule this app enforces."
+          placement="below"
+        />
+      </span>
       <p className="why-fail-sentence">
         The median path withdraws <strong>{ratePercent(s.medianRate)}</strong> of the
         portfolio in the first full year of retirement.
@@ -282,8 +289,7 @@ function SpendingFindingBlock(props: { spending: SpendingFinding }) {
         <span>{ratePercent(s.scaleMax, 0)}</span>
       </div>
       <p className="why-fail-support">
-        {bandLabel} is the conventional range, offered as a reference and not as a rule
-        this app enforces.
+        {bandLabel} is the conventional range.
         {s.failedRate !== null && s.succeededRate !== null && (
           <>
             {" "}

@@ -20,6 +20,7 @@ import {
 import { WhyPathsFail } from "../charts/WhyPathsFail";
 import { YearBalances } from "../charts/YearBalances";
 import { YearInspector } from "../charts/YearInspector";
+import { InfoTooltip } from "../inputs/fields";
 import { StatusBand } from "./StatusBand";
 
 // The default destination, in four zones:
@@ -168,7 +169,19 @@ export function PlanScreen(props: {
                     chart and fills this inspector, and does nothing anywhere
                     else in the app. */}
                 <div className="card-head">
-                  <h2>Net worth &amp; account balances</h2>
+                  <h2>
+                    Net worth &amp; account balances
+                    {/* What the solid line is, on the card that draws it. The
+                        fan is the answer to a different question, and a reader
+                        who has both on one screen — a net worth here, a
+                        probability of success on the tile above — is otherwise
+                        left to assume they describe the same outcome (#144).
+                        Silent at zero volatility, where the deterministic run
+                        *is* the median path. */}
+                    {hasVolatility(plan) && (
+                      <InfoTooltip text={DETERMINISTIC_LINE_NOTE} placement="below" />
+                    )}
+                  </h2>
                   {/* The start month, named rather than editable. It is the
                       month the balances under Inputs were observed, and a
                       plan started mid-year opens with a short first period
@@ -259,16 +272,6 @@ export function PlanScreen(props: {
                     </>
                   )}
                 </div>
-                {/* What the solid line is, on the card that draws it. The
-                    fan is the answer to a different question, and a reader
-                    who has both on one screen — a net worth here, a
-                    probability of success on the tile above — is otherwise
-                    left to assume they describe the same outcome (#144).
-                    Silent at zero volatility, where the deterministic run
-                    *is* the median path. */}
-                {hasVolatility(plan) && (
-                  <p className="chart-note">{DETERMINISTIC_LINE_NOTE}</p>
-                )}
                 <ProjectionChart
                   rows={chartData}
                   series={series}
