@@ -15,7 +15,7 @@ import type { PhaseStart } from "../../types/generated/PhaseStart";
 import type { Plan } from "../../types/generated/Plan";
 import type { StackSource } from "../../types/generated/StackSource";
 import { BoundaryDetail } from "./BoundaryDetail";
-import { AmountInput, SelectField, TextField } from "./fields";
+import { AmountInput, InfoTooltip, SelectField, TextField } from "./fields";
 import { boundaryOptions, boundaryToChoice, choiceToBoundary } from "./streamBoundary";
 
 const PROPORTIONAL = "Proportional";
@@ -116,7 +116,7 @@ export function DrawdownSection() {
           label="Withdraw"
           value={phases ? PHASED : PROPORTIONAL}
           options={MODE_OPTIONS}
-          hint={
+          tooltip={
             phases
               ? "Each phase draws its list top to bottom. Anything a list leaves out is drawn after it: money that carries no early-withdrawal penalty first, then by type — savings, taxable, pre-tax, Roth, HSA."
               : "Every account pays its share of each year's shortfall, in proportion to its balance — including a 401(k) or IRA before 59½, which pays the 10% early-withdrawal penalty."
@@ -208,7 +208,18 @@ export function DrawdownSection() {
             )}
 
             <div className="band">
-              <p className="band-label">Draw from, in order</p>
+              <p className="band-label">
+                Draw from, in order
+                <InfoTooltip
+                  text={
+                    "A balance to keep is held back until everything else is spent, then used " +
+                    "rather than letting the plan run out with money in the bank. An entry for " +
+                    'a whole type — "All Roth accounts" — draws every account of that type ' +
+                    "together, in proportion to balance."
+                  }
+                  placement="below"
+                />
+              </p>
               {phase.stack.length === 0 ? (
                 <p className="field-hint">
                   Nothing listed — every account is drawn in the default order.
@@ -315,12 +326,6 @@ export function DrawdownSection() {
                   });
                 }}
               />
-              <p className="field-hint">
-                A balance to keep is held back until everything else is spent, then used
-                rather than letting the plan run out with money in the bank. An entry for
-                a whole type — "All Roth accounts" — draws every account of that type
-                together, in proportion to balance.
-              </p>
             </div>
 
             {index > 0 && (

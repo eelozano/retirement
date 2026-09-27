@@ -9,7 +9,13 @@ import type { FilingStatus } from "../../types/generated/FilingStatus";
 import type { Plan } from "../../types/generated/Plan";
 import type { StateCode } from "../../types/generated/StateCode";
 import { BoundaryDetail } from "./BoundaryDetail";
-import { CheckboxField, PercentField, SelectField, YearMonthField } from "./fields";
+import {
+  CheckboxField,
+  InfoTooltip,
+  PercentField,
+  SelectField,
+  YearMonthField,
+} from "./fields";
 import { boundaryOptions, boundaryToChoice, choiceToBoundary } from "./streamBoundary";
 import { TaxBracketEditor } from "./TaxBracketEditor";
 
@@ -155,7 +161,7 @@ export function AssumptionsSection() {
         <legend>Economy &amp; taxes</legend>
         <PercentField
           label="Inflation"
-          hint="Grows every amount set to rise with inflation, indexes the tax brackets and contribution limits forward each year, and sets the deflator behind the today's-dollars toggle. The expected returns below are nominal, so this is what comes off them."
+          tooltip="Grows every amount set to rise with inflation, indexes the tax brackets and contribution limits forward each year, and sets the deflator behind the today's-dollars toggle. The expected returns below are nominal, so this is what comes off them."
           rate={assumptions.inflation}
           onChange={(rate) =>
             updatePlan((d) => {
@@ -198,7 +204,7 @@ export function AssumptionsSection() {
         />
         <SelectField
           label="Invest leftover cash from"
-          hint="Leftover cash each year is income minus contributions, taxes, and modelled spending — and it means two different things. While you're working it's what you live on: you enter what you save, not what you spend, so sweeping it into a brokerage would invest money you've already spent. In retirement it's genuinely left over, and leaving it out understates the portfolio every year. Starting the sweep at a retirement date says both."
+          tooltip="Leftover cash each year is income minus contributions, taxes, and modelled spending — and it means two different things. While you're working it's what you live on: you enter what you save, not what you spend, so sweeping it into a brokerage would invest money you've already spent. In retirement it's genuinely left over, and leaving it out understates the portfolio every year. Starting the sweep at a retirement date says both."
           value={sweepChoice}
           options={SWEEP_OPTIONS(plan)}
           onChange={(choice) =>
@@ -226,7 +232,7 @@ export function AssumptionsSection() {
         )}
         <SelectField
           label="Reinvest leftover cash into"
-          hint="Where swept surplus and the after-tax remainder of a required minimum distribution land. Left at the default, it's the first taxable account in plan order — whichever happens to be listed first. With more than one taxable account, naming one directly keeps that from being an accident: which account it is changes how the money grows and what later withdrawals cost in tax."
+          tooltip="Where swept surplus and the after-tax remainder of a required minimum distribution land. Left at the default, it's the first taxable account in plan order — whichever happens to be listed first. With more than one taxable account, naming one directly keeps that from being an accident: which account it is changes how the money grows and what later withdrawals cost in tax."
           value={reinvestChoice}
           options={REINVEST_OPTIONS(plan)}
           onChange={(choice) =>
@@ -247,7 +253,8 @@ export function AssumptionsSection() {
         />
         <CheckboxField
           label="Assume a Social Security cut"
-          hint={`The Trustees project the trust funds run dry in ${SS_TRUST_FUND_DEPLETION_YEAR}, after which payroll tax covers about ${Math.round(SS_TRUSTEES_PAYABLE_FRACTION * 100)}% of scheduled benefits unless Congress acts. Ticking this starts from those figures; both are yours to change. Survivor benefits are cut alike.`}
+          hint={`Defaults to ${SS_TRUST_FUND_DEPLETION_YEAR} at ${Math.round(SS_TRUSTEES_PAYABLE_FRACTION * 100)}% payable; both are yours to change.`}
+          tooltip={`The Trustees project the trust funds run dry in ${SS_TRUST_FUND_DEPLETION_YEAR}, after which payroll tax covers about ${Math.round(SS_TRUSTEES_PAYABLE_FRACTION * 100)}% of scheduled benefits, unless Congress acts. Survivor benefits are cut alike.`}
           checked={ssCut !== null}
           onChange={(checked) =>
             updatePlan((d) => {
@@ -291,15 +298,17 @@ export function AssumptionsSection() {
       </fieldset>
       {plan.people.length > 1 && (
         <fieldset>
-          <legend>After the first death</legend>
-          <p className="field-hint">
-            From the first death the projection draws one Social Security benefit — the
-            larger of the two — and a joint filer becomes a single filer the following
-            year, against roughly half the brackets and half the standard deduction.
-          </p>
+          <legend>
+            After the first death
+            <InfoTooltip
+              text="From the first death the projection draws one Social Security benefit — the larger of the two — and a joint filer becomes a single filer the following year, against roughly half the brackets and half the standard deduction."
+              placement="below"
+            />
+          </legend>
           <PercentField
             label="Surviving household's spending"
-            hint="Share of household spending (the expenses no single person owns) that continues for the survivor. Planners commonly use 70–80%: one person doesn't cost what two did, but housing, utilities, and property tax barely move. Left at 100% until you set it. Expenses owned by a person are left alone — their own end date says when they stop."
+            hint="Left at 100% until you set it."
+            tooltip="Share of household spending (the expenses no single person owns) that continues for the survivor. Planners commonly use 70–80%: one person doesn't cost what two did, but housing, utilities, and property tax barely move. Expenses owned by a person are left alone — their own end date says when they stop."
             rate={assumptions.survivor_expense_factor}
             minPercent={0}
             maxPercent={100}
@@ -312,16 +321,13 @@ export function AssumptionsSection() {
         </fieldset>
       )}
       <fieldset>
-        <legend>Investment strategies</legend>
-        <p className="field-hint">
-          Each account picks one of these on the Accounts pane. Returns are nominal —
-          inflation comes off them — and each is the average of a <em>single year</em>,
-          not the rate a balance compounds at over decades. The volatility is how wide the
-          Monte Carlo fan gets, and width has a price: the same average return compounds
-          more slowly the more it varies, so the median Monte Carlo path ends below the
-          deterministic projection even though both were given this number.
-          Whole-portfolio figures, prefilled but yours to change.
-        </p>
+        <legend>
+          Investment strategies
+          <InfoTooltip
+            text="Each account picks one of these on the Accounts pane. Returns are nominal — inflation comes off them — and each is the average of a single year, not the rate a balance compounds at over decades. The volatility is how wide the Monte Carlo fan gets, and width has a price: the same average return compounds more slowly the more it varies, so the median Monte Carlo path ends below the deterministic projection even though both were given this number. Whole-portfolio figures, prefilled but yours to change."
+            placement="below"
+          />
+        </legend>
         {STRATEGIES.map(({ key, variant }) => {
           const held = plan.accounts.filter((a) => a.allocation === variant);
           const balance = held.reduce((sum, a) => sum + a.balance, 0);

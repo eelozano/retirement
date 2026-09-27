@@ -1,4 +1,5 @@
 import { currency, currencyCompact } from "../../lib/format";
+import { InfoTooltip } from "../inputs/fields";
 import { type FlowRow, medianGapNote, type YearDetail } from "./planData";
 
 // Right-hand readout for one year of the projection. The cash-flow fields on
@@ -42,12 +43,12 @@ function FlowGroup(props: {
       <div className="inspector-total">
         <span className={props.totalCritical ? "row-critical" : ""}>
           {props.totalLabel}
+          {props.note && <InfoTooltip text={props.note} placement="below" />}
         </span>
         <span className={`row-value ${props.totalCritical ? "row-critical" : ""}`}>
           {currency(props.total)}
         </span>
       </div>
-      {props.note && <p className="inspector-note">{props.note}</p>}
     </div>
   );
 }

@@ -43,6 +43,7 @@ import {
   mergeActiveBand,
 } from "../charts/compareData";
 import { WhyPathsFail } from "../charts/WhyPathsFail";
+import { InfoTooltip } from "../inputs/fields";
 
 // The What-if destination: a hypothetical you can drag back.
 //
@@ -114,6 +115,9 @@ function Knob(props: {
    * position, not a figure anyone wants to read. */
   display: string;
   hint?: string;
+  /** A fact shown on hover/focus of an "i" badge next to the label, rather
+   * than as a permanent line under the control — see `InfoTooltip`. */
+  tooltip?: string;
   value: number;
   baseline: number;
   min: number;
@@ -129,7 +133,10 @@ function Knob(props: {
   return (
     <div className="knob">
       <div className="knob-head">
-        <label htmlFor={id}>{props.label}</label>
+        <label htmlFor={id}>
+          {props.label}
+          {props.tooltip && <InfoTooltip text={props.tooltip} />}
+        </label>
         <span
           className={`knob-value ${props.value === props.baseline ? "" : "knob-moved"}`}
         >
@@ -140,6 +147,10 @@ function Knob(props: {
         <input
           id={id}
           type="range"
+          // Named explicitly rather than relying on the wrapping label: a
+          // tooltip lives inside the label too, and would otherwise become
+          // part of the control's accessible name — see SelectField.
+          aria-label={props.label}
           min={props.min}
           max={props.max}
           step={props.step}
@@ -470,7 +481,6 @@ export function WhatIfScreen() {
         <div className="knob-grid">
           {plan.people.map((person) => {
             const bounds = retirementShiftBounds(plan, person.id);
-            const shift = draftOverrides.retirementShiftYears[person.id] ?? 0;
             const live = overrides.retirementShiftYears[person.id] ?? 0;
             return (
               <Knob
@@ -481,11 +491,7 @@ export function WhatIfScreen() {
                     ? `${person.retirement.year} (as saved)`
                     : `${person.retirement.year + live} (${live > 0 ? "+" : "−"}${Math.abs(live)}y)`
                 }
-                hint={
-                  shift !== 0
-                    ? "Moves every stream anchored to this retirement with it."
-                    : undefined
-                }
+                tooltip="Moves every stream anchored to this retirement with it."
                 value={live}
                 baseline={0}
                 min={bounds.min}
@@ -514,7 +520,7 @@ export function WhatIfScreen() {
                 ? "As assumed"
                 : `${overrides.returnShiftBp > 0 ? "+" : "−"}${Math.abs(overrides.returnShiftBp)} bp`
             }
-            hint="Shifts every strategy's expected return, deterministic projection and Monte Carlo alike. Nominal — move the inflation knob too if you meant a real-return change."
+            tooltip="Shifts every strategy's expected return, deterministic projection and Monte Carlo alike. Nominal — move the inflation knob too if you meant a real-return change."
             value={overrides.returnShiftBp}
             baseline={0}
             min={-MAX_RETURN_SHIFT_BP}
@@ -526,7 +532,7 @@ export function WhatIfScreen() {
           <Knob
             label="Volatility"
             display={`×${overrides.volatilityMultiplier.toFixed(2)}`}
-            hint="Monte Carlo only — the deterministic projection, and the year it depletes, never read volatility."
+            tooltip="Monte Carlo only — the deterministic projection, and the year it depletes, never read volatility."
             value={overrides.volatilityMultiplier}
             baseline={1}
             min={MIN_VOLATILITY_MULTIPLIER}
@@ -557,7 +563,7 @@ export function WhatIfScreen() {
                 ? "To the ages on the plan"
                 : `${overrides.lifeExpectancyShiftYears > 0 ? "+" : "−"}${Math.abs(overrides.lifeExpectancyShiftYears)} years`
             }
-            hint="Moves the plan's horizon, and the survivor transition with it."
+            tooltip="Moves the plan's horizon, and the survivor transition with it."
             value={overrides.lifeExpectancyShiftYears}
             baseline={0}
             min={lifeExpectancyShiftBounds(plan).min}
@@ -573,7 +579,8 @@ export function WhatIfScreen() {
                 ? "In full"
                 : `${Math.round(ssPayable * 100)}% from ${ssCutYear(plan)}`
             }
-            hint={`Of scheduled benefits, survivor benefits included. The Trustees project the trust funds run dry in ${SS_TRUST_FUND_DEPLETION_YEAR}, leaving about ${Math.round(SS_TRUSTEES_PAYABLE_FRACTION * 100)}% payable unless Congress acts.`}
+            hint="Of scheduled benefits, survivor benefits included."
+            tooltip={`The Trustees project the trust funds run dry in ${SS_TRUST_FUND_DEPLETION_YEAR}, leaving about ${Math.round(SS_TRUSTEES_PAYABLE_FRACTION * 100)}% payable unless Congress acts.`}
             value={ssPayable}
             baseline={savedSsPayable(plan)}
             min={Math.min(MIN_SS_PAYABLE, savedSsPayable(plan))}

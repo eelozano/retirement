@@ -1,6 +1,6 @@
 import { usePlanStore } from "../../store/planStore";
 import { ageAt } from "./age";
-import { NumberField, TextField, YearMonthField } from "./fields";
+import { InfoTooltip, NumberField, TextField, YearMonthField } from "./fields";
 import { PensionCard } from "./PensionCard";
 import { SocialSecurityFields } from "./SocialSecurityFields";
 import { StreamCard } from "./StreamCard";
@@ -99,8 +99,10 @@ export function PeopleSection() {
 
         return (
           <div className="input-card person-card" key={person.id}>
-            <div className="input-card-title">{person.name || `Person ${i + 1}`}</div>
-            <p className="field-hint">{FACT_VS_POLICY.person}</p>
+            <div className="input-card-title">
+              {person.name || `Person ${i + 1}`}
+              <InfoTooltip text={FACT_VS_POLICY.person} placement="below" />
+            </div>
             <TextField
               label="Name"
               value={person.name}
@@ -131,7 +133,7 @@ export function PeopleSection() {
             />
             <NumberField
               label="Life expectancy (age)"
-              hint="The mortality assumption for this person — it sets when their own income and expense streams end, and the later of everyone's determines the projection's end year."
+              tooltip="The mortality assumption for this person — it sets when their own income and expense streams end, and the later of everyone's determines the projection's end year."
               value={person.life_expectancy_age}
               step={1}
               min={1}

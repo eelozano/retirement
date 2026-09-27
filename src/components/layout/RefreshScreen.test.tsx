@@ -219,6 +219,8 @@ describe("RefreshScreen", () => {
   it("shows birth months without offering to edit them", () => {
     render(<RefreshScreen />);
     expect(screen.getByText("born Aug 1983")).toBeTruthy();
-    expect(screen.queryByLabelText(/birth/i)).toBeNull();
+    expect(
+      screen.queryByLabelText(/birth/i, { selector: "input, select, textarea" }),
+    ).toBeNull();
   });
 });

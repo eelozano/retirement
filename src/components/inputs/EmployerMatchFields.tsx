@@ -29,7 +29,7 @@ export function EmployerMatchFields(props: {
       <CheckboxField
         label="Employer contributions"
         checked={match !== null}
-        hint={
+        tooltip={
           match !== null
             ? "Employer money: it does not count against your own contribution limit, only against the much higher cap on everything going into the plan."
             : undefined
@@ -46,7 +46,7 @@ export function EmployerMatchFields(props: {
             label="Employer money goes in as"
             value={match.destination}
             options={MATCH_DESTINATIONS}
-            hint="Pre-tax employer money reduces this year's taxable income; Roth does not. It lands in an employer-plan account of that kind."
+            tooltip="Pre-tax employer money reduces this year's taxable income; Roth does not. It lands in an employer-plan account of that kind."
             onChange={(destination: MatchDestination) =>
               updatePlan((d) => {
                 const draft = d.accounts[i].employer_match;
@@ -59,7 +59,8 @@ export function EmployerMatchFields(props: {
             rate={match.nonelective_percent}
             minPercent={0}
             maxPercent={100}
-            hint="A percent of salary the employer puts in without asking you to contribute anything — a safe-harbor or profit-sharing contribution. Leave at 0% if your employer only matches."
+            hint="Leave at 0% if your employer only matches."
+            tooltip="A percent of salary the employer puts in without asking you to contribute anything — a safe-harbor or profit-sharing contribution."
             onChange={(rate) =>
               updatePlan((d) => {
                 const draft = d.accounts[i].employer_match;
