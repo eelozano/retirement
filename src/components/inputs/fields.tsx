@@ -115,16 +115,28 @@ export function TextField(props: {
   /** Shown while the field is empty: an example of what goes there, never a
    * value the plan holds. */
   placeholder?: string;
+  hint?: string;
+  /** A fact shown on hover/focus of an "i" badge next to the label, rather
+   * than as a permanent line under the control — see `InfoTooltip`. */
+  tooltip?: string;
 }) {
   return (
-    <label className="field">
-      <span>{props.label}</span>
+    <label className={props.hint ? "field field-with-hint" : "field"}>
+      <span>
+        {props.label}
+        {props.tooltip && <InfoTooltip text={props.tooltip} />}
+      </span>
       <input
         type="text"
+        // Named explicitly rather than relying on the wrapping label: a
+        // tooltip lives inside the label too, and would otherwise become
+        // part of the control's accessible name — see SelectField.
+        aria-label={props.label}
         value={props.value}
         placeholder={props.placeholder}
         onChange={(e) => props.onChange(e.currentTarget.value)}
       />
+      {props.hint && <small className="field-hint">{props.hint}</small>}
     </label>
   );
 }
@@ -137,11 +149,17 @@ export function NumberField(props: {
   min?: number;
   max?: number;
   hint?: string;
+  /** A fact shown on hover/focus of an "i" badge next to the label, rather
+   * than as a permanent line under the control — see `InfoTooltip`. */
+  tooltip?: string;
 }) {
   const id = useId();
   return (
     <label className={props.hint ? "field field-with-hint" : "field"} htmlFor={id}>
-      <span>{props.label}</span>
+      <span>
+        {props.label}
+        {props.tooltip && <InfoTooltip text={props.tooltip} />}
+      </span>
       <BufferedNumberInput
         id={id}
         ariaLabel={props.label}
@@ -173,6 +191,9 @@ export function AmountField(props: {
   max?: number;
   step?: number;
   hint?: string;
+  /** A fact shown on hover/focus of an "i" badge next to the label, rather
+   * than as a permanent line under the control — see `InfoTooltip`. */
+  tooltip?: string;
 }) {
   const id = useId();
   const [unit, setUnit] = useState<"year" | "month">("year");
@@ -187,7 +208,10 @@ export function AmountField(props: {
       className={props.hint ? "field field-amount field-with-hint" : "field field-amount"}
       htmlFor={id}
     >
-      <span>{props.label}</span>
+      <span>
+        {props.label}
+        {props.tooltip && <InfoTooltip text={props.tooltip} />}
+      </span>
       <span className="field-group">
         <BufferedNumberInput
           id={id}
@@ -223,12 +247,18 @@ export function PercentField(props: {
   minPercent?: number;
   maxPercent?: number;
   hint?: string;
+  /** A fact shown on hover/focus of an "i" badge next to the label, rather
+   * than as a permanent line under the control — see `InfoTooltip`. */
+  tooltip?: string;
 }) {
   const label = `${props.label} (%)`;
   const id = useId();
   return (
     <label className={props.hint ? "field field-with-hint" : "field"} htmlFor={id}>
-      <span>{label}</span>
+      <span>
+        {label}
+        {props.tooltip && <InfoTooltip text={props.tooltip} />}
+      </span>
       <BufferedNumberInput
         id={id}
         ariaLabel={label}
@@ -248,15 +278,25 @@ export function CheckboxField(props: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   hint?: string;
+  /** A fact shown on hover/focus of an "i" badge next to the label, rather
+   * than as a permanent line under the control — see `InfoTooltip`. */
+  tooltip?: string;
 }) {
   return (
     <label className="field field-checkbox">
       <input
         type="checkbox"
+        // Named explicitly rather than relying on the wrapping label: a
+        // tooltip lives inside the label too, and would otherwise become
+        // part of the control's accessible name — see SelectField.
+        aria-label={props.label}
         checked={props.checked}
         onChange={(e) => props.onChange(e.currentTarget.checked)}
       />
-      <span>{props.label}</span>
+      <span>
+        {props.label}
+        {props.tooltip && <InfoTooltip text={props.tooltip} />}
+      </span>
       {props.hint && <small className="field-hint">{props.hint}</small>}
     </label>
   );
@@ -297,6 +337,9 @@ export function YearMonthField(props: {
   minYear?: number;
   maxYear?: number;
   hint?: string;
+  /** A fact shown on hover/focus of an "i" badge next to the label, rather
+   * than as a permanent line under the control — see `InfoTooltip`. */
+  tooltip?: string;
 }) {
   const { year, month } = props.value;
   return (
@@ -305,7 +348,10 @@ export function YearMonthField(props: {
         props.hint ? "field field-yearmonth field-with-hint" : "field field-yearmonth"
       }
     >
-      <legend>{props.label}</legend>
+      <legend>
+        {props.label}
+        {props.tooltip && <InfoTooltip text={props.tooltip} />}
+      </legend>
       <span className="field-group">
         <select
           aria-label={`${props.label} month`}

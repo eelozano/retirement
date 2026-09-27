@@ -6,7 +6,7 @@ import { usePlanStore } from "../../store/planStore";
 import type { Household } from "../../types/generated/Household";
 import type { Plan } from "../../types/generated/Plan";
 import type { YearMonth } from "../../types/generated/YearMonth";
-import { AmountInput } from "../inputs/fields";
+import { AmountInput, InfoTooltip } from "../inputs/fields";
 import {
   grownRate,
   listRates,
@@ -200,7 +200,10 @@ function RefreshForm(props: { plan: Plan; household: Household }) {
 
         <div className="refresh-when">
           <label className="field">
-            <span>These balances are as of</span>
+            <span>
+              These balances are as of
+              <InfoTooltip text="A sitting can only move forwards, and only as far as this month." />
+            </span>
             <select
               aria-label="Balances as of"
               value={`${asOf.year}-${asOf.month}`}
@@ -218,16 +221,14 @@ function RefreshForm(props: { plan: Plan; household: Household }) {
           </label>
           <p className="field-hint">
             On file: {yearMonth(household.as_of)} ·{" "}
-            {monthsAgoLabel(monthsSince(household.as_of, new Date()))}. A sitting can only
-            move forwards, and only as far as this month.
+            {monthsAgoLabel(monthsSince(household.as_of, new Date()))}.
           </p>
         </div>
 
         <div className="band">
-          <p className="band-label">People</p>
-          <p className="field-hint">
-            Shown, not edited — a birth month is not a reading. Retirement dates belong to
-            a scenario and live on the Inputs screen.
+          <p className="band-label">
+            People
+            <InfoTooltip text="Shown, not edited — a birth month is not a reading. Retirement dates belong to a scenario and live on the Inputs screen." />
           </p>
           <ul className="refresh-people">
             {household.people.map((p) => (
@@ -240,11 +241,9 @@ function RefreshForm(props: { plan: Plan; household: Household }) {
         </div>
 
         <div className="band">
-          <p className="band-label">Accounts</p>
-          <p className="field-hint">
-            Leave an account alone and it keeps the figure it has, and the date it was
-            read — nothing is estimated forward for it. Adding, renaming or removing an
-            account is the Inputs screen's job.
+          <p className="band-label">
+            Accounts
+            <InfoTooltip text="Leave an account alone and it keeps the figure it has, and the date it was read — nothing is estimated forward for it. Adding, renaming or removing an account is the Inputs screen's job." />
           </p>
           <div className="table-scroll">
             <table className="input-table">
@@ -319,11 +318,9 @@ function RefreshForm(props: { plan: Plan; household: Household }) {
 
         {plan.social_security.length > 0 && (
           <div className="band band-social-security">
-            <p className="band-label">Social Security</p>
-            <p className="field-hint">
-              The benefit at full retirement age, as this year's statement estimates it.
-              Full retirement age is fixed by birth year, and when to claim is a
-              scenario's choice.
+            <p className="band-label">
+              Social Security
+              <InfoTooltip text="The benefit at full retirement age, as this year's statement estimates it. Full retirement age is fixed by birth year, and when to claim is a scenario's choice." />
             </p>
             <div className="table-scroll">
               <table className="input-table">

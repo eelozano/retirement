@@ -1,7 +1,7 @@
 import type { Plan } from "../../types/generated/Plan";
 import { oneTimeLegend, oneTimeNotCounted } from "./accountContribution";
 import { BoundaryDetail } from "./BoundaryDetail";
-import { NumberField, SelectField, TextField } from "./fields";
+import { InfoTooltip, NumberField, SelectField, TextField } from "./fields";
 import type { UpdatePlan } from "./shared";
 import {
   boundaryDateHint,
@@ -32,12 +32,10 @@ export function OneTimeContributionCard(props: {
 
   return (
     <fieldset>
-      <legend>{oneTimeLegend(entry, plan)}</legend>
-      <p className="field-hint">
-        Money from outside the plan, landing in this account once. It isn't taxed and
-        doesn't come out of that year's income. Whatever it came from isn't counted before
-        it arrives, so net worth jumps the year it lands.
-      </p>
+      <legend>
+        {oneTimeLegend(entry, plan)}
+        <InfoTooltip text="Money from outside the plan, landing in this account once. It isn't taxed and doesn't come out of that year's income. Whatever it came from isn't counted before it arrives, so net worth jumps the year it lands." />
+      </legend>
       <TextField
         label="Name"
         value={entry.name}

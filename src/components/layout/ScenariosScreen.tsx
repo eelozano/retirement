@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { PlanSummary } from "../../lib/api";
 import { usePlanStore } from "../../store/planStore";
+import { InfoTooltip } from "../inputs/fields";
 import { ComparisonView } from "./ComparisonView";
 
 // The scenarios destination: manage the scenario list (switch, duplicate,
@@ -140,9 +141,8 @@ export function ScenariosScreen() {
         </div>
         <p className="field-hint">
           A new scenario branches{" "}
-          {activeHousehold ? `“${activeHousehold.name}”` : "this household"} — it shares
-          the same balances, and carries its own retirement dates, contributions, spending
-          and claiming ages.
+          {activeHousehold ? `“${activeHousehold.name}”` : "this household"}.
+          <InfoTooltip text="It shares the same balances, and carries its own retirement dates, contributions, spending and claiming ages." />
         </p>
       </section>
 

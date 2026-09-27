@@ -5,6 +5,7 @@ import {
 } from "../../lib/currentSpending";
 import { currency } from "../../lib/format";
 import { usePlanStore } from "../../store/planStore";
+import { InfoTooltip } from "./fields";
 import { StreamCard } from "./StreamCard";
 import { ownedBy } from "./shared";
 
@@ -86,14 +87,17 @@ export function SpendingSection() {
           <p className="field-hint">
             This plan says you live on about <strong>{currency(seedAmount)}</strong> a
             year in today&rsquo;s dollars — {estimate.year} pay, less what you save and
-            pay in tax. Retirement spending usually starts there and gets adjusted: a
-            mortgage ending, commuting stopping, healthcare changing.
-          </p>
-          <p className="field-hint">
-            It only reads right if every dollar you save is in this plan. Saving that
-            happens outside it — mortgage principal, a 529, cash piling up in the bank —
-            looks like spending from in here, so treat it as a starting point to
-            sanity-check rather than a measurement.
+            pay in tax.
+            <InfoTooltip
+              text={
+                "Retirement spending usually starts there and gets adjusted: a mortgage " +
+                "ending, commuting stopping, healthcare changing. It only reads right if " +
+                "every dollar you save is in this plan — saving that happens outside it " +
+                "(mortgage principal, a 529, cash piling up in the bank) looks like " +
+                "spending from in here, so treat it as a starting point to sanity-check " +
+                "rather than a measurement."
+              }
+            />
           </p>
           <button
             type="button"

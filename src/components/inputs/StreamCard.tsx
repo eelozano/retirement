@@ -136,7 +136,7 @@ export function StreamCard(props: {
         <>
           <CheckboxField
             label="Continues for a survivor"
-            hint="For a pension or annuity with a survivor benefit. The full amount stops at this stream's owner's death — whatever its end date says — and the share below carries on for whoever outlives them."
+            tooltip="For a pension or annuity with a survivor benefit. The full amount stops at this stream's owner's death — whatever its end date says — and the share below carries on for whoever outlives them."
             checked={stream.survivor_percentage !== null}
             onChange={(checked) =>
               updatePlan((d) => {
