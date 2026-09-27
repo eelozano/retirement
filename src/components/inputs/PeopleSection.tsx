@@ -101,7 +101,7 @@ export function PeopleSection() {
           <div className="input-card person-card" key={person.id}>
             <div className="input-card-title">
               {person.name || `Person ${i + 1}`}
-              <InfoTooltip text={FACT_VS_POLICY.person} placement="below" />
+              <InfoTooltip text={FACT_VS_POLICY.person} />
             </div>
             <TextField
               label="Name"
