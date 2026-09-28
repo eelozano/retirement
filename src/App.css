@@ -847,7 +847,13 @@ body {
      has never been short of room; every label lives well inside its
      pane's right edge. */
   left: 0;
-  bottom: calc(100% + 6px);
+  /* Downward, never upward: an upward bubble gets clipped by the scroll
+     container the instant its trigger is near the top of a pane — a
+     heading at the top of its own fieldset, or simply the first field in
+     a short one. Every trigger sits right after label or heading text
+     with a control or more content below it, and a hover briefly
+     covering that is a smaller cost than text silently cut off. */
+  top: calc(100% + 6px);
   min-width: 150px;
   max-width: 220px;
   padding: 6px 8px;
@@ -869,13 +875,6 @@ body {
 .info-tooltip-trigger:focus-visible + .info-tooltip-bubble {
   opacity: 1;
   visibility: visible;
-}
-
-/* A heading sits at the top of its own section, with a scroll edge above
-   it rather than the room a field label has — open downward instead. */
-.info-tooltip-bubble-below {
-  top: calc(100% + 6px);
-  bottom: auto;
 }
 
 .field input:focus,

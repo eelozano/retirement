@@ -390,16 +390,7 @@ export function YearMonthField(props: {
  * `preventDefault` is also what stops the label's own default action
  * (opening the control it labels) from firing as a side effect.
  */
-export function InfoTooltip(props: {
-  text: string;
-  /** Which way the bubble opens. Default "above" suits a field label: the
-   * control it names sits right below, and opening downward would cover it.
-   * A heading has nothing above it to collide with but a scroll edge —
-   * "below" is for exactly that: a legend, a band label, a card title,
-   * anything sitting at the top of its own section rather than atop a
-   * control, where opening upward risks the scroll container clipping it. */
-  placement?: "above" | "below";
-}) {
+export function InfoTooltip(props: { text: string }) {
   return (
     <span className="info-tooltip">
       <button
@@ -410,14 +401,7 @@ export function InfoTooltip(props: {
       >
         i
       </button>
-      <span
-        className={
-          props.placement === "below"
-            ? "info-tooltip-bubble info-tooltip-bubble-below"
-            : "info-tooltip-bubble"
-        }
-        role="tooltip"
-      >
+      <span className="info-tooltip-bubble" role="tooltip">
         {props.text}
       </span>
     </span>

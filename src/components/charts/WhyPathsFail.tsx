@@ -256,10 +256,7 @@ function SpendingFindingBlock(props: { spending: SpendingFinding }) {
     <div className="why-fail-finding">
       <span className="tile-label">
         Spending
-        <InfoTooltip
-          text="Offered as a reference, not as a rule this app enforces."
-          placement="below"
-        />
+        <InfoTooltip text="Offered as a reference, not as a rule this app enforces." />
       </span>
       <p className="why-fail-sentence">
         The median path withdraws <strong>{ratePercent(s.medianRate)}</strong> of the

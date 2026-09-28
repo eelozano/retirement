@@ -179,7 +179,7 @@ export function PlanScreen(props: {
                         Silent at zero volatility, where the deterministic run
                         *is* the median path. */}
                     {hasVolatility(plan) && (
-                      <InfoTooltip text={DETERMINISTIC_LINE_NOTE} placement="below" />
+                      <InfoTooltip text={DETERMINISTIC_LINE_NOTE} />
                     )}
                   </h2>
                   {/* The start month, named rather than editable. It is the

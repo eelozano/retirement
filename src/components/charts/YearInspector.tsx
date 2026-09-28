@@ -43,7 +43,7 @@ function FlowGroup(props: {
       <div className="inspector-total">
         <span className={props.totalCritical ? "row-critical" : ""}>
           {props.totalLabel}
-          {props.note && <InfoTooltip text={props.note} placement="below" />}
+          {props.note && <InfoTooltip text={props.note} />}
         </span>
         <span className={`row-value ${props.totalCritical ? "row-critical" : ""}`}>
           {currency(props.total)}

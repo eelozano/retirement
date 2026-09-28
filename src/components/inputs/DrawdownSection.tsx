@@ -217,7 +217,6 @@ export function DrawdownSection() {
                     'a whole type — "All Roth accounts" — draws every account of that type ' +
                     "together, in proportion to balance."
                   }
-                  placement="below"
                 />
               </p>
               {phase.stack.length === 0 ? (

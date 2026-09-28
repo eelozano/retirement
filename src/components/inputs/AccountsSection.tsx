@@ -254,7 +254,7 @@ export function AccountsSection() {
         <fieldset className="input-card" key={selected.id} ref={editorRef}>
           <legend>
             Editing: {selected.name || "Untitled account"}
-            <InfoTooltip text={FACT_VS_POLICY.account} placement="below" />
+            <InfoTooltip text={FACT_VS_POLICY.account} />
           </legend>
           <TextField
             label="Name"
