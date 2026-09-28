@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { lastToRetire } from "../../lib/currentSpending";
+import { firstRetiredYear } from "../../lib/currentSpending";
 import { currency, currencyCompact } from "../../lib/format";
 import type { Plan } from "../../types/generated/Plan";
 import type { CashFlowRow } from "./cashFlowData";
@@ -83,7 +83,7 @@ export function CashFlowChart(props: {
   pinnedYear?: number;
   onPinYear?: (year: number) => void;
 }) {
-  const retiredFrom = lastToRetire(props.plan)?.retirement.year ?? null;
+  const retiredFrom = firstRetiredYear(props.plan);
   const chart = (
     <ResponsiveContainer width="100%" height={360}>
       <ComposedChart

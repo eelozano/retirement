@@ -5,6 +5,7 @@ import type { Plan } from "../types/generated/Plan";
 import type { Projection } from "../types/generated/Projection";
 import {
   currentSpendingEstimate,
+  firstRetiredYear,
   isWorkingPeriod,
   lastToRetire,
   retirementSpendingIsModelled,
@@ -82,6 +83,26 @@ describe("isWorkingPeriod", () => {
   it("is false for a household with nobody in it", () => {
     expect(isWorkingPeriod(plan([]), snapshot(2030))).toBe(false);
     expect(lastToRetire(plan([]))).toBeNull();
+  });
+});
+
+describe("firstRetiredYear", () => {
+  it("agrees with isWorkingPeriod about a retirement's own stub year", () => {
+    // A December retirement leaves eleven months of salary in its own year;
+    // the chart tooltip used to call that year's residual a surplus while
+    // the year before it, and the inspector, called it current spending.
+    const december = plan([person("solo", { year: 2038, month: 12 })]);
+    expect(firstRetiredYear(december)).toBe(2039);
+    expect(isWorkingPeriod(december, snapshot(2038))).toBe(true);
+    expect(isWorkingPeriod(december, snapshot(2039))).toBe(false);
+  });
+
+  it("is the retirement year itself for a January retirement", () => {
+    expect(firstRetiredYear(plan([person("solo", { year: 2038, month: 1 })]))).toBe(2038);
+  });
+
+  it("is null for a household with nobody in it", () => {
+    expect(firstRetiredYear(plan([]))).toBeNull();
   });
 });
 
