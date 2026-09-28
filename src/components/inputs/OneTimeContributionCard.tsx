@@ -34,10 +34,7 @@ export function OneTimeContributionCard(props: {
     <fieldset>
       <legend>
         {oneTimeLegend(entry, plan)}
-        <InfoTooltip
-          text="Money from outside the plan, landing in this account once. It isn't taxed and doesn't come out of that year's income. Whatever it came from isn't counted before it arrives, so net worth jumps the year it lands."
-          placement="below"
-        />
+        <InfoTooltip text="Money from outside the plan, landing in this account once. It isn't taxed and doesn't come out of that year's income. Whatever it came from isn't counted before it arrives, so net worth jumps the year it lands." />
       </legend>
       <TextField
         label="Name"
