@@ -1087,7 +1087,13 @@ mod tests {
             if dropping {
                 if matches!(
                     body.split(':').next(),
-                    Some("aggressive" | "moderate" | "conservative")
+                    Some(
+                        "very_aggressive"
+                            | "aggressive"
+                            | "moderate"
+                            | "conservative"
+                            | "very_conservative"
+                    )
                 ) {
                     continue;
                 }

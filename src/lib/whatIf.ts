@@ -98,9 +98,11 @@ type Rates = Plan["assumptions"]["strategy_returns"];
  * this replaced: all three strategies are always priced. */
 function mapRates(rates: Rates, f: (rate: number) => number): Rates {
   return {
+    very_aggressive: f(rates.very_aggressive),
     aggressive: f(rates.aggressive),
     moderate: f(rates.moderate),
     conservative: f(rates.conservative),
+    very_conservative: f(rates.very_conservative),
   };
 }
 

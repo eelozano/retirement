@@ -607,6 +607,15 @@ fn net_worth_never_goes_negative() {
 /// medians and tails rise, the final period's median 4,986,650 -> 5,100,450
 /// (+2.3%), because every retired year after that is taxed on a little less.
 ///
+/// Re-captured when the default strategies became five whole-portfolio
+/// mixes, 100/0 through 20/80. The seed household starts from the shipped
+/// defaults, so its Aggressive accounts now expect 6.35% at 11.0%
+/// volatility instead of 7.5% at 15.5%, and its Moderate one 5.73% at 9.1%
+/// instead of 6.7% at 11.5%. Lower returns cut the success rate to 0.51;
+/// lower volatility narrows the fan, which is why period 0's p10 *rises*
+/// while every later median falls. Saved plans are untouched — they carry
+/// their own figures.
+///
 /// Spot indices rather than all 58 periods: enough to catch an off-by-one or
 /// a reordering, few enough to read when it fails.
 #[test]
@@ -621,25 +630,25 @@ fn fold_reproduces_pre_refactor_output() {
         },
     );
 
-    assert_eq!(result.success_rate, 0.605);
+    assert_eq!(result.success_rate, 0.51);
     assert_eq!(result.percentiles.len(), 58);
 
     let at = |i: usize| &result.percentiles[i];
 
-    assert_eq!(at(0).p10, 616573.9878651936);
-    assert_eq!(at(12).p10, 1811134.7528040872);
+    assert_eq!(at(0).p10, 647287.2240624883);
+    assert_eq!(at(12).p10, 1968234.7820033776);
     assert_eq!(at(38).p10, 0.0);
     assert_eq!(at(57).p10, 0.0);
 
-    assert_eq!(at(0).p50, 763297.404964235);
-    assert_eq!(at(12).p50, 3022873.974996055);
-    assert_eq!(at(38).p50, 4969659.834309172);
-    assert_eq!(at(57).p50, 5100449.622258396);
+    assert_eq!(at(0).p50, 752753.5098399216);
+    assert_eq!(at(12).p50, 2861049.103800553);
+    assert_eq!(at(38).p50, 3401110.3244606294);
+    assert_eq!(at(57).p50, 643853.3216471411);
 
-    assert_eq!(at(0).p90, 904377.7405692474);
-    assert_eq!(at(12).p90, 5335775.894425642);
-    assert_eq!(at(38).p90, 26594465.779507935);
-    assert_eq!(at(57).p90, 77409352.60512203);
+    assert_eq!(at(0).p90, 854163.4911958678);
+    assert_eq!(at(12).p90, 4283942.998330747);
+    assert_eq!(at(38).p90, 13566211.845533235);
+    assert_eq!(at(57).p90, 31779424.59300074);
 }
 
 /// The observed form must not change the answer: progress counting and the

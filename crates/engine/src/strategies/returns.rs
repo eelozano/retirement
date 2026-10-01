@@ -100,13 +100,14 @@ impl ReturnModel for StochasticReturns {
             let period_mean = (1.0 + mean).powf(scale) - 1.0;
             period_mean + stddev * scale.sqrt() * shock
         };
+        let mean = &self.annual_mean;
+        let stddev = &self.annual_stddev;
         StrategyReturns {
-            aggressive: draw(self.annual_mean.aggressive, self.annual_stddev.aggressive),
-            moderate: draw(self.annual_mean.moderate, self.annual_stddev.moderate),
-            conservative: draw(
-                self.annual_mean.conservative,
-                self.annual_stddev.conservative,
-            ),
+            very_aggressive: draw(mean.very_aggressive, stddev.very_aggressive),
+            aggressive: draw(mean.aggressive, stddev.aggressive),
+            moderate: draw(mean.moderate, stddev.moderate),
+            conservative: draw(mean.conservative, stddev.conservative),
+            very_conservative: draw(mean.very_conservative, stddev.very_conservative),
         }
     }
 }
@@ -123,4 +124,41 @@ fn splitmix64(mut x: u64) -> u64 {
 
 fn mix_seed(seed: u64, path_id: u64, period: u64) -> u64 {
     splitmix64(splitmix64(seed ^ path_id) ^ period)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every strategy, the two `very_*` tiers included, moves on the same
+    /// market shock: with annual periods each draw is `mean + σ · shock`, so
+    /// backing the shock out of any tier must give the same number.
+    #[test]
+    fn every_strategy_shares_one_shock() {
+        let mean = crate::presets::default_strategy_returns();
+        let stddev = crate::presets::default_strategy_volatility();
+        let model = StochasticReturns::new(&mean, &stddev, 12, 11);
+
+        for period in 0..5 {
+            let drawn = model.returns_for(period, 3);
+            let shock = |r: f64, m: f64, s: f64| (r - m) / s;
+            let reference = shock(drawn.moderate, mean.moderate, stddev.moderate);
+            for (r, m, s) in [
+                (
+                    drawn.very_aggressive,
+                    mean.very_aggressive,
+                    stddev.very_aggressive,
+                ),
+                (drawn.aggressive, mean.aggressive, stddev.aggressive),
+                (drawn.conservative, mean.conservative, stddev.conservative),
+                (
+                    drawn.very_conservative,
+                    mean.very_conservative,
+                    stddev.very_conservative,
+                ),
+            ] {
+                assert!((shock(r, m, s) - reference).abs() < 1e-9);
+            }
+        }
+    }
 }

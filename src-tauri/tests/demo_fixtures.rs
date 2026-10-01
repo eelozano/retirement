@@ -208,7 +208,9 @@ fn demo_base() -> Plan {
                 name: "Jordan Roth IRA".to_string(),
                 balance: 65_000.0,
                 cost_basis: None,
-                allocation: AllocationRef::Aggressive,
+                // Tax-free growth on the longest horizon in the house: the one
+                // account at the far aggressive end.
+                allocation: AllocationRef::VeryAggressive,
                 plan_type: PlanType::Ira,
                 contributions: vec![Contribution::until_retirement(
                     "jordan-roth-ira-contribution",
@@ -249,7 +251,9 @@ fn demo_base() -> Plan {
                 name: "Alex HSA".to_string(),
                 balance: 18_000.0,
                 cost_basis: None,
-                allocation: AllocationRef::Moderate,
+                // Earmarked for near-term medical bills, so it sits at the far
+                // conservative end.
+                allocation: AllocationRef::VeryConservative,
                 plan_type: PlanType::Hsa,
                 contributions: vec![Contribution::until_retirement(
                     "alex-hsa-contribution",
