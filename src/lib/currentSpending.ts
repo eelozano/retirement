@@ -3,6 +3,7 @@ import type { Person } from "../types/generated/Person";
 import type { Plan } from "../types/generated/Plan";
 import type { Projection } from "../types/generated/Projection";
 import type { YearMonth } from "../types/generated/YearMonth";
+import { yearBoundary } from "./yearBoundary";
 
 // Reading the working-phase surplus for what it is (#50).
 //
@@ -40,6 +41,18 @@ function firstRetirement(plan: Plan): YearMonth | null {
     (first, p) => (!first || !atOrAfter(p.retirement, first) ? p.retirement : first),
     null,
   );
+}
+
+/**
+ * The first calendar year in which nobody is earning — the year a chart
+ * labelled by year alone should stop calling the residual current spending.
+ * A retirement after January leaves its own year mostly worked, so that
+ * year still counts as working, exactly as `isWorkingPeriod` reads its
+ * snapshot. `null` for a plan with no people.
+ */
+export function firstRetiredYear(plan: Plan): number | null {
+  const last = lastToRetire(plan);
+  return last ? yearBoundary(last.retirement).firstFullYear : null;
 }
 
 /**
