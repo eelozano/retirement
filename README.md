@@ -375,7 +375,9 @@ there — it just doesn't bundle an installer.
   a flat amount (per month or per year), or "the federal maximum," resolved
   each year against an inflation-indexed limit table with age-50 and SECURE
   2.0 catch-up tiers. Limits are enforced *per person* across all their
-  accounts, not per account, and clamps surface as readable warnings.
+  accounts, not per account, and clamps surface as readable warnings. An HSA
+  is self-only or family coverage, and a couple's family HSAs share the one
+  household limit the law gives them.
 - **Contributions are dated, and they escalate.** An account carries a list of
   entries, each with its own start and end — "$500 a month now, $1,200 from
   January", an account you don't open until 2029, an IRA funded past
@@ -520,9 +522,6 @@ you spent an afternoon on.
   their own. A spouse entitled to up to half the higher earner's benefit
   instead of their own record will be understated. The *survivor* transition
   after a death is modelled.
-- **HSA family coverage.** The contribution limit is always the self-only
-  one, so a family-coverage HSA is capped well below what you could actually
-  put in.
 - **The 2026 Roth catch-up mandate.** High earners must make catch-up
   contributions as Roth; the app still treats them as pre-tax, which overstates
   the deduction in those years.

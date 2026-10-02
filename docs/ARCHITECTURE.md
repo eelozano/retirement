@@ -263,13 +263,15 @@ pub enum AccountKind { Taxable, Savings, TraditionalPreTax, Roth, Hsa }
 // Orthogonal to AccountKind: tax treatment versus statutory bucket. A Roth
 // 401(k) and a Roth IRA are taxed the same and capped separately; a
 // traditional IRA and a Roth IRA are taxed differently and share one cap.
-// 457(b) was a new variant when it arrived, not a rework.
-pub enum PlanType { EmployerPlan, Plan457b, Ira, SimpleIra, SepIra, Hsa, None }
+// 457(b) was a new variant when it arrived, not a rework, and so was
+// family HSA coverage (#150): `Hsa` is self-only, `HsaFamily` family.
+pub enum PlanType { EmployerPlan, Plan457b, Ira, SimpleIra, SepIra, Hsa, HsaFamily, None }
 
 pub struct Account {                 // + id, name
     pub owner: PersonId,
     pub kind: AccountKind,
     pub plan_type: PlanType,         // limit bucket; the cap is shared per person per year
+                                     // (a family HSA's, per household)
     pub balance: f64,                // nominal, as of the household's as_of
     // After-tax dollars in the balance: a taxable account's basis, a Roth's
     // contributions to date. Splits a withdrawal into principal and gains,
@@ -743,6 +745,8 @@ number that needed qualifying is the one drawn as a single confident line.
 Statutory limits are granted **per person per year**, shared across a bucket of that person's accounts — not per account. Clamping per account let one person defer the elective-deferral limit once for each employer plan they hold, overstating the ending balance and understating taxable income (the same figure feeds the pre-tax deduction).
 
 Two independent buckets, named directly by `Account::plan_type`: **employer plans** (401(k)/403(b)/TSP elective deferrals) and **IRAs** (traditional and Roth share one cap with each other). `PlanType::None` accounts — taxable brokerages — join no bucket. The bucket used to be *inferred* from whichever statutory figure the account's user-typed limit sat nearer, which mis-bucketed a 457(b) and any hand-typed figure near neither; the engine now owns the limits and reads the bucket from a field.
+
+**The family HSA limit is the one household bucket (#150).** IRC 223(b)(5) gives a married couple one family-coverage limit ($8,750 for 2026) between them, not one each, so every `PlanType::HsaFamily` account in the plan draws on a single household figure (`TaxFigures::hsa_family_limit`), in plan account order like any other bucket. The $1,000 age-55 catch-up stays per person under either coverage and can only go into the owner's own HSA, so it is a per-person bucket beside the shared one, and an account spends its owner's catch-up first — the order that leaves the other spouse the most room. Two family HSAs both at `FederalMaximum` therefore give the first account the whole family figure and the second only its owner's catch-up, with a clamp warning. Coverage is a plan type rather than a field of its own because it *is* the choice of limit, and it means every HSA saved before it existed — `plan_type: Hsa` — is self-only, as it always was. Not modelled: the rule that one spouse's family coverage makes the other's self-only HSA family too; an account's coverage is taken as written. `hsa_family` carries a `serde(default)` of the built-in figure so a `tax-figures.yaml` written before it still loads.
 
 When a person's accounts collectively ask for more than the shared cap, room is handed out **in plan account order**: the first account listed fills first. The split is resolved **per period**, not once: salaries grow, limits index, and catch-up tiers turn on with age, so what fits is a function of the year. Clamp warnings are deduplicated by account and report the first period the clamp bit.
 

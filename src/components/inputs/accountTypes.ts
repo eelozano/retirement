@@ -93,11 +93,19 @@ export const ACCOUNT_TYPES = [
   },
   {
     value: "hsa",
-    label: "HSA",
+    label: "HSA (self-only coverage)",
     kind: "Hsa",
     planType: "Hsa",
     description:
-      "Health Savings Account. Contributions are pre-tax and withdrawals are tax-free (assuming they cover qualified medical expenses) — its own contribution limit, with catch-up starting at 55.",
+      "Health Savings Account under self-only HDHP coverage. Contributions are pre-tax and withdrawals are tax-free (assuming they cover qualified medical expenses) — its own contribution limit, with catch-up starting at 55.",
+  },
+  {
+    value: "hsa_family",
+    label: "HSA (family coverage)",
+    kind: "Hsa",
+    planType: "HsaFamily",
+    description:
+      "Health Savings Account under family HDHP coverage: a higher limit than self-only, but one per household — if both spouses have a family HSA, they share it, filled in account order. Each spouse's own catch-up from 55 comes on top.",
   },
 ] as const satisfies readonly {
   value: string;

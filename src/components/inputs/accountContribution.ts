@@ -105,6 +105,8 @@ export function federalMaximumHint(presets: Presets | null, planType: PlanType):
       return `${currency(limits.plan_457b)}/yr in ${year}, indexed for inflation and stepped up from age 50 — separate from a 401(k)/403(b)'s limit.`;
     case "Hsa":
       return `${currency(limits.hsa)}/yr in ${year} (self-only coverage), indexed for inflation and stepped up from age 55.`;
+    case "HsaFamily":
+      return `${currency(limits.hsa_family)}/yr in ${year} (family coverage), indexed for inflation and stepped up from age 55. One limit per household — a spouse's family HSA shares it.`;
     case "SepIra":
       return `${currency(limits.sep_ira)}/yr in ${year}, indexed for inflation. Employer contributions only — no catch-up.`;
     case "SimpleIra":
@@ -263,6 +265,7 @@ export function contributionEndHint(planType: PlanType): string | undefined {
       return "Money into an employer's plan comes out of that employer's paycheck, so this can't run past the owner's retirement.";
     case "Ira":
     case "Hsa":
+    case "HsaFamily":
       return "This one may run past retirement — a spousal IRA on a working partner's income, or an HSA under HDHP coverage.";
     default:
       return undefined;
