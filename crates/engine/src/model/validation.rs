@@ -180,7 +180,7 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                 PlanType::SimpleIra,
             ],
             AccountKind::Roth => &[PlanType::EmployerPlan, PlanType::Ira, PlanType::Plan457b],
-            AccountKind::Hsa => &[PlanType::Hsa],
+            AccountKind::Hsa => &[PlanType::Hsa, PlanType::HsaFamily],
         };
         if !allowed.contains(&account.plan_type) {
             errors.push(err(

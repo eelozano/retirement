@@ -205,7 +205,7 @@ export function StorageSettings({ open, onClose }: StorageSettingsProps) {
               Every plan uses the {taxFigures.figures.tax_year} federal tax brackets,
               standard deduction and contribution limits in this file. Update them here or
               in the file when the IRS publishes a new year — each fall, and each spring
-              for the HSA limit. A change applies at the next recalculation; delete the
+              for the HSA limits. A change applies at the next recalculation; delete the
               file to go back to the built-in figures.
             </p>
             <p className="storage-path">{taxFigures.path}</p>

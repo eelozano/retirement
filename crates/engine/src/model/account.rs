@@ -65,10 +65,17 @@ pub enum PlanType {
     /// 457(b) governmental deferred-compensation plans: statutorily separate
     /// from `EmployerPlan`, so a person can max out both in the same year.
     Plan457b,
-    /// Health Savings Account contribution limit. One figure (the self-only
-    /// coverage limit) rather than modeling the family-coverage limit
-    /// separately — this app has no concept of HSA coverage type.
+    /// Health Savings Account under **self-only** HDHP coverage: its own
+    /// per-person limit, plus the age-55 catch-up. Every HSA saved before
+    /// family coverage existed is this, which is what keeps it projecting
+    /// as it did.
     Hsa,
+    /// Health Savings Account under **family** HDHP coverage. The family
+    /// limit belongs to the household, not to each person: every
+    /// family-coverage HSA in the plan shares one, while each owner's
+    /// age-55 catch-up stays their own (IRC 223(b)(5)). The one bucket not
+    /// keyed by person — see `sim::contributions`.
+    HsaFamily,
     /// SEP-IRA: employer-only contributions, capped at the much higher
     /// 415(c) annual-additions figure. No employee catch-up.
     SepIra,

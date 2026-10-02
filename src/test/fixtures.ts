@@ -111,6 +111,7 @@ export function taxFigures(): TaxFigures {
       annual_additions: 72_000,
       plan_457b: 24_500,
       hsa: 4_400,
+      hsa_family: 8_750,
       sep_ira: 72_000,
       simple_ira: 17_000,
       simple_ira_catch_up_50: 4_000,

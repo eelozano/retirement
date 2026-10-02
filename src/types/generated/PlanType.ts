@@ -16,4 +16,4 @@
  * SIMPLE IRA each carry their own statutorily distinct limit for the same
  * reason.
  */
-export type PlanType = "EmployerPlan" | "Ira" | "Plan457b" | "Hsa" | "SepIra" | "SimpleIra" | "None";
+export type PlanType = "EmployerPlan" | "Ira" | "Plan457b" | "Hsa" | "HsaFamily" | "SepIra" | "SimpleIra" | "None";
