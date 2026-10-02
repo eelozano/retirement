@@ -60,9 +60,9 @@ Nothing is written until you save it as a scenario of its own.
 
 ![The What-if screen with sliders for retirement dates, spending, returns,
 volatility, inflation, life expectancy and Social Security, comparing the
-Base plan to a hypothetical where Alex retires two years earlier and spending is cut to 92%:
-$793.2K less at plan end, and an 83% probability of success against the plan's
-82%.](docs/screenshots/what-if.png)
+Base plan to a hypothetical where Alex retires two years earlier and spending
+is cut to 92%: $240.9K less at plan end, and an 84% probability of success
+against the plan's 82%.](docs/screenshots/what-if.png)
 
 **Cash flow.** Money in above the line and money out below it, year by year,
 then where it actually went in the year you pick, as a Sankey — salaries and
@@ -130,10 +130,10 @@ and one button puts a plan back on those defaults. Each figure says what it
 means: the real return after the plan's inflation, and what a Monte Carlo
 path compounds at once years vary.
 
-![The Assumptions pane's investment strategies: Aggressive, Moderate and
-Conservative, each with an expected return and a volatility, the accounts
+![The Assumptions pane's five investment strategies, Very Aggressive through
+Very Conservative, each with an expected return and a volatility, the accounts
 using it, and a line giving the real return and the rate Monte Carlo paths
-compound at.](docs/screenshots/assumptions.png)
+compound at, above a Reset to defaults button.](docs/screenshots/assumptions.png)
 
 **Accounts.** The balance sheet as a table, with the account under the cursor
 open for editing beneath it. Each balance carries the month it was read, and
@@ -143,7 +143,8 @@ schedules, its 401(k) escalates from 10% to 15% of salary, and one Roth IRA
 has a zero balance because it doesn't open until 2029.
 
 ![The Accounts table listing seven accounts with an allocation column reading
-"Aggressive (7.5%)", "Moderate (6.7%)" and "Fixed 2.0%", a contributing column
+"Very Aggressive (6.9%)", "Aggressive (6.3%)", "Moderate (5.7%)", "Very
+Conservative (4.3%)" and "Fixed 2.0%", a contributing column
 reading "2 schedules", "10% → 15% of salary" and "Max", and an as-of column,
 above the editor for the joint brokerage.](docs/screenshots/accounts.png)
 
