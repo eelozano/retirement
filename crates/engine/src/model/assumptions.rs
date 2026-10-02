@@ -209,9 +209,9 @@ struct AssumptionsWire {
     inflation: f64,
     /// Per-strategy figures, present in anything a current build wrote.
     #[serde(default)]
-    strategy_returns: Option<StrategyRates>,
+    strategy_returns: Option<StrategyRatesWire>,
     #[serde(default)]
-    strategy_volatility: Option<StrategyRates>,
+    strategy_volatility: Option<StrategyRatesWire>,
     /// Pre-#129: nominal expected return per asset class. Read only when
     /// `strategy_returns` is absent, so a current build's output is never
     /// reinterpreted through the field it replaced — the same rule
@@ -247,6 +247,41 @@ struct AssumptionsWire {
     drawdown: DrawdownPolicy,
 }
 
+/// Deserialization shape for one `StrategyRates` table inside a plan file.
+///
+/// Plans saved while there were three strategies carry only the middle
+/// three keys. The two `very_*` tiers are filled from the shipped default
+/// for *that* table — a return from `default_strategy_returns`, a
+/// volatility from `default_strategy_volatility` — which is why this is
+/// resolved here, where the table is known, rather than by a per-field
+/// serde default on `StrategyRates` itself.
+///
+/// The three figures the plan did carry are kept exactly. No saved account
+/// can be allocated to a tier that did not exist when it was written, so
+/// filling the new two changes no saved plan's projection.
+#[derive(Deserialize)]
+struct StrategyRatesWire {
+    #[serde(default)]
+    very_aggressive: Option<f64>,
+    aggressive: f64,
+    moderate: f64,
+    conservative: f64,
+    #[serde(default)]
+    very_conservative: Option<f64>,
+}
+
+impl StrategyRatesWire {
+    fn resolve(self, defaults: StrategyRates) -> StrategyRates {
+        StrategyRates {
+            very_aggressive: self.very_aggressive.unwrap_or(defaults.very_aggressive),
+            aggressive: self.aggressive,
+            moderate: self.moderate,
+            conservative: self.conservative,
+            very_conservative: self.very_conservative.unwrap_or(defaults.very_conservative),
+        }
+    }
+}
+
 impl<'de> Deserialize<'de> for Assumptions {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let w = AssumptionsWire::deserialize(deserializer)?;
@@ -254,6 +289,7 @@ impl<'de> Deserialize<'de> for Assumptions {
             inflation: w.inflation,
             strategy_returns: w
                 .strategy_returns
+                .map(|rates| rates.resolve(crate::presets::default_strategy_returns()))
                 .unwrap_or_else(|| match &w.asset_returns {
                     // The plan's own table, blended against the weights its
                     // allocation presets carried — the weighted average `grow`
@@ -272,6 +308,7 @@ impl<'de> Deserialize<'de> for Assumptions {
             // chose.
             strategy_volatility: w
                 .strategy_volatility
+                .map(|rates| rates.resolve(crate::presets::default_strategy_volatility()))
                 .unwrap_or_else(crate::presets::default_strategy_volatility),
             filing_status: w.filing_status,
             state_tax: w.state_tax,
@@ -404,6 +441,69 @@ mod tests {
         let parsed: Assumptions = serde_json::from_value(value).expect("parses");
 
         assert_close(parsed.strategy_returns.aggressive, 0.09);
+    }
+
+    /// A plan saved while there were three strategies keeps its three
+    /// figures exactly and gains the two `very_*` tiers at the shipped
+    /// defaults — each from its own table, not a return read as a
+    /// volatility.
+    #[test]
+    fn three_tier_plan_gains_the_very_tiers_from_the_right_table() {
+        let value = serde_json::json!({
+            "inflation": 0.025,
+            "strategy_returns": { "aggressive": 0.075, "moderate": 0.067, "conservative": 0.059 },
+            "strategy_volatility": { "aggressive": 0.155, "moderate": 0.115, "conservative": 0.09 },
+        });
+
+        let parsed: Assumptions = serde_json::from_value(value).expect("parses");
+        let returns = crate::presets::default_strategy_returns();
+        let volatility = crate::presets::default_strategy_volatility();
+
+        assert_close(parsed.strategy_returns.aggressive, 0.075);
+        assert_close(parsed.strategy_returns.moderate, 0.067);
+        assert_close(parsed.strategy_returns.conservative, 0.059);
+        assert_close(
+            parsed.strategy_returns.very_aggressive,
+            returns.very_aggressive,
+        );
+        assert_close(
+            parsed.strategy_returns.very_conservative,
+            returns.very_conservative,
+        );
+
+        assert_close(parsed.strategy_volatility.aggressive, 0.155);
+        assert_close(parsed.strategy_volatility.moderate, 0.115);
+        assert_close(parsed.strategy_volatility.conservative, 0.09);
+        assert_close(
+            parsed.strategy_volatility.very_aggressive,
+            volatility.very_aggressive,
+        );
+        assert_close(
+            parsed.strategy_volatility.very_conservative,
+            volatility.very_conservative,
+        );
+    }
+
+    /// A five-tier file round-trips: the `very_*` keys it carries win over
+    /// the defaults.
+    #[test]
+    fn explicit_very_tiers_are_kept() {
+        let rates = StrategyRates {
+            very_aggressive: 0.081,
+            aggressive: 0.071,
+            moderate: 0.061,
+            conservative: 0.051,
+            very_conservative: 0.041,
+        };
+        let mut assumptions = crate::presets::default_assumptions();
+        assumptions.strategy_returns = rates;
+        assumptions.strategy_volatility = rates;
+
+        let value = serde_json::to_value(&assumptions).expect("serializes");
+        let parsed: Assumptions = serde_json::from_value(value).expect("parses");
+
+        assert_eq!(parsed.strategy_returns, rates);
+        assert_eq!(parsed.strategy_volatility, rates);
     }
 
     /// The boundary wins where both keys are present — a current build's

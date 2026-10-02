@@ -5,16 +5,21 @@
  * expected nominal annual return, once as annualized standard deviation —
  * and returned per period by `ReturnModel`.
  *
- * Three named fields rather than a `BTreeMap` keyed by strategy, because
+ * Named fields rather than a `BTreeMap` keyed by strategy, because
  * the per-asset-class tables this replaced were maps and every reader had to
  * answer "what if this key is absent": `grow` priced a missing class at 0%,
  * `StochasticReturns` drew a missing sigma at 0.0, and `whatIf.ts`'s
- * `mapRates` carried a comment about the map being partial. There are
- * exactly three strategies and an account must be priced, so a struct is
+ * `mapRates` carried a comment about the map being partial. There is a
+ * fixed set of strategies and an account must be priced, so a struct is
  * the type that says so (#129).
  *
+ * Fields run in risk order, most aggressive first. The two `very_*` tiers
+ * came later than the other three; a plan saved before them carries only
+ * three keys, and `AssumptionsWire` fills the missing two from the shipped
+ * defaults.
+ *
  * There is deliberately no separate `Strategy` enum: `AllocationRef`'s
- * three unit variants already are that enum, and a second spelling of them
+ * unit variants already are that enum, and a second spelling of them
  * would need a conversion in both directions for no reader's benefit.
  */
-export type StrategyRates = { aggressive: number, moderate: number, conservative: number, };
+export type StrategyRates = { very_aggressive: number, aggressive: number, moderate: number, conservative: number, very_conservative: number, };

@@ -54,9 +54,9 @@ function allocationChoice(allocation: AllocationRef): AllocationChoice {
  */
 function allocationOptions(returns: StrategyRates) {
   return [
-    ...STRATEGIES.map(({ key, variant }) => ({
+    ...STRATEGIES.map(({ key, variant, label }) => ({
       value: variant,
-      label: `${variant} (${ratePercent(returns[key])})`,
+      label: `${label} (${ratePercent(returns[key])})`,
     })),
     { value: FIXED_RATE, label: "Fixed rate…" },
   ];
@@ -67,7 +67,9 @@ function allocationLabel(allocation: AllocationRef, returns: StrategyRates): str
     return `Fixed ${ratePercent(allocation.FixedRate)}`;
   }
   const strategy = STRATEGIES.find((s) => s.variant === allocation);
-  return strategy ? `${allocation} (${ratePercent(returns[strategy.key])})` : allocation;
+  return strategy
+    ? `${strategy.label} (${ratePercent(returns[strategy.key])})`
+    : allocation;
 }
 
 /**

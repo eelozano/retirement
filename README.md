@@ -124,8 +124,11 @@ survivor share.](docs/screenshots/pension.png)
 
 **Assumptions.** One expected return and one volatility per investment
 strategy — the level you would actually reason at, rather than a table of
-asset classes. Each figure says what it means: the real return after the
-plan's inflation, and what a Monte Carlo path compounds at once years vary.
+asset classes. Five strategies run from Very Aggressive to Very Conservative,
+their defaults whole-portfolio figures for 100/0 through 20/80 stocks/bonds,
+and one button puts a plan back on those defaults. Each figure says what it
+means: the real return after the plan's inflation, and what a Monte Carlo
+path compounds at once years vary.
 
 ![The Assumptions pane's investment strategies: Aggressive, Moderate and
 Conservative, each with an expected return and a volatility, the accounts

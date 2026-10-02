@@ -19,9 +19,11 @@ describe("realReturn", () => {
   // shipped defaults and the default 3% inflation. Pinned so the hint copy
   // cannot drift from what these render.
   it.each([
-    ["aggressive", 0.075, 0.0436893203883495],
-    ["moderate", 0.067, 0.0359223300970874],
-    ["conservative", 0.059, 0.0281553398058252],
+    ["very aggressive", 0.0692, 0.038058252427184414],
+    ["aggressive", 0.0635, 0.03252427184466011],
+    ["moderate", 0.0573, 0.026504854368931907],
+    ["conservative", 0.0506, 0.020000000000000018],
+    ["very conservative", 0.0435, 0.013106796116505004],
   ])("is %s's real return at the shipped defaults", (_name, nominal, expected) => {
     expect(realReturn(nominal, 0.03)).toBeCloseTo(expected, 9);
   });
@@ -42,12 +44,15 @@ describe("medianCompoundedReturn", () => {
     expect(medianCompoundedReturn(0.075, 0.155)).toBeLessThan(0.075);
   });
 
-  // Same defaults, against each strategy's own volatility. Aggressive gives
-  // up over a point a year; conservative barely half of one.
+  // Same defaults, against each strategy's own volatility. Very aggressive
+  // gives up about eight tenths of a point a year; very conservative under
+  // two tenths.
   it.each([
-    ["aggressive", 0.075, 0.155, 0.06388345864875244],
-    ["moderate", 0.067, 0.115, 0.06082068043903521],
-    ["conservative", 0.059, 0.09, 0.05518253454166988],
+    ["very aggressive", 0.0692, 0.1303, 0.06128978295447873],
+    ["aggressive", 0.0635, 0.1102, 0.05780582970219261],
+    ["moderate", 0.0573, 0.0912, 0.05337396765033953],
+    ["conservative", 0.0506, 0.0742, 0.04798302871350879],
+    ["very conservative", 0.0435, 0.0609, 0.04172441125842252],
   ])(
     "is %s's median compounded rate at the shipped defaults",
     (_name, mean, stddev, expected) => {

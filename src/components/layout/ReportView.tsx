@@ -181,8 +181,8 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
                   <th>Investment strategies</th>
                   <td>
                     {STRATEGIES.map(
-                      ({ key, variant }) =>
-                        `${variant}: ${rateToPercent(plan.assumptions.strategy_returns[key])}% nominal (${ratePercent(realReturn(plan.assumptions.strategy_returns[key], plan.assumptions.inflation))} real), ${rateToPercent(plan.assumptions.strategy_volatility[key])}% volatility`,
+                      ({ key, label }) =>
+                        `${label}: ${rateToPercent(plan.assumptions.strategy_returns[key])}% nominal (${ratePercent(realReturn(plan.assumptions.strategy_returns[key], plan.assumptions.inflation))} real), ${rateToPercent(plan.assumptions.strategy_volatility[key])}% volatility`,
                     ).join(" · ")}
                   </td>
                 </tr>

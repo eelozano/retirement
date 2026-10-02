@@ -371,12 +371,12 @@ pub struct EmployerMatch {
     pub destination: MatchDestination,
 }
 
-/// How an account is invested: one of the three named strategies the plan
+/// How an account is invested: one of the named strategies the plan
 /// prices in `Assumptions::strategy_returns`, or a fixed rate the account
 /// grows at on its own.
 ///
 /// The type name and the `allocation` field name are unchanged from the
-/// asset-class era (#129) deliberately. The three named variants serialize
+/// asset-class era (#129) deliberately. The named variants serialize
 /// identically, so a household file's `allocation: Aggressive` needs no
 /// migration at all, `decompose`'s routing of the field to the household is
 /// untouched, and the rationale on `HouseholdAccount::allocation` — an
@@ -385,13 +385,15 @@ pub struct EmployerMatch {
 #[derive(Serialize, TS, Clone, Copy, Debug, PartialEq)]
 #[ts(export)]
 pub enum AllocationRef {
+    VeryAggressive,
     Aggressive,
     Moderate,
     Conservative,
+    VeryConservative,
     /// A fixed nominal annual rate (0.045 = 4.5%) applied directly to the
     /// balance each period, bypassing `Assumptions::strategy_returns`
     /// entirely — a savings or money-market rate, a CD ladder, or a
-    /// hand-blended portfolio the three strategies don't describe. Like
+    /// hand-blended portfolio the named strategies don't describe. Like
     /// `ContributionRule::FlatAmount`, this is nominal by design: it does
     /// not track inflation on its own.
     ///
@@ -414,9 +416,11 @@ pub enum AllocationRef {
 /// migrate with no change of their own.
 #[derive(Deserialize)]
 enum AllocationRefWire {
+    VeryAggressive,
     Aggressive,
     Moderate,
     Conservative,
+    VeryConservative,
     FixedRate(f64),
     /// Pre-#129, when the variant was called `Cash` and only a `Savings`
     /// account could carry one. Same number, same meaning.
@@ -432,9 +436,11 @@ enum AllocationRefWire {
 impl<'de> Deserialize<'de> for AllocationRef {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         Ok(match AllocationRefWire::deserialize(deserializer)? {
+            AllocationRefWire::VeryAggressive => AllocationRef::VeryAggressive,
             AllocationRefWire::Aggressive => AllocationRef::Aggressive,
             AllocationRefWire::Moderate => AllocationRef::Moderate,
             AllocationRefWire::Conservative => AllocationRef::Conservative,
+            AllocationRefWire::VeryConservative => AllocationRef::VeryConservative,
             AllocationRefWire::FixedRate(rate) | AllocationRefWire::Cash(rate) => {
                 AllocationRef::FixedRate(rate)
             }

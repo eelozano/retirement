@@ -20,18 +20,36 @@ import { boundaryOptions, boundaryToChoice, choiceToBoundary } from "./streamBou
 import { TaxBracketEditor } from "./TaxBracketEditor";
 
 /**
- * The three investment strategies in risk order: the key each is stored
- * under on `StrategyRates`, and the `AllocationRef` variant that selects it
- * — which is also how it is labelled, since the variant name is the name.
+ * The investment strategies in risk order: the key each is stored under on
+ * `StrategyRates`, the `AllocationRef` variant that selects it, the name it
+ * is shown under, and the stock/bond mix the shipped default figures
+ * describe.
+ *
+ * The mix is description, not model: the engine prices a strategy from its
+ * return and volatility alone, so it is said only in a tooltip beside the
+ * figures it explains, never in the account picker, where an edited return
+ * would make it untrue.
  *
  * An ordered list rather than `Object.keys` over the rates, so nothing
- * starts rendering them alphabetically, and one source of truth for both
- * the assumptions editor and the per-account picker.
+ * starts rendering them alphabetically, and one source of truth for the
+ * assumptions editor, the per-account picker and the report.
  */
 export const STRATEGIES = [
-  { key: "aggressive", variant: "Aggressive" },
-  { key: "moderate", variant: "Moderate" },
-  { key: "conservative", variant: "Conservative" },
+  {
+    key: "very_aggressive",
+    variant: "VeryAggressive",
+    label: "Very Aggressive",
+    mix: "100/0",
+  },
+  { key: "aggressive", variant: "Aggressive", label: "Aggressive", mix: "80/20" },
+  { key: "moderate", variant: "Moderate", label: "Moderate", mix: "60/40" },
+  { key: "conservative", variant: "Conservative", label: "Conservative", mix: "40/60" },
+  {
+    key: "very_conservative",
+    variant: "VeryConservative",
+    label: "Very Conservative",
+    mix: "20/80",
+  },
 ] as const;
 
 export type StrategyKey = (typeof STRATEGIES)[number]["key"];
@@ -147,6 +165,21 @@ export function AssumptionsSection() {
   if (!plan) return null;
 
   const assumptions = plan.assumptions;
+  // What "Reset to defaults" restores: the figures a new plan starts from,
+  // read from the engine's presets so no rate is written down twice.
+  const defaultRates = presets
+    ? {
+        returns: presets.default_assumptions.strategy_returns,
+        volatility: presets.default_assumptions.strategy_volatility,
+      }
+    : null;
+  const atDefaults =
+    defaultRates !== null &&
+    STRATEGIES.every(
+      ({ key }) =>
+        assumptions.strategy_returns[key] === defaultRates.returns[key] &&
+        assumptions.strategy_volatility[key] === defaultRates.volatility[key],
+    );
   const sweep = assumptions.sweep_surplus_from;
   const ssCut = assumptions.social_security_reduction;
   const sweepChoice = sweep === null ? NEVER : boundaryToChoice(sweep);
@@ -322,7 +355,7 @@ export function AssumptionsSection() {
           Investment strategies
           <InfoTooltip text="Each account picks one of these on the Accounts pane. Returns are nominal — inflation comes off them — and each is the average of a single year, not the rate a balance compounds at over decades. The volatility is how wide the Monte Carlo fan gets, and width has a price: the same average return compounds more slowly the more it varies, so the median Monte Carlo path ends below the deterministic projection even though both were given this number. Whole-portfolio figures, prefilled but yours to change." />
         </legend>
-        {STRATEGIES.map(({ key, variant }) => {
+        {STRATEGIES.map(({ key, variant, label, mix }) => {
           const held = plan.accounts.filter((a) => a.allocation === variant);
           const balance = held.reduce((sum, a) => sum + a.balance, 0);
           // What the stored figure means, said out loud: the same rate with
@@ -337,7 +370,12 @@ export function AssumptionsSection() {
           return (
             <div key={key} className="strategy-group">
               <h4 className="strategy-name">
-                <span>{variant}</span>
+                <span>
+                  {label}
+                  <InfoTooltip
+                    text={`The default figures are for a ${mix} stocks/bonds portfolio. Edit them if yours is invested differently.`}
+                  />
+                </span>
                 <span className="strategy-usage">
                   {held.length === 0
                     ? "no accounts"
@@ -368,6 +406,23 @@ export function AssumptionsSection() {
             </div>
           );
         })}
+        <div className="preset-row">
+          <button
+            type="button"
+            className="add"
+            disabled={defaultRates === null || atDefaults}
+            onClick={() =>
+              updatePlan((d) => {
+                if (defaultRates === null) return;
+                d.assumptions.strategy_returns = { ...defaultRates.returns };
+                d.assumptions.strategy_volatility = { ...defaultRates.volatility };
+              })
+            }
+          >
+            Reset to defaults
+          </button>
+          <InfoTooltip text="Sets every strategy's expected return and volatility, in this scenario only, to the figures a new plan starts from. Anything typed above is replaced." />
+        </div>
       </fieldset>
     </div>
   );

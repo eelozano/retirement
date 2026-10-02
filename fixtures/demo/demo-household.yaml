@@ -58,7 +58,7 @@ accounts:
   kind: Roth
   plan_type: Ira
   name: Jordan Roth IRA
-  allocation: Aggressive
+  allocation: VeryAggressive
   observations:
   - as_of:
       year: 2026
@@ -82,7 +82,7 @@ accounts:
   kind: Hsa
   plan_type: Hsa
   name: Alex HSA
-  allocation: Moderate
+  allocation: VeryConservative
   observations:
   - as_of:
       year: 2026
@@ -302,13 +302,17 @@ scenarios:
   assumptions:
     inflation: 0.03
     strategy_returns:
-      aggressive: 0.075
-      moderate: 0.067
-      conservative: 0.059
+      very_aggressive: 0.0692
+      aggressive: 0.0635
+      moderate: 0.0573
+      conservative: 0.0506
+      very_conservative: 0.0435
     strategy_volatility:
-      aggressive: 0.155
-      moderate: 0.115
-      conservative: 0.09
+      very_aggressive: 0.1303
+      aggressive: 0.1102
+      moderate: 0.0912
+      conservative: 0.0742
+      very_conservative: 0.0609
     filing_status: MarriedFilingJointly
     state_tax:
       state: Colorado
@@ -514,13 +518,17 @@ scenarios:
   assumptions:
     inflation: 0.03
     strategy_returns:
-      aggressive: 0.075
-      moderate: 0.067
-      conservative: 0.059
+      very_aggressive: 0.0692
+      aggressive: 0.0635
+      moderate: 0.0573
+      conservative: 0.0506
+      very_conservative: 0.0435
     strategy_volatility:
-      aggressive: 0.155
-      moderate: 0.115
-      conservative: 0.09
+      very_aggressive: 0.1303
+      aggressive: 0.1102
+      moderate: 0.0912
+      conservative: 0.0742
+      very_conservative: 0.0609
     filing_status: MarriedFilingJointly
     state_tax:
       state: Colorado
@@ -726,13 +734,17 @@ scenarios:
   assumptions:
     inflation: 0.03
     strategy_returns:
-      aggressive: 0.075
-      moderate: 0.067
-      conservative: 0.059
+      very_aggressive: 0.0692
+      aggressive: 0.0635
+      moderate: 0.0573
+      conservative: 0.0506
+      very_conservative: 0.0435
     strategy_volatility:
-      aggressive: 0.155
-      moderate: 0.115
-      conservative: 0.09
+      very_aggressive: 0.1303
+      aggressive: 0.1102
+      moderate: 0.0912
+      conservative: 0.0742
+      very_conservative: 0.0609
     filing_status: MarriedFilingJointly
     state_tax:
       state: Colorado
@@ -938,13 +950,17 @@ scenarios:
   assumptions:
     inflation: 0.03
     strategy_returns:
-      aggressive: 0.075
-      moderate: 0.067
-      conservative: 0.059
+      very_aggressive: 0.0692
+      aggressive: 0.0635
+      moderate: 0.0573
+      conservative: 0.0506
+      very_conservative: 0.0435
     strategy_volatility:
-      aggressive: 0.155
-      moderate: 0.115
-      conservative: 0.09
+      very_aggressive: 0.1303
+      aggressive: 0.1102
+      moderate: 0.0912
+      conservative: 0.0742
+      very_conservative: 0.0609
     filing_status: MarriedFilingJointly
     state_tax:
       state: Colorado
@@ -1155,13 +1171,17 @@ scenarios:
   assumptions:
     inflation: 0.03
     strategy_returns:
-      aggressive: 0.075
-      moderate: 0.067
-      conservative: 0.059
+      very_aggressive: 0.0692
+      aggressive: 0.0635
+      moderate: 0.0573
+      conservative: 0.0506
+      very_conservative: 0.0435
     strategy_volatility:
-      aggressive: 0.155
-      moderate: 0.115
-      conservative: 0.09
+      very_aggressive: 0.1303
+      aggressive: 0.1102
+      moderate: 0.0912
+      conservative: 0.0742
+      very_conservative: 0.0609
     filing_status: MarriedFilingJointly
     state_tax:
       state: Colorado
@@ -1367,13 +1387,17 @@ scenarios:
   assumptions:
     inflation: 0.03
     strategy_returns:
-      aggressive: 0.075
-      moderate: 0.067
-      conservative: 0.059
+      very_aggressive: 0.0692
+      aggressive: 0.0635
+      moderate: 0.0573
+      conservative: 0.0506
+      very_conservative: 0.0435
     strategy_volatility:
-      aggressive: 0.155
-      moderate: 0.115
-      conservative: 0.09
+      very_aggressive: 0.1303
+      aggressive: 0.1102
+      moderate: 0.0912
+      conservative: 0.0742
+      very_conservative: 0.0609
     filing_status: MarriedFilingJointly
     state_tax:
       state: Colorado
