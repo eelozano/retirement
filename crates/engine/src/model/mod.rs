@@ -34,7 +34,8 @@ pub use stream::{
     CashFlowStream, GrowthRule, StreamBoundary, StreamDirection, StreamId, StreamKind,
 };
 pub use tax_figures::{
-    ByFilingStatus, ContributionLimits, FederalSchedule, FederalTax, TaxFigures, HSA_CATCH_UP_55,
+    hsa_catch_up, ByFilingStatus, ContributionLimits, FederalSchedule, FederalTax, TaxFigures,
+    HSA_CATCH_UP_55,
 };
 pub use tax_profile::{bracket_tax, FilingStatus, StateCode, StateTaxProfile, TaxBracket};
 pub use validation::ValidationError;

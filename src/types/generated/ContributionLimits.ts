@@ -43,12 +43,22 @@ annual_additions: number,
  */
 plan_457b: number, 
 /**
- * HSA self-only coverage limit. Family coverage is higher, but this app
- * has no concept of HSA coverage type, so the more conservative
- * self-only figure is used for everyone. The 55+ catch-up is
+ * HSA self-only coverage limit (`PlanType::Hsa`). The 55+ catch-up is
  * [`HSA_CATCH_UP_55`], fixed by statute.
  */
 hsa: number, 
+/**
+ * HSA family coverage limit (`PlanType::HsaFamily`), published in the
+ * same revenue procedure as `hsa`. One figure per household, shared by
+ * every family-coverage HSA in it; the catch-up sits on top, per
+ * person.
+ *
+ * Defaulted so a `tax-figures.yaml` written before the field existed
+ * still loads rather than falling back to the built-in figures
+ * wholesale. Only a family-coverage account reads it, and none existed
+ * then, so no saved plan's projection depends on the default.
+ */
+hsa_family: number, 
 /**
  * SEP-IRA limit: employer contributions only, capped at the 415(c)
  * figure. No catch-up.

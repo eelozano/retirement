@@ -68,6 +68,18 @@
 //! `PlanType::None` is uncapped and joins no bucket — that is what a taxable
 //! brokerage is.
 //!
+//! The one bucket not held per person is a **family-coverage HSA**
+//! (`PlanType::HsaFamily`). IRC 223(b)(5) gives a married couple one family
+//! limit between them, not one each, so every family-coverage HSA in the
+//! plan draws on a single household figure, in plan account order like any
+//! other bucket. Each owner's age-55 catch-up is still theirs alone and can
+//! only go into their own HSA, so it is a per-person bucket beside it, and
+//! an account spends its owner's catch-up before the shared figure — the
+//! order that leaves the most room for the other spouse. Two family HSAs
+//! both at `FederalMaximum` therefore give the first the whole figure and
+//! the second only its catch-up, with the usual clamp warning, which is
+//! what the statute allows.
+//!
 //! The cap is the statutory annual figure scaled to the period length, and
 //! **not** to the share of the period the owner worked: the statute does not
 //! prorate a limit for a partial year, and an IRA funded after retirement (a
@@ -94,8 +106,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::model::{
-    AccountId, AccountKind, ContributionRule, MatchDestination, PersonId, Plan, PlanType, StepUp,
-    TaxFigures, YearMonth,
+    hsa_catch_up, AccountId, AccountKind, ContributionRule, MatchDestination, PersonId, Plan,
+    PlanType, StepUp, TaxFigures, YearMonth,
 };
 
 use super::period::{PeriodContext, Warnings};
@@ -220,16 +232,24 @@ pub(super) fn allowed_contributions(
     }
 
     // Bucket capacity: the annual figure scaled to the period length only.
-    // Not scaled by the owner's working share — see the module docs.
+    // Not scaled by the owner's working share — see the module docs. A
+    // family-coverage HSA's room is the household's shared figure plus its
+    // owner's catch-up, held apart so neither spills into the other.
+    let mut family_room = inputs
+        .figures
+        .hsa_family_limit(inputs.ctx.year, inputs.ctx.inflation)
+        * inputs.ctx.fraction;
     for account in &plan.accounts {
-        if account.plan_type != PlanType::None {
-            let key = (account.owner.clone(), account.plan_type);
-            if let std::collections::btree_map::Entry::Vacant(slot) = remaining.entry(key) {
-                let cap = limit_for(plan, &account.owner, account.plan_type).unwrap_or(0.0)
-                    * inputs.ctx.fraction;
-                slot.insert(cap);
-            }
-        }
+        let cap = match account.plan_type {
+            PlanType::None => continue,
+            PlanType::HsaFamily => plan
+                .person(&account.owner)
+                .map_or(0.0, |p| hsa_catch_up(inputs.ctx.year - p.birth.year)),
+            plan_type => limit_for(plan, &account.owner, plan_type).unwrap_or(0.0),
+        };
+        remaining
+            .entry((account.owner.clone(), account.plan_type))
+            .or_insert(cap * inputs.ctx.fraction);
     }
 
     let mut allowed = Vec::with_capacity(plan.accounts.len());
@@ -237,9 +257,15 @@ pub(super) fn allowed_contributions(
         let granted = match remaining.get_mut(&(account.owner.clone(), account.plan_type)) {
             None => requested,
             Some(room) => {
-                let granted = requested.min(*room);
-                *room -= granted;
-                granted
+                let own = requested.min(*room);
+                *room -= own;
+                let shared = if account.plan_type == PlanType::HsaFamily {
+                    (requested - own).min(family_room)
+                } else {
+                    0.0
+                };
+                family_room -= shared;
+                own + shared
             }
         };
         if granted < requested - 1e-6 && reported.insert(account.id.clone()) {

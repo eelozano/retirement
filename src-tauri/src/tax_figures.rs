@@ -117,8 +117,9 @@ fn header() -> String {
 #   contribution_limits  401(k)/403(b) (employer_plan), 457(b), IRA, SEP,
 #                        SIMPLE and their catch-ups, published each October or
 #                        November (an IRS Notice on cost-of-living
-#                        adjustments). The HSA limit (self-only coverage) is
-#                        published each spring.
+#                        adjustments). The HSA limits (hsa for self-only
+#                        coverage, hsa_family for family) are published each
+#                        spring.
 #
 # Fixed in the app rather than here: the Social Security taxability
 # thresholds, the HSA $1,000 age-55 catch-up, and the RMD ages and table.

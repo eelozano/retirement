@@ -73,6 +73,11 @@ const LIMIT_FIELDS: Record<
     tooltip: "The $1,000 age-55 catch-up is fixed by law.",
     group: "HSA",
   },
+  hsa_family: {
+    label: "HSA (family)",
+    hint: "One limit per household, shared by both spouses' HSAs.",
+    group: "HSA",
+  },
   sep_ira: { label: "SEP-IRA", group: "SEP and SIMPLE IRAs" },
   simple_ira: { label: "SIMPLE IRA deferral", group: "SEP and SIMPLE IRAs" },
   simple_ira_catch_up_50: {
@@ -154,7 +159,7 @@ function LimitsSection({ value, onChange }: SectionProps<"contribution_limits">)
     <>
       <h3>Contribution limits</h3>
       <p className="storage-badge">
-        Published each October or November, except the HSA limit.
+        Published each October or November, except the HSA limits.
       </p>
       {groups.map((group) => (
         <div key={group}>

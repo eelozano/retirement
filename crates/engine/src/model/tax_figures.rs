@@ -124,11 +124,20 @@ pub struct ContributionLimits {
     /// defer the full amount into each. Shares `employer_plan`'s catch-up
     /// tiers.
     pub plan_457b: f64,
-    /// HSA self-only coverage limit. Family coverage is higher, but this app
-    /// has no concept of HSA coverage type, so the more conservative
-    /// self-only figure is used for everyone. The 55+ catch-up is
+    /// HSA self-only coverage limit (`PlanType::Hsa`). The 55+ catch-up is
     /// [`HSA_CATCH_UP_55`], fixed by statute.
     pub hsa: f64,
+    /// HSA family coverage limit (`PlanType::HsaFamily`), published in the
+    /// same revenue procedure as `hsa`. One figure per household, shared by
+    /// every family-coverage HSA in it; the catch-up sits on top, per
+    /// person.
+    ///
+    /// Defaulted so a `tax-figures.yaml` written before the field existed
+    /// still loads rather than falling back to the built-in figures
+    /// wholesale. Only a family-coverage account reads it, and none existed
+    /// then, so no saved plan's projection depends on the default.
+    #[serde(default = "built_in_hsa_family")]
+    pub hsa_family: f64,
     /// SEP-IRA limit: employer contributions only, capped at the 415(c)
     /// figure. No catch-up.
     pub sep_ira: f64,
@@ -140,6 +149,12 @@ pub struct ContributionLimits {
     /// SECURE 2.0 higher SIMPLE catch-up, replacing the age-50 figure for
     /// the years the owner turns 60 through 63.
     pub simple_ira_catch_up_60_63: f64,
+}
+
+/// Rev. Proc. 2025-19's family-coverage figure, which a pre-existing
+/// `tax-figures.yaml` without one loads as.
+fn built_in_hsa_family() -> f64 {
+    TaxFigures::built_in().contribution_limits.hsa_family
 }
 
 /// Rev. Proc. 2025-32: $1,650 per spouse aged 65 or older on a joint return,
@@ -217,6 +232,7 @@ impl TaxFigures {
                 annual_additions: 72_000.0,
                 plan_457b: 24_500.0,
                 hsa: 4_400.0,
+                hsa_family: 8_750.0,
                 sep_ira: 72_000.0,
                 simple_ira: 17_000.0,
                 simple_ira_catch_up_50: 4_000.0,
@@ -282,6 +298,7 @@ impl TaxFigures {
             ("annual_additions", l.annual_additions),
             ("plan_457b", l.plan_457b),
             ("hsa", l.hsa),
+            ("hsa_family", l.hsa_family),
             ("sep_ira", l.sep_ira),
             ("simple_ira", l.simple_ira),
             ("simple_ira_catch_up_50", l.simple_ira_catch_up_50),
@@ -314,6 +331,17 @@ impl TaxFigures {
             _ => 0.0,
         };
         index_to(l.annual_additions, 1_000.0, years, inflation) + catch_up
+    }
+
+    /// The family-coverage HSA limit for calendar year `year`, without any
+    /// catch-up: the one figure a household's family-coverage HSAs share.
+    pub fn hsa_family_limit(&self, year: i32, inflation: f64) -> f64 {
+        index_to(
+            self.contribution_limits.hsa_family,
+            50.0,
+            self.years_to(year),
+            inflation,
+        )
     }
 
     /// The annual limit for `plan_type` in calendar year `year`, for an owner
@@ -360,10 +388,11 @@ impl TaxFigures {
             PlanType::Plan457b => {
                 Some(index_to(l.plan_457b, 500.0, years, inflation) + employer_catch_up())
             }
-            PlanType::Hsa => {
-                let catch_up = if age >= 55 { HSA_CATCH_UP_55 } else { 0.0 };
-                Some(index_to(l.hsa, 50.0, years, inflation) + catch_up)
-            }
+            PlanType::Hsa => Some(index_to(l.hsa, 50.0, years, inflation) + hsa_catch_up(age)),
+            // What one owner may put in alone. The household shares the
+            // family figure, which `sim::contributions` enforces with
+            // `hsa_family_limit` and `hsa_catch_up`.
+            PlanType::HsaFamily => Some(self.hsa_family_limit(year, inflation) + hsa_catch_up(age)),
             // Employer-only contributions: no employee catch-up.
             PlanType::SepIra => Some(index_to(l.sep_ira, 1_000.0, years, inflation)),
             PlanType::SimpleIra => {
@@ -375,6 +404,16 @@ impl TaxFigures {
                 Some(index_to(l.simple_ira, 500.0, years, inflation) + catch_up)
             }
         }
+    }
+}
+
+/// The HSA catch-up for an owner reaching `age` this year: per person under
+/// either coverage, fixed and not indexed.
+pub fn hsa_catch_up(age: i32) -> f64 {
+    if age >= 55 {
+        HSA_CATCH_UP_55
+    } else {
+        0.0
     }
 }
 
