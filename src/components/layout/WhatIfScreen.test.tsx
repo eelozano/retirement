@@ -77,8 +77,20 @@ const plan = {
   social_security: [],
   assumptions: {
     inflation: 0.025,
-    strategy_returns: { aggressive: 0.07, moderate: 0.06, conservative: 0.04 },
-    strategy_volatility: { aggressive: 0.16, moderate: 0.12, conservative: 0.09 },
+    strategy_returns: {
+      very_aggressive: 0.07,
+      aggressive: 0.07,
+      moderate: 0.06,
+      conservative: 0.04,
+      very_conservative: 0.04,
+    },
+    strategy_volatility: {
+      very_aggressive: 0.16,
+      aggressive: 0.16,
+      moderate: 0.12,
+      conservative: 0.09,
+      very_conservative: 0.09,
+    },
     filing_status: "Single",
     state_tax: {
       state: "Other",

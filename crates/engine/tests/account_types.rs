@@ -64,9 +64,11 @@ fn base_plan(accounts: Vec<Account>) -> Plan {
         assumptions: Assumptions {
             inflation: INFLATION,
             strategy_returns: StrategyRates {
+                very_aggressive: 0.08,
                 aggressive: 0.08,
                 moderate: 0.05,
                 conservative: 0.05,
+                very_conservative: 0.05,
             },
             filing_status: FilingStatus::Single,
             state_tax: StateTaxProfile::none(),

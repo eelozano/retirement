@@ -40,8 +40,20 @@ const plan = {
   ],
   accounts: [],
   assumptions: {
-    strategy_returns: { aggressive: 0.075, moderate: 0.067, conservative: 0.059 },
-    strategy_volatility: { aggressive: 0.155, moderate: 0.115, conservative: 0.09 },
+    strategy_returns: {
+      very_aggressive: 0.075,
+      aggressive: 0.075,
+      moderate: 0.067,
+      conservative: 0.059,
+      very_conservative: 0.059,
+    },
+    strategy_volatility: {
+      very_aggressive: 0.155,
+      aggressive: 0.155,
+      moderate: 0.115,
+      conservative: 0.09,
+      very_conservative: 0.09,
+    },
     drawdown: "Proportional",
   },
   sim_config: { start: { year: 2025, month: 1 }, period: "Year" },
@@ -157,6 +169,30 @@ describe("AccountsSection", () => {
     // silently replacing a rate the user typed would be the wrong move.
     await userEvent.selectOptions(screen.getByLabelText("Type"), "taxable");
     expect(currentAccount()?.allocation).toEqual({ FixedRate: expect.any(Number) });
+  });
+
+  it("offers all five strategies by name and rate", async () => {
+    render(<AccountsSection />);
+    await addAccount();
+
+    const options = Array.from(
+      screen.getByLabelText<HTMLSelectElement>("Allocation").options,
+      (o) => o.text,
+    );
+    expect(options).toEqual([
+      "Very Aggressive (7.5%)",
+      "Aggressive (7.5%)",
+      "Moderate (6.7%)",
+      "Conservative (5.9%)",
+      "Very Conservative (5.9%)",
+      "Fixed rate…",
+    ]);
+
+    await userEvent.selectOptions(
+      screen.getByLabelText("Allocation"),
+      "VeryConservative",
+    );
+    expect(currentAccount()?.allocation).toBe("VeryConservative");
   });
 
   it("edits owner, allocation, and balance on the selected account", async () => {

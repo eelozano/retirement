@@ -20,8 +20,20 @@ const plan = {
   social_security: [],
   assumptions: {
     inflation: 0.025,
-    strategy_returns: { aggressive: 0.07, moderate: 0.06, conservative: 0.04 },
-    strategy_volatility: { aggressive: 0.16, moderate: 0.12, conservative: 0.09 },
+    strategy_returns: {
+      very_aggressive: 0.07,
+      aggressive: 0.07,
+      moderate: 0.06,
+      conservative: 0.04,
+      very_conservative: 0.04,
+    },
+    strategy_volatility: {
+      very_aggressive: 0.16,
+      aggressive: 0.16,
+      moderate: 0.12,
+      conservative: 0.09,
+      very_conservative: 0.09,
+    },
     filing_status: "Single",
     state_tax: {
       state: "Other",
@@ -72,5 +84,69 @@ describe("Social Security cut", () => {
       screen.getByRole("checkbox", { name: /Assume a Social Security cut/ }),
     );
     expect(cut()).toBeNull();
+  });
+});
+
+describe("Investment strategies", () => {
+  const defaults = {
+    very_aggressive: 0.0692,
+    aggressive: 0.0635,
+    moderate: 0.0573,
+    conservative: 0.0506,
+    very_conservative: 0.0435,
+  };
+  const defaultVolatility = {
+    very_aggressive: 0.1303,
+    aggressive: 0.1102,
+    moderate: 0.0912,
+    conservative: 0.0742,
+    very_conservative: 0.0609,
+  };
+  const withPresets = () =>
+    usePlanStore.setState({
+      presets: {
+        default_assumptions: {
+          strategy_returns: defaults,
+          strategy_volatility: defaultVolatility,
+        },
+      },
+    } as never);
+  const assumptions = () => usePlanStore.getState().plan?.assumptions;
+  const reset = () =>
+    screen.getByRole<HTMLButtonElement>("button", { name: "Reset to defaults" });
+
+  it("lists five tiers in risk order, each naming its mix in a tooltip", () => {
+    render(<AssumptionsSection />);
+    const headings = screen
+      .getAllByRole("heading", { level: 4 })
+      .map((h) => h.textContent);
+    const names = [
+      "Very Aggressive",
+      "Aggressive",
+      "Moderate",
+      "Conservative",
+      "Very Conservative",
+    ];
+    const mixes = ["100/0", "80/20", "60/40", "40/60", "20/80"];
+    names.forEach((name, i) => {
+      expect(headings[i]).toContain(name);
+      expect(headings[i]).toContain(`${mixes[i]} stocks/bonds`);
+    });
+  });
+
+  it("resets every return and volatility to the shipped defaults", async () => {
+    withPresets();
+    render(<AssumptionsSection />);
+    expect(reset().disabled).toBe(false);
+
+    await userEvent.click(reset());
+    expect(assumptions()?.strategy_returns).toEqual(defaults);
+    expect(assumptions()?.strategy_volatility).toEqual(defaultVolatility);
+    expect(reset().disabled).toBe(true);
+  });
+
+  it("cannot reset before the presets have loaded", () => {
+    render(<AssumptionsSection />);
+    expect(reset().disabled).toBe(true);
   });
 });

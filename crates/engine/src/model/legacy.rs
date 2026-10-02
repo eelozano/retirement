@@ -63,11 +63,17 @@ fn blend(classes: &ClassRates, weights: &[(AssetClass, f64)]) -> f64 {
 /// Each strategy's return under a plan's *own* per-class table — the weighted
 /// average `grow` computed every period, so a migrated plan's deterministic
 /// projection is identical to the one it had.
+///
+/// The two `very_*` tiers did not exist when these files were written, so
+/// no account in one is allocated to them; they take the shipped defaults.
 pub(crate) fn blend_all(classes: &ClassRates) -> StrategyRates {
+    let defaults = crate::presets::default_strategy_returns();
     StrategyRates {
+        very_aggressive: defaults.very_aggressive,
         aggressive: blend(classes, &AGGRESSIVE),
         moderate: blend(classes, &MODERATE),
         conservative: blend(classes, &CONSERVATIVE),
+        very_conservative: defaults.very_conservative,
     }
 }
 

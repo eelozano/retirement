@@ -670,9 +670,19 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
     }
     let returns = plan.assumptions.strategy_returns;
     for (field, label, rate) in [
+        (
+            "very_aggressive",
+            "Very Aggressive",
+            returns.very_aggressive,
+        ),
         ("aggressive", "Aggressive", returns.aggressive),
         ("moderate", "Moderate", returns.moderate),
         ("conservative", "Conservative", returns.conservative),
+        (
+            "very_conservative",
+            "Very Conservative",
+            returns.very_conservative,
+        ),
     ] {
         if rate <= -1.0 {
             errors.push(err(
@@ -687,9 +697,19 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
     // look like a rendering bug.
     let volatility = plan.assumptions.strategy_volatility;
     for (field, label, stddev) in [
+        (
+            "very_aggressive",
+            "Very Aggressive",
+            volatility.very_aggressive,
+        ),
         ("aggressive", "Aggressive", volatility.aggressive),
         ("moderate", "Moderate", volatility.moderate),
         ("conservative", "Conservative", volatility.conservative),
+        (
+            "very_conservative",
+            "Very Conservative",
+            volatility.very_conservative,
+        ),
     ] {
         if !(0.0..=1.0).contains(&stddev) {
             errors.push(err(
@@ -1360,9 +1380,11 @@ mod tests {
         plan.assumptions.strategy_volatility = plan.assumptions.strategy_volatility.map(|_| -0.1);
         let errors = plan.validate();
         for field in [
+            "assumptions.strategy_volatility.very_aggressive",
             "assumptions.strategy_volatility.aggressive",
             "assumptions.strategy_volatility.moderate",
             "assumptions.strategy_volatility.conservative",
+            "assumptions.strategy_volatility.very_conservative",
         ] {
             assert!(
                 errors.iter().any(|e| e.field == field),

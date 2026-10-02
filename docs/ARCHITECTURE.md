@@ -286,8 +286,14 @@ pub struct Account {                 // + id, name
 
 // See "Growth is one number per strategy" for why this is not a
 // per-asset-class table with per-account weights over it (#129).
-pub enum AllocationRef { Aggressive, Moderate, Conservative, FixedRate(f64) }
-pub struct StrategyRates { pub aggressive: f64, pub moderate: f64, pub conservative: f64 }
+pub enum AllocationRef {
+    VeryAggressive, Aggressive, Moderate, Conservative, VeryConservative,
+    FixedRate(f64),
+}
+pub struct StrategyRates {               // one field per named variant above
+    pub very_aggressive: f64, pub aggressive: f64, pub moderate: f64,
+    pub conservative: f64, pub very_conservative: f64,
+}
 
 pub enum ContributionRule {
     // resolved against the owner's salary each period; step_up escalates it
@@ -623,11 +629,24 @@ Two consequences worth knowing:
 - **Volatility stays user-editable**, one figure per strategy, preserving what
   #52 established: the fan's width must not come from numbers nobody can see.
 
+**Five tiers, described by a stock/bond mix.** The strategies run Very
+Aggressive, Aggressive, Moderate, Conservative and Very Conservative, and the
+shipped defaults (`presets::default_strategy_returns` / `_volatility`) are
+whole-portfolio figures for 100/0, 80/20, 60/40, 40/60 and 20/80. The mix is
+description only — said in a tooltip beside each tier in the Assumptions pane
+and nowhere the engine reads. The two `very_*` tiers came after the other
+three: `AssumptionsWire` reads a three-key table through `StrategyRatesWire`,
+keeps the three figures the plan carried and fills the two new ones from that
+table's default. No saved account can name a tier that did not exist when it
+was written, so this changes no saved plan's projection. Moving a saved plan
+onto the current defaults is the user's choice: "Reset to defaults" in the
+Assumptions pane rewrites all ten figures for the open scenario.
+
 Old files still say `UsEquity` and friends; `model/legacy.rs` reads them, once,
 through `AssumptionsWire` and `AllocationRefWire`, and nothing at simulate time
 touches it. `AllocationRef::FixedRate` prices an account on its own nominal
-rate instead of a strategy's — a savings rate, a CD ladder, or a blend the three
-strategies don't describe.
+rate instead of a strategy's — a savings rate, a CD ladder, or a blend the
+named strategies don't describe.
 
 #### The return is an arithmetic mean, not a compound rate
 
@@ -639,17 +658,19 @@ about the typed figure and their average is it. Periods are calendar years
 
 A sequence of such years does not compound at that figure. The median of a
 product of independent draws is `exp(E[ln(1+r)])`, and to second order
-`E[ln(1+r)] ≈ ln(1+μ) − σ²/(2(1+μ)²)`. At the aggressive defaults (μ = 7.5%,
-σ = 15.5%) that is **6.4%** — over a point below the 7.5% the deterministic
-projection compounds directly, because the deterministic run reads the same
-number as a certainty and has no variance to drag on it.
+`E[ln(1+r)] ≈ ln(1+μ) − σ²/(2(1+μ)²)`. At the three-tier aggressive defaults
+that preceded the five tiers (μ = 7.5%, σ = 15.5%) that is **6.4%** — over a
+point below the 7.5% the deterministic projection compounds directly, because
+the deterministic run reads the same number as a certainty and has no
+variance to drag on it.
 
 So the deterministic line is not the Monte Carlo median, and is not meant to
 be: the two answer "what if every year is average" and "what does the middle
 path do when years vary". The gap is variance drag, and it is the honest
 consequence of having stated a volatility at all.
 
-**What that is worth in dollars.** Measured on `presets::seed_plan` — 58
+**What that is worth in dollars.** Measured on `presets::seed_plan` under
+those three-tier defaults — 58
 periods, 20,000 paths — the deterministic run ends at **$29.2M** while the
 Monte Carlo median ends at **$6.6M** and the 10th percentile at zero. The
 line is **4.4× the median**, on a plan whose probability of success is
@@ -664,8 +685,8 @@ things, and a screen showing both has to say which is which (#144).
 study's setup — 4% inflation-adjusted withdrawal, 30 years, one 50/50
 portfolio, no tax — the engine reports **85.7%** success at Trinity-era
 return assumptions (7.7% nominal, 11.0% volatility, 3.1% inflation), against
-the study's published ~95%; **71.5%** at the shipped conservative defaults
-(5.9% / 9.0% / 3.0%); and **100%** at those same means with the volatility
+the study's published ~95%; **71.5%** at the three-tier conservative defaults
+of the time (5.9% / 9.0% / 3.0%); and **100%** at those same means with the volatility
 taken out. The withdrawal-rate ladder at Trinity-era assumptions runs 3.0% →
 97.5%, 3.5% → 93.4%, 4.0% → 85.7%, 4.5% → 75.3%, 5.0% → 62.0%.
 

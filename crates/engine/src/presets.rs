@@ -100,16 +100,23 @@ pub struct Presets {
 /// Nominal expected annual return for each strategy, seeding
 /// `Assumptions::strategy_returns` for a new plan.
 ///
-/// Round figures a person would actually type. The pre-#129 per-class
-/// defaults blended to 7.45 / 6.675 / 5.9 under each preset's weights, and a
-/// plan carried across that change keeps its *own* blend to the last decimal
-/// — see `AssumptionsWire`. These are only what a new plan starts from, so
-/// there is nothing to preserve here and no reason to ship 6.675%.
+/// Whole-portfolio figures for five stock/bond mixes, most aggressive
+/// first: 100/0, 80/20, 60/40, 40/60 and 20/80. The mixes are what the UI
+/// says each tier stands for; nothing in the engine weights an asset class.
+///
+/// These are only what a *new* plan starts from. A saved plan carries its
+/// own figures — including ones from before these defaults, which were
+/// 7.5 / 6.7 / 5.9 for the three tiers there were then — and keeps them
+/// until the user resets them in the Assumptions pane. Before #129 the
+/// per-class defaults blended to 7.45 / 6.675 / 5.9, and a plan carried
+/// across that change kept its own blend too — see `AssumptionsWire`.
 pub fn default_strategy_returns() -> StrategyRates {
     StrategyRates {
-        aggressive: 0.075,
-        moderate: 0.067,
-        conservative: 0.059,
+        very_aggressive: 0.0692,
+        aggressive: 0.0635,
+        moderate: 0.0573,
+        conservative: 0.0506,
+        very_conservative: 0.0435,
     }
 }
 
@@ -118,22 +125,25 @@ pub fn default_strategy_returns() -> StrategyRates {
 /// plan written before #129, which carries no per-strategy figure of its
 /// own.
 ///
-/// Whole-portfolio figures for a 90/10, a 70/30 and a 50/50: roughly what
-/// those mixes have actually done. The four independent per-class draws this
-/// replaced implied 12.4 / 9.7 / 9.0 — `sqrt(Σ wᵢ² σᵢ²)` under each preset's
-/// weights — about three points too narrow at the aggressive end, because
-/// independent draws let equity diversify against equity.
+/// Whole-portfolio figures for the same five mixes as
+/// `default_strategy_returns`. A saved plan keeps its own, as above; the
+/// three-tier defaults before these were 15.5 / 11.5 / 9.0.
 ///
-/// So this widens the fan and lowers reported probability of success on a
-/// plan nobody edited: across the demo scenarios, by 6.7 to 10.1
-/// points (the base scenario goes 0.948 → 0.881 at 2,000 paths). It is the
-/// one place this project knowingly breaks "an upgrade never changes a
-/// saved plan's output", and it breaks it because the old number was wrong.
+/// History: #129 replaced four independent per-class draws, which implied
+/// 12.4 / 9.7 / 9.0 for the 90/10, 70/30 and 50/50 mixes of that time —
+/// too narrow, because independent draws let equity diversify against
+/// equity. Giving a pre-#129 plan whole-portfolio figures widened its fan
+/// and lowered its reported probability of success (the demo base scenario
+/// went 0.948 → 0.881 at 2,000 paths). It is the one place this project
+/// knowingly broke "an upgrade never changes a saved plan's output", and it
+/// broke it because the old number was wrong.
 pub fn default_strategy_volatility() -> StrategyRates {
     StrategyRates {
-        aggressive: 0.155,
-        moderate: 0.115,
-        conservative: 0.090,
+        very_aggressive: 0.1303,
+        aggressive: 0.1102,
+        moderate: 0.0912,
+        conservative: 0.0742,
+        very_conservative: 0.0609,
     }
 }
 
@@ -145,7 +155,7 @@ pub fn default_assumptions() -> Assumptions {
         // forward and escalates every stream set to grow with inflation, so
         // the cost of seeding it low is spread across the whole projection
         // rather than confined to the today's-dollars toggle. Against the
-        // unchanged nominal returns above it implies a 4.4% real return for
+        // nominal returns above it implies a 3.25% real return for
         // `Aggressive`.
         inflation: 0.03,
         strategy_returns: default_strategy_returns(),

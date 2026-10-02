@@ -110,8 +110,20 @@ const plan = {
   ],
   assumptions: {
     inflation: 0.025,
-    strategy_returns: { aggressive: 0.07, moderate: 0.05, conservative: 0.03 },
-    strategy_volatility: { aggressive: 0.16, moderate: 0.11, conservative: 0.06 },
+    strategy_returns: {
+      very_aggressive: 0.07,
+      aggressive: 0.07,
+      moderate: 0.05,
+      conservative: 0.03,
+      very_conservative: 0.03,
+    },
+    strategy_volatility: {
+      very_aggressive: 0.16,
+      aggressive: 0.16,
+      moderate: 0.11,
+      conservative: 0.06,
+      very_conservative: 0.06,
+    },
   },
   sim_config: { start: { year: 2026, month: 1 } },
 } as unknown as Plan;

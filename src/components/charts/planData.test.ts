@@ -880,16 +880,32 @@ describe("hasVolatility", () => {
 
   it("is true when any strategy carries a spread", () => {
     expect(
-      hasVolatility(withVol({ aggressive: 0, moderate: 0, conservative: 0.09 })),
+      hasVolatility(
+        withVol({
+          very_aggressive: 0,
+          aggressive: 0,
+          moderate: 0,
+          conservative: 0.09,
+          very_conservative: 0.09,
+        }),
+      ),
     ).toBe(true);
   });
 
   // At zero volatility the deterministic run *is* the median path, so the
   // note it gates would state something false.
   it("is false when every strategy is certain", () => {
-    expect(hasVolatility(withVol({ aggressive: 0, moderate: 0, conservative: 0 }))).toBe(
-      false,
-    );
+    expect(
+      hasVolatility(
+        withVol({
+          very_aggressive: 0,
+          aggressive: 0,
+          moderate: 0,
+          conservative: 0,
+          very_conservative: 0,
+        }),
+      ),
+    ).toBe(false);
   });
 });
 
