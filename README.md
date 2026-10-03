@@ -514,9 +514,9 @@ you spent an afternoon on.
   taken out of a salary at all, so working years show more take-home money
   than they will have. It does not touch retirement years.
 - **ACA premium subsidies.** Health insurance before Medicare is whatever you
-  enter as an expense. The subsidy is a cliff-free but steep function of MAGI,
-  which means the withdrawal order you choose silently moves your premiums —
-  and the app will not show it.
+  enter as an expense, so enter it net of any subsidy. The subsidy is a steep
+  function of MAGI, which means the withdrawal order you choose silently moves
+  your premiums — and the app will not show it.
 - **Dividends and distributions in a taxable account.** Growth there is
   treated as entirely deferred until you sell, so a taxable brokerage compounds
   a little faster here than a real one paying out dividends each year, and the
