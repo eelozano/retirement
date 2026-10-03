@@ -922,7 +922,7 @@ A real broad-index brokerage account distributes part of its return every year a
 
 One figure for every taxable account, not one per strategy — the effect is small and a second table would be precision nobody can supply — and it is not drawn per Monte Carlo path: a bad year lowers the price return, not the dividend. Bond interest held in a taxable account is ordinary income in life; the model treats all of the yield as qualified.
 
-Measured on the committed demo scenarios before shipping, a 1.3% yield costs the equivalent of 0.16–0.20% a year of return on taxable accounts (0.27–0.32% at 2%), and moves Monte Carlo success by under half a point. A brokerage-funded early retiree in the 0% gains band loses about 0.07% a year; one in the 15% band, 0.19%. Saved plans load at 0.0, which is the old fully-deferred behaviour bit for bit.
+Measured on the committed demo scenarios before shipping, a 1.3% yield costs the equivalent of 0.16–0.20% a year of return on taxable accounts (0.27–0.32% at 2%), and moves Monte Carlo success by under half a point. A brokerage-funded early retiree in the 0% gains band loses about 0.07% a year; one in the 15% band, 0.19%. A new plan starts at 1.3% (`presets::default_assumptions`); a plan saved before the field existed loads at 0.0, which is the old fully-deferred behaviour bit for bit — the same split `social_security_cola` makes. The committed demo scenarios are held at 0.0 for the same reason, so the golden projections keep pinning what an upgrade does to a saved plan.
 
 ### Surplus has two regimes (`Assumptions::sweep_surplus_from`)
 

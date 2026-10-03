@@ -425,7 +425,7 @@ export function AssumptionsSection() {
         </div>
         <PercentField
           label="Taxable dividend yield"
-          hint="At 0%, a brokerage's gains are all taxed when sold. A broad stock index fund pays about 1.3%."
+          hint="New plans start at 1.3%, about what a broad stock index fund pays. At 0%, a brokerage's gains are all taxed when sold."
           tooltip="The part of a taxable account's return paid out each year as qualified dividends. It comes out of the expected return above rather than adding to it, so balances don't change — but the dividends are taxed as capital gains every year instead of waiting for a sale, and later sales owe correspondingly less because each dividend raises the account's cost basis. Applies to every taxable account; retirement accounts and savings are unaffected."
           rate={assumptions.dividend_yield}
           minPercent={0}

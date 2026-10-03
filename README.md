@@ -128,9 +128,10 @@ asset classes. Five strategies run from Very Aggressive to Very Conservative,
 their defaults whole-portfolio figures for 100/0 through 20/80 stocks/bonds,
 and one button puts a plan back on those defaults. Each figure says what it
 means: the real return after the plan's inflation, and what a Monte Carlo
-path compounds at once years vary. A taxable dividend yield, off until you set
-it, taxes part of a brokerage's return every year as qualified dividends
-instead of deferring all of it until you sell.
+path compounds at once years vary. A taxable dividend yield — 1.3% for a new
+plan, 0% for one saved before it existed — taxes part of a brokerage's return
+every year as qualified dividends instead of deferring all of it until you
+sell.
 
 ![The Assumptions pane's five investment strategies, Very Aggressive through
 Very Conservative, each with an expected return and a volatility, the accounts
