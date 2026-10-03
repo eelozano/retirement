@@ -8,7 +8,9 @@ use std::time::Duration;
 
 use engine::model::{Household, Plan, TaxFigures};
 use engine::presets::Presets;
-use engine::{MonteCarloConfig, MonteCarloResult, Projection, RunControl};
+use engine::{
+    BacktestResult, CohortDetail, MonteCarloConfig, MonteCarloResult, Projection, RunControl,
+};
 use serde::Serialize;
 use tauri::ipc::Channel;
 use tauri::Manager;
@@ -102,6 +104,39 @@ fn require_valid(plan: &Plan) -> Result<(), String> {
 pub fn run_projection(app: tauri::AppHandle, plan: Plan) -> Result<Projection, String> {
     require_valid(&plan)?;
     Ok(engine::run_deterministic(&plan, &figures_in_force(&app)?))
+}
+
+/// The plan replayed against every start year in the bundled history
+/// (#178): one summary per start year and the counts behind the historical
+/// success rate. About one run per year since 1871 — a few percent of a
+/// default Monte Carlo — so there is no progress channel or cancel; it runs
+/// on a blocking thread for the same reason Monte Carlo does.
+#[tauri::command]
+pub async fn run_backtest(app: tauri::AppHandle, plan: Plan) -> Result<BacktestResult, String> {
+    require_valid(&plan)?;
+    let figures = figures_in_force(&app)?;
+    tauri::async_runtime::spawn_blocking(move || engine::run_backtest(&plan, &figures))
+        .await
+        .map_err(|e| format!("backtest worker failed: {e}"))
+}
+
+/// One start year of `run_backtest` in full, for its year-by-year ledger.
+/// Re-run on demand rather than carried in the summary: one run is cheap,
+/// and every cohort's full projection would be megabytes over IPC.
+#[tauri::command]
+pub async fn run_backtest_cohort(
+    app: tauri::AppHandle,
+    plan: Plan,
+    start_year: i32,
+) -> Result<CohortDetail, String> {
+    require_valid(&plan)?;
+    let figures = figures_in_force(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        engine::run_backtest_cohort(&plan, &figures, start_year)
+    })
+    .await
+    .map_err(|e| format!("backtest worker failed: {e}"))?
+    .ok_or_else(|| format!("{start_year} is outside the historical record"))
 }
 
 /// Load the current plan, or `None` when the user has none. Before looking,

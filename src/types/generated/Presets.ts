@@ -2,6 +2,7 @@
 import type { Assumptions } from "./Assumptions";
 import type { StateCode } from "./StateCode";
 import type { StateTaxProfile } from "./StateTaxProfile";
+import type { StrategyRates } from "./StrategyRates";
 import type { TaxFigures } from "./TaxFigures";
 
 /**
@@ -21,4 +22,8 @@ tax_figures: TaxFigures,
  * `Assumptions.state_tax`; the plan then owns an editable copy — this
  * map is never consulted again at simulate time.
  */
-state_tax_profiles: { [key in StateCode]?: StateTaxProfile }, };
+state_tax_profiles: { [key in StateCode]?: StateTaxProfile }, 
+/**
+ * Each strategy's stock share — `strategy_stock_share`.
+ */
+strategy_stock_share: StrategyRates, };

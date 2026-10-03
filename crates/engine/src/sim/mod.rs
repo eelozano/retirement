@@ -1,11 +1,16 @@
 mod contributions;
 mod early_access;
+mod historical;
 mod monte_carlo;
 mod period;
 mod projection;
 mod required_distributions;
 mod survivor;
 
+pub use historical::{
+    backtest, backtest_cohort, history, BacktestResult, CohortDetail, CohortRunner, CohortStatus,
+    CohortSummary, HistoricalYear, MarketYear,
+};
 pub use monte_carlo::{
     run_monte_carlo, run_monte_carlo_with, Cancelled, MonteCarloConfig, MonteCarloDiagnostics,
     MonteCarloResult, PathGroupStats, PeriodPercentiles, RunControl, Spread,

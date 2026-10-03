@@ -1,5 +1,5 @@
 import { currencyCompact, ratePercent } from "../../lib/format";
-import { medianCompoundedReturn, realReturn } from "../../lib/returns";
+import { medianCompoundedReturn, realReturn, stockBondMix } from "../../lib/returns";
 import {
   SS_TRUST_FUND_DEPLETION_YEAR,
   SS_TRUSTEES_PAYABLE_FRACTION,
@@ -21,12 +21,13 @@ import { TaxBracketEditor } from "./TaxBracketEditor";
 
 /**
  * The investment strategies in risk order: the key each is stored under on
- * `StrategyRates`, the `AllocationRef` variant that selects it, the name it
- * is shown under, and the stock/bond mix the shipped default figures
- * describe.
+ * `StrategyRates`, the `AllocationRef` variant that selects it, and the name
+ * it is shown under.
  *
- * The mix is description, not model: the engine prices a strategy from its
- * return and volatility alone, so it is said only in a tooltip beside the
+ * Each tier's stock/bond mix comes from the engine's presets
+ * (`strategy_stock_share`), the mix the shipped default figures describe and
+ * a historical replay earns. A projection prices a strategy from its return
+ * and volatility alone, so the mix is said only in a tooltip beside the
  * figures it explains, never in the account picker, where an edited return
  * would make it untrue.
  *
@@ -35,21 +36,11 @@ import { TaxBracketEditor } from "./TaxBracketEditor";
  * assumptions editor, the per-account picker and the report.
  */
 export const STRATEGIES = [
-  {
-    key: "very_aggressive",
-    variant: "VeryAggressive",
-    label: "Very Aggressive",
-    mix: "100/0",
-  },
-  { key: "aggressive", variant: "Aggressive", label: "Aggressive", mix: "80/20" },
-  { key: "moderate", variant: "Moderate", label: "Moderate", mix: "60/40" },
-  { key: "conservative", variant: "Conservative", label: "Conservative", mix: "40/60" },
-  {
-    key: "very_conservative",
-    variant: "VeryConservative",
-    label: "Very Conservative",
-    mix: "20/80",
-  },
+  { key: "very_aggressive", variant: "VeryAggressive", label: "Very Aggressive" },
+  { key: "aggressive", variant: "Aggressive", label: "Aggressive" },
+  { key: "moderate", variant: "Moderate", label: "Moderate" },
+  { key: "conservative", variant: "Conservative", label: "Conservative" },
+  { key: "very_conservative", variant: "VeryConservative", label: "Very Conservative" },
 ] as const;
 
 export type StrategyKey = (typeof STRATEGIES)[number]["key"];
@@ -355,7 +346,7 @@ export function AssumptionsSection() {
           Investment strategies
           <InfoTooltip text="Each account picks one of these on the Accounts pane. Returns are nominal — inflation comes off them — and each is the average of a single year, not the rate a balance compounds at over decades. The volatility is how wide the Monte Carlo fan gets, and width has a price: the same average return compounds more slowly the more it varies, so the median Monte Carlo path ends below the deterministic projection even though both were given this number. Whole-portfolio figures, prefilled but yours to change." />
         </legend>
-        {STRATEGIES.map(({ key, variant, label, mix }) => {
+        {STRATEGIES.map(({ key, variant, label }) => {
           const held = plan.accounts.filter((a) => a.allocation === variant);
           const balance = held.reduce((sum, a) => sum + a.balance, 0);
           // What the stored figure means, said out loud: the same rate with
@@ -372,9 +363,11 @@ export function AssumptionsSection() {
               <h4 className="strategy-name">
                 <span>
                   {label}
-                  <InfoTooltip
-                    text={`The default figures are for a ${mix} stocks/bonds portfolio. Edit them if yours is invested differently.`}
-                  />
+                  {presets && (
+                    <InfoTooltip
+                      text={`The default figures are for a ${stockBondMix(presets.strategy_stock_share[key])} stocks/bonds portfolio. Edit them if yours is invested differently.`}
+                    />
+                  )}
                 </span>
                 <span className="strategy-usage">
                   {held.length === 0

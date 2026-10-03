@@ -96,14 +96,17 @@ pub struct Presets {
     /// `Assumptions.state_tax`; the plan then owns an editable copy — this
     /// map is never consulted again at simulate time.
     pub state_tax_profiles: BTreeMap<StateCode, StateTaxProfile>,
+    /// Each strategy's stock share — `strategy_stock_share`.
+    pub strategy_stock_share: StrategyRates,
 }
 
 /// Nominal expected annual return for each strategy, seeding
 /// `Assumptions::strategy_returns` for a new plan.
 ///
 /// Whole-portfolio figures for five stock/bond mixes, most aggressive
-/// first: 100/0, 80/20, 60/40, 40/60 and 20/80. The mixes are what the UI
-/// says each tier stands for; nothing in the engine weights an asset class.
+/// first: 100/0, 80/20, 60/40, 40/60 and 20/80 (`strategy_stock_share`).
+/// A projection never weights an asset class; only a historical replay
+/// reads the mixes.
 ///
 /// These are only what a *new* plan starts from. A saved plan carries its
 /// own figures — including ones from before these defaults, which were
@@ -145,6 +148,24 @@ pub fn default_strategy_volatility() -> StrategyRates {
         moderate: 0.0912,
         conservative: 0.0742,
         very_conservative: 0.0609,
+    }
+}
+
+/// The share of each strategy held in stocks, the rest in bonds: the mixes
+/// `default_strategy_returns` describes, most aggressive first.
+///
+/// A projection never reads it — growth is one number per strategy (#129).
+/// A historical replay does: it has no typed return to use, so each tier
+/// earns this blend of the year's stock and bond returns, rebalanced to it
+/// every year by construction (#178). It is also what the Assumptions pane
+/// says each tier stands for, so the two cannot disagree.
+pub fn strategy_stock_share() -> StrategyRates {
+    StrategyRates {
+        very_aggressive: 1.0,
+        aggressive: 0.8,
+        moderate: 0.6,
+        conservative: 0.4,
+        very_conservative: 0.2,
     }
 }
 
@@ -195,6 +216,7 @@ pub fn presets() -> Presets {
         default_assumptions: default_assumptions(),
         tax_figures: TaxFigures::built_in(),
         state_tax_profiles: state_tax_profiles(),
+        strategy_stock_share: strategy_stock_share(),
     }
 }
 

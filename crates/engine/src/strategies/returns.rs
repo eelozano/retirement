@@ -3,6 +3,7 @@ use rand::SeedableRng;
 use rand_distr::{Distribution, StandardNormal};
 
 use crate::model::StrategyRates;
+use crate::sim::HistoricalYear;
 use crate::strategies::PeriodIndex;
 
 /// Per-period return (decimal, already scaled to the period length) for each
@@ -124,6 +125,49 @@ fn splitmix64(mut x: u64) -> u64 {
 
 fn mix_seed(seed: u64, path_id: u64, period: u64) -> u64 {
     splitmix64(splitmix64(seed ^ path_id) ^ period)
+}
+
+/// Real history, one year per period: period *n* earns the returns of
+/// `years[n]`, each strategy its stock share of the year's stock return and
+/// the rest of its bond return — rebalanced to that mix every year, since
+/// the blend is taken afresh each period. A stub period takes its share of
+/// the year in the loop, as it does from any return model.
+///
+/// Past the end of `years` it answers `fallback`, the plan's own typed
+/// means: `simulate` runs to the plan's horizon, and a replay of a recent
+/// start year discards the periods history has not reached yet.
+pub struct HistoricalReturns<'a> {
+    years: &'a [HistoricalYear],
+    stock_share: StrategyRates,
+    fallback: StrategyRates,
+}
+
+impl<'a> HistoricalReturns<'a> {
+    pub fn new(
+        years: &'a [HistoricalYear],
+        stock_share: StrategyRates,
+        fallback: StrategyRates,
+    ) -> Self {
+        HistoricalReturns {
+            years,
+            stock_share,
+            fallback,
+        }
+    }
+
+    /// Every strategy's nominal return in `year`.
+    pub fn blend(year: &HistoricalYear, stock_share: StrategyRates) -> StrategyRates {
+        stock_share.map(|share| share * year.stocks + (1.0 - share) * year.bonds)
+    }
+}
+
+impl ReturnModel for HistoricalReturns<'_> {
+    fn returns_for(&self, period: PeriodIndex, _path_id: u64) -> StrategyReturns {
+        match self.years.get(period) {
+            Some(year) => Self::blend(year, self.stock_share),
+            None => self.fallback,
+        }
+    }
 }
 
 #[cfg(test)]

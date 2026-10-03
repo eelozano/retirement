@@ -252,3 +252,48 @@ pub struct Projection {
     /// `one_time_contributions`.
     pub one_time: Vec<OneTimeInfo>,
 }
+
+impl SimWarning {
+    /// The period a warning is about, for a warning that has one. A
+    /// historical replay cut short by the end of the data keeps only the
+    /// warnings from the periods it covers.
+    pub fn period(&self) -> Option<usize> {
+        match self {
+            SimWarning::DepletedFunds { period }
+            | SimWarning::ContributionClamped { period, .. }
+            | SimWarning::AnnualAdditionsClamped { period, .. }
+            | SimWarning::RequiredDistributionUnallocated { period }
+            | SimWarning::EarlyWithdrawalPenalty { period }
+            | SimWarning::FloorReleased { period, .. } => Some(*period),
+            SimWarning::MatchUnallocated { .. }
+            | SimWarning::SurplusUnallocated
+            | SimWarning::SweepBoundaryUnresolved
+            | SimWarning::UnknownPersonRef { .. }
+            | SimWarning::ContributionBoundaryUnresolved { .. }
+            | SimWarning::Rule55Ineligible { .. } => None,
+        }
+    }
+}
+
+impl Projection {
+    /// The period the portfolio first could not cover spending — the
+    /// `DepletedFunds` warning, which a run emits at most once. `None` is
+    /// what "succeeded" means, for a Monte Carlo path and a historical
+    /// cohort alike.
+    pub fn depleted_period(&self) -> Option<usize> {
+        self.warnings.iter().find_map(|w| match w {
+            SimWarning::DepletedFunds { period } => Some(*period),
+            _ => None,
+        })
+    }
+
+    /// The projection as far as period `periods`, exclusive: snapshots,
+    /// one-time deposits and dated warnings past it are dropped.
+    pub fn truncated(mut self, periods: usize) -> Self {
+        self.snapshots.truncate(periods);
+        self.warnings
+            .retain(|w| w.period().is_none_or(|period| period < periods));
+        self.one_time.retain(|o| o.period < periods);
+        self
+    }
+}
