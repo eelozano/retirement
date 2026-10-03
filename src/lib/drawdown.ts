@@ -201,8 +201,15 @@ export function bridgePolicy(plan: Plan): DrawdownPolicy | null {
 }
 
 /** Removes every stack entry naming `accountId` — run when the account is
- * deleted, so a stack never names an account the plan no longer has. */
+ * deleted, so a stack never names an account the plan no longer has. An
+ * employer formula that paid into it goes back to the automatic account
+ * (#175) rather than pointing nowhere. */
 export function forgetAccount(plan: Plan, accountId: string): void {
+  for (const account of plan.accounts) {
+    if (account.employer_match?.deposit_into === accountId) {
+      account.employer_match.deposit_into = null;
+    }
+  }
   const { drawdown } = plan.assumptions;
   if (drawdown === "Proportional") return;
   for (const phase of drawdown.Phased) {

@@ -169,6 +169,20 @@ describe("forgetAccount", () => {
       { Account: "his-403b" },
     ]);
   });
+
+  it("puts an employer formula paying into the deleted account back on automatic", () => {
+    const plan = household();
+    const source = plan.accounts.find((a) => a.id === "his-403b");
+    if (!source) throw new Error("expected his-403b");
+    source.employer_match = {
+      nonelective_percent: 0.05,
+      tiers: [],
+      destination: "PreTax",
+      deposit_into: "employer-contract",
+    };
+    forgetAccount(plan, "employer-contract");
+    expect(source.employer_match.deposit_into).toBeNull();
+  });
 });
 
 describe("phaseName", () => {

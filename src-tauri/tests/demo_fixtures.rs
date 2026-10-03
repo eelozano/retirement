@@ -63,6 +63,7 @@ fn tiered_match(tiers: &[(f64, f64)], destination: MatchDestination) -> Employer
             })
             .collect(),
         destination,
+        deposit_into: None,
     }
 }
 

@@ -381,6 +381,20 @@ pub(crate) fn fill_in(sibling: &mut Scenario, saved: &Scenario) {
     sibling
         .social_security
         .retain(|id, _| saved.social_security.contains_key(id));
+    // An employer formula that named a now-deleted account as where its
+    // money goes falls back to the automatic rule rather than leaving the
+    // sibling unloadable over an account no scenario has any more (#175).
+    for policy in sibling.accounts.values_mut() {
+        if let Some(employer) = &mut policy.employer_match {
+            if employer
+                .deposit_into
+                .as_ref()
+                .is_some_and(|id| !saved.accounts.contains_key(id))
+            {
+                employer.deposit_into = None;
+            }
+        }
+    }
 
     for (id, policy) in &saved.people {
         sibling.people.entry(id.clone()).or_insert(policy.clone());
@@ -875,6 +889,50 @@ mod tests {
                 scenario.id
             );
         }
+    }
+
+    /// A sibling whose employer formula named the deleted account as where
+    /// its money goes is left on the automatic rule, not pointing at an
+    /// account that no longer exists (#175).
+    #[test]
+    fn a_deleted_deposit_account_is_forgotten_by_every_sibling() {
+        let base = TempBase::new("prune-deposit");
+        let mut plan = seed(&base.0);
+        let mut employer_contract = account(&plan, "alex-401k").clone();
+        employer_contract.id = "alex-employer".to_string();
+        employer_contract.name = "Alex employer contract".to_string();
+        plan.accounts.push(employer_contract);
+        plan.accounts
+            .iter_mut()
+            .find(|a| a.id == "alex-401k")
+            .unwrap()
+            .employer_match = Some(engine::model::EmployerMatch {
+            nonelective_percent: 0.05,
+            tiers: vec![],
+            destination: engine::model::MatchDestination::PreTax,
+            deposit_into: Some("alex-employer".to_string()),
+        });
+        save_plan(&base.0, &plan).unwrap();
+        let sibling = duplicate_plan(&base.0, &plan.id, "Retire early").unwrap();
+
+        // The editor clears the reference in the scenario it deletes from.
+        let mut edited = plan.clone();
+        edited.accounts.retain(|a| a.id != "alex-employer");
+        let employer = edited
+            .accounts
+            .iter_mut()
+            .find(|a| a.id == "alex-401k")
+            .unwrap();
+        employer.employer_match.as_mut().unwrap().deposit_into = None;
+        save_plan(&base.0, &edited).unwrap();
+
+        let reloaded = load_plan(&base.0, &sibling.id).unwrap();
+        let employer = account(&reloaded, "alex-401k")
+            .employer_match
+            .as_ref()
+            .expect("the formula itself survives");
+        assert_eq!(employer.deposit_into, None);
+        assert_eq!(reloaded.validate(), vec![]);
     }
 
     /// The as-of month is one date for the household, so a scenario cannot

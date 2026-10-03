@@ -44,4 +44,24 @@ nonelective_percent: number,
  * Applied in order. Empty means the employer matches nothing — which
  * is a complete plan when `nonelective_percent` is set.
  */
-tiers: Array<MatchTier>, destination: MatchDestination, };
+tiers: Array<MatchTier>, destination: MatchDestination, 
+/**
+ * The account the employer's money is paid into, when the user has
+ * named one (#175). Its `kind` has to be the one `destination` names —
+ * validation holds the two together — so naming an account never
+ * changes the tax treatment, only which balance grows.
+ *
+ * `None` is the rule every plan used before this field existed: the
+ * declaring account when its kind already agrees, otherwise the owner's
+ * first employer-plan account of that kind in plan order. It stays the
+ * default because it is right for the ordinary single-account plan, and
+ * because resolving it the old way is what keeps a saved plan
+ * projecting as it did. Naming an account matters when the employer
+ * pays into a contract of its own (TIAA's employer and employee
+ * contracts are separate accounts of the same kind), or when a Roth
+ * deferral's pre-tax match would otherwise land in whichever pre-tax
+ * plan happens to be listed first — an old employer's 401(k), say.
+ *
+ * `#[serde(default)]`, field-local like `nonelective_percent`.
+ */
+deposit_into: string | null, };
