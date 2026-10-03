@@ -43,6 +43,19 @@ returns of failed and surviving paths, and the median withdrawal rate against
 the conventional 3-4% range, above tiles for net worth at each retirement, at
 the first death, and at plan end.](docs/screenshots/why-paths-fail.png)
 
+**History.** The plan replayed against every start year since 1871, with that
+era's returns and its inflation. The rate counts a recent start year that has
+already run out and leaves out one still going. A card says why it can differ
+so much from the Monte Carlo number, and any start year opens a year-by-year
+ledger: CPI, stock and bond returns, what the portfolio earned, and the
+household's money in and out.
+
+![The History screen: a tile reading 100%, 0 of 109 start years ran out, with
+46 recent ones still going; tiles for the worst, median and best start years;
+a card comparing the historical and Monte Carlo rates and the 6.4% real
+return history paid against the plan's 3.3%; and a bar chart of what the plan
+ends with for every start year from 1871.](docs/screenshots/history.png)
+
 **Scenarios.** Branch a plan, then overlay them and read the differences off a
 summary table — net worth at plan end, delta against the base, depletion year,
 lifetime taxes and any early-withdrawal penalties, and a Monte Carlo run of
@@ -460,6 +473,14 @@ there — it just doesn't bundle an installer.
   cancelled, and Re-roll draws fresh paths. A "Why paths fail" card reads the
   paths that ran dry for when they failed, the returns they drew early in
   retirement, and how hard they were withdrawing.
+- **Historical backtesting.** The plan replayed against every start year
+  from 1871 to the last complete year, each with its own returns *and* its
+  own inflation, so spending, Social Security, tax brackets and today's
+  dollars all follow that era's CPI. Each strategy earns its stock/bond mix of
+  the S&P and 10-year Treasuries (Shiller's data, bundled, offline). The
+  success rate counts start years that already ran out, even recent ones,
+  and leaves out ones history hasn't finished. Every start year opens a
+  year-by-year ledger, exportable as CSV.
 - **What-if sandbox.** Sliders for retirement dates, spending, returns,
   volatility, inflation, life expectancy and a Social Security cut, projected and Monte Carlo'd
   against the saved plan on the same paths, so the difference is the change

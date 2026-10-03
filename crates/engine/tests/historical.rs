@@ -313,6 +313,20 @@ fn the_summary_and_the_detail_agree() {
     let figures = TaxFigures::built_in();
     let result = run_backtest(&plan, &figures);
     assert_eq!(result.cohorts.len(), history().len());
+    // Over the record, the 80/20 mix compounded at about 6.4% after
+    // inflation and the all-stock one at about 7.1%.
+    near(
+        result.historical_real_return.aggressive,
+        0.064,
+        0.003,
+        "80/20 real",
+    );
+    near(
+        result.historical_real_return.very_aggressive,
+        0.071,
+        0.003,
+        "100/0 real",
+    );
     let recent = result.cohorts.last().unwrap();
     assert_eq!(recent.periods_covered, 1);
 

@@ -2,6 +2,8 @@
 // from the ts-rs generated types — never hand-declare engine types here.
 
 import { Channel, invoke } from "@tauri-apps/api/core";
+import type { BacktestResult } from "../types/generated/BacktestResult";
+import type { CohortDetail } from "../types/generated/CohortDetail";
 import type { Household } from "../types/generated/Household";
 import type { MonteCarloConfig } from "../types/generated/MonteCarloConfig";
 import type { MonteCarloResult } from "../types/generated/MonteCarloResult";
@@ -13,6 +15,16 @@ import type { YearMonth } from "../types/generated/YearMonth";
 
 export function runProjection(plan: Plan): Promise<Projection> {
   return invoke<Projection>("run_projection", { plan });
+}
+
+/** The plan replayed against every start year in the bundled history (#178). */
+export function runBacktest(plan: Plan): Promise<BacktestResult> {
+  return invoke<BacktestResult>("run_backtest", { plan });
+}
+
+/** One start year of `runBacktest` in full, for its year-by-year ledger. */
+export function runBacktestCohort(plan: Plan, startYear: number): Promise<CohortDetail> {
+  return invoke<CohortDetail>("run_backtest_cohort", { plan, startYear });
 }
 
 // One entry per scenario result, in the same order as the request — a
