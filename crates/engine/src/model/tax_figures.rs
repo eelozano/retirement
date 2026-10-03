@@ -51,7 +51,7 @@ pub struct FederalTax {
     /// still loads — the file is never overwritten by an upgrade, and one
     /// that failed to parse would silently fall back to the built-in
     /// figures for everything. The default is the published 2026 amount.
-    #[serde(default = "additional_standard_deduction_65")]
+    #[serde(default = "additional_standard_deduction_65_2026")]
     pub additional_standard_deduction_65: ByFilingStatus<f64>,
     pub ordinary_brackets: ByFilingStatus<Vec<TaxBracket>>,
     /// Long-term capital gains and qualified dividends.
@@ -136,7 +136,7 @@ pub struct ContributionLimits {
     /// still loads rather than falling back to the built-in figures
     /// wholesale. Only a family-coverage account reads it, and none existed
     /// then, so no saved plan's projection depends on the default.
-    #[serde(default = "built_in_hsa_family")]
+    #[serde(default = "hsa_family_2026")]
     pub hsa_family: f64,
     /// SEP-IRA limit: employer contributions only, capped at the 415(c)
     /// figure. No catch-up.
@@ -151,19 +151,20 @@ pub struct ContributionLimits {
     pub simple_ira_catch_up_60_63: f64,
 }
 
-/// Rev. Proc. 2025-19's family-coverage figure, which a pre-existing
-/// `tax-figures.yaml` without one loads as.
-fn built_in_hsa_family() -> f64 {
-    TaxFigures::built_in().contribution_limits.hsa_family
+/// What a `tax-figures.yaml` written before `hsa_family` existed loads as:
+/// the 2026 figure, the year the field arrived. Pinned to that year rather
+/// than to [`TaxFigures::built_in`], so a later release moving the built-ins
+/// never puts a newer year's amount into an older year's file.
+fn hsa_family_2026() -> f64 {
+    TaxFigures::tax_year_2026().contribution_limits.hsa_family
 }
 
-/// Rev. Proc. 2025-32: $1,650 per spouse aged 65 or older on a joint return,
-/// $2,050 for an unmarried filer.
-fn additional_standard_deduction_65() -> ByFilingStatus<f64> {
-    ByFilingStatus {
-        single: 2_050.0,
-        married_filing_jointly: 1_650.0,
-    }
+/// What a `tax-figures.yaml` written before the age-65 amount existed loads
+/// as: the 2026 figures, pinned for the same reason as [`hsa_family_2026`].
+fn additional_standard_deduction_65_2026() -> ByFilingStatus<f64> {
+    TaxFigures::tax_year_2026()
+        .federal
+        .additional_standard_deduction_65
 }
 
 fn brackets(raw: &[(Option<f64>, f64)]) -> Vec<TaxBracket> {
@@ -173,15 +174,30 @@ fn brackets(raw: &[(Option<f64>, f64)]) -> Vec<TaxBracket> {
 }
 
 impl TaxFigures {
-    /// The figures this release ships with: tax year 2026. Brackets and the
-    /// standard deduction are IRS Rev. Proc. 2025-32 (which carries the One
-    /// Big Beautiful Bill Act's higher deduction forward); contribution
-    /// limits are IRS Notice 2025-67; the HSA limit is Rev. Proc. 2025-19.
+    /// The figures this release ships with: the latest tax year published,
+    /// which is [`TaxFigures::tax_year_2026`].
     ///
     /// Only what a missing `tax-figures.yaml` is written with. Once that
     /// file exists the app never replaces it, so a later release changing
     /// these does not change a user's numbers.
+    ///
+    /// A new tax year is **added** beside the old ones, as `tax_year_YYYY`,
+    /// and this repointed to it. The years before are never edited: tests
+    /// that need fixed figures name a year, so moving the built-ins moves
+    /// nothing but the app's default (`.claude/skills/update-tax-figures`).
     pub fn built_in() -> Self {
+        Self::tax_year_2026()
+    }
+
+    /// Tax year 2026, as published. Brackets and the standard deduction are
+    /// IRS Rev. Proc. 2025-32 (which carries the One Big Beautiful Bill
+    /// Act's higher deduction forward); contribution limits are IRS Notice
+    /// 2025-67; the HSA limits are Rev. Proc. 2025-19. Checked against those
+    /// documents in `tests/published/`.
+    ///
+    /// Frozen: everything outside `tests/published/` that asserts a dollar
+    /// figure is written against this, not against `built_in`.
+    pub fn tax_year_2026() -> Self {
         TaxFigures {
             tax_year: 2026,
             federal: FederalTax {
@@ -189,7 +205,12 @@ impl TaxFigures {
                     single: 16_100.0,
                     married_filing_jointly: 32_200.0,
                 },
-                additional_standard_deduction_65: additional_standard_deduction_65(),
+                // Rev. Proc. 2025-32 §4.14(3): $1,650 per spouse aged 65 or
+                // older on a joint return, $2,050 for an unmarried filer.
+                additional_standard_deduction_65: ByFilingStatus {
+                    single: 2_050.0,
+                    married_filing_jointly: 1_650.0,
+                },
                 ordinary_brackets: ByFilingStatus {
                     single: brackets(&[
                         (Some(12_400.0), 0.10),
@@ -517,7 +538,7 @@ mod tests {
     /// 2030 one.
     #[test]
     fn limits_index_from_the_tax_year() {
-        let figures = TaxFigures::built_in();
+        let figures = TaxFigures::tax_year_2026();
         let at_basis = figures.annual_limit(PlanType::Ira, 40, 2026, &PriceLevel::Constant(0.03));
         assert_eq!(at_basis, Some(7_500.0));
 

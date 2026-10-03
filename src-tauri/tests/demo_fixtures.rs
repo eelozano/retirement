@@ -604,7 +604,8 @@ fn committed_demo_fixture_loads_composes_validates_and_simulates() {
                 .join("; ")
         );
 
-        let projection = engine::run_deterministic(&plan, &engine::model::TaxFigures::built_in());
+        let projection =
+            engine::run_deterministic(&plan, &engine::model::TaxFigures::tax_year_2026());
         assert!(
             !projection.snapshots.is_empty(),
             "scenario {:?} simulated to an empty projection",
@@ -675,7 +676,7 @@ fn golden_path() -> PathBuf {
 fn golden_projections() -> String {
     let yaml = fs::read_to_string(fixture_path()).expect("demo fixture present");
     let file: HouseholdFile = serde_yaml_ng::from_str(&yaml).expect("demo fixture parses");
-    let figures = engine::model::TaxFigures::built_in();
+    let figures = engine::model::TaxFigures::tax_year_2026();
 
     let accounts: Vec<String> = file.accounts.iter().map(|a| a.id.clone()).collect();
     let mut out = format!(
@@ -784,7 +785,7 @@ fn same_row(actual: &str, expected: &str) -> bool {
 fn every_demo_scenario_replays_against_history() {
     let yaml = fs::read_to_string(fixture_path()).expect("demo fixture present");
     let file: HouseholdFile = serde_yaml_ng::from_str(&yaml).expect("demo fixture parses");
-    let figures = engine::model::TaxFigures::built_in();
+    let figures = engine::model::TaxFigures::tax_year_2026();
     for scenario in &file.scenarios {
         let plan = compose(&file.household(), scenario).expect("composes");
         let result = engine::run_backtest(&plan, &figures);

@@ -117,11 +117,11 @@ fn retiree() -> Plan {
 
 fn single_filer() -> BracketTax {
     BracketTax::new(
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         FilingStatus::Single,
         StateTaxProfile::none(),
         PriceLevel::Constant(0.0),
-        TaxFigures::built_in().tax_year,
+        TaxFigures::tax_year_2026().tax_year,
         retiree().people.iter().map(|p| p.birth.year).collect(),
     )
 }
@@ -138,7 +138,7 @@ fn assert_close(actual: f64, expected: f64, label: &str) {
 /// stack — and never the sum of two separate bills.
 #[test]
 fn a_periods_tax_is_one_pass_over_the_benefit_and_the_withdrawal_together() {
-    let projection = run_deterministic(&retiree(), &TaxFigures::built_in());
+    let projection = run_deterministic(&retiree(), &TaxFigures::tax_year_2026());
     let tax = single_filer();
 
     for snapshot in &projection.snapshots {
@@ -166,7 +166,7 @@ fn a_periods_tax_is_one_pass_over_the_benefit_and_the_withdrawal_together() {
 /// $25,000 Single base — so it contributed nothing at all.
 #[test]
 fn the_two_pass_model_understated_the_bill_by_a_wide_margin() {
-    let projection = run_deterministic(&retiree(), &TaxFigures::built_in());
+    let projection = run_deterministic(&retiree(), &TaxFigures::tax_year_2026());
     let tax = single_filer();
     let first = &projection.snapshots[0];
     let gross: f64 = first.withdrawals.values().sum();
@@ -205,7 +205,7 @@ fn the_two_pass_model_understated_the_bill_by_a_wide_margin() {
 /// for — would break this.
 #[test]
 fn the_withdrawal_is_grossed_up_to_cover_spending_and_the_whole_bill() {
-    let projection = run_deterministic(&retiree(), &TaxFigures::built_in());
+    let projection = run_deterministic(&retiree(), &TaxFigures::tax_year_2026());
     for snapshot in &projection.snapshots {
         let gross: f64 = snapshot.withdrawals.values().sum();
         assert_close(

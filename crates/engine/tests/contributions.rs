@@ -112,7 +112,7 @@ fn run(plan: &Plan) -> Projection {
     );
     simulate(
         plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &returns,
         &FlatTax { rate: 0.2 },
         &ProportionalDrawdown,
@@ -200,7 +200,7 @@ fn federal_maximum_steps_up_when_the_owner_turns_50() {
     let after = contributions_in(&projection, 2030);
     assert_close(
         before,
-        TaxFigures::built_in()
+        TaxFigures::tax_year_2026()
             .annual_limit(
                 PlanType::EmployerPlan,
                 49,
@@ -244,7 +244,7 @@ fn federal_maximum_on_an_ira_resolves_to_the_ira_limit() {
 
     assert_close(
         contributions_in(&ira, START_YEAR),
-        TaxFigures::built_in().contribution_limits.ira,
+        TaxFigures::tax_year_2026().contribution_limits.ira,
         "the IRA limit, not the deferral limit",
     );
     assert!(
@@ -263,12 +263,17 @@ fn limits_index_forward_from_the_basis_year() {
     let projection = run(&plan);
     assert_close(
         contributions_in(&projection, START_YEAR),
-        TaxFigures::built_in().contribution_limits.employer_plan,
+        TaxFigures::tax_year_2026()
+            .contribution_limits
+            .employer_plan,
         "the seeded figure applies unindexed in its own basis year",
     );
     assert!(
         contributions_in(&projection, START_YEAR + 12)
-            > 1.3 * TaxFigures::built_in().contribution_limits.employer_plan,
+            > 1.3
+                * TaxFigures::tax_year_2026()
+                    .contribution_limits
+                    .employer_plan,
         "12 years of indexing at 2.5% is a third again, before catch-up",
     );
 }
@@ -278,7 +283,7 @@ fn limits_index_forward_from_the_basis_year() {
 #[test]
 fn indexed_limits_round_down_to_statutory_increments() {
     for year in START_YEAR..START_YEAR + 25 {
-        let limit = TaxFigures::built_in()
+        let limit = TaxFigures::tax_year_2026()
             .annual_limit(
                 PlanType::EmployerPlan,
                 40,
@@ -339,7 +344,9 @@ fn a_clamp_is_reported_once_for_the_first_year_it_bites() {
     assert_eq!(clamps[0].0, 0, "reported for the first period it bites");
     assert_close(
         clamps[0].1,
-        TaxFigures::built_in().contribution_limits.employer_plan,
+        TaxFigures::tax_year_2026()
+            .contribution_limits
+            .employer_plan,
         "held to the statutory cap",
     );
 }
@@ -470,7 +477,9 @@ fn two_entries_on_one_account_sum_and_clamp_together_with_one_warning() {
     let projection = run(&plan);
     assert_close(
         contributions_in(&projection, START_YEAR),
-        TaxFigures::built_in().contribution_limits.employer_plan,
+        TaxFigures::tax_year_2026()
+            .contribution_limits
+            .employer_plan,
         "the sum is held to the cap",
     );
     let clamps = clamps_in(&projection);
@@ -700,7 +709,7 @@ fn a_step_up_that_crosses_the_limit_is_reported_once() {
     );
     assert_close(
         clamps[0].2,
-        TaxFigures::built_in()
+        TaxFigures::tax_year_2026()
             .annual_limit(
                 PlanType::EmployerPlan,
                 (START_YEAR + clamps[0].0 as i32) - 1980,
