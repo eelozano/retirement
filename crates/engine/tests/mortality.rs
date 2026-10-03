@@ -70,6 +70,7 @@ fn plan_with_two_lifespans() -> Plan {
             strategy_volatility: Default::default(),
             reinvest_into: None,
             drawdown: Default::default(),
+            dividend_yield: 0.0,
         },
         sim_config: SimConfig {
             start: START,

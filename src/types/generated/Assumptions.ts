@@ -175,4 +175,22 @@ reinvest_into: string | null,
  * (→ `Proportional`) so plans saved before drawdown order existed keep
  * the order they had.
  */
-drawdown: DrawdownPolicy, };
+drawdown: DrawdownPolicy, 
+/**
+ * Qualified-dividend yield of every `Taxable` account, as an annual
+ * fraction of its balance (0.013 = 1.3%). Part of the account's total
+ * return, not added to it: `sim::period::accrue_dividends` pays it out,
+ * reinvests it into basis and taxes it on the long-term capital gains
+ * schedule in the period it is paid, and `grow` applies only the
+ * remaining price return (#148).
+ *
+ * One figure for every taxable account rather than one per strategy: a
+ * broad index fund's yield moves far less across allocations than its
+ * return does, and the effect being modelled — tax paid each year
+ * instead of at withdrawal — is small enough that a second table would
+ * be precision nobody can supply.
+ *
+ * `#[serde(default)]` (→ 0.0, every gain deferred until withdrawal)
+ * so a plan saved before this field existed projects identically.
+ */
+dividend_yield: number, };

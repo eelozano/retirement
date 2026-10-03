@@ -180,6 +180,12 @@ pub fn default_assumptions() -> Assumptions {
         social_security_reduction: None,
         reinvest_into: None,
         drawdown: Default::default(),
+        // Roughly what a broad US stock index fund distributes. A new plan
+        // starts here so its brokerage tax is honest from the first
+        // projection; a plan saved before the field existed loads at 0.0
+        // instead (`Assumptions::dividend_yield`), so upgrading never moves
+        // its projection — the split `social_security_cola` already makes.
+        dividend_yield: 0.013,
     }
 }
 

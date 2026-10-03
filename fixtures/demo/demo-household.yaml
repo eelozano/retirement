@@ -327,6 +327,7 @@ scenarios:
     social_security_reduction: null
     reinvest_into: joint-brokerage
     drawdown: Proportional
+    dividend_yield: 0.0
 - id: retire-two-years-early
   name: Retire two years early
   display_real_dollars: false
@@ -543,6 +544,7 @@ scenarios:
     social_security_reduction: null
     reinvest_into: joint-brokerage
     drawdown: Proportional
+    dividend_yield: 0.0
 - id: claim-social-security-at-62
   name: Claim Social Security at 62
   display_real_dollars: false
@@ -759,6 +761,7 @@ scenarios:
     social_security_reduction: null
     reinvest_into: joint-brokerage
     drawdown: Proportional
+    dividend_yield: 0.0
 - id: leaner-retirement
   name: Leaner retirement spending
   display_real_dollars: false
@@ -975,6 +978,7 @@ scenarios:
     social_security_reduction: null
     reinvest_into: joint-brokerage
     drawdown: Proportional
+    dividend_yield: 0.0
 - id: sell-the-house-at-retirement
   name: Sell the house at retirement
   display_real_dollars: false
@@ -1196,6 +1200,7 @@ scenarios:
     social_security_reduction: null
     reinvest_into: joint-brokerage
     drawdown: Proportional
+    dividend_yield: 0.0
 - id: retire-at-55-on-a-bridge
   name: Retire at 55 on a bridge
   display_real_dollars: false
@@ -1426,3 +1431,4 @@ scenarios:
       name: Standard
       start: !PenaltyFree jordan
       stack: []
+    dividend_yield: 0.0

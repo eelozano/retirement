@@ -47,6 +47,7 @@ const plan = {
     social_security_reduction: null,
     reinvest_into: null,
     drawdown: "Proportional",
+    dividend_yield: 0,
   },
   sim_config: { start: { year: 2026, month: 1 }, period: "Year" },
 } as unknown as Plan;
@@ -148,5 +149,17 @@ describe("Investment strategies", () => {
   it("cannot reset before the presets have loaded", () => {
     render(<AssumptionsSection />);
     expect(reset().disabled).toBe(true);
+  });
+});
+
+describe("Taxable dividend yield", () => {
+  it("starts at zero and stores what is typed as a rate", async () => {
+    render(<AssumptionsSection />);
+    const field = screen.getByLabelText("Taxable dividend yield (%)");
+    expect(usePlanStore.getState().plan?.assumptions.dividend_yield).toBe(0);
+
+    await userEvent.clear(field);
+    await userEvent.type(field, "1.3");
+    expect(usePlanStore.getState().plan?.assumptions.dividend_yield).toBeCloseTo(0.013);
   });
 });

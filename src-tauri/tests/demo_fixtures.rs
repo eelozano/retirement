@@ -88,6 +88,10 @@ fn demo_base() -> Plan {
     // on `sweep_surplus_from`.
     assumptions.sweep_surplus_from = Some(StreamBoundary::AtRetirement(ALEX.to_string()));
     assumptions.reinvest_into = Some("joint-brokerage".to_string());
+    // Held at the pre-#148 behaviour, as a plan saved before the field
+    // existed loads: the golden projections pin what an upgrade does to a
+    // saved plan, and a new plan's 1.3% default is not that.
+    assumptions.dividend_yield = 0.0;
 
     Plan {
         id: "base-plan".to_string(),

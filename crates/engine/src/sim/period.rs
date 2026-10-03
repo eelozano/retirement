@@ -246,6 +246,13 @@ pub(super) struct PeriodState {
     /// this same period rather than deferred to withdrawal. Unlike other
     /// accounts' growth, a savings account's interest never sits unrealized.
     pub taxable_interest: f64,
+    /// Qualified dividends paid this period, indexed parallel to
+    /// `plan.accounts` and empty when no dividends were paid — already
+    /// reinvested into their accounts' balances and cost basis by
+    /// `accrue_dividends`, and taxed as long-term capital gain in this same
+    /// period (#148). `grow` reads it back to take each account's dividend
+    /// out of the return it applies.
+    pub dividends: Vec<f64>,
     /// Total tax for the period.
     pub taxes: f64,
     /// The part of `taxes` the withdrawal gross-up added on top of the bill
@@ -284,6 +291,9 @@ impl PeriodState {
                 + self.required_distributions
                 + self.taxable_interest,
             social_security: self.ss_income,
+            // Qualified dividends take the long-term capital gains schedule,
+            // and stack under any gain a withdrawal realizes on top of them.
+            capital_gains: self.dividends.iter().sum(),
             ..Default::default()
         }
     }
@@ -327,9 +337,10 @@ pub(super) fn run(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) -
     deposit_one_time(run, ctx, &mut period, state);
     distribute(run, ctx, &mut period, state);
     accrue_interest(run, ctx, &mut period, state);
+    accrue_dividends(run, ctx, &mut period, state);
     mark_early_access(ctx, state);
     settle(run, ctx, &mut period, state);
-    period.growth += grow(run, ctx, state);
+    period.growth += grow(run, ctx, &period.dividends, state);
     state.prior_balances = Some(state.accounts.iter().map(|a| a.balance).collect());
     period.snapshot(ctx, &state.accounts)
 }
@@ -492,7 +503,7 @@ fn contribute(
 /// one: these are after-tax dollars, and without basis a later withdrawal
 /// would tax them again as gain.
 ///
-/// Runs before `distribute`, `accrue_interest` and `settle`, as `contribute`
+/// Runs before `distribute`, the accrual steps and `settle`, as `contribute`
 /// does, so the money is part of the portfolio for the rest of the period: a
 /// shortfall that year can draw on it, a `Savings` destination earns the
 /// period's interest on it, and `grow` gives it the period's whole return
@@ -616,7 +627,59 @@ fn accrue_interest(
     }
 }
 
-/// Step 6 — mark, on each account, the share of this period's withdrawals
+/// Step 6 — pay each Taxable account's qualified dividends, reinvest them,
+/// and tax them this same period (#148). The `accrue_interest` shape one
+/// account kind over, with two differences that follow from what a dividend
+/// is:
+///
+/// - It is taxed as **capital gain**, not ordinary income: qualified
+///   dividends take the long-term schedule.
+/// - It is part of the account's total return, not in addition to it. The
+///   dividend is reinvested here, at `Assumptions::dividend_yield` on the
+///   balance as it stands before `settle`, and `grow` takes it back out
+///   before applying the period's whole return. Balances therefore come out
+///   exactly where they would without this step, for any pattern of flows.
+///   What changes is the account's cost basis, which rises by the dividend
+///   — those dollars have been taxed once and must not be taxed again as
+///   gain on withdrawal — and the period's tax bill, which now pays for
+///   them out of household cash or a withdrawal.
+///
+/// The net effect is the time value of paying the tax on the yield every
+/// year instead of at withdrawal, not the full yield times the rate: the
+/// basis step-up hands most of it back later.
+///
+/// Like interest, the yield comes from the plan's assumptions rather than
+/// `run.returns`, so it does not vary across Monte Carlo paths — a bad year
+/// lowers the price return, not the dividend. A yield of 0.0 skips the step
+/// entirely, so the projection is bit-for-bit what it was before it existed.
+fn accrue_dividends(
+    run: &RunContext,
+    ctx: &PeriodContext,
+    period: &mut PeriodState,
+    state: &mut RunState,
+) {
+    // Scaled to the period for the same reason `grow` is.
+    let rate = compound(run.plan.assumptions.dividend_yield, ctx.fraction);
+    if rate <= 0.0 {
+        return;
+    }
+    period.dividends = state
+        .accounts
+        .iter_mut()
+        .map(|account| {
+            if account.kind != AccountKind::Taxable || account.balance <= 0.0 {
+                return 0.0;
+            }
+            let dividend = account.balance * rate;
+            account.balance += dividend;
+            account.cost_basis += dividend;
+            period.growth += dividend;
+            dividend
+        })
+        .collect();
+}
+
+/// Step 7 — mark, on each account, the share of this period's withdrawals
 /// that would come before its owner may take them freely: the
 /// non-qualified share (a Roth's earnings are ordinary income) and the
 /// penalized share (the 10% additional tax). The drawdown reads both when
@@ -627,7 +690,7 @@ fn mark_early_access(ctx: &PeriodContext, state: &mut RunState) {
     }
 }
 
-/// Steps 7 and 8 — tax the period's income, then invest what is left over
+/// Steps 8 and 9 — tax the period's income, then invest what is left over
 /// or draw down the shortfall (grossed up through the tax model).
 ///
 /// One tax pass, not two. The drawdown grosses itself up against the same
@@ -744,13 +807,19 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
     }
 }
 
-/// Step 9 — apply market growth to post-flow balances. Returns the total
+/// Step 10 — apply market growth to post-flow balances. Returns the total
 /// dollar growth across accounts, in nominal dollars.
 ///
 /// Savings accounts are skipped: `accrue_interest` already grew and taxed
 /// them earlier this same period, so growing them again here would both
 /// double the balance's growth and never tax the second helping.
-fn grow(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) -> f64 {
+///
+/// `dividends` — what `accrue_dividends` already paid into each account
+/// this period — comes out of the balance before the return is applied, so
+/// a dividend is the part of the total return paid early rather than an
+/// addition to it: `(post - dividend) * (1 + r)` is exactly the balance the
+/// account would reach with no dividend step at all.
+fn grow(run: &RunContext, ctx: &PeriodContext, dividends: &[f64], state: &mut RunState) -> f64 {
     let period_returns = run.returns.returns_for(ctx.period, run.path_id);
     let mut growth = 0.0;
     for (idx, account) in run.plan.accounts.iter().enumerate() {
@@ -762,10 +831,16 @@ fn grow(run: &RunContext, ctx: &PeriodContext, state: &mut RunState) -> f64 {
         let rate = period_returns.rate_for(account.allocation);
         let balance = &mut state.accounts[idx].balance;
         let pre = *balance;
+        // Floored at zero: a withdrawal this period may already have spent
+        // the dividend itself.
+        let invested = match dividends.get(idx) {
+            Some(&dividend) if dividend > 0.0 => (pre - dividend).max(0.0),
+            _ => pre,
+        };
         // Scaled to the period, not to the calendar year: a stub first
         // period (a plan that starts in September) earns its own months of
         // return and no more.
-        *balance *= 1.0 + compound(rate, ctx.fraction);
+        *balance = invested * (1.0 + compound(rate, ctx.fraction));
         growth += *balance - pre;
     }
     growth

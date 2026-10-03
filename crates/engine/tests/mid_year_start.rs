@@ -124,6 +124,7 @@ fn working_plan(start: YearMonth, last_year: i32, rule: ContributionRule) -> Pla
             strategy_volatility: Default::default(),
             reinvest_into: None,
             drawdown: Default::default(),
+            dividend_yield: 0.0,
         },
         sim_config: SimConfig {
             start,
@@ -323,6 +324,7 @@ fn the_stub_takes_no_required_distribution_and_the_next_year_takes_a_whole_one()
             strategy_volatility: Default::default(),
             reinvest_into: None,
             drawdown: Default::default(),
+            dividend_yield: 0.0,
         },
         sim_config: SimConfig {
             start: YearMonth::new(2026, 9),

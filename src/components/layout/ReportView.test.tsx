@@ -59,6 +59,7 @@ function makePlan(overrides: Partial<Plan> = {}): Plan {
       social_security_reduction: null,
       reinvest_into: null,
       drawdown: "Proportional",
+      dividend_yield: 0,
     },
     sim_config: {
       start: { year: 2026, month: 1 },

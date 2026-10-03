@@ -186,6 +186,15 @@ export function ReportView(props: { open: boolean; onClose: () => void }) {
                     ).join(" · ")}
                   </td>
                 </tr>
+                {plan.assumptions.dividend_yield > 0 && (
+                  <tr>
+                    <th>Taxable dividends</th>
+                    <td>
+                      {rateToPercent(plan.assumptions.dividend_yield)}% / year, taxed as
+                      paid
+                    </td>
+                  </tr>
+                )}
                 <tr>
                   <th>Filing status</th>
                   <td>
