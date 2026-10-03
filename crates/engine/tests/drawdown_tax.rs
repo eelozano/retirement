@@ -10,6 +10,7 @@
 //! The fixture runs with zero inflation, zero returns and zero COLA, so
 //! every figure below is the tax treatment and nothing else.
 
+use engine::model::PriceLevel;
 use engine::model::TaxFigures;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
@@ -119,7 +120,7 @@ fn single_filer() -> BracketTax {
         &TaxFigures::built_in(),
         FilingStatus::Single,
         StateTaxProfile::none(),
-        0.0,
+        PriceLevel::Constant(0.0),
         TaxFigures::built_in().tax_year,
         retiree().people.iter().map(|p| p.birth.year).collect(),
     )

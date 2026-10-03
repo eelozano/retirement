@@ -5,6 +5,7 @@
 //! and a `Savings` account grows at its own configured rate rather than a
 //! market-return allocation.
 
+use engine::model::PriceLevel;
 use engine::model::TaxFigures;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
@@ -177,10 +178,20 @@ fn a_457b_and_a_401k_share_no_contribution_cap() {
 
     let total = contributions_in(&projection, "401k", START_YEAR);
     let expected = TaxFigures::built_in()
-        .annual_limit(PlanType::EmployerPlan, 46, START_YEAR, INFLATION)
+        .annual_limit(
+            PlanType::EmployerPlan,
+            46,
+            START_YEAR,
+            &PriceLevel::Constant(INFLATION),
+        )
         .unwrap()
         + TaxFigures::built_in()
-            .annual_limit(PlanType::Plan457b, 46, START_YEAR, INFLATION)
+            .annual_limit(
+                PlanType::Plan457b,
+                46,
+                START_YEAR,
+                &PriceLevel::Constant(INFLATION),
+            )
             .unwrap();
     assert_close(total, expected, "both plans hit their own full limit");
 }
@@ -217,13 +228,28 @@ fn sep_ira_and_simple_ira_resolve_to_their_own_limits() {
 #[test]
 fn hsa_catch_up_starts_at_55_not_50() {
     let at_50 = TaxFigures::built_in()
-        .annual_limit(PlanType::Hsa, 50, START_YEAR, INFLATION)
+        .annual_limit(
+            PlanType::Hsa,
+            50,
+            START_YEAR,
+            &PriceLevel::Constant(INFLATION),
+        )
         .unwrap();
     let at_54 = TaxFigures::built_in()
-        .annual_limit(PlanType::Hsa, 54, START_YEAR, INFLATION)
+        .annual_limit(
+            PlanType::Hsa,
+            54,
+            START_YEAR,
+            &PriceLevel::Constant(INFLATION),
+        )
         .unwrap();
     let at_55 = TaxFigures::built_in()
-        .annual_limit(PlanType::Hsa, 55, START_YEAR, INFLATION)
+        .annual_limit(
+            PlanType::Hsa,
+            55,
+            START_YEAR,
+            &PriceLevel::Constant(INFLATION),
+        )
         .unwrap();
     assert_close(at_50, at_54, "no catch-up yet at 50 or 54");
     assert!(at_55 > at_54, "the $1,000 catch-up starts exactly at 55");

@@ -8,7 +8,7 @@ import type { FederalTax } from "./FederalTax";
 export type TaxFigures = { 
 /**
  * Tax year every figure below is published for. Each is indexed
- * forward (or back) from this year at the plan's inflation rate,
+ * forward (or back) from this year by the run's price level,
  * stepping by its statutory rounding increment — so an out-of-date year
  * still projects sensibly, it just starts from older numbers.
  */

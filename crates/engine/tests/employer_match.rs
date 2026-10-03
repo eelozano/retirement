@@ -5,6 +5,7 @@
 //! year — no catch-up tier in play). Zero market return, so a balance is the
 //! running sum of what went in.
 
+use engine::model::PriceLevel;
 use engine::model::TaxFigures;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
@@ -345,7 +346,7 @@ fn deferrals_plus_match_are_held_to_the_annual_additions_cap() {
 
     let projection = run(&plan);
     let p0 = &projection.snapshots[0];
-    let cap = TaxFigures::built_in().annual_additions_limit(46, 2026, 0.0);
+    let cap = TaxFigures::built_in().annual_additions_limit(46, 2026, &PriceLevel::Constant(0.0));
     assert_close(
         p0.contributions + p0.employer_match,
         cap,
@@ -371,7 +372,7 @@ fn the_annual_additions_cap_is_far_above_the_deferral_limit() {
     // The distinction this whole issue rests on: folding a match into the
     // employee figure would clamp it at the deferral limit instead.
     assert!(
-        TaxFigures::built_in().annual_additions_limit(46, 2026, 0.0)
+        TaxFigures::built_in().annual_additions_limit(46, 2026, &PriceLevel::Constant(0.0))
             > 2.0 * TaxFigures::built_in().contribution_limits.employer_plan,
     );
 }
@@ -507,7 +508,7 @@ fn a_non_elective_contribution_is_held_to_the_annual_additions_cap() {
 
     let projection = run(&plan);
     let p0 = &projection.snapshots[0];
-    let cap = TaxFigures::built_in().annual_additions_limit(46, 2026, 0.0);
+    let cap = TaxFigures::built_in().annual_additions_limit(46, 2026, &PriceLevel::Constant(0.0));
     assert!(
         0.25 * SALARY + p0.contributions > cap,
         "the formula has to exceed the cap for this to test anything",

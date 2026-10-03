@@ -16,7 +16,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::model::{FilingStatus, PlanType, TaxBracket};
+use crate::model::{FilingStatus, PlanType, PriceLevel, TaxBracket};
 use crate::presets::index_to;
 
 /// HSA catch-up for owners 55 and older. Fixed at $1,000 by statute since
@@ -28,7 +28,7 @@ pub const HSA_CATCH_UP_55: f64 = 1_000.0;
 #[ts(export)]
 pub struct TaxFigures {
     /// Tax year every figure below is published for. Each is indexed
-    /// forward (or back) from this year at the plan's inflation rate,
+    /// forward (or back) from this year by the run's price level,
     /// stepping by its statutory rounding increment — so an out-of-date year
     /// still projects sensibly, it just starts from older numbers.
     pub tax_year: i32,
@@ -309,10 +309,10 @@ impl TaxFigures {
         errors
     }
 
-    /// Years from `tax_year` to `year` — the exponent every figure is
-    /// indexed by.
-    fn years_to(&self, year: i32) -> f64 {
-        (year - self.tax_year) as f64
+    /// How much prices rose from `tax_year` to `year` — the factor every
+    /// figure is indexed by.
+    fn index_to_year(&self, year: i32, prices: &PriceLevel) -> f64 {
+        prices.over_calendar_years(self.tax_year, year)
     }
 
     /// The 415(c) annual-additions cap for calendar year `year`, indexed
@@ -322,31 +322,30 @@ impl TaxFigures {
     /// 415(c) is statutorily **per employer plan**; this model has no
     /// employer grouping, so it is applied per person. That is the stricter
     /// reading, and only differs for someone in two employers' plans at once.
-    pub fn annual_additions_limit(&self, age: i32, year: i32, inflation: f64) -> f64 {
+    pub fn annual_additions_limit(&self, age: i32, year: i32, prices: &PriceLevel) -> f64 {
         let l = &self.contribution_limits;
-        let years = self.years_to(year);
+        let factor = self.index_to_year(year, prices);
         let catch_up = match age {
-            60..=63 => index_to(l.employer_plan_catch_up_60_63, 500.0, years, inflation),
-            a if a >= 50 => index_to(l.employer_plan_catch_up_50, 500.0, years, inflation),
+            60..=63 => index_to(l.employer_plan_catch_up_60_63, 500.0, factor),
+            a if a >= 50 => index_to(l.employer_plan_catch_up_50, 500.0, factor),
             _ => 0.0,
         };
-        index_to(l.annual_additions, 1_000.0, years, inflation) + catch_up
+        index_to(l.annual_additions, 1_000.0, factor) + catch_up
     }
 
     /// The family-coverage HSA limit for calendar year `year`, without any
     /// catch-up: the one figure a household's family-coverage HSAs share.
-    pub fn hsa_family_limit(&self, year: i32, inflation: f64) -> f64 {
+    pub fn hsa_family_limit(&self, year: i32, prices: &PriceLevel) -> f64 {
         index_to(
             self.contribution_limits.hsa_family,
             50.0,
-            self.years_to(year),
-            inflation,
+            self.index_to_year(year, prices),
         )
     }
 
     /// The annual limit for `plan_type` in calendar year `year`, for an owner
     /// who reaches `age` during that year, indexed forward from `tax_year`
-    /// at `inflation`. Each figure rounds down to its statutory increment —
+    /// by `prices`. Each figure rounds down to its statutory increment —
     /// $500 for the deferral, IRA and employer catch-up limits, $100 for the
     /// IRA catch-up — which is what makes a limit sit still for a few years
     /// and then step, as the real schedule does.
@@ -361,47 +360,45 @@ impl TaxFigures {
         plan_type: PlanType,
         age: i32,
         year: i32,
-        inflation: f64,
+        prices: &PriceLevel,
     ) -> Option<f64> {
         let l = &self.contribution_limits;
-        let years = self.years_to(year);
+        let factor = self.index_to_year(year, prices);
         let employer_catch_up = || match age {
-            60..=63 => index_to(l.employer_plan_catch_up_60_63, 500.0, years, inflation),
-            a if a >= 50 => index_to(l.employer_plan_catch_up_50, 500.0, years, inflation),
+            60..=63 => index_to(l.employer_plan_catch_up_60_63, 500.0, factor),
+            a if a >= 50 => index_to(l.employer_plan_catch_up_50, 500.0, factor),
             _ => 0.0,
         };
         match plan_type {
             PlanType::None => None,
             PlanType::EmployerPlan => {
-                Some(index_to(l.employer_plan, 500.0, years, inflation) + employer_catch_up())
+                Some(index_to(l.employer_plan, 500.0, factor) + employer_catch_up())
             }
             PlanType::Ira => {
                 let catch_up = if age >= 50 {
-                    index_to(l.ira_catch_up_50, 100.0, years, inflation)
+                    index_to(l.ira_catch_up_50, 100.0, factor)
                 } else {
                     0.0
                 };
-                Some(index_to(l.ira, 500.0, years, inflation) + catch_up)
+                Some(index_to(l.ira, 500.0, factor) + catch_up)
             }
             // Statutorily separate from `EmployerPlan`, but governed by the
             // same 414(v) catch-up figures.
-            PlanType::Plan457b => {
-                Some(index_to(l.plan_457b, 500.0, years, inflation) + employer_catch_up())
-            }
-            PlanType::Hsa => Some(index_to(l.hsa, 50.0, years, inflation) + hsa_catch_up(age)),
+            PlanType::Plan457b => Some(index_to(l.plan_457b, 500.0, factor) + employer_catch_up()),
+            PlanType::Hsa => Some(index_to(l.hsa, 50.0, factor) + hsa_catch_up(age)),
             // What one owner may put in alone. The household shares the
             // family figure, which `sim::contributions` enforces with
             // `hsa_family_limit` and `hsa_catch_up`.
-            PlanType::HsaFamily => Some(self.hsa_family_limit(year, inflation) + hsa_catch_up(age)),
+            PlanType::HsaFamily => Some(self.hsa_family_limit(year, prices) + hsa_catch_up(age)),
             // Employer-only contributions: no employee catch-up.
-            PlanType::SepIra => Some(index_to(l.sep_ira, 1_000.0, years, inflation)),
+            PlanType::SepIra => Some(index_to(l.sep_ira, 1_000.0, factor)),
             PlanType::SimpleIra => {
                 let catch_up = match age {
-                    60..=63 => index_to(l.simple_ira_catch_up_60_63, 250.0, years, inflation),
-                    a if a >= 50 => index_to(l.simple_ira_catch_up_50, 250.0, years, inflation),
+                    60..=63 => index_to(l.simple_ira_catch_up_60_63, 250.0, factor),
+                    a if a >= 50 => index_to(l.simple_ira_catch_up_50, 250.0, factor),
                     _ => 0.0,
                 };
-                Some(index_to(l.simple_ira, 500.0, years, inflation) + catch_up)
+                Some(index_to(l.simple_ira, 500.0, factor) + catch_up)
             }
         }
     }
@@ -521,7 +518,7 @@ mod tests {
     #[test]
     fn limits_index_from_the_tax_year() {
         let figures = TaxFigures::built_in();
-        let at_basis = figures.annual_limit(PlanType::Ira, 40, 2026, 0.03);
+        let at_basis = figures.annual_limit(PlanType::Ira, 40, 2026, &PriceLevel::Constant(0.03));
         assert_eq!(at_basis, Some(7_500.0));
 
         let later = TaxFigures {
@@ -529,9 +526,14 @@ mod tests {
             ..figures.clone()
         };
         assert_eq!(
-            later.annual_limit(PlanType::Ira, 40, 2030, 0.03),
+            later.annual_limit(PlanType::Ira, 40, 2030, &PriceLevel::Constant(0.03)),
             Some(7_500.0)
         );
-        assert!(figures.annual_limit(PlanType::Ira, 40, 2030, 0.03).unwrap() > 7_500.0);
+        assert!(
+            figures
+                .annual_limit(PlanType::Ira, 40, 2030, &PriceLevel::Constant(0.03))
+                .unwrap()
+                > 7_500.0
+        );
     }
 }

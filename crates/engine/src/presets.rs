@@ -18,9 +18,10 @@ use crate::state_tax_data::state_tax_profiles;
 /// deferral, IRA, and employer catch-up limits; $100 for the IRA catch-up.
 /// Modelling the rounding matters because it is what makes a limit sit still
 /// for a few years and then step — smooth exponential growth would drift
-/// away from the real schedule.
-pub(crate) fn index_to(base: f64, increment: f64, years: f64, inflation: f64) -> f64 {
-    let indexed = base * (1.0 + inflation).powf(years);
+/// away from the real schedule. `factor` is how much prices rose since the
+/// figure was published (`PriceLevel::over_calendar_years`).
+pub(crate) fn index_to(base: f64, increment: f64, factor: f64) -> f64 {
+    let indexed = base * factor;
     (indexed / increment).floor() * increment
 }
 

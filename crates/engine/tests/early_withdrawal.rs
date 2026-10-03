@@ -7,6 +7,7 @@
 //! withdrawal against a fixed spending figure and nothing else, and every
 //! expected figure is computed from `BracketTax` directly.
 
+use engine::model::PriceLevel;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
     ContributionRule, FilingStatus, GrowthRule, PeriodLength, Person, Plan, PlanType, SimConfig,
@@ -113,7 +114,7 @@ fn single_filer() -> BracketTax {
         &figures,
         FilingStatus::Single,
         StateTaxProfile::none(),
-        0.0,
+        PriceLevel::Constant(0.0),
         figures.tax_year,
         vec![],
     )

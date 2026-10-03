@@ -1,6 +1,7 @@
 //! Monte Carlo behavior: reproducibility, aggregate sanity, and that
 //! volatility actually widens the outcome fan.
 
+use engine::model::PriceLevel;
 use engine::model::StreamDirection;
 use engine::model::TaxFigures;
 use engine::presets::seed_plan;
@@ -119,7 +120,7 @@ fn zero_volatility_matches_deterministic() {
         &TaxFigures::built_in(),
         plan.assumptions.filing_status,
         plan.assumptions.state_tax.clone(),
-        plan.assumptions.inflation,
+        PriceLevel::Constant(plan.assumptions.inflation),
         plan.sim_config.start.year,
         plan.people.iter().map(|p| p.birth.year).collect(),
     );
@@ -382,7 +383,7 @@ fn tax_for(plan: &Plan) -> BracketTax {
         &TaxFigures::built_in(),
         plan.assumptions.filing_status,
         plan.assumptions.state_tax.clone(),
-        plan.assumptions.inflation,
+        PriceLevel::Constant(plan.assumptions.inflation),
         plan.sim_config.start.year,
         plan.people.iter().map(|p| p.birth.year).collect(),
     )
@@ -477,7 +478,7 @@ fn higher_volatility_widens_the_fan() {
         &TaxFigures::built_in(),
         plan.assumptions.filing_status,
         plan.assumptions.state_tax.clone(),
-        plan.assumptions.inflation,
+        PriceLevel::Constant(plan.assumptions.inflation),
         plan.sim_config.start.year,
         plan.people.iter().map(|p| p.birth.year).collect(),
     );
@@ -527,7 +528,7 @@ fn net_worth_never_goes_negative() {
         &TaxFigures::built_in(),
         plan.assumptions.filing_status,
         plan.assumptions.state_tax.clone(),
-        plan.assumptions.inflation,
+        PriceLevel::Constant(plan.assumptions.inflation),
         plan.sim_config.start.year,
         plan.people.iter().map(|p| p.birth.year).collect(),
     );
@@ -754,7 +755,7 @@ fn cancel_mid_run_short_circuits_the_sweep() {
         &TaxFigures::built_in(),
         plan.assumptions.filing_status,
         plan.assumptions.state_tax.clone(),
-        plan.assumptions.inflation,
+        PriceLevel::Constant(plan.assumptions.inflation),
         plan.sim_config.start.year,
         plan.people.iter().map(|p| p.birth.year).collect(),
     );

@@ -5,6 +5,7 @@ mod household;
 mod legacy;
 mod person;
 mod plan;
+mod price_level;
 mod social_security;
 mod strategy;
 mod stream;
@@ -26,6 +27,7 @@ pub use household::{
 };
 pub use person::{Person, PersonId};
 pub use plan::{PeriodLength, Plan, PlanId, SimConfig, SCHEMA_VERSION};
+pub use price_level::{PriceLevel, PricePath};
 pub use social_security::{
     adjustment_factor, FullRetirementAge, SocialSecurityBenefit, SocialSecurityBenefitId,
     WIDOW_BENEFIT_EARLIEST_AGE,

@@ -3,6 +3,7 @@
 //! the family limit — which the household's family-coverage HSAs share —
 //! and the age-55 catch-up stays per person under both.
 
+use engine::model::PriceLevel;
 use engine::model::TaxFigures;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
@@ -135,7 +136,7 @@ fn the_2026_figures_are_rev_proc_2025_19() {
     assert_eq!(figures.tax_year, 2026);
     let limit = |plan_type, age| {
         figures
-            .annual_limit(plan_type, age, 2026, INFLATION)
+            .annual_limit(plan_type, age, 2026, &PriceLevel::Constant(INFLATION))
             .unwrap()
     };
     assert_eq!(limit(PlanType::Hsa, 46), 4_400.0, "self-only");

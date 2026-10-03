@@ -6,6 +6,7 @@
 //! nothing else. The sweep toggle is **off** everywhere, which is both the
 //! default and the setting the money-destruction regression needs.
 
+use engine::model::PriceLevel;
 use engine::model::TaxFigures;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
@@ -35,7 +36,7 @@ fn single_filer(plan: &Plan) -> BracketTax {
         &TaxFigures::built_in(),
         FilingStatus::Single,
         StateTaxProfile::none(),
-        0.0,
+        PriceLevel::Constant(0.0),
         TaxFigures::built_in().tax_year,
         plan.people.iter().map(|p| p.birth.year).collect(),
     )

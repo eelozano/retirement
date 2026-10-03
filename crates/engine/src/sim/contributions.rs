@@ -116,7 +116,7 @@ use super::{growth_factor, ResolvedContribution, SimWarning};
 /// What contribution resolution needs beyond the period's time coordinates:
 /// the dated entries, who earned what, and who was still working.
 pub(super) struct Inputs<'a> {
-    pub ctx: &'a PeriodContext,
+    pub ctx: &'a PeriodContext<'a>,
     /// The statutory limits every bucket is clamped to.
     pub figures: &'a TaxFigures,
     /// Every account's entries, boundaries resolved, in plan account order.
@@ -177,7 +177,7 @@ pub(super) fn allowed_contributions(
             plan_type,
             inputs.ctx.year - person.birth.year,
             inputs.ctx.year,
-            inputs.ctx.inflation,
+            inputs.ctx.prices,
         )
     };
 
@@ -199,7 +199,7 @@ pub(super) fn allowed_contributions(
             // transfer and leaves the factor at 1.
             ContributionRule::FlatAmount { amount, growth } => {
                 amount.max(0.0)
-                    * growth_factor(growth, inputs.ctx.inflation, inputs.ctx.years_elapsed)
+                    * growth_factor(growth, inputs.ctx.prices, 0.0, inputs.ctx.years_elapsed)
                     * active
                     * inputs.ctx.fraction
             }
@@ -237,7 +237,7 @@ pub(super) fn allowed_contributions(
     // owner's catch-up, held apart so neither spills into the other.
     let mut family_room = inputs
         .figures
-        .hsa_family_limit(inputs.ctx.year, inputs.ctx.inflation)
+        .hsa_family_limit(inputs.ctx.year, inputs.ctx.prices)
         * inputs.ctx.fraction;
     for account in &plan.accounts {
         let cap = match account.plan_type {
@@ -435,7 +435,7 @@ fn clamp_to_annual_additions(
             inputs.figures.annual_additions_limit(
                 inputs.ctx.year - person.birth.year,
                 inputs.ctx.year,
-                inputs.ctx.inflation,
+                inputs.ctx.prices,
             ) * inputs.prorate(&account.owner)
         });
         *entry -= employee[idx];
