@@ -74,6 +74,11 @@ demo run needs no caution at all; see `.claude/skills/run-app/SKILL.md`.
   goes into `TaxFigures`, not into an engine constant. Law with no annual
   publication — the Social Security taxability thresholds, the RMD ages and
   Uniform Lifetime table, the HSA age-55 catch-up — stays in code.
+- **Statutory figures and rules are tested against their publication.**
+  `crates/engine/tests/published/` holds tests whose expected values are
+  typed from the IRS or SSA source and cited beside them, never computed by
+  calling the engine (#154). A new tax or benefit rule, or a new year of
+  `TaxFigures`, updates or adds a test there.
 - **An upgrade does not change a saved plan's projection.** Every migration
   (the `*Wire` types, `serde(default)`) is written so a plan saved by an
   older version projects identically after it, because reopening a plan has

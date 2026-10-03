@@ -468,6 +468,20 @@ Lifetime table. The legacy
 contribution-bucket migration keeps its own frozen limits, so opening an old
 file never depends on which year's figures are loaded.
 
+**Publication-anchored tests (#154).** `crates/engine/tests/published/` is
+the one place whose expected values come from outside the repository: every
+figure in `TaxFigures::built_in()`, the whole Uniform Lifetime table, the FRA
+tables and claiming factors, worked federal tax years and an analytic
+zero-return floor, each typed from its source (Rev. Proc. 2025-32, Notice
+2025-67, Rev. Proc. 2025-19, Pub 590-B, Pub 915, 20 CFR 404) and cited
+beside it, never computed by calling the code under test. The rest of the
+suite — the goldens, and tax tests that ask the tax model for their expected
+value — proves the engine has not changed, not that it is right; the two
+errors in #142 survived on exactly that. Updating the built-in figures to a
+new tax year means retyping these from the new publications, which makes the
+update mechanical rather than a matter of trust, and a new statutory rule
+gets its test here.
+
 ---
 
 ## 4. Engine
