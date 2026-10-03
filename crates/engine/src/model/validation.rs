@@ -701,6 +701,12 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
             "Social Security COLA can't be -100% or lower.",
         ));
     }
+    if !(0.0..1.0).contains(&plan.assumptions.dividend_yield) {
+        errors.push(err(
+            "assumptions.dividend_yield",
+            "Dividend yield must be at least 0% and below 100%.",
+        ));
+    }
     if let Some(cut) = &plan.assumptions.social_security_reduction {
         if !(0.0..=1.0).contains(&cut.payable_fraction) {
             errors.push(err(
@@ -1411,6 +1417,21 @@ mod tests {
         assert!(errors
             .iter()
             .any(|e| e.field == "assumptions.social_security_cola"));
+    }
+
+    #[test]
+    fn catches_out_of_range_dividend_yield() {
+        for bad in [-0.01, 1.0] {
+            let mut plan = seed_plan();
+            plan.assumptions.dividend_yield = bad;
+            let errors = plan.validate();
+            assert!(
+                errors
+                    .iter()
+                    .any(|e| e.field == "assumptions.dividend_yield"),
+                "{bad} should be rejected"
+            );
+        }
     }
 
     /// A negative stddev would panic `Normal::new` inside
