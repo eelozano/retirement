@@ -616,6 +616,15 @@ fn net_worth_never_goes_negative() {
 /// while every later median falls. Saved plans are untouched — they carry
 /// their own figures.
 ///
+/// Re-captured when a new plan started paying a 1.3% qualified-dividend
+/// yield on its taxable accounts, taxed as it is paid (#148). Periods 0 and
+/// 12 are untouched: while the household works, the dividend tax comes out
+/// of a salary surplus that is never swept, so no balance moves. In
+/// retirement it is paid by drawing on the portfolio, and the late figures
+/// fall — period 38's median 3,401,110 -> 3,321,862 (-2.3%), the final
+/// period's 643,853 -> 508,411. The success rate holds at 0.51. Saved
+/// plans load at 0.0 and are untouched.
+///
 /// Spot indices rather than all 58 periods: enough to catch an off-by-one or
 /// a reordering, few enough to read when it fails.
 #[test]
@@ -642,13 +651,13 @@ fn fold_reproduces_pre_refactor_output() {
 
     assert_eq!(at(0).p50, 752753.5098399216);
     assert_eq!(at(12).p50, 2861049.103800553);
-    assert_eq!(at(38).p50, 3401110.3244606294);
-    assert_eq!(at(57).p50, 643853.3216471411);
+    assert_eq!(at(38).p50, 3321862.3515828196);
+    assert_eq!(at(57).p50, 508410.91757664573);
 
     assert_eq!(at(0).p90, 854163.4911958678);
     assert_eq!(at(12).p90, 4283942.998330747);
-    assert_eq!(at(38).p90, 13566211.845533235);
-    assert_eq!(at(57).p90, 31779424.59300074);
+    assert_eq!(at(38).p90, 13237430.112970779);
+    assert_eq!(at(57).p90, 30043287.733030252);
 }
 
 /// The observed form must not change the answer: progress counting and the

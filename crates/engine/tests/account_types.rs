@@ -80,6 +80,7 @@ fn base_plan(accounts: Vec<Account>) -> Plan {
             strategy_volatility: Default::default(),
             reinvest_into: None,
             drawdown: Default::default(),
+            dividend_yield: 0.0,
         },
         sim_config: SimConfig {
             start: YearMonth::new(START_YEAR, 1),
