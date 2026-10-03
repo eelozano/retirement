@@ -3,6 +3,7 @@ import type { Account } from "../../types/generated/Account";
 import type { Contribution } from "../../types/generated/Contribution";
 import type { ContributionRule } from "../../types/generated/ContributionRule";
 import type { EmployerMatch } from "../../types/generated/EmployerMatch";
+import type { MatchDestination } from "../../types/generated/MatchDestination";
 import type { OneTimeContribution } from "../../types/generated/OneTimeContribution";
 import type { Plan } from "../../types/generated/Plan";
 import type { PlanType } from "../../types/generated/PlanType";
@@ -40,7 +41,46 @@ export const DEFAULT_MATCH: EmployerMatch = {
   nonelective_percent: 0,
   tiers: [{ employee_percent: 0.03, match_percent: 1.0 }],
   destination: "PreTax",
+  deposit_into: null,
 };
+
+const KIND_FOR: Record<MatchDestination, Account["kind"]> = {
+  PreTax: "TraditionalPreTax",
+  Roth: "Roth",
+};
+
+/**
+ * The accounts that could receive `source`'s employer money going in as
+ * `destination`: the owner's employer plans of that kind, in plan order.
+ * Mirrors the deposit-account rule in `engine::model::validation`.
+ */
+export function depositCandidates(
+  plan: Plan,
+  source: Account,
+  destination: MatchDestination,
+): Account[] {
+  return plan.accounts.filter(
+    (a) =>
+      a.owner === source.owner &&
+      a.plan_type === "EmployerPlan" &&
+      a.kind === KIND_FOR[destination],
+  );
+}
+
+/**
+ * Where the employer's money lands when no account is named: `source`
+ * itself if it is already the right kind, else the owner's first employer
+ * plan of that kind. Mirrors `match_target` in `engine::sim::contributions`;
+ * `undefined` is the engine's `MatchUnallocated`.
+ */
+export function automaticDeposit(
+  plan: Plan,
+  source: Account,
+  destination: MatchDestination,
+): Account | undefined {
+  if (source.kind === KIND_FOR[destination]) return source;
+  return depositCandidates(plan, source, destination)[0];
+}
 
 export function contributionMode(rule: ContributionRule): ContributionMode {
   if (rule === "FederalMaximum") return "FederalMaximum";

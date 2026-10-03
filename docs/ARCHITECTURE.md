@@ -332,6 +332,7 @@ pub struct EmployerMatch {
     pub nonelective_percent: f64,    // paid on salary alone, no deferral needed
     pub tiers: Vec<MatchTier>,       // ordered: "first 3%", "next 2%"
     pub destination: MatchDestination,   // PreTax | Roth
+    pub deposit_into: Option<AccountId>, // None = the automatic rule (#175)
 }
 
 // Generic dated stream: salary, spending, pensions, one-offs.
@@ -807,6 +808,8 @@ The formula is deliberately **undated**, unlike a contribution entry. An employe
 Employer dollars are **not** held to the employee elective-deferral limit — applying it to them would silently destroy most of the match, which is the failure mode this exists to prevent. They are held to the 415(c) annual-additions cap instead, shared with the employee's own deferrals, and only the employer's share gives way when it binds. 415(c) is statutorily per employer plan; with no employer grouping in the model it is applied per person, which is the stricter reading.
 
 `MatchDestination` selects *which account receives the money*, not just a label: `AccountKind` is what the tax and drawdown paths read, so pre-tax dollars parked in a Roth account would be withdrawn untaxed. The declared account is preferred when its kind already agrees; otherwise the owner's first other employer-plan account of that kind takes it, and a `MatchUnallocated` warning fires when there is none — a Roth deferral account plus a pre-tax match account is how a real statement splits the two sources.
+
+That rule is the default, not the only road (#175). `deposit_into` names the receiving account outright, for the two cases plan order gets wrong: an employer that keeps its money in a contract of its own, the same kind as the employee's (TIAA's separate employer and employee contracts), and a pre-tax match on a Roth deferral when an old employer's 401(k) is listed ahead of the current one. Naming an account never changes the tax treatment — validation holds it to the owner's `EmployerPlan` accounts of the kind `destination` names — so it moves dollars between balances and nothing else. `None` resolves exactly as before, which is what keeps a saved plan projecting identically. A named account that is deleted reverts to `None`: the editor clears it in the scenario it was deleted from, and `storage::fill_in` in every sibling.
 
 Employer money never passes through household cash, so it is `PeriodSnapshot::employer_match` rather than part of `contributions` — folding it in would break the `income = outflow + surplus` identity that `tests/properties.rs` pins.
 

@@ -484,6 +484,7 @@ export function AccountsSection() {
             <div className="band">
               <p className="band-label">Employer contributions</p>
               <EmployerMatchFields
+                plan={plan}
                 account={selected}
                 accountIndex={selectedIndex}
                 updatePlan={updatePlan}

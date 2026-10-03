@@ -106,8 +106,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::model::{
-    hsa_catch_up, AccountId, AccountKind, ContributionRule, MatchDestination, PersonId, Plan,
-    PlanType, StepUp, TaxFigures, YearMonth,
+    hsa_catch_up, AccountId, AccountKind, ContributionRule, EmployerMatch, MatchDestination,
+    PersonId, Plan, PlanType, StepUp, TaxFigures, YearMonth,
 };
 
 use super::period::{PeriodContext, Warnings};
@@ -283,19 +283,26 @@ pub(super) fn allowed_contributions(
 
 /// Where matched dollars land for the match declared on `source`.
 ///
-/// The destination is a tax treatment, and in this model tax treatment is
-/// `AccountKind` — so the money has to end up in an account of the matching
-/// kind, not merely be labelled. Pre-tax dollars parked in a Roth account
-/// would be withdrawn untaxed, and the error compounds for decades.
+/// An account the user named (`deposit_into`, #175) wins outright.
+/// Validation has already held it to the owner's employer plans and to the
+/// kind `destination` names, so it is found here and nothing else is asked.
+///
+/// Otherwise the destination is a tax treatment, and in this model tax
+/// treatment is `AccountKind` — so the money has to end up in an account of
+/// the matching kind, not merely be labelled. Pre-tax dollars parked in a
+/// Roth account would be withdrawn untaxed, and the error compounds for
+/// decades.
 ///
 /// The declared account is preferred when its kind already agrees, which is
 /// the ordinary case (a traditional 401(k) with a pre-tax match). Otherwise
 /// the owner's first other employer-plan account of the right kind receives
-/// it — plan order again, the same control the user already has over
-/// contribution priority. A Roth deferral account plus a pre-tax match
-/// account is exactly how a real statement splits the two sources.
-fn match_target(plan: &Plan, source: usize, destination: MatchDestination) -> Option<usize> {
-    let wanted = match destination {
+/// it — plan order again. That is the pre-#175 rule, kept as the default so
+/// a saved plan projects as it did; the editor names the account it picks.
+fn match_target(plan: &Plan, source: usize, employer: &EmployerMatch) -> Option<usize> {
+    if let Some(id) = &employer.deposit_into {
+        return plan.accounts.iter().position(|a| &a.id == id);
+    }
+    let wanted = match employer.destination {
         MatchDestination::PreTax => AccountKind::TraditionalPreTax,
         MatchDestination::Roth => AccountKind::Roth,
     };
@@ -389,7 +396,7 @@ pub(super) fn employer_match(
         if amount <= 0.0 {
             continue;
         }
-        match match_target(plan, idx, employer.destination) {
+        match match_target(plan, idx, employer) {
             Some(target) => matched[target] += amount,
             None if reported.insert(format!("match:{}", account.id)) => {
                 warnings.push(SimWarning::MatchUnallocated {

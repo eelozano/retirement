@@ -8,6 +8,7 @@
  * an assumption. It selects *which account receives the money*, not just a
  * label: an account's `kind` is what the drawdown and tax paths read, so
  * pre-tax dollars sitting in a Roth account would be withdrawn untaxed. See
- * `sim::contributions::match_target`.
+ * `sim::contributions::match_target`, and `EmployerMatch::deposit_into` for
+ * naming the receiving account outright.
  */
 export type MatchDestination = "PreTax" | "Roth";

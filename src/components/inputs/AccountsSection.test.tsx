@@ -561,6 +561,7 @@ describe("AccountsSection", () => {
       nonelective_percent: 0,
       tiers: [{ employee_percent: 0.03, match_percent: 1 }],
       destination: "PreTax",
+      deposit_into: null,
     });
 
     await userEvent.click(screen.getByRole("button", { name: "Add match tier" }));
@@ -570,6 +571,72 @@ describe("AccountsSection", () => {
     await userEvent.selectOptions(screen.getByLabelText("Type"), "roth_ira");
     expect(currentAccount()?.employer_match).toBeNull();
     expect(screen.queryByLabelText("Employer contributions")).toBeNull();
+  });
+
+  it("names the account the employer's money is paid into (#175)", async () => {
+    // A Roth deferral with a pre-tax match, an old employer's 401(k)
+    // listed ahead of the current job's pre-tax plan, and a partner's plan
+    // that is never this employer's to pay into.
+    const employerPlan = (
+      id: string,
+      kind: "TraditionalPreTax" | "Roth",
+      owner = "p1",
+    ) => ({
+      id,
+      owner,
+      kind,
+      name: id,
+      balance: 0,
+      cost_basis: null,
+      allocation: "Moderate",
+      plan_type: "EmployerPlan",
+      contributions: [],
+      one_time_contributions: [],
+      employer_match: null,
+      rule_of_55: false,
+    });
+    usePlanStore.setState((s) => {
+      const draft = structuredClone(s.plan) as Plan;
+      draft.accounts = [
+        {
+          ...employerPlan("Roth 403(b)", "Roth"),
+          employer_match: {
+            nonelective_percent: 0.05,
+            tiers: [],
+            destination: "PreTax",
+            deposit_into: null,
+          },
+        },
+        employerPlan("Old 401(k)", "TraditionalPreTax"),
+        employerPlan("Pre-tax 403(b)", "TraditionalPreTax"),
+        employerPlan("Partner 401(k)", "TraditionalPreTax", "p2"),
+      ] as Plan["accounts"];
+      return { plan: draft };
+    });
+    render(<AccountsSection />);
+
+    const paidInto = screen.getByLabelText("Paid into") as HTMLSelectElement;
+    expect([...paidInto.options].map((o) => o.text)).toEqual([
+      "Automatic (Old 401(k))",
+      "Old 401(k)",
+      "Pre-tax 403(b)",
+    ]);
+
+    await userEvent.selectOptions(paidInto, "Pre-tax 403(b)");
+    expect(currentAccount()?.employer_match?.deposit_into).toBe("Pre-tax 403(b)");
+
+    // Switching the money to Roth: a pre-tax account can't take it, so the
+    // choice goes back to automatic — which is this Roth account itself.
+    await userEvent.selectOptions(
+      screen.getByLabelText("Employer money goes in as"),
+      "Roth",
+    );
+    expect(currentAccount()?.employer_match?.deposit_into).toBeNull();
+    expect(
+      [...(screen.getByLabelText("Paid into") as HTMLSelectElement).options].map(
+        (o) => o.text,
+      ),
+    ).toEqual(["Automatic (Roth 403(b))", "Roth 403(b)"]);
   });
 
   it("takes an employer contribution that does not depend on a match", async () => {
