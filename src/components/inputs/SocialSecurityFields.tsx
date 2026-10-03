@@ -18,6 +18,18 @@ import { FACT_VS_POLICY, ownedBy, type UpdatePlan } from "./shared";
 const CLAIMING_AGES = Array.from({ length: 9 }, (_, i) => String(62 + i));
 
 /**
+ * The omission behind #152, stated where the number is typed. The app has no
+ * spousal benefit, so a person whose own record is under half their spouse's
+ * gets nothing for the difference unless it is entered here.
+ */
+const SPOUSAL_NOT_MODELLED =
+  "Enter what this person will actually receive at full retirement age. The app does " +
+  "not work out a spousal benefit (up to half the other spouse's), so if one applies, " +
+  "include the top-up in this figure — SSA's calculator at ssa.gov gives it. It is " +
+  "exact if you claim at full retirement age; claiming earlier or later adjusts the " +
+  "top-up as if it were the person's own benefit, which it is not.";
+
+/**
  * One `SocialSecurityBenefit`'s fields, rendered inside its owner's card in
  * the People pane. No owner select: which person's card this sits in *is*
  * the ownership — the old flat panel's owner dropdown was the exact "foreign
@@ -68,6 +80,7 @@ export function SocialSecurityFields(props: {
         value={benefit.benefit_at_fra}
         step={100}
         min={0}
+        tooltip={SPOUSAL_NOT_MODELLED}
         onChange={(amount) =>
           updatePlan((d) => {
             d.social_security[i].benefit_at_fra = amount;
