@@ -19,8 +19,8 @@ fn same_seed_reproduces_identical_results() {
         n_paths: 50,
         seed: 42,
     };
-    let a = run_monte_carlo(&plan, &TaxFigures::built_in(), &config);
-    let b = run_monte_carlo(&plan, &TaxFigures::built_in(), &config);
+    let a = run_monte_carlo(&plan, &TaxFigures::tax_year_2026(), &config);
+    let b = run_monte_carlo(&plan, &TaxFigures::tax_year_2026(), &config);
 
     assert_eq!(a.success_rate, b.success_rate);
     assert_eq!(a.percentiles.len(), b.percentiles.len());
@@ -36,7 +36,7 @@ fn different_seeds_produce_different_paths() {
     let plan = seed_plan();
     let a = run_monte_carlo(
         &plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &MonteCarloConfig {
             n_paths: 50,
             seed: 1,
@@ -44,7 +44,7 @@ fn different_seeds_produce_different_paths() {
     );
     let b = run_monte_carlo(
         &plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &MonteCarloConfig {
             n_paths: 50,
             seed: 2,
@@ -60,7 +60,7 @@ fn aggregate_shape_is_sane() {
     let plan = seed_plan();
     let result = run_monte_carlo(
         &plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &MonteCarloConfig {
             n_paths: 200,
             seed: 7,
@@ -74,7 +74,7 @@ fn aggregate_shape_is_sane() {
         result.success_rate
     );
 
-    let deterministic = engine::run_deterministic(&plan, &TaxFigures::built_in());
+    let deterministic = engine::run_deterministic(&plan, &TaxFigures::tax_year_2026());
     assert_eq!(result.percentiles.len(), deterministic.snapshots.len());
 
     for p in &result.percentiles {
@@ -90,7 +90,7 @@ fn aggregate_shape_is_sane() {
 fn single_path_collapses_percentiles() {
     let result = run_monte_carlo(
         &seed_plan(),
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &MonteCarloConfig {
             n_paths: 1,
             seed: 3,
@@ -117,7 +117,7 @@ fn zero_volatility_matches_deterministic() {
         99,
     );
     let tax = BracketTax::new(
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         plan.assumptions.filing_status,
         plan.assumptions.state_tax.clone(),
         PriceLevel::Constant(plan.assumptions.inflation),
@@ -126,7 +126,7 @@ fn zero_volatility_matches_deterministic() {
     );
     let result = run_monte_carlo_sim(
         &plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &returns,
         &tax,
         &ProportionalDrawdown,
@@ -136,7 +136,7 @@ fn zero_volatility_matches_deterministic() {
         },
     );
 
-    let deterministic = engine::run_deterministic(&plan, &TaxFigures::built_in());
+    let deterministic = engine::run_deterministic(&plan, &TaxFigures::tax_year_2026());
     for (p, snapshot) in result.percentiles.iter().zip(&deterministic.snapshots) {
         assert!(
             (p.p50 - snapshot.net_worth).abs() < 1e-6,
@@ -177,7 +177,7 @@ fn zero_volatility_matches_deterministic() {
 fn zero_volatility_depletion_lands_in_one_bucket() {
     let plan = with_expenses_scaled(2.0);
     let result = run_zero_volatility(&plan, 10);
-    let deterministic = engine::run_deterministic(&plan, &TaxFigures::built_in());
+    let deterministic = engine::run_deterministic(&plan, &TaxFigures::tax_year_2026());
     let depleted = deterministic_depletion(&deterministic).expect("doubled spending runs dry");
 
     let d = &result.diagnostics;
@@ -219,9 +219,13 @@ fn heavier_spending_fails_earlier_and_withdraws_more() {
         n_paths: 500,
         seed: 7,
     };
-    let base = run_monte_carlo(&seed_plan(), &TaxFigures::built_in(), &config).diagnostics;
-    let heavy =
-        run_monte_carlo(&with_expenses_scaled(1.6), &TaxFigures::built_in(), &config).diagnostics;
+    let base = run_monte_carlo(&seed_plan(), &TaxFigures::tax_year_2026(), &config).diagnostics;
+    let heavy = run_monte_carlo(
+        &with_expenses_scaled(1.6),
+        &TaxFigures::tax_year_2026(),
+        &config,
+    )
+    .diagnostics;
 
     let failures = |d: &MonteCarloDiagnostics| d.depletion_histogram.iter().sum::<u32>();
     assert!(failures(&heavy) > failures(&base));
@@ -271,7 +275,7 @@ fn volatility_shifts_failures_into_the_early_window() {
 fn histogram_accounts_for_every_failed_path() {
     let result = run_monte_carlo(
         &seed_plan(),
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &MonteCarloConfig {
             n_paths: 200,
             seed: 7,
@@ -327,7 +331,7 @@ fn no_retirement_inside_horizon_leaves_anchored_figures_empty() {
     }
     let result = run_monte_carlo(
         &plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &MonteCarloConfig {
             n_paths: 50,
             seed: 3,
@@ -355,7 +359,7 @@ fn retirement_before_plan_start_anchors_on_opening_balances() {
         person.retirement = engine::YearMonth::new(2020, 1);
     }
     let result = run_zero_volatility(&plan, 3);
-    let deterministic = engine::run_deterministic(&plan, &TaxFigures::built_in());
+    let deterministic = engine::run_deterministic(&plan, &TaxFigures::tax_year_2026());
 
     let d = &result.diagnostics;
     assert_eq!(d.retirement_period, Some(0));
@@ -380,7 +384,7 @@ fn with_expenses_scaled(factor: f64) -> Plan {
 
 fn tax_for(plan: &Plan) -> BracketTax {
     BracketTax::new(
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         plan.assumptions.filing_status,
         plan.assumptions.state_tax.clone(),
         PriceLevel::Constant(plan.assumptions.inflation),
@@ -399,7 +403,7 @@ fn run_with_volatility(plan: &Plan, stddev: f64, config: &MonteCarloConfig) -> M
     );
     run_monte_carlo_sim(
         plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &returns,
         &tax_for(plan),
         &ProportionalDrawdown,
@@ -475,7 +479,7 @@ fn assert_ordered(s: engine::Spread) {
 fn higher_volatility_widens_the_fan() {
     let plan = seed_plan();
     let tax = BracketTax::new(
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         plan.assumptions.filing_status,
         plan.assumptions.state_tax.clone(),
         PriceLevel::Constant(plan.assumptions.inflation),
@@ -498,7 +502,7 @@ fn higher_volatility_widens_the_fan() {
         );
         let result = run_monte_carlo_sim(
             &plan,
-            &TaxFigures::built_in(),
+            &TaxFigures::tax_year_2026(),
             &returns,
             &tax,
             &ProportionalDrawdown,
@@ -525,7 +529,7 @@ fn net_worth_never_goes_negative() {
         5,
     );
     let tax = BracketTax::new(
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         plan.assumptions.filing_status,
         plan.assumptions.state_tax.clone(),
         PriceLevel::Constant(plan.assumptions.inflation),
@@ -534,7 +538,7 @@ fn net_worth_never_goes_negative() {
     );
     let result = run_monte_carlo_sim(
         &plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &returns,
         &tax,
         &ProportionalDrawdown,
@@ -633,7 +637,7 @@ fn fold_reproduces_pre_refactor_output() {
     let plan = seed_plan();
     let result = run_monte_carlo(
         &plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &MonteCarloConfig {
             n_paths: 200,
             seed: 7,
@@ -673,9 +677,9 @@ fn controlled_run_matches_uncontrolled_and_counts_every_path() {
     };
     let control = RunControl::new();
 
-    let observed = run_monte_carlo_with(&plan, &TaxFigures::built_in(), &config, &control)
+    let observed = run_monte_carlo_with(&plan, &TaxFigures::tax_year_2026(), &config, &control)
         .expect("not cancelled");
-    let plain = run_monte_carlo(&plan, &TaxFigures::built_in(), &config);
+    let plain = run_monte_carlo(&plan, &TaxFigures::tax_year_2026(), &config);
 
     assert_eq!(control.completed(), 200);
     assert_eq!(observed.success_rate, plain.success_rate);
@@ -696,7 +700,7 @@ fn cancelled_before_start_returns_cancelled_without_running() {
 
     let result = run_monte_carlo_with(
         &plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &MonteCarloConfig {
             n_paths: 5_000,
             seed: 1,
@@ -752,7 +756,7 @@ fn cancel_mid_run_short_circuits_the_sweep() {
         after: 3_000,
     };
     let tax = BracketTax::new(
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         plan.assumptions.filing_status,
         plan.assumptions.state_tax.clone(),
         PriceLevel::Constant(plan.assumptions.inflation),
@@ -762,7 +766,7 @@ fn cancel_mid_run_short_circuits_the_sweep() {
 
     let result = run_monte_carlo_sim_with(
         &plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &returns,
         &tax,
         &ProportionalDrawdown,

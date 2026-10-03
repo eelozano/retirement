@@ -161,7 +161,7 @@ fn run(plan: &Plan) -> Projection {
     let returns = FixedReturns::new(&plan.assumptions.strategy_returns, 12);
     simulate(
         plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &returns,
         &FlatTax { rate: 0.2 },
         &ProportionalDrawdown,

@@ -109,7 +109,7 @@ fn plan(birth: YearMonth, retirement: YearMonth, account: Account) -> Plan {
 }
 
 fn single_filer() -> BracketTax {
-    let figures = TaxFigures::built_in();
+    let figures = TaxFigures::tax_year_2026();
     BracketTax::new(
         &figures,
         FilingStatus::Single,
@@ -159,7 +159,7 @@ fn a_pre_tax_draw_before_59_and_a_half_pays_ten_percent_more() {
             None,
         ),
     );
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     let first = &projection.snapshots[0];
     let gross = first.withdrawals["acct"];
 
@@ -191,7 +191,7 @@ fn a_period_straddling_59_and_a_half_is_penalized_for_its_months_before_it() {
             None,
         ),
     );
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     let first = &projection.snapshots[0];
     let gross = first.withdrawals["acct"];
     assert_close(
@@ -222,7 +222,7 @@ fn employer_plan_rule_of_55(retirement: YearMonth, elect: bool) -> Plan {
 fn the_rule_of_55_waives_the_penalty_when_elected_and_eligible() {
     let projection = run_deterministic(
         &employer_plan_rule_of_55(START, true),
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
     );
     for snapshot in &projection.snapshots {
         assert_close(snapshot.early_withdrawal_penalty, 0.0, "no penalty");
@@ -238,7 +238,7 @@ fn the_rule_of_55_waives_the_penalty_when_elected_and_eligible() {
 fn the_rule_of_55_is_never_assumed() {
     let projection = run_deterministic(
         &employer_plan_rule_of_55(START, false),
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
     );
     assert!(projection.snapshots[0].early_withdrawal_penalty > 0.0);
 }
@@ -249,7 +249,7 @@ fn the_rule_of_55_is_never_assumed() {
 fn separating_before_the_year_turning_55_does_not_qualify() {
     let projection = run_deterministic(
         &employer_plan_rule_of_55(YearMonth::new(2025, 12), true),
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
     );
     assert!(projection.snapshots[0].early_withdrawal_penalty > 0.0);
     assert!(projection.warnings.contains(&SimWarning::Rule55Ineligible {
@@ -270,7 +270,7 @@ fn an_ira_cannot_elect_the_rule_of_55() {
     acct.rule_of_55 = true;
     let projection = run_deterministic(
         &plan(YearMonth::new(1971, 6), START, acct),
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
     );
     assert!(projection.snapshots[0].early_withdrawal_penalty > 0.0);
     assert!(projection.warnings.contains(&SimWarning::Rule55Ineligible {
@@ -292,7 +292,7 @@ fn a_457b_draw_is_never_penalized() {
             None,
         ),
     );
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     let first = &projection.snapshots[0];
     assert_close(first.early_withdrawal_penalty, 0.0, "no penalty");
     assert_close(
@@ -312,7 +312,7 @@ fn a_roth_ira_returns_contributions_before_earnings() {
         YearMonth::new(2025, 6),
         account(AccountKind::Roth, PlanType::Ira, 200_000.0, Some(50_000.0)),
     );
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     let first = &projection.snapshots[0];
     let gross = first.withdrawals["acct"];
     let earnings = gross - 50_000.0;
@@ -352,7 +352,7 @@ fn a_roth_employer_plan_returns_contributions_pro_rata() {
             Some(50_000.0),
         ),
     );
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     let first = &projection.snapshots[0];
     let earnings = 0.75 * first.withdrawals["acct"];
     assert_close(
@@ -370,7 +370,7 @@ fn a_roth_with_no_contributions_figure_is_all_earnings() {
         YearMonth::new(2025, 6),
         account(AccountKind::Roth, PlanType::Ira, 200_000.0, None),
     );
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     let first = &projection.snapshots[0];
     assert_close(
         first.early_withdrawal_penalty,
@@ -387,7 +387,7 @@ fn a_qualified_roth_draw_is_untaxed() {
         YearMonth::new(2025, 1),
         account(AccountKind::Roth, PlanType::Ira, 500_000.0, None),
     );
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     let first = &projection.snapshots[0];
     assert_close(first.taxes, 0.0, "no tax");
     assert_close(first.withdrawals["acct"], SPENDING, "gross is the spending");
@@ -425,7 +425,7 @@ fn roth_contributions_during_the_plan_raise_its_basis() {
             StreamBoundary::PlanEnd,
         ),
     ];
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     let retired = &projection.snapshots[1];
     let gross = retired.withdrawals["acct"];
     assert_close(

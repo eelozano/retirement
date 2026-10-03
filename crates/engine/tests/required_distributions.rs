@@ -33,11 +33,11 @@ fn assert_close(actual: f64, expected: f64, label: &str) {
 /// in the run.
 fn single_filer(plan: &Plan) -> BracketTax {
     BracketTax::new(
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         FilingStatus::Single,
         StateTaxProfile::none(),
         PriceLevel::Constant(0.0),
-        TaxFigures::built_in().tax_year,
+        TaxFigures::tax_year_2026().tax_year,
         plan.people.iter().map(|p| p.birth.year).collect(),
     )
 }
@@ -236,7 +236,7 @@ fn the_divisor_does_not_index_with_inflation() {
     let share = |inflation: f64| {
         let mut plan = pensioner(1952);
         plan.assumptions.inflation = inflation;
-        let projection = run_deterministic(&plan, &TaxFigures::built_in());
+        let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
         let prior = year_of(&projection, 2026).balances["401k"];
         year_of(&projection, 2027).required_distributions / prior
     };
@@ -251,7 +251,7 @@ fn the_divisor_does_not_index_with_inflation() {
 #[test]
 fn an_owner_past_the_rmd_age_distributes_even_with_spending_fully_covered() {
     // Born 1952: age 75 in 2027, divisor 24.6.
-    let projection = run_deterministic(&pensioner(1952), &TaxFigures::built_in());
+    let projection = run_deterministic(&pensioner(1952), &TaxFigures::tax_year_2026());
     let first = year_of(&projection, 2026);
     let second = year_of(&projection, 2027);
 
@@ -294,9 +294,9 @@ fn an_owner_past_the_rmd_age_distributes_even_with_spending_fully_covered() {
 /// the same household with an owner too young to be forced.
 #[test]
 fn the_distribution_is_reinvested_with_the_sweep_off() {
-    let forced = run_deterministic(&pensioner(1952), &TaxFigures::built_in());
+    let forced = run_deterministic(&pensioner(1952), &TaxFigures::tax_year_2026());
     // Born 1970: 57 in 2027, decades short of any required beginning age.
-    let untouched = run_deterministic(&pensioner(1970), &TaxFigures::built_in());
+    let untouched = run_deterministic(&pensioner(1970), &TaxFigures::tax_year_2026());
 
     let a = year_of(&forced, 2027);
     let b = year_of(&untouched, 2027);
@@ -331,7 +331,7 @@ fn a_distribution_with_nowhere_to_land_is_reported() {
     fixture
         .streams
         .push(stream("spending", StreamDirection::Expense, 60_000.0));
-    let projection = run_deterministic(&fixture.plan(), &TaxFigures::built_in());
+    let projection = run_deterministic(&fixture.plan(), &TaxFigures::tax_year_2026());
 
     let unallocated: Vec<_> = projection
         .warnings
@@ -386,7 +386,7 @@ fn reinvested_proceeds_carry_their_cost_basis() {
     });
     plan.streams.push(shock);
 
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     let s = year_of(&projection, 2035);
     let from_brokerage = s.withdrawals["brokerage"];
     assert!(
@@ -436,7 +436,7 @@ fn reinvested_proceeds_carry_their_cost_basis() {
 fn the_year_before_the_required_beginning_age_is_untouched() {
     // Born 1955: 72 in 2027, 73 — the required beginning age for their
     // cohort — in 2028.
-    let projection = run_deterministic(&pensioner(1955), &TaxFigures::built_in());
+    let projection = run_deterministic(&pensioner(1955), &TaxFigures::tax_year_2026());
     assert_close(
         year_of(&projection, 2027).required_distributions,
         0.0,
@@ -453,7 +453,7 @@ fn the_year_before_the_required_beginning_age_is_untouched() {
 #[test]
 fn born_1959_starts_at_73_and_born_1960_starts_at_75() {
     let first_forced_year = |birth_year: i32| {
-        run_deterministic(&pensioner(birth_year), &TaxFigures::built_in())
+        run_deterministic(&pensioner(birth_year), &TaxFigures::tax_year_2026())
             .snapshots
             .iter()
             .find(|s| s.required_distributions > 0.0)
@@ -486,7 +486,7 @@ fn only_pre_tax_accounts_are_forced() {
         .streams
         .push(stream("spending", StreamDirection::Expense, 60_000.0));
 
-    let projection = run_deterministic(&fixture.plan(), &TaxFigures::built_in());
+    let projection = run_deterministic(&fixture.plan(), &TaxFigures::tax_year_2026());
     for s in &projection.snapshots {
         assert_close(
             s.required_distributions,
@@ -528,7 +528,7 @@ fn one_owner_with_two_pre_tax_accounts_is_aggregated_then_pro_rated() {
         .streams
         .push(stream("spending", StreamDirection::Expense, 60_000.0));
 
-    let projection = run_deterministic(&fixture.plan(), &TaxFigures::built_in());
+    let projection = run_deterministic(&fixture.plan(), &TaxFigures::tax_year_2026());
     let s = year_of(&projection, 2027);
     assert_close(
         s.required_distributions,
@@ -583,7 +583,7 @@ fn a_distribution_stacked_on_social_security_costs_more_than_the_two_taxed_apart
     fixture.social_security = Some(40_000.0);
 
     let plan = fixture.plan();
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     let s = year_of(&projection, 2027);
     let rmd = s.required_distributions;
     assert_close(rmd, 1_500_000.0 / 24.6, "the distribution");
@@ -666,8 +666,8 @@ fn a_shortfall_year_draws_the_larger_of_the_need_and_the_distribution() {
         fixture.plan()
     };
 
-    let forced = run_deterministic(&shortfall(1952), &TaxFigures::built_in());
-    let untouched = run_deterministic(&shortfall(1970), &TaxFigures::built_in());
+    let forced = run_deterministic(&shortfall(1952), &TaxFigures::tax_year_2026());
+    let untouched = run_deterministic(&shortfall(1970), &TaxFigures::tax_year_2026());
     let a = year_of(&forced, 2027);
     let b = year_of(&untouched, 2027);
 

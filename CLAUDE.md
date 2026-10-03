@@ -77,9 +77,13 @@ demo run needs no caution at all; see `.claude/skills/run-app/SKILL.md`.
 - **Statutory figures and rules are tested against their publication.**
   `crates/engine/tests/published/` holds tests whose expected values are
   typed from the IRS or SSA source and cited beside them, never computed by
-  calling the engine (#154). A new tax or benefit rule, or a new year of
-  `TaxFigures`, updates or adds a test there. Moving the built-in figures
-  to a new tax year follows `.claude/skills/update-tax-figures/SKILL.md`.
+  calling the engine (#154). A new tax or benefit rule gets a test there.
+- **Tax years are frozen; tests name one.** Each year's figures are a
+  `TaxFigures::tax_year_YYYY()` that is never edited once published, and
+  `built_in()` points at the latest. Tests outside `tests/published/` use a
+  named year, never `built_in()`, so a new year breaks nothing but the one
+  assertion saying which year ships. Adding a year follows
+  `.claude/skills/update-tax-figures/SKILL.md`.
 - **An upgrade does not change a saved plan's projection.** Every migration
   (the `*Wire` types, `serde(default)`) is written so a plan saved by an
   older version projects identically after it, because reopening a plan has

@@ -95,7 +95,7 @@ fn a_million_at_forty_thousand_a_year_lasts_exactly_25_years() {
     );
     let projection = simulate(
         &plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &returns,
         &FlatTax { rate: 0.0 },
         &ProportionalDrawdown,
