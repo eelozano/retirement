@@ -34,7 +34,9 @@ in without refactoring core state, and they did.
 3. **Nominal dollars, with a deflator.** The engine simulates in nominal
    dollars and emits a cumulative inflation factor per period, at the period's
    start (`deflator`) and at its end (`deflator_end`); the today's-dollars
-   view is a frontend division. `strategy_returns` are nominal *and
+   view is a frontend division. The factor comes from the run's
+   `PriceLevel` — the plan's one inflation rate, or a year-by-year path for
+   a historical replay (see "The price level"). `strategy_returns` are nominal *and
    arithmetic* annual means — see "The return is an arithmetic mean" below.
 4. **Month-native time, year-stepped.** Every date is a `YearMonth`, so
    "born Aug 1983, retires Aug 2038" is exact rather than rounded to years.
@@ -140,8 +142,10 @@ retirement/
 │   │   │                      # strategy (StrategyRates), social_security,
 │   │   │                      # tax_profile, tax_figures, household
 │   │   │                      # (facts/policy split, compose/decompose),
-│   │   │                      # validation, year_month, legacy (pre-#129
-│   │   │                      # asset classes, read only by migration)
+│   │   │                      # validation, year_month, price_level (the
+│   │   │                      # run's inflation, constant or a path),
+│   │   │                      # legacy (pre-#129 asset classes, read only
+│   │   │                      # by migration)
 │   │   ├── sim/               # mod.rs (simulate: setup + the loop), period
 │   │   │                      # (the per-period steps), contributions,
 │   │   │                      # required_distributions, survivor,
@@ -434,7 +438,7 @@ held as constants (#135). `FederalTax` carries both filing statuses'
 standard deduction, the additional deduction for filers 65 and older,
 ordinary brackets and long-term capital-gains brackets;
 `ContributionLimits` carries every statutory cap and catch-up. Each figure
-indexes forward from `tax_year` at the plan's inflation rate, so an
+indexes forward from `tax_year` by the run's price level, so an
 out-of-date year still projects sensibly; it just starts from older numbers.
 
 The adapter keeps the figures in force in `tax-figures.yaml`
@@ -470,6 +474,10 @@ file never depends on which year's figures are loaded.
 pub fn simulate(plan: &Plan, figures: &TaxFigures, returns: &dyn ReturnModel,
                 tax: &dyn TaxModel, drawdown: &dyn DrawdownStrategy,
                 path_id: u64) -> Projection;
+// The same against any price level; `simulate` passes the plan's own rate.
+pub fn simulate_with_prices(plan: &Plan, figures: &TaxFigures, prices: &PriceLevel,
+                            returns: &dyn ReturnModel, tax: &dyn TaxModel,
+                            drawdown: &dyn DrawdownStrategy, path_id: u64) -> Projection;
 
 // strategies/
 pub trait ReturnModel {
@@ -531,8 +539,10 @@ on the income of the first so the period still meets the tax schedule once.
 Each part is judged early or not over its own months, so a draw from the
 phase that begins at 59½ is never penalized in the year of the birthday.
 
-`lib.rs` assembles the standard configuration: `run_deterministic` (fixed
-returns, `SurvivorTax`, and the plan's own drawdown policy) and `run_monte_carlo` /
+`lib.rs` assembles the standard configuration: `run_with` (the plan's
+`SurvivorTax` and drawdown policy, both built on the same `PriceLevel` the
+loop is given, over any return model), `run_deterministic` (`run_with` at
+fixed returns and the plan's own inflation) and `run_monte_carlo` /
 `run_monte_carlo_with` (the same over `StochasticReturns`, the second
 observable and cancellable through a `RunControl`).
 
@@ -595,9 +605,24 @@ Every timing bug shipped so far (#29, #43, #50, #78, #92, and the survivor work 
 - **Statutory ages are "age attained during the calendar year"**, `year - birth.year`. Catch-up tiers, the SECURE 2.0 60–63 tier and the RMD beginning age all use it, which is the statutory rule.
 - **Growth, tax and RMDs are whole-period operations.** Growth applies to the whole period's post-flow balance no matter when in the period a flow landed — for a stub, that is the period's own months: `compound(rate, fraction)` raises the period's return to its share of a year. Tax is one pass over the period's totals (#54); the RMD divides the prior period's closing balance, and period 0 has no prior period so it never takes one.
 - **A one-time contribution lands once, in the period its month falls in**, and is grown to that period's start rather than to its month — the deflator's own exponent, so an amount typed in today's dollars reads back exactly in the real-dollar view. Like any other flow it then earns the whole period's return: $400,000 arriving in October at 7% is credited about $21,000 it did not earn that year. Documented rather than prorated, as for contributions. A month outside `[start, horizon)` never lands at all.
-- **A snapshot carries two price levels, and a figure is divided by the one for the moment it describes** (#146). `deflator` is the price level at the period's start, `(1 + inflation)^years_elapsed`; `deflator_end` is at its end, `(1 + inflation)^(years_elapsed + fraction)`, which is the next period's `deflator` because periods tile the timeline (for a stub period 0 it is the factor at the January the stub runs to, not a year on). Flows — income, expenses, taxes, contributions, growth — are grown by the same exponent as `deflator`, so they deflate exactly by it. `balances` and `net_worth` are end-of-period figures and take `deflator_end`: divided by the start factor they would carry a year of inflation the factor does not remove, reading every real balance about 3% high at the default assumption. An account earning exactly the inflation rate is the pin — flat in real dollars, in every period including a stub — and `tests/real_dollars.rs` holds it to 1e-9. `PeriodPercentiles` carries the same pair, and its percentiles are net worth, so they take the end factor. The frontend picks by name, `flowDivisor` or `balanceDivisor` in `src/lib/deflate.ts`, never by field, because the wrong one type-checks and looks plausible on screen. `coverYears` is the one ratio of the two and is deliberately taken from the nominal figures.
+- **A snapshot carries two price levels, and a figure is divided by the one for the moment it describes** (#146). `deflator` is the price level at the period's start, `PriceLevel::growth(0, years_elapsed)` — `(1 + inflation)^years_elapsed` at the plan's one rate; `deflator_end` is at its end, `growth(0, years_elapsed + fraction)`, which is the next period's `deflator` because periods tile the timeline (for a stub period 0 it is the factor at the January the stub runs to, not a year on). Flows — income, expenses, taxes, contributions, growth — are grown by the same exponent as `deflator`, so they deflate exactly by it. `balances` and `net_worth` are end-of-period figures and take `deflator_end`: divided by the start factor they would carry a year of inflation the factor does not remove, reading every real balance about 3% high at the default assumption. An account earning exactly the inflation rate is the pin — flat in real dollars, in every period including a stub — and `tests/real_dollars.rs` holds it to 1e-9. `PeriodPercentiles` carries the same pair, and its percentiles are net worth, so they take the end factor. The frontend picks by name, `flowDivisor` or `balanceDivisor` in `src/lib/deflate.ts`, never by field, because the wrong one type-checks and looks plausible on screen. `coverYears` is the one ratio of the two and is deliberately taken from the nominal figures.
 - **The final period runs to December.** The horizon is `Plan::end_month`, the last survivor's death month, which is rarely January; the last period is the calendar year it falls in. Streams stop at the horizon, but that year's growth, tax and any required distribution are computed for the whole year, so "at plan end" figures include the months after the last death. Documented rather than fixed: it moves one figure, on one year, by a few percent. The fraction-scaled growth #106 added does *not* reach it — the last period is a whole calendar year by construction, so its fraction is 1; making the tail exact would mean truncating the final period the way period 0 is truncated, which is a separate change and not one anything currently needs.
 - **Monthly periods are not supported.** `PeriodLength::Month` stays in the schema so nothing migrates, but running it would apply annual brackets to one month of income, cut every contribution cap to a twelfth, switch filing status the month after a death, and compute RMDs on the prior month's balance.
+
+### The price level (`model/price_level.rs`)
+
+Inflation was one scalar, `Assumptions::inflation`, raised to a power at each place that needed it: the deflators, every `GrowthRule::Inflation` amount (streams, contributions, one-time deposits), the drawdown floors, the federal and state tax schedules and the statutory contribution limits. That is right for a projection at an assumed rate and wrong for a historical replay. 1970s returns without 1970s inflation flatter a plan badly, because those years' high nominal returns were largely inflation, and an expense growing at 3% would never feel it.
+
+Two answers were open: replay historical *real* returns over the plan's own inflation, or let each year carry its own. The second won (#178). It is the only one that can show a year's actual CPI beside its returns, and the only one where high inflation does what it really did to a taxed household: gains that only kept pace with prices are taxed as gains. The cost is that "today's dollars" is now per path. Two historical cohorts' real figures are each in plan-start dollars, but deflated by different histories.
+
+`PriceLevel` is the result: `Constant(rate)` is the old scalar, and `Path(PricePath)` is one annual rate per period, with the plan's own rate outside the sequence. It answers on two clocks, because the engine already had two:
+
+- `growth(from, years)` measures from the plan start in fractional years. That is the deflator's exponent and the stream convention's. A stub period 0 takes its rate for the months it covers, as it takes its share of a year's return.
+- `over_calendar_years(from, to)` measures January to January. This is how the tax schedules and limits index from the tax year their figures were published for.
+
+`Constant` computes `(1 + rate)^years` with exactly the exponent each call site computed before, so every saved plan projects bit-for-bit as it did; this was checked byte-for-byte against the previous build on the seed and demo plans, deterministic and Monte Carlo. `tests/price_level.rs` pins the rest. A path at the plan's own rate projects as the constant does. And over a path that moves (deflation included), an account earning each year's inflation stays flat in real dollars, an inflation-grown expense stays flat in real dollars, and a flat real income pays a flat real tax.
+
+The price level is a run argument, not a plan field, so no schema changed. `simulate_with_prices` takes it, and the tax model and the phased drawdown are built on it too. A run that handed them different ones would index the brackets on one history and deflate on another, which is why `lib::run_with` builds all three together.
 
 ### Returns
 
@@ -755,7 +780,7 @@ Two independent buckets, named directly by `Account::plan_type`: **employer plan
 
 When a person's accounts collectively ask for more than the shared cap, room is handed out **in plan account order**: the first account listed fills first. The split is resolved **per period**, not once: salaries grow, limits index, and catch-up tiers turn on with age, so what fits is a function of the year. Clamp warnings are deduplicated by account and report the first period the clamp bit.
 
-The figures come from `TaxFigures::contribution_limits` (see "Tax figures"), and `TaxFigures::annual_limit` indexes them forward from `tax_year` at the plan's inflation rate, rounding down to the statutory increment ($500, or $100 for the IRA catch-up) so limits step the way the real schedule does. Catch-up is automatic from the owner's `birth`: the age-50 tier, and the SECURE 2.0 tier that replaces it for the years they turn 60 through 63. The figures' `tax_year` is surfaced in the UI rather than implying they are live.
+The figures come from `TaxFigures::contribution_limits` (see "Tax figures"), and `TaxFigures::annual_limit` indexes them forward from `tax_year` by the run's price level, rounding down to the statutory increment ($500, or $100 for the IRA catch-up) so limits step the way the real schedule does. Catch-up is automatic from the owner's `birth`: the age-50 tier, and the SECURE 2.0 tier that replaces it for the years they turn 60 through 63. The figures' `tax_year` is surfaced in the UI rather than implying they are live.
 
 #### Dated contributions (`sim/contributions.rs`)
 
@@ -819,7 +844,7 @@ Employer money never passes through household cash, so it is `PeriodSnapshot::em
 
 ### Taxes: bracket indexing (`strategies/tax.rs`)
 
-`BracketTax` carries the plan's `inflation` rate and indexes its dollar figures forward by `(1 + inflation)^years`. The federal figures index from their own `TaxFigures::tax_year` — `federal_years_at_start + period`, so a plan starting in 2027 on 2026 figures is taxed on 2026's table grown a year — exactly as the contribution limits do (#135). The state schedule is the plan's own and has no tax year, so it indexes from period 0. Without indexing, a household with flat *real* income drifted into ever-higher *nominal* brackets against a standard deduction that never grew, which was the largest numerical error the month/year audit found: bracket creep alone pushed the seed plan's effective rate from 17.7% to 27.6% over the projection (#105).
+`BracketTax` carries the run's `PriceLevel` and indexes its dollar figures forward by `PriceLevel::over_calendar_years` — `(1 + inflation)^years` at the plan's one rate. The federal figures index from their own `TaxFigures::tax_year` — `federal_years_at_start + period`, so a plan starting in 2027 on 2026 figures is taxed on 2026's table grown a year — exactly as the contribution limits do (#135). The state schedule is the plan's own and has no tax year, so it indexes from period 0. Without indexing, a household with flat *real* income drifted into ever-higher *nominal* brackets against a standard deduction that never grew, which was the largest numerical error the month/year audit found: bracket creep alone pushed the seed plan's effective rate from 17.7% to 27.6% over the projection (#105).
 
 The federal ordinary brackets, the standard deduction and the capital-gains brackets floor to a $25 increment as they index (`indexed_federal_amount`/`indexed_federal_brackets`), so a table steps the way the real statutory schedule does rather than drifting continuously — the same intent as the contribution limits' $500 rounding, reusing `presets::index_to`. $25, not the $50 the IRS uses for a joint return: every built-in federal figure is an exact multiple of $25 for *both* filing statuses (Married figures split evenly at $50; Single figures — `$201,775`, `$256,225` for 2026 — are the real published thresholds and only divide evenly at $25). Flooring to $50 would clip those the moment indexing started. In the figures' own tax year the value is returned untouched, so the table a user typed is the table in force.
 
@@ -829,7 +854,7 @@ The state schedule (`StateTaxProfile`) indexes too, by the raw compounding facto
 
 **The standard deduction has an age dimension (#143).** Each filer who has attained 65 by the end of the tax year adds the additional standard deduction (IRC 63(f)) to the base one: $1,650 each on a joint return and $2,050 on a Single one for 2026, so a couple both 65+ deduct $35,500 and a Single filer $18,150. The dollar amounts are published annually and so live in `TaxFigures::federal.additional_standard_deduction_65` (`ByFilingStatus`, per person), indexed and floored on their own like the base; the age itself is statute and is `SENIOR_AGE` in `strategies/tax.rs`. A `tax-figures.yaml` written before the figure existed still loads, taking the published 2026 amounts through a `serde(default)` — the alternative is a file that fails to parse and drops every figure the user edited back to the built-ins.
 
-`BracketTax` therefore has to know who is on the return: it carries `start_year` and the `filer_birth_years` of the people it files for, the same plumbing `inflation` needed in #105. Age is the age *attained during* the calendar year (`year - birth year`), the rule the catch-up contributions already use, so a filer takes the amount for the whole of the year they turn 65. At most one amount per signer is taken — two on a joint return, one otherwise — because the filing status is an assumption, not derived from how many people the plan lists. `tax_model` in `lib.rs` hands the household's `BracketTax` everyone, which is right through the year of the first death (the survivor still files jointly that year), and the survivor's Single one only the people who outlive that death. The decedent's birth year does not follow the household onto the Single return, and the Single figure is the larger per head. Not modelled: the extra amount for blindness, and a spouse a joint-filing plan does not list, whose age is unknown and so contributes nothing.
+`BracketTax` therefore has to know who is on the return: it carries `start_year` and the `filer_birth_years` of the people it files for, the same plumbing the inflation rate needed in #105. Age is the age *attained during* the calendar year (`year - birth year`), the rule the catch-up contributions already use, so a filer takes the amount for the whole of the year they turn 65. At most one amount per signer is taken — two on a joint return, one otherwise — because the filing status is an assumption, not derived from how many people the plan lists. `tax_model` in `lib.rs` hands the household's `BracketTax` everyone, which is right through the year of the first death (the survivor still files jointly that year), and the survivor's Single one only the people who outlive that death. The decedent's birth year does not follow the household onto the Single return, and the Single figure is the larger per head. Not modelled: the extra amount for blindness, and a spouse a joint-filing plan does not list, whose age is unknown and so contributes nothing.
 
 **The OBBBA senior deduction is deliberately not modelled.** The One Big Beautiful Bill Act added $6,000 per person 65+ ($12,000 joint), but for tax years 2025–2028 only, not indexed, and phasing out at 6% of MAGI over $75,000 single / $150,000 joint. It would put a sunset and a phase-out into `TaxFigures` to serve a four-year window that has closed before the retired years of a household whose 65th birthdays fall in the 2040s, which is what this app's plans are typically about. The cost of leaving it out is stated rather than hidden: a household already 65+ in 2025–2028 pays $1,800–$3,650 a year more in those years than the law asks, and nobody else is affected. Revisit only if the window is extended.
 
@@ -1114,10 +1139,9 @@ Every command is registered in `generate_handler!` in `src-tauri/src/lib.rs`. Gr
 
 ### Where the current design pushes back
 
-Five places where the engine currently gets to assume something for free, and a new feature would take that away.
+Four places where the engine currently gets to assume something for free, and a new feature would take that away.
 
 1. **`net_worth` is the sum of account balances** (`PeriodState::snapshot`, `sim/period.rs`). Liabilities — a mortgage, a student loan — would redefine that figure for every existing plan, and it feeds the headline tiles, the comparison table's net-worth and delta columns, the Monte Carlo fan and every golden file. The change would be correct, but it is not additive the way a new field is: under the saved-output rule in `CLAUDE.md` it has to be announced and measured, not shipped as a quietly smaller number. Debt should be a container parallel to `Account`, never a negative balance in the account array, and amortization a step.
 2. **Every drawdown can reach every account it is given.** `ProportionalDrawdown` sells from all of them in proportion to balance; `PhasedDrawdown` draws a stack first but falls back to everything the stack leaves out, and even a floor is released rather than held (`strategies/`). That is deliberate — a household with money left has not failed — but it means any new asset container is a liquidity question first: a house modelled as an account would be sold a slice at a time to cover a bad year, and counted as spendable in every depletion test and every success rate, overstating the one number people act on. An illiquid asset needs a container that contributes to net worth and to nothing the drawdown can reach. A **hard** floor is the same question in miniature, and the answer here was to make floors soft.
 3. **The withdrawal gross-up assumes tax is continuous.** It is a fixed-point iteration, `gross = net_needed + marginal(gross)`, run up to 100 times and stopped when successive values converge (`strategies/drawdown.rs`). That is correct because every tax rule modelled today is continuous and monotone in income — the early-withdrawal penalty included, which is linear in the amount drawn, and an allocation is required to be continuous and non-decreasing for the same reason. A cliff — IRMAA, where one dollar of income can add about $1,000 a year of premium, or an ACA subsidy — can make the iteration oscillate, exhaust its rounds and return a `gross` that does not satisfy the equation, silently; and the equation can have *no* solution, when the extra dollar drawn to pay a surcharge is what triggers it. This is the same shape of failure as #54, and it applies to any income-tested rule, including a phase-out or a state credit. Settle it before the first cliff lands: either compute the cliff outside the gross-up as a step, accepting a bounded, explainable understatement in the year a household crosses a tier, or replace the iteration with a bracketed search that has a defined answer for "no exact solution".
-4. **Inflation is one scalar.** `Assumptions::inflation` is read once and feeds four unrelated things: the deflator (`PeriodContext::inflation`), every `GrowthRule::Inflation` amount, contribution-limit indexing and bracket indexing. A historical return sequence is only honest with its own years' inflation — 1970s returns without 1970s inflation flatter a plan badly — so a historical `ReturnModel` must first decide between a path-dependent deflator (correct and invasive, and "today's dollars" would then differ between paths) and historical *real* returns with the plan's own inflation layered back on (simpler, and defensible if documented).
-5. **`TaxResult` has no structure.** It is `{ tax: f64 }` (`strategies/tax.rs`); nothing can ask a `TaxModel` for a marginal rate or where the next threshold sits, which is the question a Roth conversion or any bracket-filling withdrawal is built on. The least invasive answer is a trait method with a default implementation that locates the next threshold by searching over `tax()` — correct for every impl, including ones not yet written — rather than widening `TaxResult`, which would force `FlatTax` to invent thresholds it does not have.
+4. **`TaxResult` has no structure.** It is `{ tax: f64 }` (`strategies/tax.rs`); nothing can ask a `TaxModel` for a marginal rate or where the next threshold sits, which is the question a Roth conversion or any bracket-filling withdrawal is built on. The least invasive answer is a trait method with a default implementation that locates the next threshold by searching over `tax()` — correct for every impl, including ones not yet written — rather than widening `TaxResult`, which would force `FlatTax` to invent thresholds it does not have.

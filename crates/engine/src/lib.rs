@@ -13,14 +13,14 @@ pub mod strategies;
 pub use model::{Plan, YearMonth};
 pub use sim::{
     run_monte_carlo as run_monte_carlo_sim, run_monte_carlo_with as run_monte_carlo_sim_with,
-    simulate, Cancelled, MonteCarloConfig, MonteCarloDiagnostics, MonteCarloResult, OneTimeInfo,
-    PathGroupStats, PeriodPercentiles, PeriodSnapshot, Projection, Rule55Ineligibility, RunControl,
-    SimWarning, Spread, StreamInfo, EARLY_RETIREMENT_WINDOW_YEARS,
+    simulate, simulate_with_prices, Cancelled, MonteCarloConfig, MonteCarloDiagnostics,
+    MonteCarloResult, OneTimeInfo, PathGroupStats, PeriodPercentiles, PeriodSnapshot, Projection,
+    Rule55Ineligibility, RunControl, SimWarning, Spread, StreamInfo, EARLY_RETIREMENT_WINDOW_YEARS,
 };
 
-use model::{FilingStatus, TaxFigures};
+use model::{FilingStatus, PriceLevel, TaxFigures};
 use strategies::{
-    BracketTax, DrawdownStrategy, FixedReturns, PhasedDrawdown, ProportionalDrawdown,
+    BracketTax, DrawdownStrategy, FixedReturns, PhasedDrawdown, ProportionalDrawdown, ReturnModel,
     StochasticReturns, SurvivorTax,
 };
 
@@ -44,13 +44,16 @@ const MONTHS_PER_PERIOD: i64 = 12;
 /// Each side is also told whose return it is, because the age-65 additional
 /// standard deduction depends on who is on it: everyone through the year of
 /// the first death, and only those who outlive it after.
-fn tax_model(plan: &Plan, figures: &TaxFigures) -> SurvivorTax {
+///
+/// `prices` indexes both schedules, and must be the price level the run
+/// itself uses.
+fn tax_model(plan: &Plan, figures: &TaxFigures, prices: &PriceLevel) -> SurvivorTax {
     let start_year = plan.sim_config.start.year;
     let household = BracketTax::new(
         figures,
         plan.assumptions.filing_status,
         plan.assumptions.state_tax.clone(),
-        plan.assumptions.inflation,
+        prices.clone(),
         start_year,
         birth_years(plan.people.iter()),
     );
@@ -69,7 +72,7 @@ fn tax_model(plan: &Plan, figures: &TaxFigures) -> SurvivorTax {
             figures,
             FilingStatus::Single,
             household.state_tax.clone(),
-            household.inflation,
+            prices.clone(),
             start_year,
             survivors,
         ),
@@ -82,9 +85,10 @@ fn birth_years<'a>(people: impl Iterator<Item = &'a model::Person>) -> Vec<i32> 
     people.map(|p| p.birth.year).collect()
 }
 
-/// The plan's drawdown policy, as the strategy that carries it out.
-fn drawdown(plan: &Plan) -> Box<dyn DrawdownStrategy + Sync> {
-    match PhasedDrawdown::new(plan) {
+/// The plan's drawdown policy, as the strategy that carries it out, its
+/// floors grown by `prices`.
+fn drawdown(plan: &Plan, prices: &PriceLevel) -> Box<dyn DrawdownStrategy + Sync> {
+    match PhasedDrawdown::new(plan, prices.clone()) {
         Some(phased) => Box::new(phased),
         None => Box::new(ProportionalDrawdown),
     }
@@ -95,13 +99,30 @@ fn drawdown(plan: &Plan) -> Box<dyn DrawdownStrategy + Sync> {
 /// assumptions, under the given yearly tax `figures`.
 pub fn run_deterministic(plan: &Plan, figures: &TaxFigures) -> Projection {
     let returns = FixedReturns::new(&plan.assumptions.strategy_returns, MONTHS_PER_PERIOD);
-    simulate(
+    let prices = PriceLevel::Constant(plan.assumptions.inflation);
+    run_with(plan, figures, &prices, &returns, 0)
+}
+
+/// The plan's own tax and drawdown, as `run_deterministic` builds them,
+/// over any return model and price level — a historical replay brings both.
+/// `prices` reaches every place that reads it: the loop, the tax schedules
+/// and the drawdown's floors, which is why the three are built together
+/// here rather than by a caller who could hand them different ones.
+pub fn run_with(
+    plan: &Plan,
+    figures: &TaxFigures,
+    prices: &PriceLevel,
+    returns: &dyn ReturnModel,
+    path_id: u64,
+) -> Projection {
+    simulate_with_prices(
         plan,
         figures,
-        &returns,
-        &tax_model(plan, figures),
-        &*drawdown(plan),
-        0,
+        prices,
+        returns,
+        &tax_model(plan, figures, prices),
+        &*drawdown(plan, prices),
+        path_id,
     )
 }
 
@@ -114,12 +135,13 @@ pub fn run_monte_carlo(
     config: &MonteCarloConfig,
 ) -> MonteCarloResult {
     let returns = stochastic_returns(plan, config);
+    let prices = PriceLevel::Constant(plan.assumptions.inflation);
     run_monte_carlo_sim(
         plan,
         figures,
         &returns,
-        &tax_model(plan, figures),
-        &*drawdown(plan),
+        &tax_model(plan, figures, &prices),
+        &*drawdown(plan, &prices),
         config,
     )
 }
@@ -134,12 +156,13 @@ pub fn run_monte_carlo_with(
     control: &RunControl,
 ) -> Result<MonteCarloResult, Cancelled> {
     let returns = stochastic_returns(plan, config);
+    let prices = PriceLevel::Constant(plan.assumptions.inflation);
     run_monte_carlo_sim_with(
         plan,
         figures,
         &returns,
-        &tax_model(plan, figures),
-        &*drawdown(plan),
+        &tax_model(plan, figures, &prices),
+        &*drawdown(plan, &prices),
         config,
         control,
     )
@@ -173,7 +196,11 @@ mod tests {
         let mut plan = seed_plan();
         plan.assumptions.filing_status = FilingStatus::MarriedFilingJointly;
         // Alex (born 1983) is expected to die at 88, Jordan (born 1987) at 96.
-        let tax = tax_model(&plan, &TaxFigures::built_in());
+        let tax = tax_model(
+            &plan,
+            &TaxFigures::built_in(),
+            &PriceLevel::Constant(plan.assumptions.inflation),
+        );
         assert_eq!(tax.household.filer_birth_years, vec![1983, 1987]);
         assert_eq!(tax.survivor.filer_birth_years, vec![1987]);
         assert!(tax.survivor_from.is_some());
@@ -185,7 +212,11 @@ mod tests {
     fn a_plan_with_no_survivor_transition_keeps_its_filers() {
         let mut plan = seed_plan();
         plan.people.truncate(1);
-        let tax = tax_model(&plan, &TaxFigures::built_in());
+        let tax = tax_model(
+            &plan,
+            &TaxFigures::built_in(),
+            &PriceLevel::Constant(plan.assumptions.inflation),
+        );
         assert_eq!(tax.household.filer_birth_years, vec![1983]);
         assert_eq!(tax.survivor.filer_birth_years, vec![1983]);
         assert!(tax.survivor_from.is_none());

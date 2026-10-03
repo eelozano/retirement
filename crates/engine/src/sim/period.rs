@@ -24,8 +24,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::model::{
-    AccountId, AccountKind, PersonId, Plan, PlanType, StreamDirection, StreamId, TaxFigures,
-    YearMonth,
+    AccountId, AccountKind, PersonId, Plan, PlanType, PriceLevel, StreamDirection, StreamId,
+    TaxFigures, YearMonth,
 };
 use crate::strategies::{
     AccountState, DrawdownStrategy, IncomeBreakdown, PeriodIndex, ReturnModel, TaxModel,
@@ -163,7 +163,7 @@ impl RunState {
 
 /// Where one period sits in time. Fixed before its steps run, and read-only
 /// to all of them.
-pub(super) struct PeriodContext {
+pub(super) struct PeriodContext<'a> {
     pub period: PeriodIndex,
     pub start: YearMonth,
     /// Exclusive: the next period's start.
@@ -178,10 +178,11 @@ pub(super) struct PeriodContext {
     /// stub period 0 — a plan that starts in September opens with 4/12 —
     /// and what every annual figure the period touches is scaled by.
     pub fraction: f64,
-    pub inflation: f64,
+    /// The run's price level: what every inflation-driven figure grows by.
+    pub prices: &'a PriceLevel,
 }
 
-impl PeriodContext {
+impl PeriodContext<'_> {
     /// Fraction of this period that overlaps `[start, end)`.
     pub(super) fn overlap(&self, start: YearMonth, end: YearMonth) -> f64 {
         overlap_fraction(self.start, self.end, start, end)
@@ -190,14 +191,14 @@ impl PeriodContext {
     /// Cumulative inflation factor at period start: divide any nominal flow
     /// by it to get simulation-start dollars.
     fn deflator(&self) -> f64 {
-        (1.0 + self.inflation).powf(self.years_elapsed)
+        self.prices.growth(0.0, self.years_elapsed)
     }
 
     /// Cumulative inflation factor at period end — the next period's
     /// `deflator`, since periods tile the timeline. What a balance, which is
     /// an end-of-period figure, is divided by.
     fn deflator_end(&self) -> f64 {
-        (1.0 + self.inflation).powf(self.years_elapsed + self.fraction)
+        self.prices.growth(0.0, self.years_elapsed + self.fraction)
     }
 }
 
@@ -383,8 +384,9 @@ fn accrue_streams(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodStat
         // `ctx.years_elapsed`: the two agree for every stream but a pension,
         // whose COLA only starts at its first payment. Not yet paying is
         // no growth, not negative growth.
+        let from = run.plan.sim_config.start.months_until(resolved.growth_from) as f64 / 12.0;
         let years = resolved.growth_from.months_until(ctx.start).max(0) as f64 / 12.0;
-        let growth = growth_factor(stream.growth, ctx.inflation, years);
+        let growth = growth_factor(stream.growth, ctx.prices, from, years);
         let amount = stream.annual_amount * growth * active * ctx.fraction;
         match stream.direction {
             StreamDirection::Income => {
@@ -526,7 +528,7 @@ fn deposit_one_time(
         }
         let entry = resolved.entry;
         let amount =
-            entry.amount.max(0.0) * growth_factor(entry.growth, ctx.inflation, ctx.years_elapsed);
+            entry.amount.max(0.0) * growth_factor(entry.growth, ctx.prices, 0.0, ctx.years_elapsed);
         if amount <= 0.0 {
             continue;
         }

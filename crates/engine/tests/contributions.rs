@@ -4,6 +4,7 @@
 //! `PercentOfSalary` and `FederalMaximum` is what they do over a career, and
 //! neither differs from a flat amount in period 0.
 
+use engine::model::PriceLevel;
 use engine::model::TaxFigures;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
@@ -200,7 +201,12 @@ fn federal_maximum_steps_up_when_the_owner_turns_50() {
     assert_close(
         before,
         TaxFigures::built_in()
-            .annual_limit(PlanType::EmployerPlan, 49, 2029, INFLATION)
+            .annual_limit(
+                PlanType::EmployerPlan,
+                49,
+                2029,
+                &PriceLevel::Constant(INFLATION),
+            )
             .unwrap(),
         "the plain deferral limit at 49",
     );
@@ -273,7 +279,12 @@ fn limits_index_forward_from_the_basis_year() {
 fn indexed_limits_round_down_to_statutory_increments() {
     for year in START_YEAR..START_YEAR + 25 {
         let limit = TaxFigures::built_in()
-            .annual_limit(PlanType::EmployerPlan, 40, year, INFLATION)
+            .annual_limit(
+                PlanType::EmployerPlan,
+                40,
+                year,
+                &PriceLevel::Constant(INFLATION),
+            )
             .unwrap();
         assert_close(limit % 500.0, 0.0, &format!("{year} limit lands on $500"));
     }
@@ -694,7 +705,7 @@ fn a_step_up_that_crosses_the_limit_is_reported_once() {
                 PlanType::EmployerPlan,
                 (START_YEAR + clamps[0].0 as i32) - 1980,
                 START_YEAR + clamps[0].0 as i32,
-                INFLATION,
+                &PriceLevel::Constant(INFLATION),
             )
             .unwrap(),
         "held to that year's statutory cap",

@@ -34,7 +34,9 @@
 //! months — a draw from the phase that starts at 59½ is never penalized,
 //! even in the year of the birthday.
 
-use crate::model::{AccountKind, DrawdownPolicy, PhaseStart, Plan, StackSource, YearMonth};
+use crate::model::{
+    AccountKind, DrawdownPolicy, PhaseStart, Plan, PriceLevel, StackSource, YearMonth,
+};
 use crate::sim::{calendar_period, resolve_boundary};
 
 use super::drawdown::gross_up;
@@ -84,7 +86,8 @@ pub struct PhasedDrawdown {
     /// In start order.
     phases: Vec<Phase>,
     start: YearMonth,
-    inflation: f64,
+    /// What a today's-dollar floor grows by: the run's price level.
+    prices: PriceLevel,
 }
 
 impl PhasedDrawdown {
@@ -100,7 +103,10 @@ impl PhasedDrawdown {
     /// A start that cannot be resolved — a person no longer in the plan —
     /// or an entry naming a missing account drops out: validation refuses
     /// both, so only an unvalidated plan reaches either.
-    pub fn new(plan: &Plan) -> Option<Self> {
+    ///
+    /// Floors are in today's dollars and grow by `prices`, which must be the
+    /// price level the run itself uses.
+    pub fn new(plan: &Plan, prices: PriceLevel) -> Option<Self> {
         let DrawdownPolicy::Phased(phases) = &plan.assumptions.drawdown else {
             return None;
         };
@@ -154,7 +160,7 @@ impl PhasedDrawdown {
         Some(PhasedDrawdown {
             phases,
             start: plan.sim_config.start,
-            inflation: plan.assumptions.inflation,
+            prices,
         })
     }
 
@@ -194,7 +200,7 @@ impl PhasedDrawdown {
     fn floor_factor(&self, period: PeriodIndex) -> f64 {
         let (period_start, _) = calendar_period(self.start, period);
         let years = self.start.months_until(period_start) as f64 / 12.0;
-        (1.0 + self.inflation).powf(years)
+        self.prices.growth(0.0, years)
     }
 }
 
@@ -419,7 +425,7 @@ mod tests {
             &figures,
             FilingStatus::MarriedFilingJointly,
             StateTaxProfile::none(),
-            0.0,
+            PriceLevel::Constant(0.0),
             figures.tax_year,
             vec![],
         )
@@ -450,7 +456,8 @@ mod tests {
             start: PhaseStart::Boundary(StreamBoundary::PlanStart),
             stack,
         }]);
-        PhasedDrawdown::new(&plan).expect("a phased policy")
+        PhasedDrawdown::new(&plan, PriceLevel::Constant(plan.assumptions.inflation))
+            .expect("a phased policy")
     }
 
     fn entry(source: StackSource, floor: f64) -> StackEntry {
@@ -588,7 +595,8 @@ mod tests {
             start: PhaseStart::Boundary(StreamBoundary::PlanStart),
             stack: vec![entry(StackSource::Kind(AccountKind::Roth), 0.0)],
         }]);
-        let drawdown = PhasedDrawdown::new(&plan).unwrap();
+        let drawdown =
+            PhasedDrawdown::new(&plan, PriceLevel::Constant(plan.assumptions.inflation)).unwrap();
         let mut accounts = accounts();
         accounts.push(state("second-roth", AccountKind::Roth, 600_000.0, 0.0));
 
@@ -746,7 +754,8 @@ mod tests {
             // Alex, born August 1983, reaches 59½ in February 2043.
             phase("second", PhaseStart::PenaltyFree("alex".to_string())),
         ]);
-        let drawdown = PhasedDrawdown::new(&plan).unwrap();
+        let drawdown =
+            PhasedDrawdown::new(&plan, PriceLevel::Constant(plan.assumptions.inflation)).unwrap();
         let ids = |segments: Vec<(usize, YearMonth, YearMonth)>| -> Vec<(&str, i64)> {
             segments
                 .into_iter()
@@ -783,7 +792,8 @@ mod tests {
                 10_000.0,
             )],
         }]);
-        let drawdown = PhasedDrawdown::new(&plan).unwrap();
+        let drawdown =
+            PhasedDrawdown::new(&plan, PriceLevel::Constant(plan.assumptions.inflation)).unwrap();
         // The seed plan starts in January, so period 10 is ten whole years on.
         assert_close(
             drawdown.floor_factor(10),

@@ -3,6 +3,7 @@
 //! the long-term capital gains schedule in the period they are paid rather
 //! than deferred to withdrawal.
 
+use engine::model::PriceLevel;
 use engine::model::TaxFigures;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, FilingStatus, GrowthRule,
@@ -115,7 +116,7 @@ fn single_filer(plan: &Plan) -> BracketTax {
         &TaxFigures::built_in(),
         FilingStatus::Single,
         StateTaxProfile::none(),
-        0.0,
+        PriceLevel::Constant(0.0),
         start_year(),
         plan.people.iter().map(|p| p.birth.year).collect(),
     )

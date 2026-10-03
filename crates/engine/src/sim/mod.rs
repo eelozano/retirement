@@ -17,7 +17,7 @@ pub use projection::{
 
 use crate::model::{
     Account, AccountKind, CashFlowStream, Contribution, GrowthRule, OneTimeContribution, Plan,
-    StreamBoundary, StreamKind, TaxFigures, YearMonth,
+    PriceLevel, StreamBoundary, StreamKind, TaxFigures, YearMonth,
 };
 use crate::strategies::{DrawdownStrategy, ReturnModel, TaxModel};
 
@@ -95,9 +95,31 @@ struct ResolvedOneTime<'a> {
 ///    model)
 /// 8. apply market growth to post-flow balances
 /// 9. snapshot
+///
+/// Prices rise at the plan's own `Assumptions::inflation`; see
+/// `simulate_with_prices` for a run against any other price level.
 pub fn simulate(
     plan: &Plan,
     figures: &TaxFigures,
+    returns: &dyn ReturnModel,
+    tax: &dyn TaxModel,
+    drawdown: &dyn DrawdownStrategy,
+    path_id: u64,
+) -> Projection {
+    let prices = PriceLevel::Constant(plan.assumptions.inflation);
+    simulate_with_prices(plan, figures, &prices, returns, tax, drawdown, path_id)
+}
+
+/// `simulate` against `prices` rather than the plan's own inflation — a
+/// historical replay, where each year brings its own. Everything
+/// inflation-driven inside the loop reads `prices`: the deflators, every
+/// inflation-grown stream, contribution and one-time amount. The tax model
+/// and drawdown are built by the caller, so they must be given the same
+/// price level (`lib::tax_model`, `lib::drawdown`).
+pub fn simulate_with_prices(
+    plan: &Plan,
+    figures: &TaxFigures,
+    prices: &PriceLevel,
     returns: &dyn ReturnModel,
     tax: &dyn TaxModel,
     drawdown: &dyn DrawdownStrategy,
@@ -322,7 +344,7 @@ pub fn simulate(
             year: period_start.year,
             years_elapsed: start.months_until(period_start) as f64 / 12.0,
             fraction: period_start.months_until(period_end) as f64 / 12.0,
-            inflation: plan.assumptions.inflation,
+            prices,
         };
         snapshots.push(period::run(&run, &ctx, &mut state));
     }
@@ -444,10 +466,10 @@ fn growth_anchor(
     }
 }
 
-fn growth_factor(rule: GrowthRule, inflation: f64, years_elapsed: f64) -> f64 {
+fn growth_factor(rule: GrowthRule, prices: &PriceLevel, from: f64, years: f64) -> f64 {
     match rule {
-        GrowthRule::Inflation => (1.0 + inflation).powf(years_elapsed),
-        GrowthRule::Fixed(rate) => (1.0 + rate).powf(years_elapsed),
+        GrowthRule::Inflation => prices.growth(from, years),
+        GrowthRule::Fixed(rate) => (1.0 + rate).powf(years),
         GrowthRule::None => 1.0,
     }
 }
