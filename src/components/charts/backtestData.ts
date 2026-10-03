@@ -1,4 +1,5 @@
 import { balanceDivisor, flowDivisor } from "../../lib/deflate";
+import { currencyCompact } from "../../lib/format";
 import { realReturn } from "../../lib/returns";
 import type { BacktestResult } from "../../types/generated/BacktestResult";
 import type { CohortDetail } from "../../types/generated/CohortDetail";
@@ -93,22 +94,15 @@ export function extremes(result: BacktestResult): Extremes | null {
   };
 }
 
-const compact = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
-
 /** One cohort's outcome in a phrase, with ending wealth in today's dollars. */
 export function outcomePhrase(cohort: CohortSummary, horizon: number): string {
   switch (cohort.status) {
     case "Depleted":
       return `Ran out after ${yearsLasted(cohort)} ${yearsLasted(cohort) === 1 ? "year" : "years"}`;
     case "InProgress":
-      return `Still going after ${cohort.periods_covered} ${cohort.periods_covered === 1 ? "year" : "years"} of history · ${compact.format(cohort.end_net_worth_real)}`;
+      return `Still going after ${cohort.periods_covered} ${cohort.periods_covered === 1 ? "year" : "years"} of history · ${currencyCompact(cohort.end_net_worth_real)}`;
     default:
-      return `Lasted all ${horizon} years · ends ${compact.format(cohort.end_net_worth_real)}`;
+      return `Lasted all ${horizon} years · ends ${currencyCompact(cohort.end_net_worth_real)}`;
   }
 }
 
@@ -208,7 +202,7 @@ export function cohortVerdict(
   const snapshots = detail.projection.snapshots;
   const last = snapshots[snapshots.length - 1];
   const ending = last
-    ? compact.format(last.net_worth / balanceDivisor(last, realDollars))
+    ? currencyCompact(last.net_worth / balanceDivisor(last, realDollars))
     : "";
   const basis = realDollars ? "today's dollars" : "nominal dollars";
   if (detail.status === "Depleted" && detail.depleted_period !== null) {

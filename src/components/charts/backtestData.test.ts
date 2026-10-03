@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { currencyCompact } from "../../lib/format";
 import type { BacktestResult } from "../../types/generated/BacktestResult";
 import type { CohortDetail } from "../../types/generated/CohortDetail";
 import type { CohortSummary } from "../../types/generated/CohortSummary";
@@ -115,7 +116,11 @@ describe("ranking start years", () => {
     expect(yearsLasted(cohorts[2])).toBe(12);
     expect(yearsLasted(cohort({ status: "InProgress", periods_covered: 7 }))).toBe(7);
     expect(outcomePhrase(cohorts[2], 30)).toBe("Ran out after 12 years");
-    expect(outcomePhrase(cohorts[0], 30)).toBe("Lasted all 30 years · ends $3M");
+    // Compact currency is ICU's to spell ("$3M" or "$3.0M" by Node version),
+    // so the expectation is built with the same formatter.
+    expect(outcomePhrase(cohorts[0], 30)).toBe(
+      `Lasted all 30 years · ends ${currencyCompact(3_000_000)}`,
+    );
   });
 
   it("draws a failure at zero and never below", () => {
