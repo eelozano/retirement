@@ -78,7 +78,8 @@ demo run needs no caution at all; see `.claude/skills/run-app/SKILL.md`.
   `crates/engine/tests/published/` holds tests whose expected values are
   typed from the IRS or SSA source and cited beside them, never computed by
   calling the engine (#154). A new tax or benefit rule, or a new year of
-  `TaxFigures`, updates or adds a test there.
+  `TaxFigures`, updates or adds a test there. Moving the built-in figures
+  to a new tax year follows `.claude/skills/update-tax-figures/SKILL.md`.
 - **An upgrade does not change a saved plan's projection.** Every migration
   (the `*Wire` types, `serde(default)`) is written so a plan saved by an
   older version projects identically after it, because reopening a plan has
