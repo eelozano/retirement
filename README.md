@@ -530,10 +530,9 @@ compiled in.
 ## What it doesn't model
 
 A projection is only as honest as its gaps, so here are the ones that are
-known. Each is tracked as an
-[open issue](https://github.com/eelozano/retirement/issues); none is a
-rounding detail, and any of them can matter more than the return assumption
-you spent an afternoon on.
+known. Each was decided on rather than overlooked, and the closed issue says
+why it is not built; none is a rounding detail, and any of them can matter more
+than the return assumption you spent an afternoon on.
 
 - **Payroll tax (FICA).** Social Security and Medicare withholding is not
   taken out of a salary at all, so working years show more take-home money
@@ -544,11 +543,15 @@ you spent an afternoon on.
   your premiums — and the app will not show it.
 - **Spousal Social Security while both are alive.** Each person's benefit is
   their own. A spouse entitled to up to half the higher earner's benefit
-  instead of their own record will be understated. The *survivor* transition
-  after a death is modelled.
-- **The 2026 Roth catch-up mandate.** High earners must make catch-up
-  contributions as Roth; the app still treats them as pre-tax, which overstates
-  the deduction in those years.
+  instead of their own record will be understated, unless you enter what they
+  will actually receive, top-up included (SSA's calculator gives it); that is
+  exact if they claim at full retirement age and approximate otherwise. The
+  *survivor* transition after a death is modelled.
+- **The 2026 Roth catch-up mandate.** Anyone with more than $150,000 of
+  prior-year wages from one employer must make catch-up contributions as Roth;
+  the app still treats them as pre-tax, which overstates the deduction in those
+  years and understates it in retirement. It touches only high earners over 50
+  contributing the maximum, by at most $8,000 a year each ($11,250 at ages 60–63).
 - **Illiquid assets.** A house is not in net worth. You can model selling one
   as a one-time contribution, but until that year it isn't there — so compare
   such scenarios on probability of success and depletion year rather than on
