@@ -404,7 +404,10 @@ there — it just doesn't bundle an installer.
   1957 birth, not 66 or 67 — and you can override it if your statement says
   otherwise. A scenario can assume a cut — benefits paying, say, 81% from
   2034, when the Trustees project the trust funds run dry — survivor benefits
-  included.
+  included. After a death, the survivor draws SSA's widow(er)'s benefit rather
+  than a copy of the decedent's check: at least 82.5% of an early claimer's
+  full benefit, delayed credits only as far as the death, a reduction if taken
+  before survivor full retirement age, and nothing before 60.
 - **Pensions.** The monthly benefit at its first payment, an optional
   cost-of-living adjustment, and single-life or joint payment with the share
   that continues to the survivor.

@@ -11,14 +11,16 @@
 
 use crate::model::{
     CashFlowStream, GrowthRule, Person, Plan, SocialSecurityBenefit, StreamBoundary,
-    StreamDirection, StreamKind, YearMonth,
+    StreamDirection, StreamKind, YearMonth, WIDOW_BENEFIT_EARLIEST_AGE,
 };
 
 use super::SimWarning;
 
 /// Materializes `plan.social_security` into Income streams, applying the
 /// survivor rule at the first death: the household stops drawing two
-/// benefits and the survivor keeps the larger of the two.
+/// benefits, and the survivor draws the larger of their own and a
+/// widow(er)'s benefit on the decedent's record — SSA's figure, not the
+/// decedent's own check (`SocialSecurityBenefit::widow_benefit`, #171).
 ///
 /// The simplifications, stated plainly because they are user-visible:
 ///
@@ -26,15 +28,15 @@ use super::SimWarning;
 ///   ranking as at the transition month whenever both benefits share a COLA,
 ///   which they do unless one carries a `cola_override`.
 /// - A survivor who has their own benefit on the plan steps up no earlier
-///   than their own claiming month. Real survivor benefits can start at 60,
-///   independently of one's own — the classic "take the survivor benefit
-///   now, delay your own to 70" move — but that needs a reduction schedule
-///   this engine does not model, and starting later is the conservative
-///   error.
-/// - A survivor with *no* benefit of their own inherits the decedent's from
-///   the death itself. Modelling nothing at all would be plainly wrong for
-///   the common one-earner household, where the survivor is entitled to the
-///   decedent's benefit.
+///   than their own claiming month. SSA lets the survivor benefit be taken
+///   separately, as early as 60 — the classic "take the survivor benefit
+///   now, delay your own to 70" move — but a plan carries one claiming age
+///   per person, and the survivor benefit is reduced for the month it does
+///   start.
+/// - A survivor with *no* benefit of their own draws the widow(er)'s
+///   benefit from the death, or from 60 if they are younger. Benefits
+///   before 60 for a disability or a child in care are not modelled: the
+///   plan records neither.
 /// - A household that leaves *more than one* survivor is left alone
 ///   entirely: everyone keeps their own benefit to their own death. A
 ///   survivor benefit goes to a spouse, and this model has no relationships
@@ -81,22 +83,28 @@ pub(super) fn social_security_streams(
         streams.push(stream);
     }
 
+    // The survivor draws the larger of their own benefit and a widow(er)'s
+    // benefit on the decedent's record, computed by SSA's rules
+    // (`SocialSecurityBenefit::widow_benefit`) for the month it starts.
     let own = resolved.iter().find(|(_, p)| p.id == survivor.id);
-    let larger = [own, resolved.iter().find(|(_, p)| p.id == decedent.id)]
+    let record = resolved.iter().find(|(_, p)| p.id == decedent.id);
+    let start = match own {
+        Some((ss, _)) => survivor.month_at_age(ss.claiming_age).max(death),
+        None => survivor.month_at_age(WIDOW_BENEFIT_EARLIEST_AGE).max(death),
+    };
+    let widow = record.map(|(ss, p)| (ss, ss.widow_benefit(p, death, survivor, start)));
+    let own = own.map(|(ss, p)| (ss, ss.annual_benefit(p)));
+    let larger = [own, widow]
         .into_iter()
         .flatten()
-        .max_by(|(a, ap), (b, bp)| a.annual_benefit(ap).total_cmp(&b.annual_benefit(bp)));
-    if let Some((benefit, benefit_owner)) = larger {
-        let start = match own {
-            Some((ss, _)) => survivor.month_at_age(ss.claiming_age).max(death),
-            None => death,
-        };
+        .max_by(|(_, a), (_, b)| a.total_cmp(b));
+    if let Some((benefit, amount)) = larger {
         streams.push(CashFlowStream {
             id: format!("ss-survivor-{}", survivor.id),
             name: format!("{}'s survivor Social Security", survivor.name),
             owner: Some(survivor.id.clone()),
             direction: StreamDirection::Income,
-            annual_amount: benefit.annual_benefit(benefit_owner),
+            annual_amount: amount,
             start: StreamBoundary::Date(start),
             end: StreamBoundary::AtDeath(survivor.id.clone()),
             growth: GrowthRule::Fixed(benefit.cola_override.unwrap_or(cola)),
