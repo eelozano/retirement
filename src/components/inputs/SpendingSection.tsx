@@ -126,6 +126,12 @@ export function SpendingSection() {
         <button type="button" className="add" onClick={addExpense}>
           Add expense
         </button>
+        <p className="field-hint">
+          Health insurance before Medicare is just another expense here — type the premium
+          you expect to pay <em>after</em> any ACA subsidy. The subsidy depends on your
+          taxable income, which depends on which accounts you draw from, and the planner
+          does not model that: changing the withdrawal order will not change this number.
+        </p>
       </div>
     </div>
   );

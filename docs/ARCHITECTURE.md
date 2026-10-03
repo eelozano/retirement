@@ -906,6 +906,12 @@ law, so they live in the frontend (`lib/socialSecurity.ts`) as the prefill
 for the setting and the start of the What-if knob's cut, never as an engine
 default.
 
+### Pre-Medicare healthcare is exogenous (#147)
+
+Healthcare is an ordinary `General` expense stream; the engine has no concept of it. In reality a pre-Medicare household's ACA premium tax credit is a function of that year's modified AGI, and MAGI is something the drawdown controls: a Roth withdrawal adds nothing, a traditional withdrawal adds all of it, a taxable withdrawal adds only the realised gain. The engine does not model the loop, so the premium a user types is fixed whatever the drawdown does, and **two phased stacks that differ only in whether they spend Roth or traditional first are equivalent on this dimension when in life they are not.** A user is expected to work the subsidy out for the years in question and enter the net premium; the Spending pane says so beside the expense list, and the README lists it among the known gaps.
+
+This was a deliberate choice among three: leave it and say so (taken), a MAGI-linked stream with the FPL and applicable-percentage tables as data and the benchmark premium as a user input, or a MAGI readout on `PeriodSnapshot` without a premium model. The readout is the likeliest next step. Whichever is built, the subsidy is an income-tested rule and meets the gross-up problem in "Where the current design pushes back" (3) first.
+
 ### Surplus has two regimes (`Assumptions::sweep_surplus_from`)
 
 A period's leftover cash is one arithmetic result standing for two different quantities, and the boolean this replaced (#50) could only be right about one of them at a time.
