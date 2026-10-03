@@ -8,7 +8,9 @@ pub use drawdown::{
     EARLY_WITHDRAWAL_PENALTY_RATE,
 };
 pub use phased::PhasedDrawdown;
-pub use returns::{FixedReturns, ReturnModel, StochasticReturns, StrategyReturns};
+pub use returns::{
+    FixedReturns, HistoricalReturns, ReturnModel, StochasticReturns, StrategyReturns,
+};
 pub use tax::{BracketTax, FlatTax, IncomeBreakdown, SurvivorTax, TaxModel, TaxResult};
 
 /// Zero-based simulation period number.

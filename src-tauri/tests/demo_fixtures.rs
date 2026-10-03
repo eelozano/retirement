@@ -776,3 +776,26 @@ fn same_row(actual: &str, expected: &str) -> bool {
                 _ => a == e,
             })
 }
+
+/// Every demo scenario replays against the whole historical record (#178),
+/// so the History screen has something to show in `pnpm demo`. Every start
+/// year has an outcome, and the counts behind the success rate add up.
+#[test]
+fn every_demo_scenario_replays_against_history() {
+    let yaml = fs::read_to_string(fixture_path()).expect("demo fixture present");
+    let file: HouseholdFile = serde_yaml_ng::from_str(&yaml).expect("demo fixture parses");
+    let figures = engine::model::TaxFigures::built_in();
+    for scenario in &file.scenarios {
+        let plan = compose(&file.household(), scenario).expect("composes");
+        let result = engine::run_backtest(&plan, &figures);
+        let years = (result.data_last_year - result.data_first_year + 1) as u32;
+        assert_eq!(result.cohorts.len() as u32, years, "{}", scenario.id);
+        assert_eq!(
+            result.succeeded + result.depleted + result.in_progress,
+            years,
+            "{}",
+            scenario.id
+        );
+        assert!(result.success_rate.is_some(), "{}", scenario.id);
+    }
+}

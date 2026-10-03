@@ -20,6 +20,8 @@ pub fn run() {
             commands::run_monte_carlo,
             commands::run_monte_carlos,
             commands::cancel_monte_carlo,
+            commands::run_backtest,
+            commands::run_backtest_cohort,
             commands::get_monte_carlo_limits,
             commands::load_plan,
             commands::create_plan,

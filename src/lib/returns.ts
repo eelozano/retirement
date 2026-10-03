@@ -38,3 +38,14 @@ export function realReturn(nominal: number, inflation: number): number {
 export function medianCompoundedReturn(mean: number, stddev: number): number {
   return Math.exp(Math.log(1 + mean) - stddev ** 2 / (2 * (1 + mean) ** 2)) - 1;
 }
+
+/**
+ * A stock share as the "stocks/bonds" pair people say it as: 0.6 → "60/40".
+ * The shares come from the engine (`presets::strategy_stock_share`), which
+ * replays each tier at exactly that mix in a historical backtest, so the
+ * label and the replay cannot disagree.
+ */
+export function stockBondMix(stockShare: number): string {
+  const stocks = Math.round(stockShare * 100);
+  return `${stocks}/${100 - stocks}`;
+}

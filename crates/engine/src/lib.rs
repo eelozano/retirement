@@ -13,8 +13,9 @@ pub mod strategies;
 pub use model::{Plan, YearMonth};
 pub use sim::{
     run_monte_carlo as run_monte_carlo_sim, run_monte_carlo_with as run_monte_carlo_sim_with,
-    simulate, simulate_with_prices, Cancelled, MonteCarloConfig, MonteCarloDiagnostics,
-    MonteCarloResult, OneTimeInfo, PathGroupStats, PeriodPercentiles, PeriodSnapshot, Projection,
+    simulate, simulate_with_prices, BacktestResult, Cancelled, CohortDetail, CohortStatus,
+    CohortSummary, MarketYear, MonteCarloConfig, MonteCarloDiagnostics, MonteCarloResult,
+    OneTimeInfo, PathGroupStats, PeriodPercentiles, PeriodSnapshot, Projection,
     Rule55Ineligibility, RunControl, SimWarning, Spread, StreamInfo, EARLY_RETIREMENT_WINDOW_YEARS,
 };
 
@@ -165,6 +166,35 @@ pub fn run_monte_carlo_with(
         &*drawdown(plan, &prices),
         config,
         control,
+    )
+}
+
+/// Every start year in the bundled history (#178): the plan replayed with
+/// each year's own returns and inflation, its tax model and drawdown built
+/// on that inflation, each strategy earning its stock/bond mix
+/// (`presets::strategy_stock_share`).
+pub fn run_backtest(plan: &Plan, figures: &TaxFigures) -> BacktestResult {
+    sim::backtest(
+        plan,
+        sim::history(),
+        presets::strategy_stock_share(),
+        &|prices, returns| run_with(plan, figures, prices, returns, 0),
+    )
+}
+
+/// One start year of `run_backtest` in full — its projection and its
+/// market history — or `None` for a year outside the bundled history.
+pub fn run_backtest_cohort(
+    plan: &Plan,
+    figures: &TaxFigures,
+    start_year: i32,
+) -> Option<CohortDetail> {
+    sim::backtest_cohort(
+        plan,
+        sim::history(),
+        presets::strategy_stock_share(),
+        start_year,
+        &|prices, returns| run_with(plan, figures, prices, returns, 0),
     )
 }
 

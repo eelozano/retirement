@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { medianCompoundedReturn, realReturn } from "./returns";
+import { medianCompoundedReturn, realReturn, stockBondMix } from "./returns";
 
 describe("realReturn", () => {
   // Not `toBe`: (1 + r) / 1 - 1 does not round-trip exactly in binary float.
@@ -59,4 +59,12 @@ describe("medianCompoundedReturn", () => {
       expect(medianCompoundedReturn(mean, stddev)).toBeCloseTo(expected, 9);
     },
   );
+});
+
+describe("stockBondMix", () => {
+  it("says a stock share as stocks/bonds", () => {
+    expect(stockBondMix(1)).toBe("100/0");
+    expect(stockBondMix(0.6)).toBe("60/40");
+    expect(stockBondMix(0.2)).toBe("20/80");
+  });
 });
