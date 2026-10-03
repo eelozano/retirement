@@ -15,6 +15,7 @@ export type Destination =
   | "plan"
   | "cashflow"
   | "growth"
+  | "history"
   | "inputs"
   | "refresh"
   | "whatif"
@@ -41,6 +42,12 @@ const ICON = {
     <>
       <path d="M4 17l5-5 4 3 7-8" />
       <path d="M15 6h5v5" />
+    </>
+  ),
+  history: (
+    <>
+      <path d="M4 20V10M9 20V6M14 20V13M19 20V8" />
+      <path d="M3 20h18" />
     </>
   ),
   inputs: (
@@ -112,6 +119,7 @@ export const NAV_GROUPS: {
       { id: "plan", label: "Plan", icon: "plan" },
       { id: "cashflow", label: "Cash flow", icon: "cashflow" },
       { id: "growth", label: "Growth", icon: "growth" },
+      { id: "history", label: "History", icon: "history" },
       { id: "whatif", label: "What-if", icon: "whatif" },
       { id: "scenarios", label: "Scenarios", icon: "scenarios" },
     ],

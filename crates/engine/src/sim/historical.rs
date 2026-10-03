@@ -130,6 +130,10 @@ pub struct BacktestResult {
     /// already run out counts against it, and one still going is left out.
     /// `None` only when no cohort has an outcome.
     pub success_rate: Option<f64>,
+    /// What each strategy's mix compounded at over the whole record, after
+    /// inflation — the figure to hold against the plan's own typed return
+    /// when the two rates disagree.
+    pub historical_real_return: StrategyRates,
 }
 
 /// One period of a cohort's market history.
@@ -244,8 +248,28 @@ pub fn backtest(
         depleted,
         in_progress,
         success_rate: (decided > 0).then(|| succeeded as f64 / decided as f64),
+        historical_real_return: real_return(history, stock_share),
         cohorts,
     }
+}
+
+/// Each strategy's annualized real return over `history`: the geometric
+/// mean of `(1 + nominal) / (1 + inflation)`, which is what a dollar left
+/// invested at that mix for the whole record compounded at.
+fn real_return(history: &[HistoricalYear], stock_share: StrategyRates) -> StrategyRates {
+    if history.is_empty() {
+        return StrategyRates::default();
+    }
+    stock_share.map(|share| {
+        let log_sum: f64 = history
+            .iter()
+            .map(|y| {
+                let nominal = share * y.stocks + (1.0 - share) * y.bonds;
+                ((1.0 + nominal) / (1.0 + y.inflation)).ln()
+            })
+            .sum();
+        (log_sum / history.len() as f64).exp() - 1.0
+    })
 }
 
 /// The start year `start_year` in full, or `None` outside `history`.

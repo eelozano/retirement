@@ -3060,3 +3060,142 @@ button.remove:disabled {
   color: var(--text-secondary);
   margin: 14px 0 4px;
 }
+
+/* ── History (#178) ───────────────────────────────────────────────────── */
+/* The screen runs well past the viewport, with `.visually-hidden` legends
+   and labels far down it; `position: relative` keeps them inside the pane
+   rather than stretching the document — see `.refresh-card`. */
+.history-scroll {
+  position: relative;
+}
+/* Four tiles: the rate, then the worst, median and best start years, each
+   a button that opens its ledger. */
+.headline-four {
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+}
+.tile-button-tile {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tile-button-tile:hover {
+  border-color: var(--muted);
+}
+
+/* Three short findings side by side, stacking below the two-column width. */
+.history-vs-forecast {
+  padding-bottom: var(--sp-4);
+}
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-5);
+  align-items: start;
+}
+.history-finding {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cohort-chart {
+  margin: var(--sp-2) 0;
+}
+.era-chips {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0 var(--sp-3);
+}
+.era-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: var(--t-sm);
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.era-chip:hover {
+  border-color: var(--muted);
+}
+.era-chip-selected {
+  border-color: var(--text-primary);
+}
+.era-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.cohort-ledger {
+  transition: opacity 120ms ease;
+}
+.cohort-ledger.refreshing {
+  opacity: 0.6;
+}
+.cohort-era {
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+.cohort-status {
+  font-size: var(--t-sm);
+  font-weight: 600;
+}
+.cohort-verdict {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--t-body);
+  color: var(--text-primary);
+}
+.cohort-zone {
+  margin-bottom: var(--sp-4);
+}
+.cohort-table tr.row-shortfall td {
+  color: var(--status-critical);
+}
+.cohort-table tr.row-pinned td {
+  background: var(--surface-2);
+}
+.cohort-footnote {
+  display: block;
+  margin: var(--sp-2) 0 var(--sp-3);
+}
+
+/* A table cell's action that reads as the value it is. */
+.link-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.link-button:hover {
+  text-decoration-color: currentcolor;
+}
+
+@media (max-width: 1100px) {
+  .history-grid,
+  .headline-four {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 1252px) {
+  .app-shell-labelled .history-grid,
+  .app-shell-labelled .headline-four {
+    grid-template-columns: 1fr 1fr;
+  }
+}
