@@ -441,8 +441,9 @@ there — it just doesn't bundle an installer.
   and contribution limits live in one file, editable under **Settings → Tax
   figures** or by hand, so a new tax year doesn't have to wait for a new
   release.
-- **Growth at the level you think about it.** Three investment strategies,
-  each one expected return and one volatility you can edit, or a fixed rate
+- **Growth at the level you think about it.** Five investment strategies,
+  Very Aggressive (100/0 stocks/bonds) to Very Conservative (20/80), each one
+  expected return and one volatility you can edit, or a fixed rate
   on any single account. The pane says what each return means — nominal, the
   real return after inflation, and what a year-by-year path actually
   compounds at.
