@@ -70,6 +70,7 @@ describe("CommandPalette", () => {
       "PlanPlan",
       "Cash flowPlan",
       "GrowthPlan",
+      "HistoryPlan",
       "What-ifPlan",
       "ScenariosPlan",
       "InputsSetup",
@@ -146,7 +147,7 @@ describe("CommandPalette", () => {
     await user.keyboard("{Control>}k{/Control}");
     await user.keyboard("{Control>}k{/Control}");
     expect(screen.getByRole("combobox")).toHaveValue("");
-    expect(screen.getAllByRole("option")).toHaveLength(9);
+    expect(screen.getAllByRole("option")).toHaveLength(10);
   });
 
   it("reports the platform closing it (Escape) so state follows", async () => {

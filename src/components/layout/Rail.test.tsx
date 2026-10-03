@@ -13,6 +13,7 @@ const LABELS = [
   "Plan",
   "Cash flow",
   "Growth",
+  "History",
   "What-if",
   "Scenarios",
   "Inputs",

@@ -5,6 +5,7 @@ import { InputsScreen, type InputsSection } from "../inputs/InputsScreen";
 import { CashFlowScreen } from "./CashFlowScreen";
 import { CommandPalette } from "./CommandPalette";
 import { GrowthScreen } from "./GrowthScreen";
+import { HistoryScreen } from "./HistoryScreen";
 import { PlanScreen } from "./PlanScreen";
 import { type Destination, Rail } from "./Rail";
 import { RefreshScreen } from "./RefreshScreen";
@@ -175,6 +176,8 @@ export function Dashboard() {
             <CashFlowScreen />
           ) : destination === "growth" ? (
             <GrowthScreen />
+          ) : destination === "history" ? (
+            <HistoryScreen />
           ) : destination === "inputs" ? (
             <InputsScreen section={inputsSection} onSectionChange={setInputsSection} />
           ) : destination === "refresh" ? (

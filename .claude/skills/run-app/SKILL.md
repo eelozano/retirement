@@ -217,7 +217,7 @@ cheap, and skipping it is exactly how processes accumulate across sessions.
 - **Menu bar clicks need a Finder grant**, which is usually not worth
   requesting. Prefer in-app controls.
 - The left rail is the navigation, labelled by default: PLAN (Plan, Cash flow,
-  Growth, What-if, Scenarios, which holds the compare view), SETUP (Inputs,
+  Growth, History, What-if, Scenarios, which holds the compare view), SETUP (Inputs,
   Update balances), then, pinned to the bottom, Report (the report and export
   dialog), Settings, and Collapse. Collapsed, it is the 56px icon rail; every
   button keeps its name as its accessible label either way, so `element_index`
@@ -272,6 +272,7 @@ What each image shows (Base plan unless it says otherwise):
 | `cash-flow.png` | Cash flow, top of the screen |
 | `cash-flow-sankey.png` | Cash flow, scrolled to the bottom: the 2042 Sankey |
 | `growth.png` | Growth |
+| `history.png` | History, top of the screen (worst start year 1962 open below) |
 | `inputs.png` | Inputs → People, top: Alex |
 | `pension.png` | Inputs → People, scrolled to the bottom: Jordan's Social Security and pension |
 | `accounts.png` | Inputs → Accounts, Joint brokerage selected (the default) |
