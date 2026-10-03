@@ -115,9 +115,9 @@ in without refactoring core state, and they did.
                        │ Tauri IPC (serde JSON)
 ┌──────────────────────┴───────────────────────────────┐
 │  src-tauri (thin adapter)                            │
-│  commands: projection · Monte Carlo · plans and      │
-│    scenarios · household refresh · tax figures ·     │
-│    storage and settings · export                     │
+│  commands: projection · Monte Carlo · backtest ·     │
+│    plans and scenarios · household refresh · tax     │
+│    figures · storage and settings · export           │
 │  persistence: YAML households, atomic writes,        │
 │    versioned, user-configurable location             │
 └──────────────────────┬───────────────────────────────┘
@@ -149,11 +149,14 @@ retirement/
 │   │   ├── sim/               # mod.rs (simulate: setup + the loop), period
 │   │   │                      # (the per-period steps), contributions,
 │   │   │                      # required_distributions, survivor,
-│   │   │                      # monte_carlo, projection (snapshot types)
+│   │   │                      # monte_carlo, historical (backtest),
+│   │   │                      # projection (snapshot types)
 │   │   ├── strategies/        # returns.rs, tax.rs, drawdown.rs (traits + impls)
 │   │   ├── presets.rs         # index_to, rmd_age, Uniform Lifetime table,
-│   │   │                      # default assumptions, seed_plan, new_plan
+│   │   │                      # default assumptions, strategy stock shares,
+│   │   │                      # seed_plan, new_plan
 │   │   └── state_tax_data.rs  # per-state bracket schedules
+│   ├── data/                  # historical_us.csv: Shiller's annual series
 │   └── tests/                 # golden-file, micro-case, property, and
 │                              # per-feature tests
 ├── src-tauri/
@@ -183,7 +186,9 @@ retirement/
 │   │                          # warnings, whatIf, returns, yearBoundary, …
 │   └── types/generated/       # ts-rs output — never hand-edited
 ├── fixtures/demo/             # the committed, invented demo household
-├── scripts/warm-actool.sh     # release bundling workaround; see CLAUDE.md
+├── scripts/
+│   ├── warm-actool.sh         # release bundling workaround; see CLAUDE.md
+│   └── build-historical-data.mjs # ie_data.xls → crates/engine/data/
 └── data/                      # optional local plans dir, git-ignored
 ```
 
@@ -664,9 +669,11 @@ Two consequences worth knowing:
 **Five tiers, described by a stock/bond mix.** The strategies run Very
 Aggressive, Aggressive, Moderate, Conservative and Very Conservative, and the
 shipped defaults (`presets::default_strategy_returns` / `_volatility`) are
-whole-portfolio figures for 100/0, 80/20, 60/40, 40/60 and 20/80. The mix is
-description only — said in a tooltip beside each tier in the Assumptions pane
-and nowhere the engine reads. The two `very_*` tiers came after the other
+whole-portfolio figures for 100/0, 80/20, 60/40, 40/60 and 20/80
+(`presets::strategy_stock_share`). A projection never reads the mix — it is
+said in a tooltip beside each tier in the Assumptions pane, from the same
+preset — but a historical replay does, since it has no typed return to use
+(see "Historical backtest"). The two `very_*` tiers came after the other
 three: `AssumptionsWire` reads a three-key table through `StrategyRatesWire`,
 keeps the three figures the plan carried and fills the two new ones from that
 table's default. No saved account can name a tier that did not exist when it
@@ -733,6 +740,11 @@ this app alarming for reasons that are modelling choices rather than facts
 about their plan. (The comparison reconstructs the study's assumptions from
 its published description. Nine points is the right order of magnitude for
 i.i.d. against historical sequence, not a precise measurement of it.)
+
+The historical replay closes the loop: the same setup replayed against the
+bundled record (Shiller, 1871–2025, 50/50 stocks and 10-year Treasuries)
+lasts 30 years in **120 of 126** complete windows, **95.2%** — the study's
+figure, from the engine's own machinery. `tests/historical.rs` holds it.
 
 Two alternatives were weighed and rejected:
 
@@ -1053,6 +1065,25 @@ A Monte Carlo run is `simulate` over `n_paths` values of `path_id`, in parallel 
 
 The path count is a user setting in `settings.json` (Settings → Simulation): 5,000 by default, clamped to 100–100,000. Up to 5,000 paths the frontend re-runs after every edit; above that an edit marks the last result stale and the user runs on demand (#91). `run_monte_carlos` measures several scenarios at the **same config, seed included** — common random numbers, so the difference between two success rates is far less noisy than either rate's own margin. The Scenarios table and the What-if sandbox both use it; its scenarios run one after another, sharing one `RunControl`, so batch progress is one climbing number. The frontend's seed starts at 1 and is never persisted, so the same saved plan shows the same success rate on every launch; Re-roll draws a new one.
 
+
+### Historical backtest (`sim/historical.rs`)
+
+A backtest replays the plan against every start year in the bundled record (#178): cohort *Y* runs the whole plan with period *n* earning year *Y + n*'s returns under year *Y + n*'s inflation. It is `simulate` once per start year, in parallel with rayon, exactly as Monte Carlo is `simulate` once per path; only the return model and the price level differ. `lib::run_with` builds each cohort's tax model and drawdown on that cohort's `PriceLevel::Path` (see "The price level"), so its brackets, limits, inflation-grown streams, drawdown floors and deflators all follow its own history.
+
+**The data** is `crates/engine/data/historical_us.csv`: one row per calendar year, January to January, of S&P Composite nominal total return, 10-year Treasury nominal total return, and CPI change, from Robert Shiller's `ie_data.xls`. `scripts/build-historical-data.mjs` derives it, reading the `.xls` itself, so regenerating it each year is one command. It checks the sheet's column headers first, so a layout change fails loudly rather than shifting a column. The file is about 5 KB, embedded with `include_str!` and parsed once. Shiller's prices are monthly averages, which smooths a year's return slightly: 2008 is −35.6% here against the −37% usually quoted.
+
+**Tiers earn a fixed mix.** Each strategy earns `presets::strategy_stock_share` of the year's stock return and the rest of its bond return: 100/0 down to 20/80, the mixes the shipped defaults describe. The blend is taken afresh every year, so a replay rebalances annually by construction, and it carries that year's real stock–bond correlation for free. The plan's typed returns and volatilities are not read; they are the plan's forecast, and a replay needs none. A `FixedRate` account (and a Savings account's interest) keeps its typed nominal rate in every era, and taxable dividends keep the plan's `dividend_yield`; neither is in the data. Today's tax law applies in every era.
+
+**Time.** Period 0 replays the start year. For a plan starting mid-year, that period is a stub and takes its share of the start year's return and inflation, as it would of any. In a deflation year, inflation-indexed figures fall with prices. That includes an inflation-grown stream such as Social Security, since the statutory zero-COLA floor is not modelled.
+
+**Recent start years.** History runs out before the horizon does for every start year within the plan's length of the present. Such a cohort is judged on the periods it covers: if it depleted inside them it is `Depleted` (a spent portfolio is not revived by the years we have not seen), and otherwise it is `InProgress`. The success rate is `succeeded / (succeeded + depleted)`, so a recent failure counts and a recent survivor, whose outcome is unknown, is left out and shown as a count. `simulate` still runs every cohort to the horizon, with the plan's own typed means and inflation past the data, and the result is cut back (`Projection::truncated`); none of those periods reach a summary or a ledger.
+
+**What it returns.** `run_backtest` returns a `BacktestResult`: one `CohortSummary` per start year (status, the periods covered, the depletion period, net worth in plan-start dollars per period), the counts, and the rate. A cohort's figures are deflated by its own history, so two cohorts are both in today's dollars but not by the same road. `run_backtest_cohort` re-runs one start year for its ledger and returns a `CohortDetail`: the projection, cut to the covered periods, and a `MarketYear` per period (the historical year's stock, bond and CPI figures, and each strategy's blended return). Re-running is cheaper than shipping every cohort's projection over IPC.
+
+**Speed.** A replay of every start year on the demo plans takes 10–20 ms in a release build (a dev build runs the engine unoptimized, roughly 8× slower), so there is no progress channel or cancel.
+
+**It reads far kinder than Monte Carlo, and that is mostly the inputs.** On the seed plan, every complete window succeeds while Monte Carlo reports 54%; the demo's "retire at 55 on a bridge" scenario is 69% historically against 27%. Over the record, history compounds at 6.4% *real* for the 80/20 mix, while the shipped Aggressive default is 6.35% *nominal*, 3.25% real after 3% inflation: about three points a year less, by design, because the defaults are a forecast and not a replay. Volatility drag widens the gap further, since Monte Carlo's median path compounds below its typed mean, and so does mean reversion, which history has and i.i.d. draws do not. Neither number is wrong. They answer "has this plan survived the past?" and "does it survive the future I typed?", and a screen showing both has to say which is which.
+
 ---
 
 ## 5. Adapter (`src-tauri`)
@@ -1107,7 +1138,8 @@ Every command is registered in `generate_handler!` in `src-tauri/src/lib.rs`. Gr
 - **Household.** `get_household(id)` — the facts behind a scenario, including each balance's as-of date, which the `Plan` does not carry (#110) — and `refresh_household(request)`.
 - **Snapshots.** `list_snapshots(id)` / `restore_snapshot(id, timestamp)`, for the household holding scenario `id`.
 - **Tax figures.** `get_tax_figures()` returns the path, the figures in force, the built-in set and any load error; `save_tax_figures(figures)` validates and writes.
-- **Presets and version.** `get_presets()` returns the default assumptions, the tax figures in force and the state tax profiles, so defaults live in one place (Rust) and the frontend never hardcodes a statutory figure. `engine_version()` is surfaced in the UI.
+- **Historical backtest.** `run_backtest(plan) -> BacktestResult` replays every start year; `run_backtest_cohort(plan, start_year) -> CohortDetail` re-runs one for its ledger. Both validate the plan, read the tax figures in force, and run on a blocking thread, like Monte Carlo, but with no progress channel: a whole replay is a few percent of a default Monte Carlo run.
+- **Presets and version.** `get_presets()` returns the default assumptions, the tax figures in force, the state tax profiles and each strategy's stock share, so defaults live in one place (Rust) and the frontend never hardcodes a statutory figure. `engine_version()` is surfaced in the UI.
 - **Storage.** `get_storage_info()`, `choose_storage_dir()` (a native folder picker), `set_storage_dir(path)` (copying plans and tax figures forward) and `reveal_storage_dir()`.
 - **Export.** `export_plans()` writes a timestamped copy of the plans folder, tax figures included, to a folder the user picks. `export_text_file(suggested_name, contents)` is the CSV export's write side; the formatting lives on the frontend, which knows the display basis. `export_report_pdf(suggested_name)` (macOS only, `pdf.rs`) drives WKWebView's print pipeline headlessly — `@media print` in `App.css` decides what is isolated and how it paginates — because there is no cross-platform print-to-file API.
 
@@ -1132,7 +1164,7 @@ Every command is registered in `generate_handler!` in `src-tauri/src/lib.rs`. Gr
 
 ### What slots in
 
-- **A new trait impl.** A historical-sequence `ReturnModel` needs no trait change: `path_id` already threads through `returns_for` and maps onto a start-year index, and a blended per-strategy series carries that year's real cross-asset correlation for free. The ordered `DrawdownStrategy` this predicted — `PhasedDrawdown` — did land as another impl behind the trait, which gained one defaulted method (`phase`) so a snapshot can name the phase in force.
+- **A new trait impl.** The historical-sequence `ReturnModel` this predicted landed as `HistoricalReturns` with no trait change. It is built per start year instead of reading the start year from `path_id`, because each cohort needs its own price level too, and a blended per-strategy series carries that year's real cross-asset correlation for free. The ordered `DrawdownStrategy` this predicted — `PhasedDrawdown` — did land as another impl behind the trait, which gained one defaulted method (`phase`) so a snapshot can name the phase in force.
 - **A new step.** A behavior that moves money because the calendar says so — as RMDs do — is a function over `PeriodState` in `sim/period.rs`, placed in the pipeline where its money has to be. One that feeds the period's income runs before `settle`, so it is inside the single tax pass.
 - **A new field.** Schema changes go through the `*Wire` deserializers (`AccountWire`, `AssumptionsWire`, `PersonWire`) with `#[serde(default)]`, so a file written before the field loads as exactly what it meant and projects identically. That pattern is well established, and none of the extensions below needs a breaking schema change. Each new fact or choice has two possible homes since #109: a figure read off a statement — a loan balance, a property value — goes on the household with a dated observation, and a choice or an assumption — an appreciation rate, a sale year — goes on the scenario. An observation on the scenario side, or a scenario variable on the household, is the mistake to look for in review.
 - **Tests for tax law.** The golden-file and property tests pin engine *mechanics*; they say nothing about whether a threshold is right. Anything that models a rule of tax law lands with hand-computed micro-cases in the style of `strategies/tax.rs`'s test module, where the arithmetic is checkable by reading.

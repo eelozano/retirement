@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::model::{Plan, TaxFigures, YearMonth};
-use crate::sim::{simulate, Projection, SimWarning};
+use crate::sim::{simulate, Projection};
 use crate::strategies::{DrawdownStrategy, ReturnModel, TaxModel};
 
 #[derive(Serialize, Deserialize, TS, Clone, Copy, Debug)]
@@ -396,10 +396,7 @@ impl PathSummary {
 
     fn of(projection: &Projection, anchor: &DiagnosticsAnchor) -> Self {
         let snapshots = &projection.snapshots;
-        let depleted_period = projection.warnings.iter().find_map(|w| match w {
-            SimWarning::DepletedFunds { period } => Some(*period),
-            _ => None,
-        });
+        let depleted_period = projection.depleted_period();
         let min_net_worth = snapshots
             .iter()
             .map(|s| s.net_worth)

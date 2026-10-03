@@ -110,6 +110,13 @@ describe("Investment strategies", () => {
           strategy_returns: defaults,
           strategy_volatility: defaultVolatility,
         },
+        strategy_stock_share: {
+          very_aggressive: 1,
+          aggressive: 0.8,
+          moderate: 0.6,
+          conservative: 0.4,
+          very_conservative: 0.2,
+        },
       },
     } as never);
   const assumptions = () => usePlanStore.getState().plan?.assumptions;
@@ -117,6 +124,7 @@ describe("Investment strategies", () => {
     screen.getByRole<HTMLButtonElement>("button", { name: "Reset to defaults" });
 
   it("lists five tiers in risk order, each naming its mix in a tooltip", () => {
+    withPresets();
     render(<AssumptionsSection />);
     const headings = screen
       .getAllByRole("heading", { level: 4 })
