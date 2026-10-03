@@ -16,6 +16,7 @@
 //!              − 21,600 tax ((120,000 − 12,000) × 20%) − 86,400 spending = 0
 //!   Stub (4/12): every one of those figures × 1/3, so it is zero there too.
 
+use engine::model::PriceLevel;
 use engine::model::TaxFigures;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
@@ -237,7 +238,12 @@ fn a_stub_period_caps_contributions_at_its_share_of_the_year() {
 
     let limit = |year: i32| {
         TaxFigures::built_in()
-            .annual_limit(PlanType::EmployerPlan, year - 1986, year, 0.0)
+            .annual_limit(
+                PlanType::EmployerPlan,
+                year - 1986,
+                year,
+                &PriceLevel::Constant(0.0),
+            )
             .expect("employer plans have a limit")
     };
     assert_close(

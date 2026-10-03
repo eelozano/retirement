@@ -10,6 +10,7 @@
 //!   401(k): (121k - 40k) * 1.1 = 89.1k.
 //! Period 2: same → (89.1k - 40k) * 1.1 = 54.01k.
 
+use engine::model::PriceLevel;
 use engine::model::TaxFigures;
 use engine::model::{
     Account, AccountKind, AllocationRef, Assumptions, CashFlowStream, Contribution,
@@ -289,13 +290,13 @@ fn depletion_emits_warning_and_balances_stay_nonnegative() {
 /// whether the seeded figures are current.
 fn deferral_cap() -> f64 {
     TaxFigures::built_in()
-        .annual_limit(PlanType::EmployerPlan, 60, 2026, 0.0)
+        .annual_limit(PlanType::EmployerPlan, 60, 2026, &PriceLevel::Constant(0.0))
         .expect("employer plans are capped")
 }
 
 fn ira_cap() -> f64 {
     TaxFigures::built_in()
-        .annual_limit(PlanType::Ira, 60, 2026, 0.0)
+        .annual_limit(PlanType::Ira, 60, 2026, &PriceLevel::Constant(0.0))
         .expect("IRAs are capped")
 }
 

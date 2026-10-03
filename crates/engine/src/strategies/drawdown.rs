@@ -327,7 +327,7 @@ impl DrawdownStrategy for ProportionalDrawdown {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{FilingStatus, StateTaxProfile};
+    use crate::model::{FilingStatus, PriceLevel, StateTaxProfile};
     use crate::strategies::BracketTax;
 
     fn assert_close(actual: f64, expected: f64, label: &str) {
@@ -344,7 +344,7 @@ mod tests {
                 &figures,
                 FilingStatus::MarriedFilingJointly,
                 StateTaxProfile::none(),
-                0.0,
+                PriceLevel::Constant(0.0),
                 figures.tax_year,
                 vec![],
             )

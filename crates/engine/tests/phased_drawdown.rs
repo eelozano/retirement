@@ -2,6 +2,7 @@
 //! and Monte Carlo. The waterfall's own arithmetic is pinned by the unit
 //! tests beside `strategies::PhasedDrawdown`.
 
+use engine::model::PriceLevel;
 use engine::model::{
     Account, AccountKind, AllocationRef, DrawdownPhase, DrawdownPolicy, FilingStatus, GrowthRule,
     Person, PhaseStart, Plan, PlanType, StackEntry, StackSource, StateTaxProfile, StreamBoundary,
@@ -297,7 +298,7 @@ fn a_split_year_is_taxed_as_one_stack() {
         &TaxFigures::built_in(),
         FilingStatus::MarriedFilingJointly,
         StateTaxProfile::none(),
-        0.0,
+        PriceLevel::Constant(0.0),
         TaxFigures::built_in().tax_year,
         plan.people.iter().map(|p| p.birth.year).collect(),
     );
