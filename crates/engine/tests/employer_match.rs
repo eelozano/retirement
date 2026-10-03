@@ -159,6 +159,7 @@ fn a_two_tier_match_pays_each_tier_at_its_own_rate() {
         nonelective_percent: 0.0,
         tiers: two_tier(),
         destination: MatchDestination::PreTax,
+        deposit_into: None,
     });
 
     let p0 = &run(&plan).snapshots[0];
@@ -184,6 +185,7 @@ fn a_partial_deferral_only_reaches_the_tiers_it_pays_for() {
         nonelective_percent: 0.0,
         tiers: two_tier(),
         destination: MatchDestination::PreTax,
+        deposit_into: None,
     });
 
     let p0 = &run(&plan).snapshots[0];
@@ -208,6 +210,7 @@ fn the_match_is_not_reduced_when_the_employee_hits_the_deferral_limit() {
         nonelective_percent: 0.0,
         tiers: two_tier(),
         destination: MatchDestination::PreTax,
+        deposit_into: None,
     });
 
     let projection = run(&plan);
@@ -258,6 +261,7 @@ fn taxes_with(destination: MatchDestination) -> f64 {
         nonelective_percent: 0.0,
         tiers: two_tier(),
         destination,
+        deposit_into: None,
     });
     let projection = run(&plan);
     let p0 = &projection.snapshots[0];
@@ -305,6 +309,7 @@ fn a_match_with_nowhere_to_land_is_reported_rather_than_mis_taxed() {
         nonelective_percent: 0.0,
         tiers: two_tier(),
         destination: MatchDestination::PreTax,
+        deposit_into: None,
     });
 
     let projection = run(&plan);
@@ -335,6 +340,7 @@ fn deferrals_plus_match_are_held_to_the_annual_additions_cap() {
             match_percent: 2.0,
         }],
         destination: MatchDestination::PreTax,
+        deposit_into: None,
     });
 
     let projection = run(&plan);
@@ -388,6 +394,7 @@ fn no_salary_means_nothing_from_the_employer() {
         nonelective_percent: 0.03,
         tiers: two_tier(),
         destination: MatchDestination::PreTax,
+        deposit_into: None,
     });
     plan.people[0].retirement = YearMonth::new(2027, 1);
 
@@ -418,6 +425,7 @@ fn a_non_elective_contribution_is_paid_to_an_employee_who_defers_nothing() {
         nonelective_percent: 0.10,
         tiers: vec![],
         destination: MatchDestination::PreTax,
+        deposit_into: None,
     });
 
     let p0 = &run(&plan).snapshots[0];
@@ -448,6 +456,7 @@ fn a_non_elective_contribution_does_not_move_with_the_deferral() {
             nonelective_percent: 0.10,
             tiers: vec![],
             destination: MatchDestination::PreTax,
+            deposit_into: None,
         });
         run(&plan).snapshots[0].employer_match
     };
@@ -472,6 +481,7 @@ fn a_non_elective_contribution_stacks_on_the_tiers() {
         nonelective_percent: 0.03,
         tiers: two_tier(),
         destination: MatchDestination::PreTax,
+        deposit_into: None,
     });
 
     let p0 = &run(&plan).snapshots[0];
@@ -492,6 +502,7 @@ fn a_non_elective_contribution_is_held_to_the_annual_additions_cap() {
         nonelective_percent: 0.25,
         tiers: vec![],
         destination: MatchDestination::PreTax,
+        deposit_into: None,
     });
 
     let projection = run(&plan);
@@ -532,6 +543,7 @@ fn an_employer_band_that_pays_nothing_at_all_is_rejected() {
         nonelective_percent: 0.0,
         tiers: vec![],
         destination: MatchDestination::PreTax,
+        deposit_into: None,
     });
     let errors = plan.validate();
     assert!(
@@ -568,6 +580,7 @@ fn a_non_elective_percent_outside_zero_to_one_is_rejected() {
         nonelective_percent: 1.5,
         tiers: vec![],
         destination: MatchDestination::PreTax,
+        deposit_into: None,
     });
     assert!(
         plan.validate()
@@ -592,6 +605,7 @@ fn a_match_needs_an_employer_plan_to_sit_on() {
         nonelective_percent: 0.0,
         tiers: two_tier(),
         destination: MatchDestination::Roth,
+        deposit_into: None,
     });
     let errors = plan.validate();
     assert!(
@@ -599,5 +613,147 @@ fn a_match_needs_an_employer_plan_to_sit_on() {
             .iter()
             .any(|e| e.field == "accounts[0].employer_match"),
         "an IRA has no employer to match: {errors:?}"
+    );
+}
+
+/// The employer pays into a contract of its own — TIAA keeps the employer's
+/// and the employee's money in separate contracts of the same kind (#175).
+/// Named, the employer's dollars land there and the employee's stay put.
+#[test]
+fn a_named_account_receives_the_employer_money_even_of_the_same_kind() {
+    let mut plan = plan_with(vec![
+        account(
+            "employee-contract",
+            AccountKind::TraditionalPreTax,
+            ContributionRule::PercentOfSalary {
+                percent: 0.08,
+                step_up: None,
+            },
+        ),
+        account(
+            "employer-contract",
+            AccountKind::TraditionalPreTax,
+            ContributionRule::FlatAmount {
+                amount: 0.0,
+                growth: GrowthRule::None,
+            },
+        ),
+    ]);
+    plan.accounts[0].employer_match = Some(EmployerMatch {
+        nonelective_percent: 0.0,
+        tiers: two_tier(),
+        destination: MatchDestination::PreTax,
+        deposit_into: Some("employer-contract".to_string()),
+    });
+    assert_eq!(plan.validate(), vec![]);
+
+    let p0 = &run(&plan).snapshots[0];
+    assert_close(
+        p0.balances["employee-contract"],
+        0.08 * SALARY,
+        "only the employee's own deferral",
+    );
+    assert_close(
+        p0.balances["employer-contract"],
+        0.04 * SALARY,
+        "the whole match, in the contract named",
+    );
+}
+
+/// A Roth deferral with a pre-tax match, and two pre-tax employer plans to
+/// choose from — the current job's and an old one's, listed first.
+fn roth_deferral_with_an_old_401k(deposit_into: Option<&str>) -> Plan {
+    let mut plan = plan_with(vec![
+        account(
+            "old-401k",
+            AccountKind::TraditionalPreTax,
+            ContributionRule::FlatAmount {
+                amount: 0.0,
+                growth: GrowthRule::None,
+            },
+        ),
+        account(
+            "roth-403b",
+            AccountKind::Roth,
+            ContributionRule::PercentOfSalary {
+                percent: 0.08,
+                step_up: None,
+            },
+        ),
+        account(
+            "pretax-403b",
+            AccountKind::TraditionalPreTax,
+            ContributionRule::FlatAmount {
+                amount: 0.0,
+                growth: GrowthRule::None,
+            },
+        ),
+    ]);
+    plan.accounts[1].employer_match = Some(EmployerMatch {
+        nonelective_percent: 0.0,
+        tiers: two_tier(),
+        destination: MatchDestination::PreTax,
+        deposit_into: deposit_into.map(str::to_string),
+    });
+    plan
+}
+
+#[test]
+fn left_unnamed_the_match_keeps_the_first_account_rule() {
+    // Pins the pre-#175 rule a saved plan still projects by: plan order
+    // picks the old employer's 401(k), because it is listed first.
+    let plan = roth_deferral_with_an_old_401k(None);
+    let p0 = &run(&plan).snapshots[0];
+    assert_close(p0.balances["old-401k"], 0.04 * SALARY, "first pre-tax plan");
+    assert_close(p0.balances["pretax-403b"], 0.0, "not reached");
+}
+
+#[test]
+fn naming_the_account_overrides_plan_order() {
+    let plan = roth_deferral_with_an_old_401k(Some("pretax-403b"));
+    assert_eq!(plan.validate(), vec![]);
+    let p0 = &run(&plan).snapshots[0];
+    assert_close(p0.balances["old-401k"], 0.0, "the old plan is left alone");
+    assert_close(p0.balances["pretax-403b"], 0.04 * SALARY, "the one named");
+    assert_close(p0.balances["roth-403b"], 0.08 * SALARY, "deferral unmoved");
+}
+
+fn deposit_errors(plan: &Plan) -> Vec<String> {
+    plan.validate()
+        .into_iter()
+        .filter(|e| e.field == "accounts[1].employer_match.deposit_into")
+        .map(|e| e.message)
+        .collect()
+}
+
+#[test]
+fn a_named_account_must_exist() {
+    let plan = roth_deferral_with_an_old_401k(Some("gone"));
+    assert_eq!(deposit_errors(&plan).len(), 1);
+}
+
+#[test]
+fn a_named_account_must_be_the_kind_the_money_goes_in_as() {
+    // The kind is the tax treatment: a pre-tax match parked in a Roth
+    // account would be withdrawn untaxed.
+    let plan = roth_deferral_with_an_old_401k(Some("roth-403b"));
+    assert_eq!(
+        deposit_errors(&plan).len(),
+        1,
+        "pre-tax money, Roth account"
+    );
+}
+
+#[test]
+fn a_named_account_must_be_the_same_persons_employer_plan() {
+    let mut plan = roth_deferral_with_an_old_401k(Some("pretax-403b"));
+    plan.accounts[2].plan_type = PlanType::Ira;
+    assert_eq!(deposit_errors(&plan).len(), 1, "an IRA has no employer");
+
+    let mut plan = roth_deferral_with_an_old_401k(Some("pretax-403b"));
+    plan.accounts[2].owner = "p2".to_string();
+    assert!(
+        !deposit_errors(&plan).is_empty(),
+        "someone else's plan is not this employer's to pay into",
     );
 }

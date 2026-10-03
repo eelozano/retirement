@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::{
-    AccountKind, ContributionRule, DrawdownPhase, DrawdownPolicy, PhaseStart, Plan, PlanType,
-    StackSource, StreamBoundary, StreamDirection, StreamKind, YearMonth,
+    AccountKind, ContributionRule, DrawdownPhase, DrawdownPolicy, MatchDestination, PhaseStart,
+    Plan, PlanType, StackSource, StreamBoundary, StreamDirection, StreamKind, YearMonth,
 };
 
 /// Bounds on any date in a plan. `YearMonth::new` asserts the month range,
@@ -479,6 +479,47 @@ fn validate(plan: &Plan) -> Vec<ValidationError> {
                             account.name
                         ),
                     ));
+                }
+            }
+            // A named receiving account (#175) has to be somewhere the
+            // employer could actually pay: one of the same person's employer
+            // plans, of the kind the money goes in as. The kind is the tax
+            // treatment, so a mismatch would quietly turn pre-tax dollars
+            // into Roth ones or the reverse.
+            if let Some(id) = &employer.deposit_into {
+                let field = format!("{field}.deposit_into");
+                let (wanted, label) = match employer.destination {
+                    MatchDestination::PreTax => (AccountKind::TraditionalPreTax, "pre-tax"),
+                    MatchDestination::Roth => (AccountKind::Roth, "Roth"),
+                };
+                match plan.accounts.iter().find(|a| &a.id == id) {
+                    None => errors.push(err(
+                        &field,
+                        &format!(
+                            "\"{}\" pays its employer contributions into an account this plan doesn't have.",
+                            account.name
+                        ),
+                    )),
+                    Some(target)
+                        if target.owner != account.owner
+                            || target.plan_type != PlanType::EmployerPlan =>
+                    {
+                        errors.push(err(
+                            &field,
+                            &format!(
+                                "\"{}\" can't receive the employer contributions from \"{}\" — it has to be one of the same person's employer plans.",
+                                target.name, account.name
+                            ),
+                        ))
+                    }
+                    Some(target) if target.kind != wanted => errors.push(err(
+                        &field,
+                        &format!(
+                            "\"{}\" puts its employer money in as {label}, but \"{}\" isn't a {label} account.",
+                            account.name, target.name,
+                        ),
+                    )),
+                    Some(_) => {}
                 }
             }
         }

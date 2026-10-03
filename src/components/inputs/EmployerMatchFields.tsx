@@ -1,6 +1,12 @@
 import type { Account } from "../../types/generated/Account";
 import type { MatchDestination } from "../../types/generated/MatchDestination";
-import { DEFAULT_MATCH, MATCH_DESTINATIONS } from "./accountContribution";
+import type { Plan } from "../../types/generated/Plan";
+import {
+  automaticDeposit,
+  DEFAULT_MATCH,
+  depositCandidates,
+  MATCH_DESTINATIONS,
+} from "./accountContribution";
 import { CheckboxField, PercentField, SelectField } from "./fields";
 import type { UpdatePlan } from "./shared";
 
@@ -15,13 +21,20 @@ import type { UpdatePlan } from "./shared";
  * deferring. A plan with only one of them leaves the other at zero — and a
  * non-elective-only plan removes the last tier, which is why the remove
  * button is offered on a single tier once the percent is set.
+ *
+ * Which account the money is paid into (#175) is a separate choice from
+ * what it goes in as. Left on automatic it is the engine's own rule, named
+ * in the option so "the first account that fits" is never an accident; an
+ * employer that keeps its own contract, or a pre-tax match on a Roth
+ * deferral with an old 401(k) listed first, names the account instead.
  */
 export function EmployerMatchFields(props: {
+  plan: Plan;
   account: Account;
   accountIndex: number;
   updatePlan: UpdatePlan;
 }) {
-  const { account, accountIndex: i, updatePlan } = props;
+  const { plan, account, accountIndex: i, updatePlan } = props;
   const match = account.employer_match;
 
   return (
@@ -50,7 +63,31 @@ export function EmployerMatchFields(props: {
             onChange={(destination: MatchDestination) =>
               updatePlan((d) => {
                 const draft = d.accounts[i].employer_match;
-                if (draft) draft.destination = destination;
+                if (!draft) return;
+                draft.destination = destination;
+                // A named account of the other kind can't take this money
+                // any more; back to automatic rather than a validation error.
+                const named = draft.deposit_into;
+                if (
+                  named !== null &&
+                  !depositCandidates(d, d.accounts[i], destination).some(
+                    (a) => a.id === named,
+                  )
+                ) {
+                  draft.deposit_into = null;
+                }
+              })
+            }
+          />
+          <SelectField
+            label="Paid into"
+            value={match.deposit_into ?? AUTOMATIC}
+            options={depositOptions(plan, account, match.destination)}
+            tooltip="Which account the employer's money lands in. Automatic is this account when it's the right kind, otherwise the first one that fits in the account list. Name one when your employer keeps its money in a contract of its own, or when an old job's plan is listed first."
+            onChange={(choice) =>
+              updatePlan((d) => {
+                const draft = d.accounts[i].employer_match;
+                if (draft) draft.deposit_into = choice === AUTOMATIC ? null : choice;
               })
             }
           />
@@ -130,4 +167,25 @@ export function EmployerMatchFields(props: {
       )}
     </>
   );
+}
+
+/** The "Paid into" sentinel for `deposit_into: null`. Not a valid account
+ * id, since ids are lowercase slugs. */
+const AUTOMATIC = "Automatic";
+
+function depositOptions(plan: Plan, account: Account, destination: MatchDestination) {
+  const automatic = automaticDeposit(plan, account, destination);
+  const kind = destination === "Roth" ? "Roth" : "pre-tax";
+  return [
+    {
+      value: AUTOMATIC,
+      label: automatic
+        ? `Automatic (${automatic.name || "Untitled account"})`
+        : `Automatic (no ${kind} employer plan to pay into)`,
+    },
+    ...depositCandidates(plan, account, destination).map((a) => ({
+      value: a.id,
+      label: a.name || "Untitled account",
+    })),
+  ];
 }

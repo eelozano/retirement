@@ -146,6 +146,7 @@ scenarios:
         - employee_percent: 0.02
           match_percent: 0.5
         destination: PreTax
+        deposit_into: null
       rule_of_55: false
     alex-hsa:
       contributions:
@@ -218,6 +219,7 @@ scenarios:
         - employee_percent: 0.04
           match_percent: 0.5
         destination: PreTax
+        deposit_into: null
       rule_of_55: false
     jordan-roth-ira:
       contributions:
@@ -363,6 +365,7 @@ scenarios:
         - employee_percent: 0.02
           match_percent: 0.5
         destination: PreTax
+        deposit_into: null
       rule_of_55: false
     alex-hsa:
       contributions:
@@ -435,6 +438,7 @@ scenarios:
         - employee_percent: 0.04
           match_percent: 0.5
         destination: PreTax
+        deposit_into: null
       rule_of_55: false
     jordan-roth-ira:
       contributions:
@@ -580,6 +584,7 @@ scenarios:
         - employee_percent: 0.02
           match_percent: 0.5
         destination: PreTax
+        deposit_into: null
       rule_of_55: false
     alex-hsa:
       contributions:
@@ -652,6 +657,7 @@ scenarios:
         - employee_percent: 0.04
           match_percent: 0.5
         destination: PreTax
+        deposit_into: null
       rule_of_55: false
     jordan-roth-ira:
       contributions:
@@ -797,6 +803,7 @@ scenarios:
         - employee_percent: 0.02
           match_percent: 0.5
         destination: PreTax
+        deposit_into: null
       rule_of_55: false
     alex-hsa:
       contributions:
@@ -869,6 +876,7 @@ scenarios:
         - employee_percent: 0.04
           match_percent: 0.5
         destination: PreTax
+        deposit_into: null
       rule_of_55: false
     jordan-roth-ira:
       contributions:
@@ -1014,6 +1022,7 @@ scenarios:
         - employee_percent: 0.02
           match_percent: 0.5
         destination: PreTax
+        deposit_into: null
       rule_of_55: false
     alex-hsa:
       contributions:
@@ -1091,6 +1100,7 @@ scenarios:
         - employee_percent: 0.04
           match_percent: 0.5
         destination: PreTax
+        deposit_into: null
       rule_of_55: false
     jordan-roth-ira:
       contributions:
@@ -1236,6 +1246,7 @@ scenarios:
         - employee_percent: 0.02
           match_percent: 0.5
         destination: PreTax
+        deposit_into: null
       rule_of_55: true
     alex-hsa:
       contributions:
@@ -1308,6 +1319,7 @@ scenarios:
         - employee_percent: 0.04
           match_percent: 0.5
         destination: PreTax
+        deposit_into: null
       rule_of_55: false
     jordan-roth-ira:
       contributions:
