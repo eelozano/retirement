@@ -423,6 +423,19 @@ export function AssumptionsSection() {
           </button>
           <InfoTooltip text="Sets every strategy's expected return and volatility, in this scenario only, to the figures a new plan starts from. Anything typed above is replaced." />
         </div>
+        <PercentField
+          label="Taxable dividend yield"
+          hint="At 0%, a brokerage's gains are all taxed when sold. A broad stock index fund pays about 1.3%."
+          tooltip="The part of a taxable account's return paid out each year as qualified dividends. It comes out of the expected return above rather than adding to it, so balances don't change — but the dividends are taxed as capital gains every year instead of waiting for a sale, and later sales owe correspondingly less because each dividend raises the account's cost basis. Applies to every taxable account; retirement accounts and savings are unaffected."
+          rate={assumptions.dividend_yield}
+          minPercent={0}
+          maxPercent={20}
+          onChange={(rate) =>
+            updatePlan((d) => {
+              d.assumptions.dividend_yield = rate;
+            })
+          }
+        />
       </fieldset>
     </div>
   );

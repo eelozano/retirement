@@ -128,7 +128,9 @@ asset classes. Five strategies run from Very Aggressive to Very Conservative,
 their defaults whole-portfolio figures for 100/0 through 20/80 stocks/bonds,
 and one button puts a plan back on those defaults. Each figure says what it
 means: the real return after the plan's inflation, and what a Monte Carlo
-path compounds at once years vary.
+path compounds at once years vary. A taxable dividend yield, off until you set
+it, taxes part of a brokerage's return every year as qualified dividends
+instead of deferring all of it until you sell.
 
 ![The Assumptions pane's five investment strategies, Very Aggressive through
 Very Conservative, each with an expected return and a volatility, the accounts
@@ -517,10 +519,6 @@ you spent an afternoon on.
   enter as an expense, so enter it net of any subsidy. The subsidy is a steep
   function of MAGI, which means the withdrawal order you choose silently moves
   your premiums — and the app will not show it.
-- **Dividends and distributions in a taxable account.** Growth there is
-  treated as entirely deferred until you sell, so a taxable brokerage compounds
-  a little faster here than a real one paying out dividends each year, and the
-  tax on those dividends never appears.
 - **Spousal Social Security while both are alive.** Each person's benefit is
   their own. A spouse entitled to up to half the higher earner's benefit
   instead of their own record will be understated. The *survivor* transition

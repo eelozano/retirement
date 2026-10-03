@@ -563,18 +563,22 @@ One period, in order (`period::run`):
 3. `deposit_one_time` — money from outside the plan, straight into an account.
 4. `distribute` — required minimum distributions, forced once an owner is
    past their RMD age.
-5. `mark_early_access` — record, on each account, the share of this
-   period's withdrawals that would fall before its owner may take them
-   freely. See "Early withdrawal".
-6. `accrue_interest` — Savings accounts earn their rate and are taxed on it
+5. `accrue_interest` — Savings accounts earn their rate and are taxed on it
    this same period, unlike every other account's growth, which stays
    unrealized until withdrawn. It runs before `settle` so the interest is in
    `base_income` for the one tax pass. `AccountKind::Savings` is the only
    switch: this step and `grow` are exact complements, so every account is
    priced by exactly one of them.
-7. `settle` — tax the period's whole income in one pass, then reinvest the
+6. `accrue_dividends` — Taxable accounts pay `Assumptions::dividend_yield`
+   as qualified dividends, reinvested into balance and basis and taxed as
+   capital gain in `base_income`. See "Taxable dividends".
+7. `mark_early_access` — record, on each account, the share of this
+   period's withdrawals that would fall before its owner may take them
+   freely. See "Early withdrawal".
+8. `settle` — tax the period's whole income in one pass, then reinvest the
    leftover or gross up a drawdown against that same income.
-8. `grow` — apply the period's return, then snapshot.
+9. `grow` — apply the period's return, net of any dividend already paid
+   out of it, then snapshot.
 
 This is what makes a **step** a real place to put a behavior, alongside the
 impls the strategy traits already offer.
@@ -911,6 +915,14 @@ default.
 Healthcare is an ordinary `General` expense stream; the engine has no concept of it. In reality a pre-Medicare household's ACA premium tax credit is a function of that year's modified AGI, and MAGI is something the drawdown controls: a Roth withdrawal adds nothing, a traditional withdrawal adds all of it, a taxable withdrawal adds only the realised gain. The engine does not model the loop, so the premium a user types is fixed whatever the drawdown does, and **two phased stacks that differ only in whether they spend Roth or traditional first are equivalent on this dimension when in life they are not.** A user is expected to work the subsidy out for the years in question and enter the net premium; the Spending pane says so beside the expense list, and the README lists it among the known gaps.
 
 This was a deliberate choice among three: leave it and say so (taken), a MAGI-linked stream with the FPL and applicable-percentage tables as data and the benchmark premium as a user input, or a MAGI readout on `PeriodSnapshot` without a premium model. The readout is the likeliest next step. Whichever is built, the subsidy is an income-tested rule and meets the gross-up problem in "Where the current design pushes back" (3) first.
+
+### Taxable dividends (#148)
+
+A real broad-index brokerage account distributes part of its return every year as qualified dividends, taxed as they arrive. `Assumptions::dividend_yield` models that: `accrue_dividends` pays the yield on each `Taxable` balance before `settle`, adds it to the account's cost basis, and puts it in `base_income` as `capital_gains`, so it is taxed on the LTCG schedule, stacks under any gain the period's withdrawal realizes, and counts toward Social Security provisional income. The dividend is part of the total return rather than an addition to it: `grow` subtracts it before applying the period's whole return, so a balance reaches exactly where it would without the step, for any pattern of flows, and only basis and tax differ. The cost is the time value of paying the tax every year instead of at sale, since the basis step-up hands most of it back on withdrawal.
+
+One figure for every taxable account, not one per strategy — the effect is small and a second table would be precision nobody can supply — and it is not drawn per Monte Carlo path: a bad year lowers the price return, not the dividend. Bond interest held in a taxable account is ordinary income in life; the model treats all of the yield as qualified.
+
+Measured on the committed demo scenarios before shipping, a 1.3% yield costs the equivalent of 0.16–0.20% a year of return on taxable accounts (0.27–0.32% at 2%), and moves Monte Carlo success by under half a point. A brokerage-funded early retiree in the 0% gains band loses about 0.07% a year; one in the 15% band, 0.19%. Saved plans load at 0.0, which is the old fully-deferred behaviour bit for bit.
 
 ### Surplus has two regimes (`Assumptions::sweep_surplus_from`)
 

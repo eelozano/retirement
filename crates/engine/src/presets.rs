@@ -180,6 +180,7 @@ pub fn default_assumptions() -> Assumptions {
         social_security_reduction: None,
         reinvest_into: None,
         drawdown: Default::default(),
+        dividend_yield: 0.0,
     }
 }
 
