@@ -28,6 +28,7 @@ pub use person::{Person, PersonId};
 pub use plan::{PeriodLength, Plan, PlanId, SimConfig, SCHEMA_VERSION};
 pub use social_security::{
     adjustment_factor, FullRetirementAge, SocialSecurityBenefit, SocialSecurityBenefitId,
+    WIDOW_BENEFIT_EARLIEST_AGE,
 };
 pub use strategy::StrategyRates;
 pub use stream::{
