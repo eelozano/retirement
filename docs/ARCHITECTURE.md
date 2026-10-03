@@ -794,6 +794,29 @@ When a person's accounts collectively ask for more than the shared cap, room is 
 
 The figures come from `TaxFigures::contribution_limits` (see "Tax figures"), and `TaxFigures::annual_limit` indexes them forward from `tax_year` by the run's price level, rounding down to the statutory increment ($500, or $100 for the IRA catch-up) so limits step the way the real schedule does. Catch-up is automatic from the owner's `birth`: the age-50 tier, and the SECURE 2.0 tier that replaces it for the years they turn 60 through 63. The figures' `tax_year` is surfaced in the UI rather than implying they are live.
 
+**The 2026 Roth catch-up mandate is not modelled (#153).** From 2026, a
+participant whose prior-year wages from the plan sponsor exceeded $150,000
+(indexed) must make catch-up contributions on a Roth basis (SECURE 2.0 §603).
+Here, a `FederalMaximum` contribution to a `TraditionalPreTax` employer plan
+deducts the whole catch-up, up to $8,000 a year or $11,250 at 60–63 per
+affected person. That mis-times tax in both directions: the contribution year
+is under-taxed, and the dollars land in a pre-tax balance that is later drawn
+as ordinary income rather than a Roth balance that never is, so the error
+follows the household into decumulation. It is bounded by the catch-up amount
+and is a timing shift, not a loss.
+
+It affects only a person over 50 earning above the threshold and contributing
+at or near the maximum, so it was left as a stated gap. Building it also meets
+two limits the model already documents: the test is on wages from *one
+employer*, and there is no employer grouping (the same reason 415(c) is applied
+per person), and a plan with no Roth option cannot take catch-up at all, which
+needs a plan-features model. If it is built, the threshold is an annually
+published figure and belongs in `TaxFigures`; the catch-up portion routes to a
+Roth destination through the same by-kind lookup as `match_target()`, with a
+warning shaped like `MatchUnallocated` where the owner has no Roth employer
+account; and it changes projections for the plans it touches, so it takes the
+usual measurement and release note.
+
 #### Dated contributions (`sim/contributions.rs`)
 
 An account's contributions are a **list of dated entries** (#78), each a `ContributionRule` over a `StreamBoundary` window — the vocabulary streams already had. `simulate` resolves every entry's boundaries once, up front, exactly as it does streams; an entry pinned to a person who has since been deleted contributes nothing and reports `ContributionBoundaryUnresolved` for its account. Per period each entry is prorated by `active`, its overlap with the period, and entries on one account sum before the clamp — so `contributions_by_account`, the clamp, and its warning stay per account and no consumer had to change.
@@ -932,6 +955,30 @@ The `Option` is what preserves the upgrade invariant. Every plan saved before
 `AllocationRef`) to N years and **zero** months — exactly the age it was
 already projected with. Only a new benefit, or one the user clears the
 override on, picks up the corrected table.
+
+**Spousal benefits are not modelled (#152).** A lower earner is entitled to up
+to 50% of the higher earner's PIA, payable while both are alive, and the engine
+produces none of it: `SocialSecurityBenefit` is one record per person carrying
+that person's own `benefit_at_fra`, and `survivor::social_security_streams`
+handles only the *survivor* case. The gap is silent rather than wrong. The
+input is typed by hand, so a user who enters what the person will actually
+receive, top-up included, gets the right answer, and the field's tooltip says
+so. The workaround is exact for a spouse claiming at their full retirement age
+and approximate otherwise, because the top-up is reduced on its own schedule
+(25/36 of 1% a month for the first 36 months early, then 5/12 of 1%, measured
+from the *spouse's* FRA), earns no delayed retirement credits, and is not
+payable until the higher earner has filed, while `adjustment_factor` treats the
+whole figure as an own-record benefit.
+
+A model would have to get every one of those right, since a confident number
+that is subtly wrong is worse than a gap the user has been told about, and it
+would need what the schema has no room for: one person's benefit depending on
+another's record. It was weighed and not built, because it moves only a
+household whose lower earner's own benefit is under half the other's, and the
+survivor path has the same shape. If it is ever built, design the two together.
+A `SimWarning` for an unequal pair was considered and dropped: the engine
+cannot tell a deliberate small benefit from a forgotten top-up, so it would
+fire on plans that are right.
 
 **An assumed cut** (`Assumptions::social_security_reduction`) is the
 trust-fund-depletion question: from a month on, every benefit pays a share
