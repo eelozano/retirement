@@ -208,7 +208,8 @@ fn a_survivor_with_no_benefit_of_their_own_inherits_the_decedents() {
 /// A survivor who has not reached their own claiming age when the first
 /// death happens steps up then, not at the death. That is a deliberate
 /// simplification — a real survivor benefit can start at 60, independently
-/// of one's own — and the conservative direction, so it is pinned here.
+/// of one's own — because a plan carries one claiming age per person, and it
+/// is pinned here.
 #[test]
 fn a_survivor_steps_up_no_earlier_than_their_own_claiming_age() {
     let mut plan = household();
@@ -591,4 +592,155 @@ fn a_social_security_cut_also_reduces_the_survivor_benefit() {
     assert_eq!(year(&projection, 2033).income, 65_000.0);
     assert!((year(&projection, 2034).income - 52_000.0).abs() < 1e-6);
     assert!((year(&projection, 2040).income - 32_000.0).abs() < 1e-6);
+}
+
+// --- SSA's widow(er)'s benefit (#171) ---------------------------------------
+//
+// The survivor's step-up is SSA's widow(er)'s benefit, not the decedent's own
+// check. Each fixture below takes full retirement ages from SSA's tables
+// (no override), and every expected figure is worked from the cited rule.
+
+/// A benefit on SSA's full-retirement-age table for the owner's birth year.
+fn ssa_benefit(owner: &str, pia: f64, claiming_age: u8) -> SocialSecurityBenefit {
+    SocialSecurityBenefit {
+        full_retirement_age: None,
+        claiming_age,
+        ..benefit(owner, pia)
+    }
+}
+
+fn born(year: i32) -> YearMonth {
+    YearMonth { year, month: 1 }
+}
+
+fn survivor_benefit(projection: &Projection, in_year: i32) -> f64 {
+    year(projection, in_year)
+        .income_by_stream
+        .get("ss-survivor-second")
+        .copied()
+        .unwrap_or(0.0)
+}
+
+/// RIB-LIM (POMS RS 00615.320): a decedent who claimed early leaves the
+/// larger of their reduced benefit and 82.5% of PIA. Claimed at 62 on a
+/// 67 FRA, theirs was $21,000; the survivor gets $24,750, not $21,000.
+#[test]
+fn an_early_claimer_leaves_at_least_82_5_percent_of_pia() {
+    let mut plan = household();
+    plan.people = vec![
+        person("first", born(1962), 82),
+        person("second", born(1962), 92),
+    ];
+    plan.social_security = vec![
+        ssa_benefit("first", 30_000.0, 62),
+        ssa_benefit("second", 12_000.0, 67),
+    ];
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+
+    assert_close(
+        year(&projection, 2043).income_by_stream["ss-ss-first"],
+        21_000.0,
+    );
+    assert_close(survivor_benefit(&projection, 2045), 24_750.0);
+}
+
+/// The floor binds only while the reduced benefit is under it. Claimed at
+/// 65, 24 months early, the decedent's own $26,000 is already above $24,750
+/// and is what the survivor keeps.
+#[test]
+fn the_rib_lim_floor_does_not_lift_a_benefit_already_above_it() {
+    let mut plan = household();
+    plan.people = vec![
+        person("first", born(1962), 82),
+        person("second", born(1962), 92),
+    ];
+    plan.social_security = vec![
+        ssa_benefit("first", 30_000.0, 65),
+        ssa_benefit("second", 12_000.0, 67),
+    ];
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+
+    assert_close(survivor_benefit(&projection, 2045), 26_000.0);
+}
+
+/// Delayed credits pass to the widow(er) only for the months the decedent
+/// actually earned them, through the death (POMS RS 00615.690, .706). Dying
+/// at 68 with a planned claim at 70 leaves 12 months of credit — 108% of
+/// PIA — not the 124% the planned claim would have paid.
+#[test]
+fn delayed_credits_count_only_through_the_death() {
+    let mut plan = household();
+    plan.people = vec![
+        person("first", born(1962), 68),
+        person("second", born(1962), 92),
+    ];
+    plan.social_security = vec![
+        ssa_benefit("first", 30_000.0, 70),
+        ssa_benefit("second", 12_000.0, 67),
+    ];
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+
+    assert_close(survivor_benefit(&projection, 2031), 32_400.0);
+}
+
+/// A decedent who never claimed took no reduction, so RIB-LIM has nothing
+/// to cap: a planned claim at 62 that never happened leaves the full PIA to
+/// a survivor who starts at their FRA.
+#[test]
+fn a_decedent_who_never_claimed_leaves_the_full_pia() {
+    let mut plan = household();
+    plan.people = vec![
+        person("first", born(1969), 61),
+        person("second", born(1969), 92),
+    ];
+    plan.social_security = vec![
+        ssa_benefit("first", 30_000.0, 62),
+        ssa_benefit("second", 12_000.0, 67),
+    ];
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+
+    // `second` claims at 67, in 2036 — their survivor FRA — so no reduction.
+    assert_close(survivor_benefit(&projection, 2035), 0.0);
+    assert_close(survivor_benefit(&projection, 2037), 30_000.0);
+}
+
+/// A widow(er)'s benefit taken before survivor FRA is reduced by 28.5% at
+/// 60, spread over the months from 60 to that FRA (SSA Handbook §724).
+/// Widowed at 64 with a survivor FRA of 67: 36 of 84 months early.
+#[test]
+fn a_survivor_benefit_taken_before_survivor_fra_is_reduced() {
+    let mut plan = household();
+    plan.people = vec![
+        person("first", born(1964), 66),
+        person("second", born(1966), 92),
+    ];
+    plan.social_security = vec![
+        ssa_benefit("first", 30_000.0, 67),
+        ssa_benefit("second", 12_000.0, 62),
+    ];
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+
+    assert_close(
+        survivor_benefit(&projection, 2031),
+        30_000.0 * (1.0 - 0.285 * 36.0 / 84.0),
+    );
+}
+
+/// With no benefit of their own, a survivor widowed before 60 draws nothing
+/// until 60, and then the fully reduced 71.5% — not the decedent's whole
+/// check from the death, as before #171.
+#[test]
+fn a_survivor_with_no_benefit_waits_until_60() {
+    let mut plan = household();
+    plan.people = vec![
+        person("first", born(1962), 68),
+        person("second", born(1973), 92),
+    ];
+    plan.social_security = vec![ssa_benefit("first", 30_000.0, 67)];
+    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+
+    for widowed in 2030..=2032 {
+        assert_eq!(year(&projection, widowed).income, 0.0, "{widowed}");
+    }
+    assert_close(survivor_benefit(&projection, 2033), 21_450.0);
 }

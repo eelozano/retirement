@@ -926,13 +926,20 @@ Mortality here is an assumption (`Person::life_expectancy_age`), not a draw, so 
 
 Almost everything the transition does is expressed as `CashFlowStream`s the main loop already runs, so it adds **no branch to the simulation loop**. Two things cannot be: the expense step-down (a per-period factor) and the filing-status change (a `TaxModel`).
 
-**Social Security.** The household stops drawing two benefits and the survivor keeps the larger. Four simplifications, stated because they are user-visible: the larger benefit is picked in today's dollars (the same ranking as at the transition month whenever both share a COLA, which they do unless one sets `cola_override`); a survivor who has their own benefit steps up no earlier than their own claiming month, since the real "survivor benefit at 60, delay your own to 70" move needs a reduction schedule this engine does not model, and claiming later is the conservative error; a survivor with *no* benefit of their own inherits the decedent's from the death itself, because modelling nothing would be plainly wrong for a one-earner household; and a household leaving *more than one* survivor is left alone entirely — a survivor benefit goes to a spouse, this model has no relationships in it, and handing it to each of two survivors is worse than not modelling it.
+**Social Security.** The household stops drawing two benefits, and the survivor draws the larger of their own and a widow(er)'s benefit on the decedent's record. That benefit is SSA's figure, not the decedent's own check (#171). `SocialSecurityBenefit::widow_benefit` applies SSA's three rules in SSA's order:
 
-The amount stepped up to is the decedent's *own* benefit at their planned claiming age (`annual_benefit`), not SSA's widow(er)'s benefit. The two are the same in the case most plans are in: a first death in the household's 80s, with the survivor past their survivor full retirement age, and a decedent who claimed at 65 or later. Checked against SSA's rules in #145, they differ in three ways, all tracked in #171:
+1. **The original benefit** (POMS RS 00615.301, .706): the decedent's PIA, plus the delayed credits they earned. Credits count by their claim if they claimed late, or through the death month if they died past FRA without claiming.
+2. **The age reduction** (Handbook §724): up to 28.5% off, spread over the months from 60 to the survivor's *survivor* FRA. That table runs two birth years behind the retirement one (`FullRetirementAge::survivor_for_birth_year`).
+3. **RIB-LIM** (POMS RS 00615.320): a decedent who claimed before FRA leaves no more than the larger of their reduced benefit and 82.5% of PIA. Since the age reduction comes first, at survivor FRA the 82.5% acts as a floor under the early claimer's reduced check.
 
-- **RIB-LIM.** A decedent who claimed early leaves at least 82.5% of PIA (POMS RS 00615.320). The engine leaves the reduced benefit, which understates by up to 15% for a claim at 62. This is the one gap that reaches a household dying in its 80s.
-- **The widow(er)'s age reduction.** A survivor entitled before their survivor FRA takes up to 28.5% off, and one with no benefit of their own gets nothing before 60. The engine pays the full amount, which overstates for anyone widowed young.
-- **A death before claiming.** The decedent's delayed credits count only through the death month, and a decedent never entitled leaves 100% of PIA. The engine reads the planned claiming age instead.
+A decedent counts as having claimed only if their claiming month came before the death. Rule 3 is the one a household dying in its 80s meets. Rules 1 and 2 matter for an early death or a survivor widowed young. Every case was checked against values derived independently from SSA's rules in #145.
+
+Four simplifications, stated because they are user-visible:
+
+- **Ranking.** The larger benefit is picked in today's dollars. That is the same ranking as at the transition month whenever both benefits share a COLA, which they do unless one sets `cola_override`.
+- **One claiming age per person.** A survivor who has their own benefit steps up no earlier than their own claiming month, reduced for that month. SSA lets the survivor benefit be taken separately as early as 60 (the "survivor benefit at 60, delay your own to 70" move), but a plan carries only one claiming age per person.
+- **No benefit of their own.** Such a survivor draws the widow(er)'s benefit from the death, or from 60 if younger. Benefits before 60 for a disability or a child in care are not modelled, since the plan records neither.
+- **More than one survivor.** A household leaving more than one survivor is left alone entirely. A survivor benefit goes to a spouse, this model has no relationships in it, and handing it to each of two survivors is worse than not modelling it.
 
 Not modelled at all: the $255 lump-sum death payment, and child's and mother's/father's benefits.
 

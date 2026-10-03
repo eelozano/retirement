@@ -3,6 +3,7 @@ use ts_rs::TS;
 
 use super::{
     CashFlowStream, GrowthRule, Person, PersonId, StreamBoundary, StreamDirection, StreamKind,
+    YearMonth,
 };
 
 pub type SocialSecurityBenefitId = String;
@@ -85,7 +86,46 @@ impl FullRetirementAge {
             _ => Self::new(67, 0),
         }
     }
+
+    /// The full retirement age for a *widow(er)'s* benefit, which is a
+    /// different table: the same two-month steps, two birth years later
+    /// (Social Security Act §216(l)(1), SSA Handbook §724). It sets how far
+    /// a survivor benefit taken before it is reduced; it has nothing to do
+    /// with when the survivor's own retirement benefit is unreduced.
+    pub fn survivor_for_birth_year(birth_year: i32) -> Self {
+        match birth_year {
+            ..=1939 => Self::new(65, 0),
+            1940 => Self::new(65, 2),
+            1941 => Self::new(65, 4),
+            1942 => Self::new(65, 6),
+            1943 => Self::new(65, 8),
+            1944 => Self::new(65, 10),
+            1945..=1956 => Self::new(66, 0),
+            1957 => Self::new(66, 2),
+            1958 => Self::new(66, 4),
+            1959 => Self::new(66, 6),
+            1960 => Self::new(66, 8),
+            1961 => Self::new(66, 10),
+            _ => Self::new(67, 0),
+        }
+    }
 }
+
+/// The earliest age a widow(er)'s benefit can start, absent a disability or
+/// a child in care — neither of which a plan records.
+pub const WIDOW_BENEFIT_EARLIEST_AGE: u8 = 60;
+
+/// The most a widow(er)'s benefit is reduced for being taken early: 28.5%
+/// at 60, spread evenly over the months from 60 to survivor FRA (SSA
+/// Handbook §724).
+const WIDOW_MAX_REDUCTION: f64 = 0.285;
+
+/// RIB-LIM's floor: a decedent who claimed early leaves at least this
+/// share of their PIA (POMS RS 00615.320).
+const RIB_LIM_FLOOR: f64 = 0.825;
+
+/// Delayed retirement credit per month past FRA: 2/3 of 1%.
+const DRC_PER_MONTH: f64 = 2.0 / 3.0 / 100.0;
 
 /// A Social Security retirement benefit: the user's own estimate of their
 /// benefit at Full Retirement Age (from their SSA statement), plus the age
@@ -154,6 +194,69 @@ impl SocialSecurityBenefit {
         self.benefit_at_fra * self.adjustment_factor(person)
     }
 
+    /// The annual widow(er)'s benefit `survivor` draws on this benefit's
+    /// record when `owner` dies in `death` and the survivor's benefit starts
+    /// in `entitlement` — in today's dollars, like `annual_benefit`. Zero
+    /// before the survivor is 60.
+    ///
+    /// SSA's three rules, in the order SSA applies them:
+    ///
+    /// 1. **The original benefit** (POMS RS 00615.301, .706). The decedent's
+    ///    PIA, or, if they claimed after FRA or died past FRA without
+    ///    claiming, their benefit with the delayed credits earned through
+    ///    the month of death. An early claim does not reduce it; rule 3
+    ///    handles that.
+    /// 2. **The age reduction** (Handbook §724). Up to 28.5% off, spread
+    ///    over the months from 60 to the survivor's *survivor* FRA, by the
+    ///    month the benefit starts.
+    /// 3. **RIB-LIM** (POMS RS 00615.320). If the decedent claimed before
+    ///    FRA, the result is capped at the larger of their reduced benefit
+    ///    and 82.5% of PIA.
+    ///
+    /// The decedent counts as having claimed only if their claiming month
+    /// came before the death: a benefit claimed at the age they die at was
+    /// never paid, and they leave their PIA plus any credits.
+    pub fn widow_benefit(
+        &self,
+        owner: &Person,
+        death: YearMonth,
+        survivor: &Person,
+        entitlement: YearMonth,
+    ) -> f64 {
+        let age = survivor.birth.months_until(entitlement);
+        let earliest = 12 * WIDOW_BENEFIT_EARLIEST_AGE as i64;
+        if age < earliest {
+            return 0.0;
+        }
+
+        let fra = self.full_retirement_age_for(owner).total_months() as i64;
+        let claimed = owner.month_at_age(self.claiming_age) < death;
+        let claimed_early = claimed && 12 * (self.claiming_age as i64) < fra;
+        let credit_months = if claimed {
+            12 * self.claiming_age as i64 - fra
+        } else {
+            // Credits stop accruing at 70, claimed or not.
+            owner.birth.months_until(death).min(12 * 70) - fra
+        }
+        .max(0);
+        let original = self.benefit_at_fra * (1.0 + credit_months as f64 * DRC_PER_MONTH);
+
+        let survivor_fra =
+            FullRetirementAge::survivor_for_birth_year(survivor.birth.year).total_months() as i64;
+        let early = (survivor_fra - age).max(0);
+        let reduction = WIDOW_MAX_REDUCTION * early as f64 / (survivor_fra - earliest) as f64;
+        let reduced = original * (1.0 - reduction);
+
+        if claimed_early {
+            let limit = self
+                .annual_benefit(owner)
+                .max(RIB_LIM_FLOOR * self.benefit_at_fra);
+            reduced.min(limit)
+        } else {
+            reduced
+        }
+    }
+
     /// Materializes this benefit into a plain Income stream so the sim loop
     /// never needs to know Social Security exists.
     pub fn to_stream(&self, person: &Person, plan_default_cola: f64) -> CashFlowStream {
@@ -184,6 +287,24 @@ mod tests {
 
     /// Fixtures verified against published SSA early/delayed retirement
     /// adjustment tables.
+    /// The widow(er)'s table is the retirement table two birth years later,
+    /// from the 1940 cohort's 65y2m to 67 for births from 1962 (SSA
+    /// Handbook §724; ssa.gov/survivor/amount: "between ages 66–67").
+    #[test]
+    fn survivor_fra_runs_two_years_behind_the_retirement_table() {
+        for birth_year in 1940..=1970 {
+            assert_eq!(
+                FullRetirementAge::survivor_for_birth_year(birth_year),
+                FullRetirementAge::for_birth_year(birth_year - 2),
+                "{birth_year}"
+            );
+        }
+        assert_eq!(
+            FullRetirementAge::survivor_for_birth_year(1960),
+            FullRetirementAge::new(66, 8)
+        );
+    }
+
     #[test]
     fn claim_equals_fra_is_unadjusted() {
         assert_eq!(adjustment_factor(years(67), 67), 1.0);
