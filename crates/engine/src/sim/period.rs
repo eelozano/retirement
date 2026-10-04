@@ -270,6 +270,9 @@ pub(super) struct PeriodState {
     /// Market growth applied to post-flow balances this period, summed
     /// across accounts. Set by `grow()`, the last step.
     pub growth: f64,
+    /// The period's income once `settle` is done with it: `base_income`, plus
+    /// whatever the drawdown added. What `magi` reads.
+    pub settled_income: IncomeBreakdown,
 }
 
 impl PeriodState {
@@ -299,7 +302,19 @@ impl PeriodState {
         }
     }
 
+    /// The year's modified adjusted gross income on the ACA definition
+    /// (IRC 36B(d)(2)(B)): AGI plus the Social Security benefit that is not
+    /// in gross income. On the engine's terms, everything in the settled
+    /// breakdown but `untaxed` — and with the *whole* benefit, not only its
+    /// taxable part, which is the difference from the AGI the tax model
+    /// brackets. Not IRMAA's MAGI, which leaves untaxed benefits out.
+    fn magi(&self) -> f64 {
+        let income = &self.settled_income;
+        income.ordinary + income.capital_gains + income.social_security
+    }
+
     fn snapshot(self, ctx: &PeriodContext, accounts: &[AccountState]) -> PeriodSnapshot {
+        let magi = self.magi();
         PeriodSnapshot {
             period: ctx.period,
             period_start: ctx.start,
@@ -321,6 +336,7 @@ impl PeriodState {
             surplus: self.surplus,
             withdrawals: self.withdrawals,
             growth: self.growth,
+            magi,
             deflator: ctx.deflator(),
             deflator_end: ctx.deflator_end(),
         }
@@ -700,6 +716,7 @@ fn mark_early_access(ctx: &PeriodContext, state: &mut RunState) {
 /// dollars meet the progressive schedule once, in one stack.
 fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state: &mut RunState) {
     let base = period.base_income();
+    period.settled_income = base;
     let income_tax = run.tax.tax(&base, ctx.period).tax;
     period.taxes = income_tax;
 
@@ -779,6 +796,7 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
     // this addition is the period's whole bill, counted once.
     period.taxes += result.tax;
     period.withdrawal_taxes = result.tax;
+    period.settled_income = result.income;
     period.early_withdrawal_penalty = result.penalty;
     if result.penalty > 0.0 && !state.penalty_reported {
         state.penalty_reported = true;

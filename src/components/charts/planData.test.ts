@@ -32,6 +32,7 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     surplus: 0,
     withdrawals: {},
     growth: 0,
+    magi: 0,
     net_worth: 0,
     income_by_stream: {},
     expenses_by_stream: {},
@@ -512,6 +513,7 @@ describe("yearDetail (real dollars)", () => {
         net_worth: 1030,
         income: 200,
         expenses: 200,
+        magi: 300,
         deflator: 2,
         deflator_end: 2.06,
       }),
@@ -523,11 +525,14 @@ describe("yearDetail (real dollars)", () => {
     expect(detail?.balances.map((b) => b.value)).toEqual([expect.closeTo(500, 9)]);
     // The flows are unchanged: still over the start factor.
     expect(detail?.flows.find((f) => f.key === "income")?.value).toBe(100);
+    // MAGI is a flow too (#186).
+    expect(detail?.magi).toBe(150);
 
     // And nominal is nominal.
     const nominal = yearDetail(p, proj, 2030, seriesDefs(p), false);
     expect(nominal?.netWorth).toBe(1030);
     expect(nominal?.flows.find((f) => f.key === "income")?.value).toBe(200);
+    expect(nominal?.magi).toBe(300);
   });
 });
 

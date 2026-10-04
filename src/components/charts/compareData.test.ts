@@ -26,6 +26,7 @@ function snapshot(overrides: Partial<PeriodSnapshot>): PeriodSnapshot {
     surplus: 0,
     withdrawals: {},
     growth: 0,
+    magi: 0,
     net_worth: 0,
     income_by_stream: {},
     expenses_by_stream: {},
