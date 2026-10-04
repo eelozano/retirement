@@ -116,7 +116,9 @@ phase can start when someone reaches 59½, which is the age the 10%
 early-withdrawal penalty stops applying, so an early retirement can bridge on
 taxable money and a 401(k) freed by the Rule of 55 while the rest waits. Rows
 warn when the account they name would still be penalized, and one button
-builds the bridge.
+builds the bridge. Instead of a list, a phase can keep each year's MAGI near
+a number you type — for the years an ACA premium credit depends on it — and
+the app orders the accounts itself by a rule it states beside the number.
 
 ![The Withdrawals pane: a "Bridge to 59½" phase drawing the joint brokerage,
 then Alex's 401(k), then emergency savings down to a $30,000 floor, with a
@@ -461,6 +463,11 @@ there — it just doesn't bundle an installer.
   freed by the Rule of 55 while the rest waits. The penalty is modelled where
   it is owed, shown as its own outflow rather than folded into tax, and rows
   warn when the account they name would still be penalized.
+- **Keep MAGI near a target.** A phase can hold each year's MAGI (the ACA
+  definition) near one number in today's dollars instead of following a list:
+  pre-tax and brokerage up to the target, then money that adds nothing to
+  MAGI, then over the target only if it has to, penalized money last. A year
+  that cannot stay under it is flagged rather than failed.
 - **Per-person life expectancy.** Each person carries their own, so the
   projection runs to the last survivor and streams that end at a death end at
   *that person's*.
@@ -540,8 +547,9 @@ than the return assumption you spent an afternoon on.
 - **ACA premium subsidies.** Health insurance before Medicare is whatever you
   enter as an expense, so enter it net of any subsidy. The subsidy is a steep
   function of MAGI, which means the withdrawal order you choose moves your
-  premiums. Each year's MAGI is shown (year inspector, data table, CSV), but
-  the subsidy itself is not computed.
+  premiums. Each year's MAGI is shown (year inspector, data table, CSV), and a
+  withdrawal phase can hold it near a target, but the subsidy itself is not
+  computed.
 - **Spousal Social Security while both are alive.** Each person's benefit is
   their own. A spouse entitled to up to half the higher earner's benefit
   instead of their own record will be understated, unless you enter what they

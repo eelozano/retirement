@@ -162,6 +162,55 @@ describe("readableWarnings", () => {
     expect(skipped.detail).toContain("no longer in this plan");
   });
 
+  it("names the phase, the year and the cause of a MAGI overrun, in today's dollars", () => {
+    const targetPlan = {
+      ...plan,
+      assumptions: {
+        drawdown: {
+          Phased: [
+            {
+              id: "aca",
+              name: "Keep MAGI near $80k",
+              start: { Boundary: "PlanStart" },
+              rule: { MagiTarget: { target: 80000 } },
+              stack: [],
+            },
+          ],
+        },
+      },
+    } as unknown as Plan;
+    const p = projection([
+      {
+        MagiTargetExceeded: {
+          phase: "aca",
+          period: 1,
+          target: 82400,
+          magi: 103000,
+          reason: "RanOut",
+        },
+      },
+      {
+        MagiTargetExceeded: {
+          phase: "aca",
+          period: 0,
+          target: 80000,
+          magi: 90000,
+          reason: "OtherIncome",
+        },
+      },
+    ]);
+    // 2027 is a year of 3% inflation on: $82,400 nominal is the $80,000 typed.
+    p.snapshots[0].deflator = 1;
+    p.snapshots[1].deflator = 1.03;
+    const [ranOut, otherIncome] = readableWarnings(targetPlan, p);
+    expect(ranOut.title).toContain("Keep MAGI near $80k");
+    expect(ranOut.title).toContain("2027");
+    expect(ranOut.detail).toContain("$80,000");
+    expect(ranOut.detail).toContain("$100,000");
+    expect(ranOut.detail).toContain("ran out");
+    expect(otherIncome.detail).toContain("before anything was withdrawn");
+  });
+
   it("gives every warning a distinct key", () => {
     const ws = readableWarnings(
       plan,

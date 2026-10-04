@@ -403,8 +403,11 @@ pub struct Assumptions {
 pub enum DrawdownPolicy { Proportional, Phased(Vec<DrawdownPhase>) }
 pub struct DrawdownPhase {           // + id, name
     pub start: PhaseStart,           // runs until the next phase's start
-    pub stack: Vec<StackEntry>,      // drawn top to bottom
+    pub rule: PhaseRule,             // serde(default): Stack
+    pub stack: Vec<StackEntry>,      // drawn top to bottom; kept, unread, under a target
 }
+// "My order", or "keep MAGI near $X" (today's dollars, grown) — #187.
+pub enum PhaseRule { Stack, MagiTarget { target: f64 } }
 // A boundary, or the month a person reaches 59½ — statute the engine holds,
 // rather than an age the user has to know to type.
 pub enum PhaseStart { Boundary(StreamBoundary), PenaltyFree(PersonId) }
@@ -546,11 +549,14 @@ pub trait DrawdownStrategy {
 ```
 
 Both drawdown impls share one solver, `gross_up` (`strategies/drawdown.rs`):
-the fixed-point gross-up, the income character of a withdrawn dollar, and
-applying the draw to balances and basis live there, and an impl supplies
-only the allocation — how much of a gross amount each account supplies. An
-allocation has to be continuous and non-decreasing in the gross, which is
-what makes the fixed point converge.
+the gross-up, the income character of a withdrawn dollar, and applying the
+draw to balances and basis live there, and an impl supplies only the
+allocation — how much of a gross amount each account supplies. An allocation
+has to be continuous, and the net a gross leaves after the tax it adds has to
+rise with the gross. `solve` finds that gross by fixed-point iteration first,
+and every allocation before #187 converges there, so its answer is the one it
+always was; one that exhausts its rounds falls back to bisection (see "Where
+the current design pushes back", 3).
 
 `PhasedDrawdown` (`strategies/phased.rs`) is a **waterfall over tranches**: a
 tranche is a slice of one or more accounts' balances with a capacity, and a
@@ -569,6 +575,50 @@ covers, each part is drawn down its own phase's stack, and the second stacks
 on the income of the first so the period still meets the tax schedule once.
 Each part is judged early or not over its own months, so a draw from the
 phase that begins at 59½ is never penalized in the year of the birthday.
+
+**A MAGI target** (`PhaseRule::MagiTarget`, #187) is the second kind of
+phase: one number in place of a stack, for the years an ACA premium credit
+depends on MAGI. The user had only ever ordered a stack to approximate a
+threshold, so the order is the engine's, fixed and written down in
+`strategies/phased.rs` and on the Withdrawals pane. The headroom is the
+target, grown like a floor, less the MAGI (`IncomeBreakdown::aca_magi`, #186's
+one definition) the calendar year already holds. Accounts are classed by the
+period's early-access shares, as the fallback classes them:
+
+1. **Penalty-free pre-tax and taxable, filled together to the target.** A
+   pre-tax dollar adds a dollar of MAGI and a taxable dollar only its gain
+   `g`, so for a gross `x` the pre-tax draw is
+   `min(x, pre-tax balance, (H − g·x) / (1 − g))` — all of `x` while the need
+   is under the headroom `H`, and then less pre-tax and more brokerage as the
+   need grows, with MAGI pinned at the target. It keeps the Roth growing and
+   still uses the low brackets.
+2. **Money that adds no MAGI**: savings, Roth that comes out untaxed (a Roth
+   IRA's contributions before 59½), HSA.
+3. **Over the target**: the rest of the brokerage, the rest of the pre-tax,
+   then Roth earnings that are taxed but not penalized.
+4. **Penalized money**, last.
+
+The target is soft, for the reason a floor is, and a year that ends over it
+reports `MagiTargetExceeded` with one of two reasons, each once per phase:
+`OtherIncome` (over before the phase drew anything — a salary, an RMD, a
+pension) or `RanOut` (the money that keeps MAGI down was spent). Two reasons
+rather than one because a phase from plan start would otherwise spend its one
+warning on a working year and hide the year the bridge money runs out. A
+target creates no income: a year needing less stays below it, since filling
+the gap on purpose is a Roth conversion. In a period split between phases the
+target's months draw **last**, so the MAGI it steers by is the calendar
+year's. Two approximations, both stated: an account penalized for part of a
+year counts as penalized for all of it inside a target phase, as in the
+fallback; and the stub period 0 steers by the whole target, as its tax uses
+the whole standard deduction.
+
+Stage 1 is the one allocation whose per-account draw is not non-decreasing:
+the pre-tax share falls as the gross rises through the pinned band. The tax
+falls with it — at a constant MAGI a dollar moves from ordinary income to
+capital gains, never taxed more — so the net still rises, but by
+`(g / (1 − g))·(ordinary rate − gains rate)` per dollar, which exceeds 1 for a
+brokerage that is mostly gain and sends the fixed point round a cycle. That is
+what the bisection fallback is for, and a 90%-gain test pins it.
 
 `lib.rs` assembles the standard configuration: `run_with` (the plan's
 `SurvivorTax` and drawdown policy, both built on the same `PriceLevel` the
@@ -1025,7 +1075,7 @@ default.
 
 ### Pre-Medicare healthcare is exogenous (#147)
 
-Healthcare is an ordinary `General` expense stream; the engine has no concept of it. In reality a pre-Medicare household's ACA premium tax credit is a function of that year's modified AGI, and MAGI is something the drawdown controls: a Roth withdrawal adds nothing, a traditional withdrawal adds all of it, a taxable withdrawal adds only the realised gain. The engine does not model the loop, so the premium a user types is fixed whatever the drawdown does, and **two phased stacks that differ only in whether they spend Roth or traditional first are equivalent on this dimension when in life they are not.** A user is expected to work the subsidy out for the years in question and enter the net premium; the Spending pane says so beside the expense list, and the README lists it among the known gaps.
+Healthcare is an ordinary `General` expense stream; the engine has no concept of it. In reality a pre-Medicare household's ACA premium tax credit is a function of that year's modified AGI, and MAGI is something the drawdown controls: a Roth withdrawal adds nothing, a traditional withdrawal adds all of it, a taxable withdrawal adds only the realised gain. The engine does not model the loop, so the premium a user types is fixed whatever the drawdown does, and **two phased stacks that differ only in whether they spend Roth or traditional first are equivalent on this dimension when in life they are not.** A MAGI-target phase (#187) lets a household *hold* MAGI where the credit needs it, but the premium is still the figure they typed. A user is expected to work the subsidy out for the years in question and enter the net premium; the Spending pane says so beside the expense list, and the README lists it among the known gaps.
 
 What the app does show is the input to that calculation. `PeriodSnapshot::magi` (#186) is the year's MAGI on the ACA definition (IRC 36B(d)(2)(B)): the period's *settled* income, after the drawdown, as `ordinary + capital_gains + social_security`. That is AGI plus the Social Security that is not in gross income, so the benefit counts **whole**, where the tax model brackets only its taxable part, and `untaxed` (Roth draws, returned basis) counts for nothing. `WithdrawalResult::income` is what carries the settled breakdown out of the drawdown; it is `base` when nothing was drawn, so `settle` never asks whether a draw happened. It is a nominal flow, computed once, so it is deflated by `deflator` like the rest, and Monte Carlo paths and historical cohorts carry it unread. The year inspector, the data table and the CSV label it "MAGI (ACA)".
 
@@ -1242,7 +1292,7 @@ Every command is registered in `generate_handler!` in `src-tauri/src/lib.rs`. Gr
 
 ### What slots in
 
-- **A new trait impl.** The historical-sequence `ReturnModel` this predicted landed as `HistoricalReturns` with no trait change. It is built per start year instead of reading the start year from `path_id`, because each cohort needs its own price level too, and a blended per-strategy series carries that year's real cross-asset correlation for free. The ordered `DrawdownStrategy` this predicted — `PhasedDrawdown` — did land as another impl behind the trait, which gained one defaulted method (`phase`) so a snapshot can name the phase in force.
+- **A new trait impl.** The historical-sequence `ReturnModel` this predicted landed as `HistoricalReturns` with no trait change. It is built per start year instead of reading the start year from `path_id`, because each cohort needs its own price level too, and a blended per-strategy series carries that year's real cross-asset correlation for free. The ordered `DrawdownStrategy` this predicted — `PhasedDrawdown` — did land as another impl behind the trait, which gained one defaulted method (`phase`) so a snapshot can name the phase in force. A second kind of phase, the MAGI target (#187), landed inside that impl with no trait change: one more field on `WithdrawalResult` carries its overrun out to `settle`.
 - **A new step.** A behavior that moves money because the calendar says so — as RMDs do — is a function over `PeriodState` in `sim/period.rs`, placed in the pipeline where its money has to be. One that feeds the period's income runs before `settle`, so it is inside the single tax pass.
 - **A new field.** Schema changes go through the `*Wire` deserializers (`AccountWire`, `AssumptionsWire`, `PersonWire`) with `#[serde(default)]`, so a file written before the field loads as exactly what it meant and projects identically. That pattern is well established, and none of the extensions below needs a breaking schema change. Each new fact or choice has two possible homes since #109: a figure read off a statement — a loan balance, a property value — goes on the household with a dated observation, and a choice or an assumption — an appreciation rate, a sale year — goes on the scenario. An observation on the scenario side, or a scenario variable on the household, is the mistake to look for in review.
 - **Tests for tax law.** The golden-file and property tests pin engine *mechanics*; they say nothing about whether a threshold is right. Anything that models a rule of tax law lands with hand-computed micro-cases in the style of `strategies/tax.rs`'s test module, where the arithmetic is checkable by reading.
@@ -1253,5 +1303,5 @@ Four places where the engine currently gets to assume something for free, and a 
 
 1. **`net_worth` is the sum of account balances** (`PeriodState::snapshot`, `sim/period.rs`). Liabilities — a mortgage, a student loan — would redefine that figure for every existing plan, and it feeds the headline tiles, the comparison table's net-worth and delta columns, the Monte Carlo fan and every golden file. The change would be correct, but it is not additive the way a new field is: under the saved-output rule in `CLAUDE.md` it has to be announced and measured, not shipped as a quietly smaller number. Debt should be a container parallel to `Account`, never a negative balance in the account array, and amortization a step.
 2. **Every drawdown can reach every account it is given.** `ProportionalDrawdown` sells from all of them in proportion to balance; `PhasedDrawdown` draws a stack first but falls back to everything the stack leaves out, and even a floor is released rather than held (`strategies/`). That is deliberate — a household with money left has not failed — but it means any new asset container is a liquidity question first: a house modelled as an account would be sold a slice at a time to cover a bad year, and counted as spendable in every depletion test and every success rate, overstating the one number people act on. An illiquid asset needs a container that contributes to net worth and to nothing the drawdown can reach. A **hard** floor is the same question in miniature, and the answer here was to make floors soft.
-3. **The withdrawal gross-up assumes tax is continuous.** It is a fixed-point iteration, `gross = net_needed + marginal(gross)`, run up to 100 times and stopped when successive values converge (`strategies/drawdown.rs`). That is correct because every tax rule modelled today is continuous and monotone in income — the early-withdrawal penalty included, which is linear in the amount drawn, and an allocation is required to be continuous and non-decreasing for the same reason. A cliff — IRMAA, where one dollar of income can add about $1,000 a year of premium, or an ACA subsidy — can make the iteration oscillate, exhaust its rounds and return a `gross` that does not satisfy the equation, silently; and the equation can have *no* solution, when the extra dollar drawn to pay a surcharge is what triggers it. This is the same shape of failure as #54, and it applies to any income-tested rule, including a phase-out or a state credit. Settle it before the first cliff lands: either compute the cliff outside the gross-up as a step, accepting a bounded, explainable understatement in the year a household crosses a tier, or replace the iteration with a bracketed search that has a defined answer for "no exact solution".
+3. **The withdrawal gross-up assumes tax is continuous.** `solve` (`strategies/drawdown.rs`) runs the fixed-point iteration `gross = net_needed + marginal(gross)` up to 100 times, and since #187 falls back to bisection on `gross − marginal(gross) = net_needed` when the iteration has not settled. The bisection needs only that the net rises with the gross, which holds for every rule modelled today — the early-withdrawal penalty is linear in the draw, no marginal rate reaches 100%, and a MAGI target's pinned band, where the fixed point *can* oscillate, lowers the cost as the gross rises. Every plan that converged before still converges in the loop, so its answer did not move. A cliff — IRMAA, where one dollar of income can add about $1,000 a year of premium, or an ACA subsidy — is still unmodelled, and it would make the net jump *down* at the threshold: the equation can then have no solution, when the extra dollar drawn to pay a surcharge is what triggers it. The bisection now has a defined answer for that, the smallest gross it finds whose net covers the need, but that answer sits just past the cliff, and whether it is the right one to report is a modelling question, not a numerical one. This is the same shape of failure as #54, and it applies to any income-tested rule, including a phase-out or a state credit. Settle it before the first cliff lands: compute the cliff outside the gross-up as a step, accepting a bounded, explainable understatement in the year a household crosses a tier, or accept the bracketed answer and say in the snapshot that a year sits on a cliff.
 4. **`TaxResult` has no structure.** It is `{ tax: f64 }` (`strategies/tax.rs`); nothing can ask a `TaxModel` for a marginal rate or where the next threshold sits, which is the question a Roth conversion or any bracket-filling withdrawal is built on. The least invasive answer is a trait method with a default implementation that locates the next threshold by searching over `tax()` — correct for every impl, including ones not yet written — rather than widening `TaxResult`, which would force `FlatTax` to invent thresholds it does not have.

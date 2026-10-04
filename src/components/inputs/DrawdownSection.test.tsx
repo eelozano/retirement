@@ -134,4 +134,33 @@ describe("DrawdownSection", () => {
     await userEvent.click(screen.getByRole("button", { name: "Remove her-401k" }));
     expect(order()).toEqual(["brokerage"]);
   });
+
+  it("swaps a phase's list for one MAGI number, states the rule, and swaps back", async () => {
+    render(<DrawdownSection />);
+    await userEvent.selectOptions(screen.getByLabelText("Withdraw"), "Phased");
+    await userEvent.selectOptions(
+      screen.getByLabelText("Add to the list"),
+      JSON.stringify({ Account: "brokerage" }),
+    );
+    await userEvent.selectOptions(screen.getByLabelText("Draw"), "MagiTarget");
+
+    const target = screen.getByLabelText("Keep MAGI near (today's $ a year)");
+    await userEvent.clear(target);
+    await userEvent.type(target, "80000");
+    await userEvent.tab();
+    const phase = () => {
+      const p = policy();
+      if (p === "Proportional" || p === undefined) throw new Error("expected phases");
+      return p.Phased[0];
+    };
+    expect(phase().rule).toEqual({ MagiTarget: { target: 80000 } });
+    // The rule is on screen beside the number, and the list is not.
+    expect(screen.getByText(/Then money that adds nothing to MAGI/)).toBeTruthy();
+    expect(screen.queryByLabelText("Add to the list")).toBeNull();
+
+    // The list was kept, so going back restores it.
+    await userEvent.selectOptions(screen.getByLabelText("Draw"), "Stack");
+    expect(phase().rule).toBe("Stack");
+    expect(phase().stack).toEqual([{ source: { Account: "brokerage" }, floor: 0 }]);
+  });
 });

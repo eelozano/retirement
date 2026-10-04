@@ -4,8 +4,9 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::{
-    AccountKind, ContributionRule, DrawdownPhase, DrawdownPolicy, MatchDestination, PhaseStart,
-    Plan, PlanType, StackSource, StreamBoundary, StreamDirection, StreamKind, YearMonth,
+    AccountKind, ContributionRule, DrawdownPhase, DrawdownPolicy, MatchDestination, PhaseRule,
+    PhaseStart, Plan, PlanType, StackSource, StreamBoundary, StreamDirection, StreamKind,
+    YearMonth,
 };
 
 /// Bounds on any date in a plan. `YearMonth::new` asserts the month range,
@@ -851,6 +852,15 @@ fn validate_phases(plan: &Plan, phases: &[DrawdownPhase], errors: &mut Vec<Valid
             );
         }
 
+        if let PhaseRule::MagiTarget { target } = phase.rule {
+            if !target.is_finite() || target < 0.0 {
+                err(
+                    format!("{at}.rule"),
+                    format!("\"{}\" needs a MAGI target of zero or more.", phase.name),
+                );
+            }
+        }
+
         let mut seen_sources = HashSet::new();
         for (j, entry) in phase.stack.iter().enumerate() {
             let at = format!("{at}.stack[{j}]");
@@ -1490,12 +1500,13 @@ mod tests {
     }
 
     fn phased(stack: Vec<crate::model::StackEntry>) -> crate::model::Plan {
-        use crate::model::{DrawdownPhase, DrawdownPolicy, PhaseStart, StreamBoundary};
+        use crate::model::{DrawdownPhase, DrawdownPolicy, PhaseRule, PhaseStart, StreamBoundary};
         let mut plan = seed_plan();
         plan.assumptions.drawdown = DrawdownPolicy::Phased(vec![DrawdownPhase {
             id: "bridge".to_string(),
             name: "Bridge".to_string(),
             start: PhaseStart::Boundary(StreamBoundary::PlanStart),
+            rule: PhaseRule::Stack,
             stack,
         }]);
         plan
@@ -1520,7 +1531,7 @@ mod tests {
 
     #[test]
     fn accepts_several_phases_and_catches_a_start_naming_a_missing_person() {
-        use crate::model::{DrawdownPhase, DrawdownPolicy, PhaseStart};
+        use crate::model::{DrawdownPhase, DrawdownPolicy, PhaseRule, PhaseStart};
         let mut plan = phased(vec![]);
         let DrawdownPolicy::Phased(phases) = &mut plan.assumptions.drawdown else {
             unreachable!()
@@ -1529,6 +1540,7 @@ mod tests {
             id: "standard".to_string(),
             name: "Standard".to_string(),
             start: PhaseStart::PenaltyFree("jordan".to_string()),
+            rule: PhaseRule::Stack,
             stack: vec![],
         });
         assert!(plan.validate().is_empty(), "{:?}", plan.validate());
@@ -1564,6 +1576,29 @@ mod tests {
         assert!(errors
             .iter()
             .any(|e| e.field == "assumptions.drawdown[0].stack[1].floor"));
+    }
+
+    #[test]
+    fn a_magi_target_has_to_be_zero_or_more() {
+        use crate::model::{DrawdownPolicy, PhaseRule};
+        let target = |target: f64| {
+            let mut plan = phased(vec![]);
+            let DrawdownPolicy::Phased(phases) = &mut plan.assumptions.drawdown else {
+                unreachable!()
+            };
+            phases[0].rule = PhaseRule::MagiTarget { target };
+            plan.validate()
+        };
+        let refused = |errors: Vec<super::ValidationError>| {
+            errors
+                .iter()
+                .any(|e| e.field == "assumptions.drawdown[0].rule")
+        };
+        assert!(!refused(target(80_000.0)));
+        // Zero is a real choice: money that adds no MAGI first.
+        assert!(!refused(target(0.0)));
+        assert!(refused(target(-1.0)));
+        assert!(refused(target(f64::NAN)));
     }
 
     #[test]

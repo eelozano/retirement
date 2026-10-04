@@ -32,11 +32,34 @@ pub struct DrawdownPhase {
     pub id: String,
     pub name: String,
     pub start: PhaseStart,
+    /// How the phase decides its order: the stack below, or a MAGI target
+    /// the engine orders the draw around. Absent in a plan saved before the
+    /// choice existed, which loads as the stack it always was.
+    #[serde(default)]
+    pub rule: PhaseRule,
     /// Drawn top to bottom: each entry is emptied down to its floor before
     /// the next is touched. Accounts no entry names are drawn after the
     /// whole stack, in the engine's fallback order — see
-    /// `strategies::PhasedDrawdown`.
+    /// `strategies::PhasedDrawdown`. Kept, unread, under a MAGI target, so
+    /// switching back restores it.
     pub stack: Vec<StackEntry>,
+}
+
+/// What orders a phase's withdrawals.
+#[derive(Serialize, Deserialize, TS, Clone, Debug, Default, PartialEq)]
+#[ts(export)]
+pub enum PhaseRule {
+    /// The phase's own stack, top to bottom — "my order".
+    #[default]
+    Stack,
+    /// "Keep MAGI near $X": the engine orders the draw itself so the
+    /// calendar year's MAGI, on the ACA definition, lands as close to the
+    /// target as the year's need allows, and never above it while money
+    /// that keeps it down remains. In today's dollars, grown with inflation,
+    /// like a floor. Soft: a year that cannot stay under it goes over and is
+    /// reported, rather than failing with money in the bank. The order is
+    /// fixed and written down in `strategies::phased`.
+    MagiTarget { target: f64 },
 }
 
 /// When a phase begins.

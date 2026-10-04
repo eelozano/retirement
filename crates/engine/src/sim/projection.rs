@@ -89,6 +89,32 @@ pub enum SimWarning {
     /// household holds was already spent. Floors are soft on purpose — see
     /// `StackEntry::floor`. Reported once per account, for the first period.
     FloorReleased { account: AccountId, period: usize },
+    /// A phase keeping MAGI near a target drew this period, and the year's
+    /// MAGI still ended above the target. The target is soft on purpose —
+    /// see `PhaseRule::MagiTarget`. Reported once per phase *and reason*,
+    /// for the first period: the two say different things, and a working
+    /// year whose salary is over the target should not hide the year the
+    /// bridge money runs out. `target` and `magi` are that year's, nominal.
+    MagiTargetExceeded {
+        phase: String,
+        period: usize,
+        target: f64,
+        magi: f64,
+        reason: MagiOverrun,
+    },
+}
+
+/// Why a year went over its MAGI target.
+#[derive(Serialize, Deserialize, TS, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[ts(export)]
+pub enum MagiOverrun {
+    /// The year was over before the phase drew anything: income — or what
+    /// another phase drew earlier in the year — already exceeded the
+    /// target, so the draw took money that adds no MAGI first.
+    OtherIncome,
+    /// The money that keeps MAGI down ran out, and the rest of the need
+    /// came from money that adds to it.
+    RanOut,
 }
 
 /// Why a Rule of 55 election does not hold.
@@ -278,7 +304,8 @@ impl SimWarning {
             | SimWarning::AnnualAdditionsClamped { period, .. }
             | SimWarning::RequiredDistributionUnallocated { period }
             | SimWarning::EarlyWithdrawalPenalty { period }
-            | SimWarning::FloorReleased { period, .. } => Some(*period),
+            | SimWarning::FloorReleased { period, .. }
+            | SimWarning::MagiTargetExceeded { period, .. } => Some(*period),
             SimWarning::MatchUnallocated { .. }
             | SimWarning::SurplusUnallocated
             | SimWarning::SweepBoundaryUnresolved

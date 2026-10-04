@@ -14,8 +14,8 @@ pub use model::{Plan, YearMonth};
 pub use sim::{
     run_monte_carlo as run_monte_carlo_sim, run_monte_carlo_with as run_monte_carlo_sim_with,
     simulate, simulate_with_prices, BacktestResult, Cancelled, CohortDetail, CohortStatus,
-    CohortSummary, MarketYear, MonteCarloConfig, MonteCarloDiagnostics, MonteCarloResult,
-    OneTimeInfo, PathGroupStats, PeriodPercentiles, PeriodSnapshot, Projection,
+    CohortSummary, MagiOverrun, MarketYear, MonteCarloConfig, MonteCarloDiagnostics,
+    MonteCarloResult, OneTimeInfo, PathGroupStats, PeriodPercentiles, PeriodSnapshot, Projection,
     Rule55Ineligibility, RunControl, SimWarning, Spread, StreamInfo, EARLY_RETIREMENT_WINDOW_YEARS,
 };
 
