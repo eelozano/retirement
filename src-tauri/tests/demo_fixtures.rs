@@ -707,8 +707,9 @@ fn golden_path() -> PathBuf {
 
 /// The deterministic projection of every committed demo scenario, one row
 /// per period: net worth, the period's tax bill, the withdrawal gross-up's
-/// share of it, the early-withdrawal penalty's share of that, and the gross
-/// withdrawn from each account.
+/// share of it, the early-withdrawal penalty's share of that, the gross
+/// withdrawn from each account, and the year's ACA MAGI — last, because it
+/// was added last (#187), when a drawdown phase began steering by it.
 fn golden_projections() -> String {
     let yaml = fs::read_to_string(fixture_path()).expect("demo fixture present");
     let file: HouseholdFile = serde_yaml_ng::from_str(&yaml).expect("demo fixture parses");
@@ -716,7 +717,7 @@ fn golden_projections() -> String {
 
     let accounts: Vec<String> = file.accounts.iter().map(|a| a.id.clone()).collect();
     let mut out = format!(
-        "scenario,year,net_worth,taxes,withdrawal_taxes,early_withdrawal_penalty,{}\n",
+        "scenario,year,net_worth,taxes,withdrawal_taxes,early_withdrawal_penalty,{},magi\n",
         accounts
             .iter()
             .map(|id| format!("withdrawn:{id}"))
@@ -737,14 +738,15 @@ fn golden_projections() -> String {
                 })
                 .collect();
             out.push_str(&format!(
-                "{},{},{:.6},{:.6},{:.6},{:.6},{}\n",
+                "{},{},{:.6},{:.6},{:.6},{:.6},{},{:.6}\n",
                 scenario.id,
                 snapshot.period_start.year,
                 snapshot.net_worth,
                 snapshot.taxes,
                 snapshot.withdrawal_taxes,
                 snapshot.early_withdrawal_penalty,
-                withdrawn.join(",")
+                withdrawn.join(","),
+                snapshot.magi
             ));
         }
     }
