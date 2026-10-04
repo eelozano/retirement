@@ -127,6 +127,16 @@ export function phaseName(plan: Plan, id: string | null): string | null {
   return drawdown.Phased.find((p) => p.id === id)?.name ?? null;
 }
 
+/** The MAGI target of the phase with this id, in today's dollars — null for
+ * a phase that keeps its own order, or no phase at all. */
+export function phaseTarget(plan: Plan, id: string | null): number | null {
+  if (id === null) return null;
+  const { drawdown } = plan.assumptions;
+  if (drawdown === "Proportional") return null;
+  const rule = drawdown.Phased.find((p) => p.id === id)?.rule;
+  return rule && rule !== "Stack" ? rule.MagiTarget.target : null;
+}
+
 let nextId = 0;
 export function newPhaseId(): string {
   nextId += 1;
@@ -142,6 +152,7 @@ export function defaultOrderPolicy(): DrawdownPolicy {
         id: newPhaseId(),
         name: "Default order",
         start: { Boundary: "PlanStart" },
+        rule: "Stack",
         stack: [],
       },
     ],
@@ -189,12 +200,14 @@ export function bridgePolicy(plan: Plan): DrawdownPolicy | null {
     id: newPhaseId(),
     name: "Bridge to 59½",
     start: { Boundary: "PlanStart" },
+    rule: "Stack",
     stack: reachable.map((a) => ({ source: { Account: a.id }, floor: 0 })),
   };
   const standard: DrawdownPhase = {
     id: newPhaseId(),
     name: "Standard",
     start: { PenaltyFree: person.id },
+    rule: "Stack",
     stack: [],
   };
   return { Phased: [bridge, standard] };

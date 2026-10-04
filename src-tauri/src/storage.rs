@@ -672,7 +672,8 @@ pub fn cleanup(base: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use engine::model::{
-        ContributionRule, DrawdownPhase, DrawdownPolicy, PhaseStart, StreamBoundary, YearMonth,
+        ContributionRule, DrawdownPhase, DrawdownPolicy, PhaseRule, PhaseStart, StreamBoundary,
+        YearMonth,
     };
 
     use super::*;
@@ -764,17 +765,42 @@ mod tests {
                 id: "first".to_string(),
                 name: "First".to_string(),
                 start: PhaseStart::Boundary(StreamBoundary::PlanStart),
+                rule: PhaseRule::Stack,
                 stack: vec![],
             },
             DrawdownPhase {
                 id: "second".to_string(),
                 name: "Second".to_string(),
                 start: PhaseStart::Boundary(StreamBoundary::Date(YearMonth::new(2041, 1))),
+                rule: PhaseRule::Stack,
                 stack: vec![],
             },
         ]);
         save_plan(&base.0, &plan).unwrap();
 
+        let reloaded = load_plan(&base.0, &plan.id).unwrap();
+        assert_eq!(reloaded.assumptions.drawdown, plan.assumptions.drawdown);
+    }
+
+    /// A MAGI-target phase is a struct variant in a phase, not an enum in
+    /// an enum, so it saves the ordinary way — `!MagiTarget` on disk, no
+    /// fallback — and reloads as it was.
+    #[test]
+    fn a_magi_target_phase_saves_directly_and_reloads() {
+        let base = TempBase::new("magi-target-phase");
+        let mut plan = seed(&base.0);
+        plan.assumptions.drawdown = DrawdownPolicy::Phased(vec![DrawdownPhase {
+            id: "aca".to_string(),
+            name: "Keep MAGI down".to_string(),
+            start: PhaseStart::Boundary(StreamBoundary::PlanStart),
+            rule: PhaseRule::MagiTarget { target: 80_000.0 },
+            stack: vec![],
+        }]);
+        save_plan(&base.0, &plan).unwrap();
+
+        let paths = household_file_paths(&base.0).unwrap();
+        let written = fs::read_to_string(&paths[0]).unwrap();
+        assert!(written.contains("rule: !MagiTarget"), "{written}");
         let reloaded = load_plan(&base.0, &plan.id).unwrap();
         assert_eq!(reloaded.assumptions.drawdown, plan.assumptions.drawdown);
     }

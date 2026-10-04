@@ -4,8 +4,8 @@ mod returns;
 mod tax;
 
 pub use drawdown::{
-    AccountState, DrawdownStrategy, EarlyAccess, ProportionalDrawdown, WithdrawalResult,
-    EARLY_WITHDRAWAL_PENALTY_RATE,
+    AccountState, DrawdownStrategy, EarlyAccess, MagiTargetMiss, ProportionalDrawdown,
+    WithdrawalResult, EARLY_WITHDRAWAL_PENALTY_RATE,
 };
 pub use phased::PhasedDrawdown;
 pub use returns::{

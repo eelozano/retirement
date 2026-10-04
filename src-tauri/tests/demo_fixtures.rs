@@ -8,11 +8,12 @@
 //! The plans are defined here in Rust and the YAML under `fixtures/demo/`
 //! is generated from them, so the fixtures cannot drift from the schema
 //! without this test failing. Since #109 that is **one file**,
-//! `demo-household.yaml`: one household's facts plus the six scenarios
-//! branched from it, which is exactly what the split claims — the six
+//! `demo-household.yaml`: one household's facts plus the seven scenarios
+//! branched from it, which is exactly what the split claims — the seven
 //! plans below differ only in retirement dates, claiming ages, a spending
-//! amount, a house sale and a withdrawal order, and share every balance.
-//! This test proves it, by decomposing all six and asserting the households
+//! amount, a house sale and a withdrawal order or target, and share every
+//! balance.
+//! This test proves it, by decomposing all seven and asserting the households
 //! they produce agree.
 //! To re-generate after an intentional schema change:
 //!
@@ -28,8 +29,9 @@ use engine::model::{
     compose, decompose, empty_household, Account, AccountKind, AllocationRef, CashFlowStream,
     Contribution, ContributionRule, DrawdownPhase, DrawdownPolicy, EmployerMatch, FilingStatus,
     GrowthRule, Household, HouseholdFile, MatchDestination, MatchTier, OneTimeContribution, Person,
-    PhaseStart, Plan, PlanType, SimConfig, SocialSecurityBenefit, StackEntry, StackSource,
-    StateCode, StepUp, StreamBoundary, StreamDirection, StreamKind, YearMonth, SCHEMA_VERSION,
+    PhaseRule, PhaseStart, Plan, PlanType, SimConfig, SocialSecurityBenefit, StackEntry,
+    StackSource, StateCode, StepUp, StreamBoundary, StreamDirection, StreamKind, YearMonth,
+    SCHEMA_VERSION,
 };
 use engine::presets::{default_assumptions, presets};
 use std::fs;
@@ -484,6 +486,7 @@ fn demo_plans() -> Vec<Plan> {
             id: "bridge".to_string(),
             name: "Bridge to 59½".to_string(),
             start: PhaseStart::Boundary(StreamBoundary::PlanStart),
+            rule: PhaseRule::Stack,
             stack: vec![
                 entry("joint-brokerage", 0.0),
                 entry("alex-401k", 0.0),
@@ -494,14 +497,47 @@ fn demo_plans() -> Vec<Plan> {
             id: "standard".to_string(),
             name: "Standard".to_string(),
             start: PhaseStart::PenaltyFree(JORDAN.to_string()),
+            rule: PhaseRule::Stack,
             stack: vec![],
         },
     ]);
 
-    vec![base, retire_early, claim_early, leaner, sell_house, bridge]
+    // The same bridge, ordered by a number instead of a list (#187): until
+    // Jordan's 59½ the engine draws to keep each year's MAGI near $80,000 in
+    // today's dollars — roughly where a household of two loses the ACA
+    // premium credit — filling it with Alex's 401(k) and the brokerage
+    // together, then savings and the Roths, with Jordan's penalized 403(b)
+    // last. A target holds nothing back, so the $30,000 of savings is not
+    // kept. Everything else is the bridge scenario's.
+    //
+    // Measured when it was added, in today's dollars: MAGI sits on $80,000
+    // from 2035 to 2038, where the stack swings from $71,000 to $162,000; in
+    // 2039 the money that keeps it down runs out and Alex's 401(k) carries
+    // the household over the target until Jordan's 403(b) frees up. It pays
+    // about $37,000 less tax over the first twenty years and lasts three
+    // years longer. The phase starts at plan start, so 2031 — a working year
+    // with a small shortfall and both salaries — is reported too.
+    let mut magi_target = bridge.clone();
+    magi_target.id = "retire-at-55-magi-under-80k".to_string();
+    magi_target.name = "Retire at 55, MAGI under $80k".to_string();
+    if let DrawdownPolicy::Phased(phases) = &mut magi_target.assumptions.drawdown {
+        phases[0].name = "Keep MAGI near $80k".to_string();
+        phases[0].rule = PhaseRule::MagiTarget { target: 80_000.0 };
+        phases[0].stack = vec![];
+    }
+
+    vec![
+        base,
+        retire_early,
+        claim_early,
+        leaner,
+        sell_house,
+        bridge,
+        magi_target,
+    ]
 }
 
-/// The six plans, split into the one household they describe and the six
+/// The seven plans, split into the one household they describe and the seven
 /// scenarios that differ. Every plan must decompose to the *same* household
 /// — that is the claim #109 makes about this fixture, and asserting it here
 /// is what keeps the claim true as the demo grows.
@@ -633,7 +669,7 @@ fn every_demo_scenario_round_trips_through_compose() {
     }
 }
 
-/// Seven accounts and six scenarios are seven balances, not forty-two.
+/// Seven accounts and seven scenarios are seven balances, not forty-nine.
 #[test]
 fn the_household_writes_each_balance_once() {
     let file = demo_household_file();

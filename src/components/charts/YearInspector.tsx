@@ -189,6 +189,13 @@ export function YearInspector(props: {
           </span>
           <span className="row-value">{currency(detail.magi)}</span>
         </div>
+        {detail.magiTarget !== null && (
+          <div className="inspector-row inspector-row-subset">
+            <span className="row-label">Target</span>
+            <span className="row-leader" />
+            <span className="row-value">{currency(detail.magiTarget)}</span>
+          </div>
+        )}
       </div>
 
       <p className="inspector-hint">

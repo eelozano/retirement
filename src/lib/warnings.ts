@@ -1,6 +1,7 @@
 import type { Plan } from "../types/generated/Plan";
 import type { Projection } from "../types/generated/Projection";
 import type { SimWarning } from "../types/generated/SimWarning";
+import { phaseName } from "./drawdown";
 import { currency } from "./format";
 
 /** A `SimWarning` rendered for a human: a headline plus what to do about it. */
@@ -149,6 +150,25 @@ export function readableWarnings(plan: Plan, projection: Projection): ReadableWa
         title: `${name}: the balance you set aside is being spent${year !== null ? ` from ${year}` : ""}`,
         detail:
           "Every other account had already run out, so the money this plan keeps in reserve here is paying for spending instead of the plan running dry with it still in the bank.",
+      };
+    }
+    if ("MagiTargetExceeded" in warning) {
+      const { phase, period, target, magi, reason } = warning.MagiTargetExceeded;
+      const name = phaseName(plan, phase) ?? "A withdrawal phase";
+      const snapshot = projection.snapshots[period];
+      // The target is typed in today's dollars, so it is shown that way:
+      // the nominal figure for a year decades out reads as a different
+      // number from the one the user chose.
+      const deflator = snapshot?.deflator ?? 1;
+      const year = snapshot?.period_start.year ?? null;
+      const over = `MAGI was ${currency(magi / deflator)} against a target of ${currency(target / deflator)}, in today's dollars.`;
+      return {
+        key,
+        title: `${name}: MAGI goes over the target${year !== null ? ` in ${year}` : ""}`,
+        detail:
+          reason === "OtherIncome"
+            ? `Income alone was already over the target that year, before anything was withdrawn, so withdrawals came from money that adds nothing to MAGI first. ${over}`
+            : `The money that keeps MAGI down — savings, Roth, and pre-tax and brokerage up to the target — ran out that year, so the rest came from money that adds to it. The target gives way rather than the plan reporting it is out of money. ${over}`,
       };
     }
     const name = streamName(plan, warning.UnknownPersonRef.stream);

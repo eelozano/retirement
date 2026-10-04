@@ -815,6 +815,7 @@ describe("AccountsSection", () => {
             id: "only",
             name: "Only",
             start: { Boundary: "PlanStart" },
+            rule: "Stack",
             stack: [{ source: { Account: id }, floor: 0 }],
           },
         ],
@@ -824,7 +825,15 @@ describe("AccountsSection", () => {
     await userEvent.click(screen.getByRole("button", { name: "Remove account" }));
     const drawdown = usePlanStore.getState().plan?.assumptions.drawdown;
     expect(drawdown).toEqual({
-      Phased: [{ id: "only", name: "Only", start: { Boundary: "PlanStart" }, stack: [] }],
+      Phased: [
+        {
+          id: "only",
+          name: "Only",
+          start: { Boundary: "PlanStart" },
+          rule: "Stack",
+          stack: [],
+        },
+      ],
     });
   });
 

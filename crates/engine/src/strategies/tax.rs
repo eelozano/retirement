@@ -23,6 +23,21 @@ pub struct IncomeBreakdown {
     pub social_security: f64,
 }
 
+impl IncomeBreakdown {
+    /// Modified adjusted gross income on the ACA definition (IRC
+    /// 36B(d)(2)(B)): AGI plus the Social Security benefit that is not in
+    /// gross income. On the engine's terms, everything here but `untaxed` —
+    /// and with the *whole* benefit, not only its taxable part, which is the
+    /// difference from the AGI the tax model brackets. Not IRMAA's MAGI,
+    /// which leaves untaxed benefits out.
+    ///
+    /// The one definition: the snapshot's `magi` (#186) reads it off the
+    /// settled income, and a MAGI-target drawdown phase (#187) steers by it.
+    pub fn aca_magi(&self) -> f64 {
+        self.ordinary + self.capital_gains + self.social_security
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct TaxResult {
     pub tax: f64,

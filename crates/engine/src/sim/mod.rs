@@ -17,7 +17,8 @@ pub use monte_carlo::{
     EARLY_RETIREMENT_WINDOW_YEARS,
 };
 pub use projection::{
-    OneTimeInfo, PeriodSnapshot, Projection, Rule55Ineligibility, SimWarning, StreamInfo,
+    MagiOverrun, OneTimeInfo, PeriodSnapshot, Projection, Rule55Ineligibility, SimWarning,
+    StreamInfo,
 };
 
 use crate::model::{
