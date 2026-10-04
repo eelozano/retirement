@@ -281,7 +281,7 @@ What each image shows (Base plan unless it says otherwise):
 | `one-time-contribution.png` | *Sell the house at retirement*: Inputs → Accounts → Joint brokerage, scrolled to the "Car paid off" and "House sale" cards |
 | `update-balances.png` | *Sell the house at retirement*: Update balances |
 | `what-if.png` | What-if with Alex retires at −2y and Spending at 92% (click the slider tracks), then **Run** for the Monte Carlo columns |
-| `scenarios.png` | Scenarios with all seven compared, **Run**, scrolled to the table |
+| `scenarios.png` | Scenarios with the default five compared, **Run**, scrolled to the table |
 | `tax-figures.png` | Settings → **Edit figures…**, top of the editor; close with Escape, never Save |
 
 `update-balances.png` and the Plan screen's staleness notice both say how old
