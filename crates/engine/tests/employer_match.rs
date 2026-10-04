@@ -129,7 +129,7 @@ fn run(plan: &Plan) -> Projection {
     );
     simulate(
         plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &returns,
         &FlatTax { rate: TAX_RATE },
         &ProportionalDrawdown,
@@ -218,7 +218,9 @@ fn the_match_is_not_reduced_when_the_employee_hits_the_deferral_limit() {
     let p0 = &projection.snapshots[0];
     assert_close(
         p0.contributions,
-        TaxFigures::built_in().contribution_limits.employer_plan,
+        TaxFigures::tax_year_2026()
+            .contribution_limits
+            .employer_plan,
         "employee deferrals held to their own limit",
     );
     assert_close(
@@ -346,7 +348,8 @@ fn deferrals_plus_match_are_held_to_the_annual_additions_cap() {
 
     let projection = run(&plan);
     let p0 = &projection.snapshots[0];
-    let cap = TaxFigures::built_in().annual_additions_limit(46, 2026, &PriceLevel::Constant(0.0));
+    let cap =
+        TaxFigures::tax_year_2026().annual_additions_limit(46, 2026, &PriceLevel::Constant(0.0));
     assert_close(
         p0.contributions + p0.employer_match,
         cap,
@@ -354,7 +357,9 @@ fn deferrals_plus_match_are_held_to_the_annual_additions_cap() {
     );
     assert_close(
         p0.contributions,
-        TaxFigures::built_in().contribution_limits.employer_plan,
+        TaxFigures::tax_year_2026()
+            .contribution_limits
+            .employer_plan,
         "the employee's own deferrals are untouched — only the match gives way",
     );
     assert!(
@@ -372,8 +377,11 @@ fn the_annual_additions_cap_is_far_above_the_deferral_limit() {
     // The distinction this whole issue rests on: folding a match into the
     // employee figure would clamp it at the deferral limit instead.
     assert!(
-        TaxFigures::built_in().annual_additions_limit(46, 2026, &PriceLevel::Constant(0.0))
-            > 2.0 * TaxFigures::built_in().contribution_limits.employer_plan,
+        TaxFigures::tax_year_2026().annual_additions_limit(46, 2026, &PriceLevel::Constant(0.0))
+            > 2.0
+                * TaxFigures::tax_year_2026()
+                    .contribution_limits
+                    .employer_plan,
     );
 }
 
@@ -508,7 +516,8 @@ fn a_non_elective_contribution_is_held_to_the_annual_additions_cap() {
 
     let projection = run(&plan);
     let p0 = &projection.snapshots[0];
-    let cap = TaxFigures::built_in().annual_additions_limit(46, 2026, &PriceLevel::Constant(0.0));
+    let cap =
+        TaxFigures::tax_year_2026().annual_additions_limit(46, 2026, &PriceLevel::Constant(0.0));
     assert!(
         0.25 * SALARY + p0.contributions > cap,
         "the formula has to exceed the cap for this to test anything",

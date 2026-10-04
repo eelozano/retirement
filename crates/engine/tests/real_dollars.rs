@@ -104,7 +104,7 @@ fn run(plan: &Plan) -> Projection {
     let returns = FixedReturns::new(&plan.assumptions.strategy_returns, 12);
     simulate(
         plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &returns,
         &FlatTax { rate: 0.0 },
         &ProportionalDrawdown,
@@ -229,7 +229,7 @@ fn percentiles_carry_the_same_deflators_as_the_projection() {
     let projection = run(&plan);
     let result = run_monte_carlo(
         &plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &MonteCarloConfig {
             n_paths: 8,
             seed: 1,

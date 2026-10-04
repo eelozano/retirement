@@ -49,7 +49,7 @@ fn plan_grid() -> Vec<Plan> {
 fn invariants_hold_across_plan_grid() {
     let mut landed = 0;
     for (i, plan) in plan_grid().iter().enumerate() {
-        let projection = run_deterministic(plan, &TaxFigures::built_in());
+        let projection = run_deterministic(plan, &TaxFigures::tax_year_2026());
         assert!(
             !projection.snapshots.is_empty(),
             "plan {i}: empty projection"
@@ -196,7 +196,7 @@ fn extreme_spending_depletes_and_warns() {
             stream.annual_amount = 1_000_000.0;
         }
     }
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     assert!(projection
         .warnings
         .iter()
@@ -211,7 +211,7 @@ fn extreme_spending_depletes_and_warns() {
 
 #[test]
 fn seed_plan_is_solvent_through_plan_end() {
-    let projection = run_deterministic(&seed_plan(), &TaxFigures::built_in());
+    let projection = run_deterministic(&seed_plan(), &TaxFigures::tax_year_2026());
     assert!(
         !projection
             .warnings

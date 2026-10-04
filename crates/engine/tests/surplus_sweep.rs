@@ -28,7 +28,7 @@ fn run(plan: &Plan) -> Projection {
     );
     simulate(
         plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &returns,
         &FlatTax { rate: 0.0 },
         &ProportionalDrawdown,
