@@ -110,7 +110,23 @@ withdrawals: { [key in string]?: number },
  * across accounts, in nominal dollars: the dollar amount `grow()`
  * produced but that a balance-only snapshot would otherwise discard.
  */
-growth: number, net_worth: number, 
+growth: number, 
+/**
+ * The year's modified adjusted gross income on the ACA definition
+ * (IRC 36B(d)(2)(B)) — the figure the premium tax credit is tested
+ * against: `ordinary + capital_gains + social_security` of the period's
+ * settled income, after the drawdown. Ordinary income is net of pre-tax
+ * and HSA deferrals and counts RMDs, savings interest and pre-tax
+ * withdrawals; capital gains are realized gains plus qualified
+ * dividends; Social Security counts in *full*, not only its taxable
+ * part. Roth withdrawals and returned basis add nothing.
+ *
+ * Not IRMAA's MAGI, which leaves untaxed Social Security out and looks
+ * back two years. Tax-exempt interest and excluded foreign income, the
+ * other ACA add-backs, are not modelled. Nominal, a flow: divide by
+ * `deflator`.
+ */
+magi: number, net_worth: number, 
 /**
  * Cumulative inflation factor at period **start**: divide a nominal
  * *flow* in this snapshot (`income`, `expenses`, `taxes`, and the rest)

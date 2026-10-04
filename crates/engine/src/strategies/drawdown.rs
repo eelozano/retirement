@@ -115,6 +115,21 @@ pub struct WithdrawalResult {
     /// Net cash delivered after tax. May fall short of the request when the
     /// portfolio is depleted — the engine emits a warning in that case.
     pub net: f64,
+    /// The period's income with this withdrawal stacked on `base`: what the
+    /// tax was assessed on, and what a second withdrawal in the same period
+    /// stacks on in turn. `base` itself when nothing was drawn, so the
+    /// snapshot's MAGI reads it without asking whether a draw happened.
+    pub income: IncomeBreakdown,
+}
+
+impl WithdrawalResult {
+    /// A withdrawal of nothing: the period's income is still `base`.
+    pub fn none(base: &IncomeBreakdown) -> Self {
+        Self {
+            income: *base,
+            ..Default::default()
+        }
+    }
 }
 
 /// Decides which accounts fund a spending shortfall. Implementations gross
@@ -215,8 +230,8 @@ fn income_with(
 /// strategy can supply. Callers return early when either `net_needed` or
 /// `available` is not positive.
 ///
-/// Returns the withdrawal and the period's income with it stacked on
-/// `base` — what a second withdrawal in the same period stacks on in turn.
+/// The result's `income` is the period's income with the withdrawal stacked
+/// on `base`.
 pub(super) fn gross_up(
     net_needed: f64,
     available: f64,
@@ -225,7 +240,7 @@ pub(super) fn gross_up(
     base: &IncomeBreakdown,
     period: PeriodIndex,
     allocate: impl Fn(f64, &[AccountState], &mut [f64]),
-) -> (WithdrawalResult, IncomeBreakdown) {
+) -> WithdrawalResult {
     let mut amounts = vec![0.0; accounts.len()];
 
     // Fixed-point gross-up: find gross so that gross minus the tax that
@@ -269,6 +284,7 @@ pub(super) fn gross_up(
         penalty,
         net: gross - owed,
         floors_released: Vec::new(),
+        income,
     };
 
     for (account, &amount) in accounts.iter_mut().zip(&amounts) {
@@ -286,7 +302,7 @@ pub(super) fn gross_up(
         account.balance = if remaining > 0.0 { remaining } else { 0.0 };
         result.gross_by_account.insert(account.id.clone(), amount);
     }
-    (result, income)
+    result
 }
 
 /// Withdraw from every funded account in proportion to its balance — the
@@ -305,7 +321,7 @@ impl DrawdownStrategy for ProportionalDrawdown {
     ) -> WithdrawalResult {
         let total: f64 = accounts.iter().map(|a| a.balance.max(0.0)).sum();
         if net_needed <= 0.0 || total <= 0.0 {
-            return WithdrawalResult::default();
+            return WithdrawalResult::none(base);
         }
         gross_up(
             net_needed,
@@ -320,7 +336,6 @@ impl DrawdownStrategy for ProportionalDrawdown {
                 }
             },
         )
-        .0
     }
 }
 

@@ -33,6 +33,7 @@ const projection: Projection = {
       required_distributions: 0,
       surplus: 3_000,
       growth: 8_000,
+      magi: 63_000,
       net_worth: 150_000,
       deflator: 1.05,
       deflator_end: 1.08,
@@ -114,6 +115,17 @@ describe("buildProjectionCsv", () => {
     expect(at("Taxable, Alex contribution")).toBe("0");
   });
 
+  it("carries the year's MAGI, deflated like any other flow", () => {
+    const at = (realDollars: boolean) => {
+      const csv = buildProjectionCsv(plan, projection, realDollars);
+      const header = splitCsv(headerLine(csv));
+      return splitCsv(dataLines(csv)[0])[header.indexOf("MAGI (ACA)")];
+    };
+    expect(at(false)).toBe("63000");
+    // 63,000 / 1.05 — the start-of-year factor, not the end one.
+    expect(at(true)).toBe("60000");
+  });
+
   it("gives one-time contributions a total and a column each, after the match", () => {
     const csv = buildProjectionCsv(plan, projection, false);
     const header = splitCsv(headerLine(csv));
@@ -147,8 +159,8 @@ describe("buildProjectionCsv", () => {
     const csv = buildProjectionCsv(plan, projection, true);
     const [dataLine] = dataLines(csv);
     const cells = dataLine.split(",");
-    // The row ends: growth, net worth, start factor, end factor.
-    const [growth, netWorth] = [cells[cells.length - 4], cells[cells.length - 3]];
+    // The row ends: growth, net worth, MAGI, start factor, end factor.
+    const [growth, netWorth] = [cells[cells.length - 5], cells[cells.length - 4]];
     // Net worth is a year-end figure: 150000 / 1.08 (#146), rounded to cents.
     expect(Number(netWorth)).toBeCloseTo(150_000 / 1.08, 2);
     // Growth is a flow: 8000 / 1.05.

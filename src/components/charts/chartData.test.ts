@@ -40,6 +40,13 @@ describe("chartRows", () => {
     }
   });
 
+  it("deflates MAGI as a flow, by the start factor, not the balances' end one", () => {
+    const projection = inflationTrackingProjection(1);
+    projection.snapshots[0].magi = 100_000;
+    const [row] = chartRows(plan, projection, true);
+    expect(row.magi).toBeCloseTo(100_000 / projection.snapshots[0].deflator, 9);
+  });
+
   it("leaves nominal balances as the engine emitted them", () => {
     const rows = chartRows(plan, inflationTrackingProjection(3), false);
     expect(rows.map((r) => r.net_worth)).toEqual([
