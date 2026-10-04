@@ -1,5 +1,6 @@
 import { currency } from "../../lib/format";
-import type { ChartRow, SeriesDef } from "./chartData";
+import { InfoTooltip } from "../inputs/fields";
+import { type ChartRow, MAGI_LABEL, MAGI_TOOLTIP, type SeriesDef } from "./chartData";
 
 // The WCAG-clean twin of both charts: every plotted value, readable without
 // hover or color.
@@ -21,6 +22,10 @@ export function DataTable(props: {
                 <th key={s.key}>{s.label}</th>
               ))}
               <th>Net worth</th>
+              <th>
+                {MAGI_LABEL}
+                <InfoTooltip text={MAGI_TOOLTIP} />
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -31,6 +36,7 @@ export function DataTable(props: {
                   <td key={s.key}>{currency(row[s.key] ?? 0)}</td>
                 ))}
                 <td>{currency(row.net_worth)}</td>
+                <td>{currency(row.magi)}</td>
               </tr>
             ))}
           </tbody>

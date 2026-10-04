@@ -1,5 +1,6 @@
 import { currency, currencyCompact } from "../../lib/format";
 import { InfoTooltip } from "../inputs/fields";
+import { MAGI_LABEL, MAGI_TOOLTIP } from "./chartData";
 import { type FlowRow, medianGapNote, type YearDetail } from "./planData";
 
 // Right-hand readout for one year of the projection. The cash-flow fields on
@@ -176,6 +177,19 @@ export function YearInspector(props: {
         totalCritical={detail.shortfall}
         note={detail.spendingNote}
       />
+
+      {/* The year's income as the ACA subsidy tests it. Outside the cash
+          identity above: it counts Social Security whole and leaves a Roth
+          draw out, so it ties to neither side of it. */}
+      <div className="inspector-block">
+        <div className="inspector-total">
+          <span>
+            {MAGI_LABEL}
+            <InfoTooltip text={MAGI_TOOLTIP} />
+          </span>
+          <span className="row-value">{currency(detail.magi)}</span>
+        </div>
+      </div>
 
       <p className="inspector-hint">
         Click the chart to pin a year, or focus it and use the arrow keys. Hovering reads

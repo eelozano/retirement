@@ -291,7 +291,7 @@ fn pour(tranches: &[Tranche], gross: f64, out: &mut [f64]) {
 
 impl PhasedDrawdown {
     /// Draws `net_needed` down one phase's waterfall, stacked on `base`.
-    /// Returns the withdrawal and the income it leaves the period with.
+    /// The result's `income` is what it leaves the period with.
     #[allow(clippy::too_many_arguments)]
     fn withdraw_in(
         &self,
@@ -301,15 +301,15 @@ impl PhasedDrawdown {
         tax: &dyn TaxModel,
         base: &IncomeBreakdown,
         period: PeriodIndex,
-    ) -> (WithdrawalResult, IncomeBreakdown) {
+    ) -> WithdrawalResult {
         let tranches = tranches(phase, accounts, self.floor_factor(period));
         let available: f64 = tranches.iter().map(|t| t.capacity).sum();
         if net_needed <= 0.0 || available <= 0.0 {
-            return (WithdrawalResult::default(), *base);
+            return WithdrawalResult::none(base);
         }
 
         let ids: Vec<_> = accounts.iter().map(|a| a.id.clone()).collect();
-        let (mut result, income) = gross_up(
+        let mut result = gross_up(
             net_needed,
             available,
             accounts,
@@ -338,7 +338,7 @@ impl PhasedDrawdown {
             }
             poured += tranche.capacity;
         }
-        (result, income)
+        result
     }
 }
 
@@ -354,30 +354,27 @@ impl DrawdownStrategy for PhasedDrawdown {
         let (start, end) = calendar_period(self.start, period);
         let segments = self.segments(start, end);
         if let [(phase, _, _)] = segments[..] {
-            return self
-                .withdraw_in(&self.phases[phase], net_needed, accounts, tax, base, period)
-                .0;
+            return self.withdraw_in(&self.phases[phase], net_needed, accounts, tax, base, period);
         }
 
         // A phase boundary inside the period: each phase draws for its own
         // months, judged early or not over those months alone.
         let months = start.months_until(end) as f64;
-        let mut stacked = *base;
-        let mut total = WithdrawalResult::default();
+        let mut total = WithdrawalResult::none(base);
         for (phase, from, to) in segments {
             for account in accounts.iter_mut() {
                 (account.nonqualified, account.penalized) = account.early.shares(from, to);
             }
             let share = from.months_until(to) as f64 / months;
-            let (result, income) = self.withdraw_in(
+            let result = self.withdraw_in(
                 &self.phases[phase],
                 net_needed * share,
                 accounts,
                 tax,
-                &stacked,
+                &total.income,
                 period,
             );
-            stacked = income;
+            total.income = result.income;
             for (id, amount) in result.gross_by_account {
                 *total.gross_by_account.entry(id).or_insert(0.0) += amount;
             }

@@ -125,6 +125,7 @@ function detail(start_year: number): CohortDetail {
           surplus: 0,
           withdrawals: { a: 50_000 },
           growth: -50_000,
+          magi: 0,
           net_worth: 900_000,
           income_by_stream: {},
           expenses_by_stream: {},

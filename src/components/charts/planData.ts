@@ -474,6 +474,9 @@ export interface YearDetail {
    * printed dollar. */
   shortfall: boolean;
   balances: BalanceRow[];
+  /** The year's MAGI on the ACA definition. Beside the cash identity, not in
+   * it: it is a measure of the year's income, not a flow of cash. */
+  magi: number;
   /**
    * What the survivor transition did to this year, on the years it explains
    * — without it, the drop in income at the first death reads as a glitch.
@@ -663,6 +666,7 @@ export function yearDetail(
       leftOver < 0 ? "Shortfall" : working ? "Current spending" : "Left over",
     shortfall: leftOver < 0,
     balances,
+    magi: s.magi / d,
     transition: transitionNote(plan, year),
     spendingNote: working ? CURRENT_SPENDING_NOTE : null,
   };

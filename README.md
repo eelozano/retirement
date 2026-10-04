@@ -539,8 +539,9 @@ than the return assumption you spent an afternoon on.
   than they will have. It does not touch retirement years.
 - **ACA premium subsidies.** Health insurance before Medicare is whatever you
   enter as an expense, so enter it net of any subsidy. The subsidy is a steep
-  function of MAGI, which means the withdrawal order you choose silently moves
-  your premiums — and the app will not show it.
+  function of MAGI, which means the withdrawal order you choose moves your
+  premiums. Each year's MAGI is shown (year inspector, data table, CSV), but
+  the subsidy itself is not computed.
 - **Spousal Social Security while both are alive.** Each person's benefit is
   their own. A spouse entitled to up to half the higher earner's benefit
   instead of their own record will be understated, unless you enter what they

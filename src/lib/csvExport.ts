@@ -1,3 +1,4 @@
+import { MAGI_LABEL } from "../components/charts/chartData";
 import type { Plan } from "../types/generated/Plan";
 import type { Projection } from "../types/generated/Projection";
 import { phaseName } from "./drawdown";
@@ -77,6 +78,7 @@ export function buildProjectionCsv(
     "Withdrawal phase",
     "Growth",
     "Net worth",
+    MAGI_LABEL,
     "Deflator (start of year)",
     "Deflator (end of year)",
   ];
@@ -105,6 +107,7 @@ export function buildProjectionCsv(
       phaseName(plan, s.drawdown_phase) ?? "",
       m(s.growth),
       balance(s.net_worth),
+      m(s.magi),
       s.deflator,
       s.deflator_end,
     ];
