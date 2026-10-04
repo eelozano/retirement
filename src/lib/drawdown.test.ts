@@ -10,6 +10,7 @@ import {
   penaltyWarning,
   phaseName,
   phaseStartMonth,
+  phaseTarget,
   rule55,
 } from "./drawdown";
 
@@ -194,5 +195,19 @@ describe("phaseName", () => {
     expect(phaseName(plan, policy.Phased[1].id)).toBe("Standard");
     expect(phaseName(plan, null)).toBeNull();
     expect(phaseName(plan, "gone")).toBeNull();
+  });
+});
+
+describe("phaseTarget", () => {
+  it("reads a target phase's number and nothing from a stack", () => {
+    const plan = household();
+    plan.assumptions.drawdown = bridgePolicy(plan) ?? "Proportional";
+    const policy = plan.assumptions.drawdown;
+    if (policy === "Proportional") throw new Error("expected phases");
+    policy.Phased[0].rule = { MagiTarget: { target: 80_000 } };
+    expect(phaseTarget(plan, policy.Phased[0].id)).toBe(80_000);
+    expect(phaseTarget(plan, policy.Phased[1].id)).toBeNull();
+    expect(phaseTarget(plan, null)).toBeNull();
+    expect(phaseTarget(plan, "gone")).toBeNull();
   });
 });

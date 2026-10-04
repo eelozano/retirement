@@ -15,7 +15,7 @@ import type { PhaseStart } from "../../types/generated/PhaseStart";
 import type { Plan } from "../../types/generated/Plan";
 import type { StackSource } from "../../types/generated/StackSource";
 import { BoundaryDetail } from "./BoundaryDetail";
-import { AmountInput, InfoTooltip, SelectField, TextField } from "./fields";
+import { AmountInput, InfoTooltip, NumberField, SelectField, TextField } from "./fields";
 import { boundaryOptions, boundaryToChoice, choiceToBoundary } from "./streamBoundary";
 
 const PROPORTIONAL = "Proportional";
@@ -53,6 +53,51 @@ function startOptions(plan: Plan) {
       label: `${p.name} reaches 59½`,
     })),
   ];
+}
+
+const RULE_OPTIONS = [
+  { value: "Stack", label: "In my order" },
+  { value: "MagiTarget", label: "To a MAGI target" },
+] as const;
+
+/** What a new target starts at, for the user to retype: a number in the range
+ * the ACA's subsidy thresholds fall in, not a statutory figure. */
+const DEFAULT_MAGI_TARGET = 50_000;
+
+/** The order a MAGI target draws in — `strategies::phased`, in words. */
+function MagiTargetRule() {
+  return (
+    <div className="band">
+      <p className="band-label">
+        How it draws each year
+        <InfoTooltip
+          text={
+            "MAGI here is the whole calendar year's, as the ACA premium credit counts it, " +
+            "so a year this phase shares with another counts what the other part drew. " +
+            "An account that becomes penalty-free partway through a year counts as " +
+            "penalized for all of that year — start a phase at 59½ to change that."
+          }
+        />
+      </p>
+      <ol className="field-hint magi-rule">
+        <li>
+          Pre-tax and taxable money together, up to the target: as much pre-tax as fits
+          once the brokerage sales covering the rest have counted their gains.
+        </li>
+        <li>Then money that adds nothing to MAGI: savings, Roth, then HSA.</li>
+        <li>
+          Then over the target, only if it has to: the rest of the brokerage, then the
+          rest of the pre-tax.
+        </li>
+        <li>Money with a 10% early-withdrawal penalty last.</li>
+      </ol>
+      <p className="field-hint">
+        A year that needs less than the target stays below it. A year that cannot stay
+        under it goes over and is flagged, rather than the plan running out with money
+        left.
+      </p>
+    </div>
+  );
 }
 
 const ADD_PROMPT = "__add__";
@@ -118,7 +163,7 @@ export function DrawdownSection() {
           options={MODE_OPTIONS}
           tooltip={
             phases
-              ? "Each phase draws its list top to bottom. Anything a list leaves out is drawn after it: money that carries no early-withdrawal penalty first, then by type — savings, taxable, pre-tax, Roth, HSA."
+              ? "Each phase draws its list top to bottom, or holds MAGI near a target. Anything a list leaves out is drawn after it: money that carries no early-withdrawal penalty first, then by type — savings, taxable, pre-tax, Roth, HSA."
               : "Every account pays its share of each year's shortfall, in proportion to its balance — including a 401(k) or IRA before 59½, which pays the 10% early-withdrawal penalty."
           }
           onChange={(mode) =>
@@ -207,125 +252,157 @@ export function DrawdownSection() {
               </>
             )}
 
-            <div className="band">
-              <p className="band-label">
-                Draw from, in order
-                <InfoTooltip
-                  text={
-                    "A balance to keep is held back until everything else is spent, then used " +
-                    "rather than letting the plan run out with money in the bank. An entry for " +
-                    'a whole type — "All Roth accounts" — draws every account of that type ' +
-                    "together, in proportion to balance."
+            <SelectField
+              label="Draw"
+              value={phase.rule === "Stack" ? "Stack" : "MagiTarget"}
+              options={RULE_OPTIONS}
+              tooltip="In my order: a list you arrange. To a MAGI target: one number, and the engine orders the accounts itself to hold each year's MAGI near it — for the years an ACA premium credit depends on it."
+              onChange={(value) =>
+                updatePhase(index, (p) => {
+                  p.rule =
+                    value === "Stack"
+                      ? "Stack"
+                      : { MagiTarget: { target: DEFAULT_MAGI_TARGET } };
+                })
+              }
+            />
+            {phase.rule !== "Stack" ? (
+              <>
+                <NumberField
+                  label="Keep MAGI near (today's $ a year)"
+                  value={phase.rule.MagiTarget.target}
+                  min={0}
+                  step={1000}
+                  hint="Grown with inflation each year, like every today's-dollar figure."
+                  onChange={(target) =>
+                    updatePhase(index, (p) => {
+                      p.rule = { MagiTarget: { target } };
+                    })
                   }
                 />
-              </p>
-              {phase.stack.length === 0 ? (
-                <p className="field-hint">
-                  Nothing listed — every account is drawn in the default order.
+                <MagiTargetRule />
+              </>
+            ) : (
+              <div className="band">
+                <p className="band-label">
+                  Draw from, in order
+                  <InfoTooltip
+                    text={
+                      "A balance to keep is held back until everything else is spent, then used " +
+                      "rather than letting the plan run out with money in the bank. An entry for " +
+                      'a whole type — "All Roth accounts" — draws every account of that type ' +
+                      "together, in proportion to balance."
+                    }
+                  />
                 </p>
-              ) : (
-                <table className="drawdown-stack">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>From</th>
-                      <th>Keep at least (today's $)</th>
-                      <th>
-                        <span className="visually-hidden">Actions</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {phase.stack.map((entry, i) => {
-                      const label = sourceLabel(plan, entry.source);
-                      const penalized = penaltyWarning(plan, entry.source, from);
-                      return (
-                        <tr key={JSON.stringify(entry.source)}>
-                          <td>{i + 1}</td>
-                          <td>
-                            {label}
-                            {penalized && (
-                              <small className="penalty-note">
-                                10% penalty until {yearMonth(penalized)}
-                              </small>
-                            )}
-                          </td>
-                          <td>
-                            <AmountInput
-                              ariaLabel={`Keep at least in ${label}`}
-                              value={entry.floor}
-                              onChange={(floor) =>
-                                updatePhase(index, (p) => {
-                                  p.stack[i].floor = floor;
-                                })
-                              }
-                            />
-                          </td>
-                          <td className="stack-actions">
-                            <button
-                              type="button"
-                              className="remove"
-                              aria-label={`Move ${label} up`}
-                              disabled={i === 0}
-                              onClick={() =>
-                                updatePhase(index, (p) => {
-                                  [p.stack[i - 1], p.stack[i]] = [
-                                    p.stack[i],
-                                    p.stack[i - 1],
-                                  ];
-                                })
-                              }
-                            >
-                              ↑
-                            </button>
-                            <button
-                              type="button"
-                              className="remove"
-                              aria-label={`Move ${label} down`}
-                              disabled={i === phase.stack.length - 1}
-                              onClick={() =>
-                                updatePhase(index, (p) => {
-                                  [p.stack[i], p.stack[i + 1]] = [
-                                    p.stack[i + 1],
-                                    p.stack[i],
-                                  ];
-                                })
-                              }
-                            >
-                              ↓
-                            </button>
-                            <button
-                              type="button"
-                              className="remove"
-                              aria-label={`Remove ${label}`}
-                              onClick={() =>
-                                updatePhase(index, (p) => {
-                                  p.stack.splice(i, 1);
-                                })
-                              }
-                            >
-                              Remove
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-              <SelectField
-                label="Add to the list"
-                value={ADD_PROMPT}
-                options={addOptions(plan, phase)}
-                onChange={(value) => {
-                  if (value === ADD_PROMPT) return;
-                  const source = JSON.parse(value) as StackSource;
-                  updatePhase(index, (p) => {
-                    p.stack.push({ source, floor: 0 });
-                  });
-                }}
-              />
-            </div>
+                {phase.stack.length === 0 ? (
+                  <p className="field-hint">
+                    Nothing listed — every account is drawn in the default order.
+                  </p>
+                ) : (
+                  <table className="drawdown-stack">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>From</th>
+                        <th>Keep at least (today's $)</th>
+                        <th>
+                          <span className="visually-hidden">Actions</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {phase.stack.map((entry, i) => {
+                        const label = sourceLabel(plan, entry.source);
+                        const penalized = penaltyWarning(plan, entry.source, from);
+                        return (
+                          <tr key={JSON.stringify(entry.source)}>
+                            <td>{i + 1}</td>
+                            <td>
+                              {label}
+                              {penalized && (
+                                <small className="penalty-note">
+                                  10% penalty until {yearMonth(penalized)}
+                                </small>
+                              )}
+                            </td>
+                            <td>
+                              <AmountInput
+                                ariaLabel={`Keep at least in ${label}`}
+                                value={entry.floor}
+                                onChange={(floor) =>
+                                  updatePhase(index, (p) => {
+                                    p.stack[i].floor = floor;
+                                  })
+                                }
+                              />
+                            </td>
+                            <td className="stack-actions">
+                              <button
+                                type="button"
+                                className="remove"
+                                aria-label={`Move ${label} up`}
+                                disabled={i === 0}
+                                onClick={() =>
+                                  updatePhase(index, (p) => {
+                                    [p.stack[i - 1], p.stack[i]] = [
+                                      p.stack[i],
+                                      p.stack[i - 1],
+                                    ];
+                                  })
+                                }
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                className="remove"
+                                aria-label={`Move ${label} down`}
+                                disabled={i === phase.stack.length - 1}
+                                onClick={() =>
+                                  updatePhase(index, (p) => {
+                                    [p.stack[i], p.stack[i + 1]] = [
+                                      p.stack[i + 1],
+                                      p.stack[i],
+                                    ];
+                                  })
+                                }
+                              >
+                                ↓
+                              </button>
+                              <button
+                                type="button"
+                                className="remove"
+                                aria-label={`Remove ${label}`}
+                                onClick={() =>
+                                  updatePhase(index, (p) => {
+                                    p.stack.splice(i, 1);
+                                  })
+                                }
+                              >
+                                Remove
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+                <SelectField
+                  label="Add to the list"
+                  value={ADD_PROMPT}
+                  options={addOptions(plan, phase)}
+                  onChange={(value) => {
+                    if (value === ADD_PROMPT) return;
+                    const source = JSON.parse(value) as StackSource;
+                    updatePhase(index, (p) => {
+                      p.stack.push({ source, floor: 0 });
+                    });
+                  }}
+                />
+              </div>
+            )}
 
             {index > 0 && (
               <button
@@ -358,6 +435,7 @@ export function DrawdownSection() {
                 id: newPhaseId(),
                 name: "New phase",
                 start: first ? { PenaltyFree: first.id } : { Boundary: "PlanEnd" },
+                rule: "Stack",
                 stack: [],
               });
             })

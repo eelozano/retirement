@@ -32,8 +32,8 @@ use crate::strategies::{
 };
 
 use super::{
-    compound, contributions, growth_factor, overlap_fraction, required_distributions, OneTimeInfo,
-    PeriodSnapshot, ResolvedContribution, ResolvedOneTime, ResolvedStream, SimWarning,
+    compound, contributions, growth_factor, overlap_fraction, required_distributions, MagiOverrun,
+    OneTimeInfo, PeriodSnapshot, ResolvedContribution, ResolvedOneTime, ResolvedStream, SimWarning,
     StreamSource,
 };
 
@@ -114,6 +114,8 @@ pub(super) struct RunState {
     pub penalty_reported: bool,
     /// Accounts whose drawdown floor has already been reported as released.
     pub floors_reported: BTreeSet<AccountId>,
+    /// MAGI-target phases already reported as having gone over, by reason.
+    pub magi_targets_reported: BTreeSet<(String, MagiOverrun)>,
     /// Closing balances of the previous period, indexed parallel to
     /// `plan.accounts`. `None` in the first period, which is why no required
     /// distribution is taken there — see `required_distributions`.
@@ -154,6 +156,7 @@ impl RunState {
             distribution_unallocated_reported: false,
             penalty_reported: false,
             floors_reported: BTreeSet::new(),
+            magi_targets_reported: BTreeSet::new(),
             prior_balances: None,
             warnings: Warnings::default(),
             one_time: Vec::new(),
@@ -302,15 +305,11 @@ impl PeriodState {
         }
     }
 
-    /// The year's modified adjusted gross income on the ACA definition
-    /// (IRC 36B(d)(2)(B)): AGI plus the Social Security benefit that is not
-    /// in gross income. On the engine's terms, everything in the settled
-    /// breakdown but `untaxed` — and with the *whole* benefit, not only its
-    /// taxable part, which is the difference from the AGI the tax model
-    /// brackets. Not IRMAA's MAGI, which leaves untaxed benefits out.
+    /// The year's modified adjusted gross income on the ACA definition,
+    /// read off the income the period settled on — see
+    /// `IncomeBreakdown::aca_magi`.
     fn magi(&self) -> f64 {
-        let income = &self.settled_income;
-        income.ordinary + income.capital_gains + income.social_security
+        self.settled_income.aca_magi()
     }
 
     fn snapshot(self, ctx: &PeriodContext, accounts: &[AccountState]) -> PeriodSnapshot {
@@ -809,6 +808,20 @@ fn settle(run: &RunContext, ctx: &PeriodContext, period: &mut PeriodState, state
             state.warnings.push(SimWarning::FloorReleased {
                 account,
                 period: ctx.period,
+            });
+        }
+    }
+    if let Some(miss) = result.magi_target_missed {
+        if state
+            .magi_targets_reported
+            .insert((miss.phase.clone(), miss.reason))
+        {
+            state.warnings.push(SimWarning::MagiTargetExceeded {
+                phase: miss.phase,
+                period: ctx.period,
+                target: miss.target,
+                magi: miss.magi,
+                reason: miss.reason,
             });
         }
     }

@@ -1,6 +1,6 @@
 import { atOrAfter, isWorkingPeriod } from "../../lib/currentSpending";
 import { balanceDivisor, flowDivisor } from "../../lib/deflate";
-import { phaseName } from "../../lib/drawdown";
+import { phaseName, phaseTarget } from "../../lib/drawdown";
 import { yearBoundary } from "../../lib/yearBoundary";
 import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
 import type { PeriodSnapshot } from "../../types/generated/PeriodSnapshot";
@@ -477,6 +477,10 @@ export interface YearDetail {
   /** The year's MAGI on the ACA definition. Beside the cash identity, not in
    * it: it is a measure of the year's income, not a flow of cash. */
   magi: number;
+  /** The MAGI target of the phase in force at the year's start, grown to the
+   * year and shown in the same dollars as `magi`; null under a phase that
+   * keeps its own order. */
+  magiTarget: number | null;
   /**
    * What the survivor transition did to this year, on the years it explains
    * — without it, the drop in income at the first death reads as a glitch.
@@ -508,6 +512,7 @@ export function yearDetail(
   // Flows deflate by the period-start factor, balances by the period-end one.
   const d = flowDivisor(s, realDollars);
   const dEnd = balanceDivisor(s, realDollars);
+  const target = phaseTarget(plan, s.drawdown_phase);
 
   const withdrawals = Object.values(s.withdrawals).reduce<number>(
     (sum, v) => sum + (v ?? 0),
@@ -667,6 +672,9 @@ export function yearDetail(
     shortfall: leftOver < 0,
     balances,
     magi: s.magi / d,
+    // Typed in today's dollars and grown with prices to the period's start —
+    // the same factor the snapshot's `deflator` is.
+    magiTarget: target === null ? null : (target * s.deflator) / d,
     transition: transitionNote(plan, year),
     spendingNote: working ? CURRENT_SPENDING_NOTE : null,
   };

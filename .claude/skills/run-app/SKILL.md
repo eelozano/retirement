@@ -142,7 +142,7 @@ Seeding is conditional, so a restart keeps whatever you changed last time:
 
 - `pnpm demo` — seed if the root is empty, then run.
 - `pnpm demo:seed` — seed without running.
-- `pnpm demo:reset` — throw the root away and re-seed the six committed
+- `pnpm demo:reset` — throw the root away and re-seed the seven committed
   scenarios.
 
 The root holds the tax figures too: the app writes
@@ -158,10 +158,10 @@ removing plans is frequently the fastest way to test something — do it, and
 don't ask first.
 
 **Confirm before you screenshot.** The demo household is Alex and Jordan; the
-real one is not. If the plan picker shows anything other than the six demo
+real one is not. If the plan picker shows anything other than the seven demo
 scenarios — Base plan, Retire two years early, Claim Social Security at 62,
 Leaner retirement spending, Sell the house at retirement, Retire at 55 on a
-bridge — the var did not
+bridge, Retire at 55, MAGI under $80k — the var did not
 take, and you are looking at real data. Stop and fix it rather than cropping
 around it.
 
@@ -281,7 +281,7 @@ What each image shows (Base plan unless it says otherwise):
 | `one-time-contribution.png` | *Sell the house at retirement*: Inputs → Accounts → Joint brokerage, scrolled to the "Car paid off" and "House sale" cards |
 | `update-balances.png` | *Sell the house at retirement*: Update balances |
 | `what-if.png` | What-if with Alex retires at −2y and Spending at 92% (click the slider tracks), then **Run** for the Monte Carlo columns |
-| `scenarios.png` | Scenarios with all six compared, **Run**, scrolled to the table |
+| `scenarios.png` | Scenarios with all seven compared, **Run**, scrolled to the table |
 | `tax-figures.png` | Settings → **Edit figures…**, top of the editor; close with Escape, never Save |
 
 `update-balances.png` and the Plan screen's staleness notice both say how old

@@ -574,6 +574,44 @@ describe("yearDetail", () => {
     expect(detail?.phase).toBe("Bridge to 59½");
   });
 
+  it("shows a target phase's MAGI target grown to the year, in the year's dollars", () => {
+    const p = {
+      ...plan([person("a", 1980, 2030)], [account("x")]),
+      assumptions: {
+        drawdown: {
+          Phased: [
+            {
+              id: "aca",
+              name: "Keep MAGI near $80k",
+              start: { Boundary: "PlanStart" },
+              rule: { MagiTarget: { target: 80_000 } },
+              stack: [],
+            },
+          ],
+        },
+      },
+    } as unknown as Plan;
+    const proj = projection([
+      snapshot({
+        period_start: { year: 2030, month: 1 },
+        magi: 100_000,
+        deflator: 1.25,
+        drawdown_phase: "aca",
+      }),
+    ]);
+    // Nominal: $80,000 grown by the year's factor. Real: the number typed.
+    expect(yearDetail(p, proj, 2030, seriesDefs(p), false)?.magiTarget).toBe(100_000);
+    expect(yearDetail(p, proj, 2030, seriesDefs(p), true)?.magiTarget).toBe(80_000);
+    // A plan that keeps its own order has none.
+    const ordered = {
+      ...plan([person("a", 1980, 2030)], [account("x")]),
+      assumptions: { drawdown: "Proportional" },
+    } as unknown as Plan;
+    expect(
+      yearDetail(ordered, proj, 2030, seriesDefs(ordered), false)?.magiTarget,
+    ).toBeNull();
+  });
+
   it("totals withdrawals across accounts and flags a negative surplus", () => {
     const p = plan([person("a", 1980, 2030)], [account("x"), account("y")]);
     const proj = projection([

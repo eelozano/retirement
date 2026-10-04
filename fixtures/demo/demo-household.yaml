@@ -1432,6 +1432,7 @@ scenarios:
     - id: bridge
       name: Bridge to 59½
       start: !Boundary PlanStart
+      rule: Stack
       stack:
       - source: !Account joint-brokerage
         floor: 0.0
@@ -1442,5 +1443,236 @@ scenarios:
     - id: standard
       name: Standard
       start: !PenaltyFree jordan
+      rule: Stack
+      stack: []
+    dividend_yield: 0.0
+- id: retire-at-55-magi-under-80k
+  name: Retire at 55, MAGI under $80k
+  display_real_dollars: false
+  people:
+    alex:
+      retirement:
+        year: 2034
+        month: 4
+      life_expectancy_age: 88
+    jordan:
+      retirement:
+        year: 2034
+        month: 9
+      life_expectancy_age: 91
+  accounts:
+    alex-401k:
+      contributions:
+      - id: alex-401k-contribution
+        name: ''
+        rule: !PercentOfSalary
+          percent: 0.1
+          step_up:
+            points_per_year: 0.01
+            cap: 0.15
+        start: PlanStart
+        end: !AtRetirement alex
+      one_time_contributions: []
+      employer_match:
+        nonelective_percent: 0.0
+        tiers:
+        - employee_percent: 0.03
+          match_percent: 1.0
+        - employee_percent: 0.02
+          match_percent: 0.5
+        destination: PreTax
+        deposit_into: null
+      rule_of_55: true
+    alex-hsa:
+      contributions:
+      - id: alex-hsa-contribution
+        name: ''
+        rule: FederalMaximum
+        start: PlanStart
+        end: !AtRetirement alex
+      one_time_contributions: []
+      employer_match: null
+      rule_of_55: false
+    alex-roth-ira:
+      contributions:
+      - id: alex-roth-ira-contribution
+        name: ''
+        rule: FederalMaximum
+        start: !Date
+          year: 2029
+          month: 1
+        end: !AtRetirement alex
+      one_time_contributions: []
+      employer_match: null
+      rule_of_55: false
+    emergency-savings:
+      contributions:
+      - id: emergency-savings-contribution
+        name: ''
+        rule: !FlatAmount
+          amount: 0.0
+          growth: None
+        start: PlanStart
+        end: !AtRetirement jordan
+      one_time_contributions: []
+      employer_match: null
+      rule_of_55: false
+    joint-brokerage:
+      contributions:
+      - id: joint-brokerage-contribution
+        name: ''
+        rule: !FlatAmount
+          amount: 6000.0
+          growth: None
+        start: PlanStart
+        end: !AtRetirement alex
+      - id: joint-brokerage-contribution-2027
+        name: Car paid off
+        rule: !FlatAmount
+          amount: 8400.0
+          growth: None
+        start: !Date
+          year: 2027
+          month: 1
+        end: !AtRetirement alex
+      one_time_contributions: []
+      employer_match: null
+      rule_of_55: false
+    jordan-403b:
+      contributions:
+      - id: jordan-403b-contribution
+        name: ''
+        rule: !PercentOfSalary
+          percent: 0.08
+          step_up: null
+        start: PlanStart
+        end: !AtRetirement jordan
+      one_time_contributions: []
+      employer_match:
+        nonelective_percent: 0.0
+        tiers:
+        - employee_percent: 0.04
+          match_percent: 0.5
+        destination: PreTax
+        deposit_into: null
+      rule_of_55: false
+    jordan-roth-ira:
+      contributions:
+      - id: jordan-roth-ira-contribution
+        name: ''
+        rule: FederalMaximum
+        start: PlanStart
+        end: !AtRetirement jordan
+      one_time_contributions: []
+      employer_match: null
+      rule_of_55: false
+  social_security:
+    alex-social-security:
+      claiming_age: 70
+      cola_override: null
+    jordan-social-security:
+      claiming_age: 67
+      cola_override: null
+  streams:
+  - id: alex-salary
+    name: Alex salary
+    owner: alex
+    direction: Income
+    annual_amount: 145000.0
+    start: PlanStart
+    end: !AtRetirement alex
+    growth: Inflation
+    survivor_percentage: null
+    kind: General
+  - id: jordan-salary
+    name: Jordan salary
+    owner: jordan
+    direction: Income
+    annual_amount: 105000.0
+    start: PlanStart
+    end: !AtRetirement jordan
+    growth: Inflation
+    survivor_percentage: null
+    kind: General
+  - id: spending-working
+    name: Household spending (working)
+    owner: null
+    direction: Expense
+    annual_amount: 150000.0
+    start: PlanStart
+    end: !AtRetirement alex
+    growth: Inflation
+    survivor_percentage: null
+    kind: General
+  - id: spending-retired
+    name: Household spending (retired)
+    owner: null
+    direction: Expense
+    annual_amount: 110000.0
+    start: !AtRetirement alex
+    end: PlanEnd
+    growth: Inflation
+    survivor_percentage: null
+    kind: General
+  - id: healthcare-bridge
+    name: Pre-Medicare health insurance
+    owner: null
+    direction: Expense
+    annual_amount: 26000.0
+    start: !AtRetirement alex
+    end: !Date
+      year: 2044
+      month: 4
+    growth: Inflation
+    survivor_percentage: null
+    kind: General
+  - id: jordan-pension
+    name: Jordan pension
+    owner: jordan
+    direction: Income
+    annual_amount: 18000.0
+    start: !AtRetirement jordan
+    end: PlanEnd
+    growth: None
+    survivor_percentage: 0.5
+    kind: Pension
+  assumptions:
+    inflation: 0.03
+    strategy_returns:
+      very_aggressive: 0.0692
+      aggressive: 0.0635
+      moderate: 0.0573
+      conservative: 0.0506
+      very_conservative: 0.0435
+    strategy_volatility:
+      very_aggressive: 0.1303
+      aggressive: 0.1102
+      moderate: 0.0912
+      conservative: 0.0742
+      very_conservative: 0.0609
+    filing_status: MarriedFilingJointly
+    state_tax:
+      state: Colorado
+      brackets:
+      - up_to: null
+        rate: 0.044
+      standard_deduction: 0.0
+    plan_end_age: 95
+    sweep_surplus_from: !AtRetirement alex
+    survivor_expense_factor: 0.75
+    social_security_cola: 0.03
+    social_security_reduction: null
+    reinvest_into: joint-brokerage
+    drawdown: !Phased
+    - id: bridge
+      name: Keep MAGI near $80k
+      start: !Boundary PlanStart
+      rule: !MagiTarget
+        target: 80000.0
+      stack: []
+    - id: standard
+      name: Standard
+      start: !PenaltyFree jordan
+      rule: Stack
       stack: []
     dividend_yield: 0.0

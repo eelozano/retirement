@@ -803,6 +803,16 @@ body {
   line-height: 1.4;
 }
 
+/* The order a MAGI-target phase draws in, stated beside the number. */
+.magi-rule {
+  margin: 4px 0 8px;
+  padding-left: 18px;
+}
+
+.magi-rule li + li {
+  margin-top: 3px;
+}
+
 /* An "i" badge next to a label that reveals a short fact on hover/focus
    instead of spending a permanent line under the control — see
    InfoTooltip in fields.tsx. */

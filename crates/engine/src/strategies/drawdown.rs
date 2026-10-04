@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::model::{AccountId, AccountKind, YearMonth};
+use crate::sim::MagiOverrun;
 use crate::strategies::{IncomeBreakdown, PeriodIndex, TaxModel};
 
 /// Mutable mid-simulation view of one account, owned by the engine loop.
@@ -68,7 +69,7 @@ impl EarlyAccess {
 pub const EARLY_WITHDRAWAL_PENALTY_RATE: f64 = 0.10;
 
 impl AccountState {
-    fn gains_fraction(&self) -> f64 {
+    pub(super) fn gains_fraction(&self) -> f64 {
         if self.balance <= 0.0 {
             return 0.0;
         }
@@ -120,6 +121,19 @@ pub struct WithdrawalResult {
     /// stacks on in turn. `base` itself when nothing was drawn, so the
     /// snapshot's MAGI reads it without asking whether a draw happened.
     pub income: IncomeBreakdown,
+    /// A MAGI-target phase drew this period and the year's MAGI still ended
+    /// above its target. Always `None` for a strategy with no targets.
+    pub magi_target_missed: Option<MagiTargetMiss>,
+}
+
+/// A year a MAGI-target phase could not stay under its target, in nominal
+/// dollars — what `SimWarning::MagiTargetExceeded` reports.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MagiTargetMiss {
+    pub phase: String,
+    pub target: f64,
+    pub magi: f64,
+    pub reason: MagiOverrun,
 }
 
 impl WithdrawalResult {
@@ -176,7 +190,7 @@ pub trait DrawdownStrategy {
 /// flat 10% of a known amount, so it never interacts with the brackets, and
 /// keeping it outside the `TaxModel` is what lets the snapshot report it as
 /// an exact share of the bill rather than an estimate.
-fn income_with(
+pub(super) fn income_with(
     base: &IncomeBreakdown,
     accounts: &[AccountState],
     amounts: &[f64],
@@ -214,17 +228,69 @@ fn income_with(
     (income, penalized)
 }
 
+/// The gross withdrawal whose net covers `net_needed`: the `gross` with
+/// `gross - cost(gross) = net_needed`, capped at `available`.
+///
+/// First the fixed-point iteration `gross = net_needed + cost(gross)`, which
+/// is what every drawdown before #187 converged under, and still does: its
+/// answer is returned exactly as it always was. It converges when the cost
+/// rises slower than the gross. A MAGI-target phase breaks that: in the band
+/// where MAGI is pinned at the target, each extra dollar turns pre-tax
+/// income into capital gains, so the cost *falls*, and against a brokerage
+/// that is mostly gain it falls faster than a dollar per dollar and the
+/// iteration oscillates.
+///
+/// What holds for every strategy is that `gross - cost(gross)` is
+/// continuous and increasing — no marginal rate reaches 100%, and in the
+/// pinned band the cost is falling — so when the iteration exhausts its
+/// rounds, bisection on `[net_needed, available]` finds the one answer. It
+/// returns the upper end of its bracket: the smallest gross found whose net
+/// covers the need, which is also the defined answer at a discontinuity
+/// (ARCHITECTURE.md, "Where the current design pushes back" #3).
+pub(super) fn solve(net_needed: f64, available: f64, mut cost: impl FnMut(f64) -> f64) -> f64 {
+    let tolerance = 1e-12 * net_needed.max(1.0);
+    let mut gross = net_needed;
+    for _ in 0..100 {
+        let next = (net_needed + cost(gross)).min(available);
+        if (next - gross).abs() < tolerance {
+            return next;
+        }
+        gross = next;
+    }
+
+    let mut lo = net_needed.min(available);
+    let mut hi = available;
+    if hi - cost(hi) < net_needed {
+        // Even everything the strategy can supply falls short: depletion.
+        return hi;
+    }
+    for _ in 0..200 {
+        if hi - lo <= tolerance {
+            break;
+        }
+        let mid = 0.5 * (lo + hi);
+        if mid - cost(mid) < net_needed {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    hi
+}
+
 /// The gross-up every `DrawdownStrategy` shares: find the gross withdrawal
 /// whose net, after the tax it *adds* over `base`, covers `net_needed`, then
 /// take it out of `accounts`.
 ///
 /// `allocate(gross, accounts, out)` is the strategy: it writes into `out`,
 /// parallel to `accounts`, how much of `gross` each account supplies. It is
-/// called once per iteration with the balances as they stood on entry, so
-/// it must be a pure function of its arguments, never draw an account below
-/// zero, and be continuous and non-decreasing in `gross` — the fixed point
-/// below converges because the marginal cost it produces is monotone
-/// (ARCHITECTURE.md, "Where the current design pushes back" #3).
+/// called once per round with the balances as they stood on entry, so it
+/// must be a pure function of its arguments, never draw an account below
+/// zero, and be continuous in `gross` such that the net it leaves,
+/// `gross - marginal(gross)`, rises with `gross` — [`solve`] relies on
+/// that. A waterfall that only ever adds to each account meets it; so does
+/// a MAGI-target phase, whose pre-tax draw *falls* as the gross rises
+/// through the band pinned at the target.
 ///
 /// `available` caps `gross` and is what depletion means: the most the
 /// strategy can supply. Callers return early when either `net_needed` or
@@ -243,16 +309,13 @@ pub(super) fn gross_up(
 ) -> WithdrawalResult {
     let mut amounts = vec![0.0; accounts.len()];
 
-    // Fixed-point gross-up: find gross so that gross minus the tax that
-    // gross *adds* covers the net need. The base bill is already paid,
-    // so what has to be covered here is the marginal cost. With `base`
-    // held fixed the marginal cost is still monotone in gross, so this
-    // converges exactly as it did before; cap at what the strategy can
-    // supply (depletion).
+    // Find gross so that gross minus the tax that gross *adds* covers the
+    // net need. The base bill is already paid, so what has to be covered
+    // here is the marginal cost; cap at what the strategy can supply
+    // (depletion).
     let base_tax = tax.tax(base, period).tax;
     // The marginal cost of `gross`, and the penalty's share of it. The
-    // penalty is linear in the draw, so the cost stays monotone and the
-    // iteration converges as before.
+    // penalty is linear in the draw, so it never stops the net rising.
     let mut marginal = |gross: f64| {
         allocate(gross, accounts, &mut amounts);
         let (income, penalized) = income_with(base, accounts, &amounts);
@@ -264,16 +327,7 @@ pub(super) fn gross_up(
         )
     };
 
-    let tolerance = 1e-12 * net_needed.max(1.0);
-    let mut gross = net_needed;
-    for _ in 0..100 {
-        let next = (net_needed + marginal(gross).0).min(available);
-        if (next - gross).abs() < tolerance {
-            gross = next;
-            break;
-        }
-        gross = next;
-    }
+    let gross = solve(net_needed, available, |gross| marginal(gross).0);
 
     let (owed, penalty, income) = marginal(gross);
     // `marginal` has just allocated `gross` itself, so `amounts` now holds
@@ -285,6 +339,7 @@ pub(super) fn gross_up(
         net: gross - owed,
         floors_released: Vec::new(),
         income,
+        magi_target_missed: None,
     };
 
     for (account, &amount) in accounts.iter_mut().zip(&amounts) {
@@ -554,6 +609,30 @@ mod tests {
             roth_result.net,
             "same net as an equivalent Roth",
         );
+    }
+
+    /// A cost that falls faster than a dollar per dollar sends the fixed
+    /// point round a cycle — 100 → 160 → 100 — where the MAGI-target band
+    /// can send it. The net `gross - cost` still rises (4 per dollar here),
+    /// so the bracketed search finds the one gross that covers the need:
+    /// 4·G − 360 = 100 at G = 115.
+    #[test]
+    fn a_cost_falling_faster_than_the_gross_is_solved_by_bisection() {
+        let cost = |gross: f64| (3.0 * (120.0 - gross)).max(0.0);
+        let mut gross = 100.0;
+        for _ in 0..100 {
+            gross = 100.0 + cost(gross);
+        }
+        assert!(
+            gross == 100.0 || gross == 160.0,
+            "the fixed point alone cycles: {gross}"
+        );
+
+        let solved = solve(100.0, 1_000.0, cost);
+        assert!((solved - 115.0).abs() < 1e-9, "solved at {solved}");
+        assert!(solved - cost(solved) >= 100.0, "the answer covers the need");
+        // And depletion still caps it.
+        assert_eq!(solve(100.0, 110.0, cost), 110.0);
     }
 
     /// Depletion still caps the gross at the portfolio total and reports a

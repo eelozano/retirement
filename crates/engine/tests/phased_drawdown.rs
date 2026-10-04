@@ -5,8 +5,8 @@
 use engine::model::PriceLevel;
 use engine::model::{
     Account, AccountKind, AllocationRef, DrawdownPhase, DrawdownPolicy, FilingStatus, GrowthRule,
-    Person, PhaseStart, Plan, PlanType, StackEntry, StackSource, StateTaxProfile, StreamBoundary,
-    StreamDirection, TaxFigures, YearMonth,
+    Person, PhaseRule, PhaseStart, Plan, PlanType, StackEntry, StackSource, StateTaxProfile,
+    StreamBoundary, StreamDirection, TaxFigures, YearMonth,
 };
 use engine::presets::seed_plan;
 use engine::strategies::{BracketTax, IncomeBreakdown, TaxModel};
@@ -17,6 +17,7 @@ fn with_stack(mut plan: Plan, stack: Vec<StackEntry>) -> Plan {
         id: "only".to_string(),
         name: "Only".to_string(),
         start: PhaseStart::Boundary(StreamBoundary::PlanStart),
+        rule: PhaseRule::Stack,
         stack,
     }]);
     plan
@@ -211,12 +212,14 @@ fn bridge_household() -> Plan {
             id: "bridge".to_string(),
             name: "Bridge to 59½".to_string(),
             start: PhaseStart::Boundary(StreamBoundary::PlanStart),
+            rule: PhaseRule::Stack,
             stack: vec![account_entry("his-403b"), account_entry("brokerage")],
         },
         DrawdownPhase {
             id: "standard".to_string(),
             name: "Standard".to_string(),
             start: PhaseStart::PenaltyFree("her".to_string()),
+            rule: PhaseRule::Stack,
             stack: vec![account_entry("her-401k"), account_entry("his-403b")],
         },
     ]);

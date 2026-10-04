@@ -19,7 +19,7 @@ pub use account::{
     EmployerMatch, MatchDestination, MatchTier, OneTimeContribution, PlanType, StepUp,
 };
 pub use assumptions::{Assumptions, SocialSecurityReduction};
-pub use drawdown::{DrawdownPhase, DrawdownPolicy, PhaseStart, StackEntry, StackSource};
+pub use drawdown::{DrawdownPhase, DrawdownPolicy, PhaseRule, PhaseStart, StackEntry, StackSource};
 pub use household::{
     compose, decompose, empty_household, AccountPolicy, BenefitPolicy, ComposeError, Household,
     HouseholdAccount, HouseholdBenefit, HouseholdFile, HouseholdId, HouseholdPerson, Observation,
