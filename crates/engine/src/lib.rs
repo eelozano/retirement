@@ -228,7 +228,7 @@ mod tests {
         // Alex (born 1983) is expected to die at 88, Jordan (born 1987) at 96.
         let tax = tax_model(
             &plan,
-            &TaxFigures::built_in(),
+            &TaxFigures::tax_year_2026(),
             &PriceLevel::Constant(plan.assumptions.inflation),
         );
         assert_eq!(tax.household.filer_birth_years, vec![1983, 1987]);
@@ -244,7 +244,7 @@ mod tests {
         plan.people.truncate(1);
         let tax = tax_model(
             &plan,
-            &TaxFigures::built_in(),
+            &TaxFigures::tax_year_2026(),
             &PriceLevel::Constant(plan.assumptions.inflation),
         );
         assert_eq!(tax.household.filer_birth_years, vec![1983]);

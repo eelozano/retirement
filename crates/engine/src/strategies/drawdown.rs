@@ -339,7 +339,7 @@ mod tests {
 
     fn joint() -> BracketTax {
         {
-            let figures = crate::model::TaxFigures::built_in();
+            let figures = crate::model::TaxFigures::tax_year_2026();
             BracketTax::new(
                 &figures,
                 FilingStatus::MarriedFilingJointly,

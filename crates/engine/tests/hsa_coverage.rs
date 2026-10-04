@@ -110,7 +110,7 @@ fn run(plan: &Plan) -> Projection {
     );
     simulate(
         plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &returns,
         &FlatTax { rate: 0.2 },
         &ProportionalDrawdown,
@@ -132,7 +132,7 @@ fn assert_close(actual: f64, expected: f64, label: &str) {
 
 #[test]
 fn the_2026_figures_are_rev_proc_2025_19() {
-    let figures = TaxFigures::built_in();
+    let figures = TaxFigures::tax_year_2026();
     assert_eq!(figures.tax_year, 2026);
     let limit = |plan_type, age| {
         figures
@@ -252,14 +252,14 @@ fn self_only_hsas_are_still_capped_per_person() {
 /// built-in figures wholesale.
 #[test]
 fn a_plan_and_tax_figures_saved_before_family_coverage_project_as_before() {
-    let mut yaml = serde_yaml_ng::to_string(&TaxFigures::built_in()).unwrap();
+    let mut yaml = serde_yaml_ng::to_string(&TaxFigures::tax_year_2026()).unwrap();
     yaml = yaml
         .lines()
         .filter(|line| !line.contains("hsa_family"))
         .collect::<Vec<_>>()
         .join("\n");
     let figures: TaxFigures = serde_yaml_ng::from_str(&yaml).unwrap();
-    assert_eq!(figures, TaxFigures::built_in());
+    assert_eq!(figures, TaxFigures::tax_year_2026());
 
     let account: Account = serde_yaml_ng::from_str(
         "id: hsa\nowner: young\nkind: Hsa\nplan_type: Hsa\nname: HSA\nbalance: 0\n\

@@ -42,7 +42,7 @@ fn assert_close(actual: f64, expected: f64, label: &str) {
 
 #[test]
 fn a_path_at_the_plan_rate_projects_as_the_constant() {
-    let figures = TaxFigures::built_in();
+    let figures = TaxFigures::tax_year_2026();
     for start in [YearMonth::new(2026, 1), YearMonth::new(2026, 10)] {
         let mut plan = seed_plan();
         plan.sim_config.start = start;
@@ -175,7 +175,7 @@ fn run(plan: &Plan) -> Projection {
     ));
     simulate_with_prices(
         plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &prices,
         &InflationReturns(RATES.to_vec()),
         &FlatTax { rate: 0.0 },
@@ -221,7 +221,7 @@ fn an_inflation_grown_expense_is_flat_in_real_dollars() {
 
 #[test]
 fn a_flat_real_income_pays_a_flat_real_tax_through_uneven_years() {
-    let figures = TaxFigures::built_in();
+    let figures = TaxFigures::tax_year_2026();
     let start = YearMonth::new(figures.tax_year, 1);
     let path = PriceLevel::Path(PricePath::new(start, RATES.to_vec(), 0.5));
     let tax = BracketTax::new(

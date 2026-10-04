@@ -17,7 +17,7 @@ const RETURN: f64 = 0.05;
 const BALANCE: f64 = 1_000_000.0;
 
 fn start_year() -> i32 {
-    TaxFigures::built_in().tax_year
+    TaxFigures::tax_year_2026().tax_year
 }
 
 fn stream(id: &str, direction: StreamDirection, amount: f64) -> CashFlowStream {
@@ -103,7 +103,7 @@ fn run(plan: &Plan, tax: &dyn TaxModel) -> Projection {
     );
     simulate(
         plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &returns,
         tax,
         &ProportionalDrawdown,
@@ -113,7 +113,7 @@ fn run(plan: &Plan, tax: &dyn TaxModel) -> Projection {
 
 fn single_filer(plan: &Plan) -> BracketTax {
     BracketTax::new(
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         FilingStatus::Single,
         StateTaxProfile::none(),
         PriceLevel::Constant(0.0),

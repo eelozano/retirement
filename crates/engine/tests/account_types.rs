@@ -129,7 +129,7 @@ fn run_taxed(plan: &Plan, rate: f64) -> Projection {
     );
     simulate(
         plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &returns,
         &FlatTax { rate },
         &ProportionalDrawdown,
@@ -177,7 +177,7 @@ fn a_457b_and_a_401k_share_no_contribution_cap() {
     let projection = run(&plan);
 
     let total = contributions_in(&projection, "401k", START_YEAR);
-    let expected = TaxFigures::built_in()
+    let expected = TaxFigures::tax_year_2026()
         .annual_limit(
             PlanType::EmployerPlan,
             46,
@@ -185,7 +185,7 @@ fn a_457b_and_a_401k_share_no_contribution_cap() {
             &PriceLevel::Constant(INFLATION),
         )
         .unwrap()
-        + TaxFigures::built_in()
+        + TaxFigures::tax_year_2026()
             .annual_limit(
                 PlanType::Plan457b,
                 46,
@@ -215,19 +215,19 @@ fn sep_ira_and_simple_ira_resolve_to_their_own_limits() {
 
     assert_close(
         contributions_in(&sep, "sep", START_YEAR),
-        TaxFigures::built_in().contribution_limits.sep_ira,
+        TaxFigures::tax_year_2026().contribution_limits.sep_ira,
         "SEP-IRA resolves to its own limit",
     );
     assert_close(
         contributions_in(&simple, "simple", START_YEAR),
-        TaxFigures::built_in().contribution_limits.simple_ira,
+        TaxFigures::tax_year_2026().contribution_limits.simple_ira,
         "SIMPLE IRA resolves to its own limit",
     );
 }
 
 #[test]
 fn hsa_catch_up_starts_at_55_not_50() {
-    let at_50 = TaxFigures::built_in()
+    let at_50 = TaxFigures::tax_year_2026()
         .annual_limit(
             PlanType::Hsa,
             50,
@@ -235,7 +235,7 @@ fn hsa_catch_up_starts_at_55_not_50() {
             &PriceLevel::Constant(INFLATION),
         )
         .unwrap();
-    let at_54 = TaxFigures::built_in()
+    let at_54 = TaxFigures::tax_year_2026()
         .annual_limit(
             PlanType::Hsa,
             54,
@@ -243,7 +243,7 @@ fn hsa_catch_up_starts_at_55_not_50() {
             &PriceLevel::Constant(INFLATION),
         )
         .unwrap();
-    let at_55 = TaxFigures::built_in()
+    let at_55 = TaxFigures::tax_year_2026()
         .annual_limit(
             PlanType::Hsa,
             55,

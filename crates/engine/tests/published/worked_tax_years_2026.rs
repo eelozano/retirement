@@ -9,7 +9,7 @@ use engine::strategies::{BracketTax, IncomeBreakdown, TaxModel};
 use crate::assert_cents;
 
 fn federal_tax(status: FilingStatus, filer_birth_years: Vec<i32>, income: IncomeBreakdown) -> f64 {
-    let figures = TaxFigures::built_in();
+    let figures = TaxFigures::tax_year_2026();
     let model = BracketTax::new(
         &figures,
         status,

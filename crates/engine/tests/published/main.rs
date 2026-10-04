@@ -8,9 +8,14 @@
 //! not that it was ever right. Two federal tax errors (#142) got through on
 //! exactly that.
 //!
-//! When the built-in figures move to a new tax year, the failures here are
-//! the checklist: retype each value from the new publication, and the diff
-//! is the review. When a new statutory rule lands, its test goes here.
+//! Each tax year's figures are a frozen `TaxFigures::tax_year_YYYY()` with
+//! its own `tax_figures_YYYY.rs` and `worked_tax_years_YYYY.rs` here, and
+//! `the_built_in_figures_are_the_latest_checked_year` says which one the app
+//! ships. A new year is added, never retyped over the old one, and the
+//! rest of the suite is written against a named year rather than
+//! `built_in()`, so moving the built-ins breaks that one assertion and
+//! nothing else. When a new statutory rule lands, its test goes
+//! here.
 //!
 //! Sources, all verified against the documents themselves on 2026-10-03:
 //! - IRS Rev. Proc. 2025-32 (2026 brackets, standard deduction, LTCG
@@ -24,9 +29,9 @@
 
 mod analytic_floor;
 mod social_security;
-mod tax_figures;
+mod tax_figures_2026;
 mod uniform_lifetime;
-mod worked_tax_years;
+mod worked_tax_years_2026;
 
 /// Equality to the cent, which is as exact as any published figure is.
 #[track_caller]

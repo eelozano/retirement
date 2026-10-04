@@ -470,17 +470,29 @@ file never depends on which year's figures are loaded.
 
 **Publication-anchored tests (#154).** `crates/engine/tests/published/` is
 the one place whose expected values come from outside the repository: every
-figure in `TaxFigures::built_in()`, the whole Uniform Lifetime table, the FRA
-tables and claiming factors, worked federal tax years and an analytic
-zero-return floor, each typed from its source (Rev. Proc. 2025-32, Notice
-2025-67, Rev. Proc. 2025-19, Pub 590-B, Pub 915, 20 CFR 404) and cited
-beside it, never computed by calling the code under test. The rest of the
-suite — the goldens, and tax tests that ask the tax model for their expected
-value — proves the engine has not changed, not that it is right; the two
-errors in #142 survived on exactly that. Updating the built-in figures to a
-new tax year means retyping these from the new publications, which makes the
-update mechanical rather than a matter of trust, and a new statutory rule
-gets its test here.
+figure of each tax year, the whole Uniform Lifetime table, the FRA tables
+and claiming factors, worked federal tax years and an analytic zero-return
+floor, each typed from its source (Rev. Proc. 2025-32, Notice 2025-67, Rev.
+Proc. 2025-19, Pub 590-B, Pub 915, 20 CFR 404) and cited beside it, never
+computed by calling the code under test. The rest of the suite — the
+goldens, and tax tests that ask the tax model for their expected value —
+proves the engine has not changed, not that it is right; the two errors in
+#142 survived on exactly that. A new statutory rule gets its test here.
+
+**Tax years are frozen and added, never edited.** Each year is its own
+function, `TaxFigures::tax_year_2026()` and its successors, and `built_in()`
+names the latest. Every test outside `published/` — the goldens and the
+demo golden projections included — names the year it was written against
+rather than calling `built_in()`, so moving the built-ins to a new year
+breaks one assertion (`the_built_in_figures_are_the_latest_checked_year`)
+and nothing else, and a golden diff always means the engine changed, never
+that the calendar did. That also matches what an upgrade does: a user's
+`tax-figures.yaml` is never overwritten, so a saved plan keeps projecting on
+the year it was saved with. The serde fallbacks for fields added since 2026
+(`additional_standard_deduction_65_2026`, `hsa_family_2026`) are pinned to
+the year each field arrived for the same reason: a file from that year must
+not be filled in with a later one's amount. The procedure is
+`.claude/skills/update-tax-figures/SKILL.md`.
 
 ---
 

@@ -151,7 +151,7 @@ fn flat_history_with_crash(len: usize, crash_at: usize) -> Vec<HistoricalYear> {
 #[test]
 fn each_start_year_is_judged_on_the_years_history_covers() {
     let plan = retiree(10, 50_000.0, AllocationRef::Moderate);
-    let figures = TaxFigures::built_in();
+    let figures = TaxFigures::tax_year_2026();
     let history = flat_history_with_crash(15, 12);
     let result = backtest(
         &plan,
@@ -212,7 +212,7 @@ fn each_start_year_is_judged_on_the_years_history_covers() {
 fn an_account_earning_each_years_inflation_is_flat_in_every_cohort() {
     let mut plan = retiree(8, 0.0, AllocationRef::Aggressive);
     plan.streams.clear();
-    let figures = TaxFigures::built_in();
+    let figures = TaxFigures::tax_year_2026();
     let rates = [0.02, 0.11, 0.14, -0.06, -0.09, 0.0, 0.05, 0.03, 0.08, 0.01];
     let history: Vec<HistoricalYear> = rates
         .iter()
@@ -250,7 +250,7 @@ fn an_account_earning_each_years_inflation_is_flat_in_every_cohort() {
 #[test]
 fn the_four_percent_rule_lasts_about_as_often_as_trinity_found() {
     let plan = retiree(30, 40_000.0, AllocationRef::Moderate);
-    let figures = TaxFigures::built_in();
+    let figures = TaxFigures::tax_year_2026();
     let half = StrategyRates {
         very_aggressive: 0.5,
         aggressive: 0.5,
@@ -290,7 +290,7 @@ fn the_four_percent_rule_lasts_about_as_often_as_trinity_found() {
 #[test]
 fn a_cohorts_detail_lines_up_with_its_market_years() {
     let plan = seed_plan();
-    let figures = TaxFigures::built_in();
+    let figures = TaxFigures::tax_year_2026();
     for start_year in [1929, 1966, 2000] {
         let detail = run_backtest_cohort(&plan, &figures, start_year).expect("in history");
         let covered = detail.periods_covered as usize;
@@ -310,7 +310,7 @@ fn a_cohorts_detail_lines_up_with_its_market_years() {
 #[test]
 fn the_summary_and_the_detail_agree() {
     let plan = seed_plan();
-    let figures = TaxFigures::built_in();
+    let figures = TaxFigures::tax_year_2026();
     let result = run_backtest(&plan, &figures);
     assert_eq!(result.cohorts.len(), history().len());
     // Over the record, the 80/20 mix compounded at about 6.4% after

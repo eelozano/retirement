@@ -35,7 +35,7 @@ fn run_with_flat_tax(plan: &Plan, rate: f64) -> Projection {
     );
     simulate(
         plan,
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &returns,
         &FlatTax { rate },
         &ProportionalDrawdown,
@@ -289,13 +289,13 @@ fn depletion_emits_warning_and_balances_stay_nonnegative() {
 /// than restated here: these tests are about bucket sharing, not about
 /// whether the seeded figures are current.
 fn deferral_cap() -> f64 {
-    TaxFigures::built_in()
+    TaxFigures::tax_year_2026()
         .annual_limit(PlanType::EmployerPlan, 60, 2026, &PriceLevel::Constant(0.0))
         .expect("employer plans are capped")
 }
 
 fn ira_cap() -> f64 {
-    TaxFigures::built_in()
+    TaxFigures::tax_year_2026()
         .annual_limit(PlanType::Ira, 60, 2026, &PriceLevel::Constant(0.0))
         .expect("IRAs are capped")
 }

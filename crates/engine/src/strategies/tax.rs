@@ -363,7 +363,7 @@ mod tests {
         state_tax: StateTaxProfile,
         inflation: f64,
     ) -> BracketTax {
-        let figures = TaxFigures::built_in();
+        let figures = TaxFigures::tax_year_2026();
         BracketTax::new(
             &figures,
             filing_status,
@@ -380,7 +380,7 @@ mod tests {
         inflation: f64,
         birth_years: Vec<i32>,
     ) -> BracketTax {
-        let figures = TaxFigures::built_in();
+        let figures = TaxFigures::tax_year_2026();
         BracketTax::new(
             &figures,
             filing_status,
@@ -392,7 +392,7 @@ mod tests {
     }
 
     fn federal(status: FilingStatus) -> FederalSchedule {
-        TaxFigures::built_in().federal.for_status(status)
+        TaxFigures::tax_year_2026().federal.for_status(status)
     }
 
     fn assert_close(actual: f64, expected: f64, label: &str) {
@@ -857,7 +857,7 @@ mod tests {
     /// 0, which is why this uses no state tax.
     #[test]
     fn federal_figures_index_from_their_tax_year() {
-        let figures = TaxFigures::built_in();
+        let figures = TaxFigures::tax_year_2026();
         let income = IncomeBreakdown {
             ordinary: 90_000.0,
             capital_gains: 20_000.0,
@@ -950,7 +950,7 @@ mod tests {
     /// 1,240 + 1,134 = 2,374.
     #[test]
     fn the_additional_deduction_starts_in_the_year_the_filer_turns_65() {
-        let figures = TaxFigures::built_in();
+        let figures = TaxFigures::tax_year_2026();
         let tax = BracketTax::new(
             &figures,
             FilingStatus::Single,

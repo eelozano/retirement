@@ -34,7 +34,7 @@ fn empty_plan_is_valid() {
 
 #[test]
 fn empty_plan_projects_without_nan() {
-    let projection = run_deterministic(&solo(), &TaxFigures::built_in());
+    let projection = run_deterministic(&solo(), &TaxFigures::tax_year_2026());
     assert!(
         !projection.snapshots.is_empty(),
         "an empty plan still has a horizon to project over"
@@ -59,7 +59,7 @@ fn empty_plan_runs_monte_carlo() {
     // must not divide by a zero allocation weight.
     let result = run_monte_carlo(
         &solo(),
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &MonteCarloConfig {
             n_paths: 64,
             seed: 1,

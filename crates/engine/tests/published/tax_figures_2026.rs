@@ -1,6 +1,7 @@
-//! `TaxFigures::built_in()` against the documents it was typed from. Each
+//! `TaxFigures::tax_year_2026()` against the documents it was typed from. Each
 //! value is a literal from the cited section; checking one is reading the
-//! line beside it.
+//! line beside it. The 2026 figures are frozen, so this file never changes:
+//! a new tax year gets a file of its own.
 
 use engine::model::{TaxBracket, TaxFigures};
 
@@ -10,14 +11,22 @@ fn ceilings(table: &[TaxBracket]) -> Vec<(Option<f64>, f64)> {
 
 #[test]
 fn figures_are_for_2026() {
-    assert_eq!(TaxFigures::built_in().tax_year, 2026);
+    assert_eq!(TaxFigures::tax_year_2026().tax_year, 2026);
+}
+
+/// What the app ships: the latest tax year this suite has checked. Moving
+/// the built-in figures to a new year changes this line and adds that
+/// year's file beside this one; see `.claude/skills/update-tax-figures`.
+#[test]
+fn the_built_in_figures_are_the_latest_checked_year() {
+    assert_eq!(TaxFigures::built_in(), TaxFigures::tax_year_2026());
 }
 
 /// Rev. Proc. 2025-32 §4.01, Table 1 — Married Individuals Filing Joint
 /// Returns and Surviving Spouses.
 #[test]
 fn married_filing_jointly_brackets_match_rev_proc_2025_32_table_1() {
-    let figures = TaxFigures::built_in();
+    let figures = TaxFigures::tax_year_2026();
     assert_eq!(
         ceilings(&figures.federal.ordinary_brackets.married_filing_jointly),
         vec![
@@ -36,7 +45,7 @@ fn married_filing_jointly_brackets_match_rev_proc_2025_32_table_1() {
 /// Surviving Spouses and Heads of Households).
 #[test]
 fn single_brackets_match_rev_proc_2025_32_table_3() {
-    let figures = TaxFigures::built_in();
+    let figures = TaxFigures::tax_year_2026();
     assert_eq!(
         ceilings(&figures.federal.ordinary_brackets.single),
         vec![
@@ -56,7 +65,7 @@ fn single_brackets_match_rev_proc_2025_32_table_3() {
 /// is the Single row.
 #[test]
 fn capital_gains_breakpoints_match_rev_proc_2025_32_section_4_03() {
-    let figures = TaxFigures::built_in();
+    let figures = TaxFigures::tax_year_2026();
     assert_eq!(
         ceilings(
             &figures
@@ -77,7 +86,7 @@ fn capital_gains_breakpoints_match_rev_proc_2025_32_section_4_03() {
 /// to $2,050 for an individual who is unmarried and not a surviving spouse.
 #[test]
 fn standard_deductions_match_rev_proc_2025_32_section_4_14() {
-    let federal = TaxFigures::built_in().federal;
+    let federal = TaxFigures::tax_year_2026().federal;
     assert_eq!(federal.standard_deduction.married_filing_jointly, 32_200.0);
     assert_eq!(federal.standard_deduction.single, 16_100.0);
     assert_eq!(
@@ -93,7 +102,7 @@ fn standard_deductions_match_rev_proc_2025_32_section_4_14() {
 /// the Notice names for each figure.
 #[test]
 fn contribution_limits_match_notice_2025_67() {
-    let l = TaxFigures::built_in().contribution_limits;
+    let l = TaxFigures::tax_year_2026().contribution_limits;
     // §402(g)(1) elective deferrals: "increased from $23,500 to $24,500".
     assert_eq!(l.employer_plan, 24_500.0);
     // §414(v)(2)(B)(i) catch-up, 50 and over: "from $7,500 to $8,000".
@@ -126,7 +135,7 @@ fn contribution_limits_match_notice_2025_67() {
 /// and the §223(b)(2)(B) family limit "is $8,750".
 #[test]
 fn hsa_limits_match_rev_proc_2025_19() {
-    let l = TaxFigures::built_in().contribution_limits;
+    let l = TaxFigures::tax_year_2026().contribution_limits;
     assert_eq!(l.hsa, 4_400.0);
     assert_eq!(l.hsa_family, 8_750.0);
 }

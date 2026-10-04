@@ -57,7 +57,7 @@ fn a_phased_policy_round_trips() {
 /// took from all three accounts at once.
 #[test]
 fn the_stack_decides_which_accounts_pay() {
-    let figures = TaxFigures::built_in();
+    let figures = TaxFigures::tax_year_2026();
     let phased = run_deterministic(
         &with_stack(seed_plan(), vec![account("taxable-brokerage", 0.0)]),
         &figures,
@@ -95,7 +95,7 @@ fn an_unkeepable_floor_is_released_and_reported() {
             stream.annual_amount *= 3.0;
         }
     }
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     assert!(projection.warnings.iter().any(|w| matches!(
         w,
         SimWarning::FloorReleased { account, .. } if account == "taxable-brokerage"
@@ -112,7 +112,7 @@ fn an_unkeepable_floor_is_released_and_reported() {
 fn monte_carlo_runs_a_phased_plan() {
     let result = run_monte_carlo(
         &with_stack(seed_plan(), vec![account("taxable-brokerage", 0.0)]),
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         &MonteCarloConfig {
             n_paths: 50,
             seed: 7,
@@ -238,7 +238,7 @@ fn the_bridge_household_validates() {
 /// nothing the household draws is ever penalized.
 #[test]
 fn the_bridge_leaves_her_401k_alone_until_59_and_a_half() {
-    let projection = run_deterministic(&bridge_household(), &TaxFigures::built_in());
+    let projection = run_deterministic(&bridge_household(), &TaxFigures::tax_year_2026());
     let drawn =
         |s: &engine::PeriodSnapshot, id: &str| s.withdrawals.get(id).copied().unwrap_or(0.0);
 
@@ -282,7 +282,7 @@ fn the_bridge_leaves_her_401k_alone_until_59_and_a_half() {
 fn without_the_rule_of_55_the_bridge_is_penalized() {
     let mut plan = bridge_household();
     plan.accounts[0].rule_of_55 = false;
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     assert!(projection.snapshots[0].early_withdrawal_penalty > 0.0);
 }
 
@@ -291,15 +291,15 @@ fn without_the_rule_of_55_the_bridge_is_penalized() {
 #[test]
 fn a_split_year_is_taxed_as_one_stack() {
     let plan = bridge_household();
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     let straddle = &projection.snapshots[8];
     let gross: f64 = straddle.withdrawals.values().sum();
     let tax = BracketTax::new(
-        &TaxFigures::built_in(),
+        &TaxFigures::tax_year_2026(),
         FilingStatus::MarriedFilingJointly,
         StateTaxProfile::none(),
         PriceLevel::Constant(0.0),
-        TaxFigures::built_in().tax_year,
+        TaxFigures::tax_year_2026().tax_year,
         plan.people.iter().map(|p| p.birth.year).collect(),
     );
     let expected = tax

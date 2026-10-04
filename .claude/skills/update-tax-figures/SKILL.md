@@ -1,6 +1,6 @@
 ---
 name: update-tax-figures
-description: Move the app's built-in tax figures (`TaxFigures::built_in()`) to a new tax year from the IRS publications, and retype the publication-anchored tests that check them. Use when the user says "update the tax figures", when the yearly November reminder fires, or before a release that should ship a new tax year. Covers when the three documents are out, how to find and read them (the web fetcher cannot read IRS PDFs), which section feeds which field, what else breaks when the figures change, and what the release notes must say.
+description: Move the app's built-in tax figures (`TaxFigures::built_in()`) to a new tax year from the IRS publications, by adding a frozen `tax_year_YYYY()` and its publication-anchored tests. Use when the user says "update the tax figures", when the yearly November reminder fires, or before a release that should ship a new tax year. Covers when the three documents are out, how to find and read them (the web fetcher cannot read IRS PDFs), which section feeds which field, how to add the year without touching the old one, and what the release notes must say.
 ---
 
 # Updating the built-in tax figures to a new tax year
@@ -13,9 +13,9 @@ install that already has one until its owner resets it under
 
 The tests that check the figures live in `crates/engine/tests/published/`
 (#154). Every expected value there is typed from a publication and cited
-beside it. **Retype them from the new document. Never copy the engine's
-new output into them**, because that turns the suite into the kind of test
-that let #142 through.
+beside it. A new year is **added** next to the old ones, as a new frozen
+`tax_year_YYYY()` with its own test files, and nothing already there is
+retyped.
 
 ## 1. Wait until all three documents are out
 
@@ -83,64 +83,63 @@ law changed:
   `curl -sSL --compressed "https://www.ecfr.gov/api/versioner/v1/full/<YYYY-MM-DD>/title-20.xml?part=404&section=404.410"`
   (also `404.409` and `404.313`).
 
-## 4. Update `TaxFigures::built_in()`
+## 4. Add the new year beside the old one
 
-Set `tax_year` and retype every figure in it. Two serde defaults in the same
-file need handling **before** the literals change:
+Each tax year is a frozen function in `crates/engine/src/model/tax_figures.rs`:
+`TaxFigures::tax_year_2026()` and so on. **Never edit an existing year.**
+Add `tax_year_YYYY()` for the new year, typing every figure from the
+documents with the section in a comment. Then repoint `built_in()` at it.
+That one line is the whole change to what the app ships.
 
-- `additional_standard_deduction_65()` is both the serde default for a
-  `tax-figures.yaml` written before that field existed *and* what
-  `built_in()` uses.
-- `built_in_hsa_family()` reads `built_in()` for the same purpose.
+Nothing else in the engine changes. Tests outside `tests/published/` name
+the year they were written against (`tax_year_2026()`), as do the goldens
+and the demo golden projections. Two serde fallbacks
+(`additional_standard_deduction_65_2026`, `hsa_family_2026`) fill an older
+`tax-figures.yaml` that lacks those fields, and they are pinned to the year
+each field arrived. A trial 2027 update on 2026-10-03 broke exactly one
+test outside the new year's own files. If more break, something is reading
+`built_in()` where it should name a year: fix that test rather than
+retyping it.
 
-A file missing those fields has its own, older `tax_year`, so filling it
-with the new year's amount mixes two years in one file. Pin both defaults to
-the figures of the year they were introduced (2026: $1,650 / $2,050 and
-$8,750), and give `built_in()` its own literals. This keeps the upgrade
-invariant in `CLAUDE.md` intact. Do it in the first update after #154,
-then this note can shrink to "they are pinned".
+The adapter's tests in `src-tauri/src/tax_figures.rs` that check "falls back
+to the built-in figures" compare `built_in()` with itself on purpose and
+keep passing.
 
-## 5. Retype the publication-anchored tests
+## 5. Add the new year's publication tests
 
-Run `cargo test -p engine --test published`. The failures are the
-checklist.
+In `crates/engine/tests/published/`:
 
-- `tax_figures.rs`: retype each value from the new document, and update the
-  cited section and quoted wording, which shift between years.
-- `worked_tax_years.rs`: the threshold tests take the tax at each threshold
-  from the new Rev. Proc.'s "The Tax Is" column, which is the IRS's own
-  cumulative sum. That column is the independent check on a mistyped
-  bracket: an engine whose bracket ceiling is off disagrees with it. The
-  other worked years are arithmetic in comments. Redo each one on paper with
-  the new figures, keeping the scenario, and update both the comment and the
-  expected value.
-- `figures_are_for_2026` becomes the new year.
-- `uniform_lifetime.rs`, `social_security.rs` and `analytic_floor.rs` should
-  not fail. If they do, something other than the figures changed.
+- Copy `tax_figures_2026.rs` to `tax_figures_YYYY.rs`. Point it at
+  `tax_year_YYYY()` and retype every value, citation and quoted wording from
+  the new documents. Sections and wording shift between years.
+- Copy `worked_tax_years_2026.rs` to `worked_tax_years_YYYY.rs`. The
+  threshold tests take the tax at each threshold from the new Rev. Proc.'s
+  "The Tax Is" column, the IRS's own cumulative sum and the independent
+  check on a mistyped bracket. Keep the other worked years' scenarios and
+  redo their arithmetic on paper with the new figures, updating both the
+  comment and the expected value.
+- Add both as `mod` lines in `main.rs`, and move
+  `the_built_in_figures_are_the_latest_checked_year` into the new year's
+  file, asserting `built_in() == tax_year_YYYY()`.
+- Leave the old year's files alone. They keep checking a frozen year
+  against its own documents.
+- Never fill in an expected value from what the engine prints. A figure
+  copied from the engine is checked against itself, which is how #142's
+  two errors got through.
 
-## 6. Fix the rest of the suite
+`uniform_lifetime.rs`, `social_security.rs` and `analytic_floor.rs` are not
+yearly and should not need touching.
 
-The rest of the suite also breaks. A trial run (2026-10-03, moving the year
-and five figures) failed about 45 tests in ten targets beyond `published/`.
-Those tests use `TaxFigures::built_in()` as "some valid figures" while
-asserting 2026-specific numbers:
+## 6. Measure the change for the release notes
 
-- `strategies::tax` unit tests, which hand-compute against 2026 brackets
-- `model::tax_figures` and `src-tauri` `tax_figures` unit tests
-- `contributions`, `hsa_coverage`, `account_types` and `mid_year_start`
-  limit tests
-- `monte_carlo`, which has tuned success rates
-- engine goldens: `UPDATE_GOLDEN=1 cargo test -p engine golden`
-- demo golden projections:
-  `UPDATE_GOLDEN=1 cargo test -p retirement --test demo_fixtures`
+The goldens are pinned to 2026, so they do not measure the new figures.
+Measure them directly instead. Compare the demo household's scenarios
+projected with `tax_year_YYYY()` against the previous year, and report the
+differences in ending net worth and success rate. A throwaway test or a
+scratch binary is fine for this; do not commit it.
 
-Ask the user before doing that by hand. The durable fix is to pin those
-tests to a frozen `TaxFigures` for the year they were written against, so
-that only `published/` and the goldens move when `built_in()` does. That is
-its own change, and the user has not decided on it yet.
-
-Regenerated goldens are the measurement the release notes need. Say by how
-much the demo household's projections moved.
+This change only reaches a new install, or a user who resets their file.
+Existing installs keep their own `tax-figures.yaml`.
 
 ## 7. Docs and release notes
 

@@ -133,7 +133,7 @@ fn close_enough(actual: f64, expected: f64) -> bool {
 fn seed_projection_matches_golden_file() {
     assert_matches_golden(
         "seed_projection",
-        &run_deterministic(&seed_plan(), &TaxFigures::built_in()),
+        &run_deterministic(&seed_plan(), &TaxFigures::tax_year_2026()),
     );
 }
 
@@ -148,6 +148,6 @@ fn mid_year_seed_projection_matches_golden_file() {
     plan.sim_config.start = YearMonth::new(2026, 9);
     assert_matches_golden(
         "seed_projection_mid_year",
-        &run_deterministic(&plan, &TaxFigures::built_in()),
+        &run_deterministic(&plan, &TaxFigures::tax_year_2026()),
     );
 }

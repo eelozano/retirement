@@ -188,7 +188,9 @@ mod tests {
     #[test]
     fn an_edited_file_is_used_and_never_overwritten() {
         let base = TempBase::new("edited");
-        load(&base.0);
+        // A 2026 file, so the line edited below is there whatever year the
+        // built-in figures have moved on to.
+        save(&base.0, &TaxFigures::tax_year_2026()).unwrap();
         let file = path(&base.0);
         let edited = fs::read_to_string(&file)
             .unwrap()
@@ -204,11 +206,12 @@ mod tests {
     /// A file written before the age-65 additional deduction existed has no
     /// such figure. It must still load — a file that failed to parse would
     /// drop *every* figure to the built-in ones, silently discarding whatever
-    /// the user had edited — and take the published amount for it.
+    /// the user had edited — and take the 2026 amount, the year the field
+    /// arrived, not whatever year the built-in figures have reached since.
     #[test]
     fn a_file_from_before_the_additional_deduction_still_loads() {
         let base = TempBase::new("pre-65");
-        load(&base.0);
+        save(&base.0, &TaxFigures::tax_year_2026()).unwrap();
         let file = path(&base.0);
         let written = fs::read_to_string(&file).unwrap();
         let mut lines = written.lines().peekable();
@@ -234,7 +237,7 @@ mod tests {
         assert_eq!(loaded.figures.federal.standard_deduction.single, 17_000.0);
         assert_eq!(
             loaded.figures.federal.additional_standard_deduction_65,
-            TaxFigures::built_in()
+            TaxFigures::tax_year_2026()
                 .federal
                 .additional_standard_deduction_65
         );

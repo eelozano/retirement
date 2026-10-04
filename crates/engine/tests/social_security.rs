@@ -82,14 +82,14 @@ fn assert_close(actual: f64, expected: f64, label: &str) {
 #[test]
 fn claiming_at_fra_pays_unadjusted_pia() {
     let plan = plan_with(67, 67, 0.0, Some(0.0));
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     assert_close(projection.snapshots[0].income, BENEFIT_AT_FRA, "p0 income");
 }
 
 #[test]
 fn claiming_early_applies_reduction() {
     let plan = plan_with(67, 62, 0.0, Some(0.0));
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     assert_close(
         projection.snapshots[0].income,
         BENEFIT_AT_FRA * 0.70,
@@ -100,7 +100,7 @@ fn claiming_early_applies_reduction() {
 #[test]
 fn claiming_delayed_applies_credit() {
     let plan = plan_with(66, 70, 0.0, Some(0.0));
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     assert_close(
         projection.snapshots[0].income,
         BENEFIT_AT_FRA * 1.32,
@@ -115,7 +115,7 @@ fn claiming_delayed_applies_credit() {
 fn a_mid_year_full_retirement_age_is_projected_exactly() {
     let mut plan = plan_with(67, 62, 0.0, Some(0.0));
     plan.social_security[0].full_retirement_age = Some(FullRetirementAge::new(66, 6));
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     assert_close(
         projection.snapshots[0].income,
         BENEFIT_AT_FRA * 0.725,
@@ -130,7 +130,7 @@ fn a_mid_year_full_retirement_age_is_projected_exactly() {
 fn an_absent_full_retirement_age_derives_from_the_birth_year() {
     let mut plan = plan_with(67, 62, 0.0, Some(0.0));
     plan.social_security[0].full_retirement_age = None;
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     assert_close(
         projection.snapshots[0].income,
         BENEFIT_AT_FRA * 0.70,
@@ -142,7 +142,7 @@ fn an_absent_full_retirement_age_derives_from_the_birth_year() {
 fn unknown_owner_produces_warning() {
     let mut plan = plan_with(67, 67, 0.0, Some(0.0));
     plan.social_security[0].owner = "nobody".to_string();
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     assert!(projection
         .warnings
         .iter()
@@ -155,7 +155,7 @@ fn cola_override_beats_plan_default() {
     // Plan default COLA is 2%; this benefit overrides to 5%. One year after
     // claiming (period 1), growth should reflect 5%, not 2%.
     let plan = plan_with(67, 67, 0.02, Some(0.05));
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     assert_close(
         projection.snapshots[1].income,
         BENEFIT_AT_FRA * 1.05,
@@ -177,8 +177,8 @@ fn a_cut_paying_in_full_changes_nothing() {
     let baseline = plan_with(67, 67, 0.02, None);
     let mut plan = baseline.clone();
     plan.assumptions.social_security_reduction = cut(plan.sim_config.start, 1.0);
-    let a = run_deterministic(&baseline, &TaxFigures::built_in());
-    let b = run_deterministic(&plan, &TaxFigures::built_in());
+    let a = run_deterministic(&baseline, &TaxFigures::tax_year_2026());
+    let b = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     for (x, y) in a.snapshots.iter().zip(&b.snapshots) {
         assert_eq!(x.income, y.income);
         assert_eq!(x.taxes, y.taxes);
@@ -191,7 +191,7 @@ fn a_cut_paying_in_full_changes_nothing() {
 fn a_cut_pays_the_payable_share_from_its_month() {
     let mut plan = plan_with(67, 67, 0.02, None);
     plan.assumptions.social_security_reduction = cut(plan.sim_config.start.add_years(1), 0.77);
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     assert_close(projection.snapshots[0].income, BENEFIT_AT_FRA, "p0 income");
     assert_close(
         projection.snapshots[1].income,
@@ -212,7 +212,7 @@ fn a_mid_year_cut_is_prorated_by_month() {
     let mut plan = plan_with(67, 67, 0.0, Some(0.0));
     let start = plan.sim_config.start;
     plan.assumptions.social_security_reduction = cut(YearMonth::new(start.year, 7), 0.5);
-    let projection = run_deterministic(&plan, &TaxFigures::built_in());
+    let projection = run_deterministic(&plan, &TaxFigures::tax_year_2026());
     assert_close(
         projection.snapshots[0].income,
         BENEFIT_AT_FRA * (0.5 + 0.5 * 0.5),
