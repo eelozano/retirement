@@ -56,8 +56,10 @@ a card comparing the historical and Monte Carlo rates and the 6.4% real
 return history paid against the plan's 3.3%; and a bar chart of what the plan
 ends with for every start year from 1871.](docs/screenshots/history.png)
 
-**Scenarios.** Branch a plan, then overlay them and read the differences off a
-summary table — net worth at plan end, delta against the base, depletion year,
+**Scenarios.** Branch a plan, and each scenario says under its name what it
+changes from the household's first — "2 changes: Alex's retirement, House
+sale removed" — opening into every change beside the value it replaced. Then
+overlay them and read the outcomes off a summary table — net worth at plan end, delta against the base, depletion year,
 lifetime taxes and any early-withdrawal penalties, and a Monte Carlo run of
 every scenario on the same paths for probability of success, its delta, and
 the 10th percentile at the end.
@@ -503,8 +505,9 @@ there — it just doesn't bundle an installer.
   listed with what it would take to hold its purchasing power, to keep, grow
   or retype. One refresh moves every scenario of the household, because they
   all project from the same balances.
-- **Multi-scenario comparison.** Duplicate a plan to branch a scenario, then
-  overlay net worth across up to five of them with a summary table (net worth
+- **Multi-scenario comparison.** Duplicate a plan to branch a scenario; the
+  scenario list says what each one changes from the household's first, and
+  opens into every change beside the value it replaced. Then overlay net worth across up to five of them with a summary table (net worth
   at plan end, delta vs. the active scenario, depletion year, lifetime taxes),
   plus a Monte Carlo run of each on the same paths for probability of success,
   its delta, and the 10th percentile at plan end.
