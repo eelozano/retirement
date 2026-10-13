@@ -6,7 +6,14 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!**/dist", "!src/types/generated", "!crates", "!src-tauri"]
+    "includes": [
+      "**",
+      "!**/dist",
+      "!src/types/generated",
+      "!crates",
+      "!src-tauri",
+      "!fixtures"
+    ]
   },
   "formatter": {
     "enabled": true,

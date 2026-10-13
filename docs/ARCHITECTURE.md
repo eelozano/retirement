@@ -185,7 +185,9 @@ retirement/
 │   ├── lib/                   # invoke wrappers (api.ts), formatting,
 │   │                          # warnings, whatIf, returns, yearBoundary, …
 │   └── types/generated/       # ts-rs output — never hand-edited
-├── fixtures/demo/             # the committed, invented demo household
+├── fixtures/demo/             # the committed, invented demo household, its
+│                              # golden projections, and screens/: what the engine
+│                              # returns for it, as JSON the screen tests render
 ├── scripts/
 │   ├── warm-actool.sh         # release bundling workaround; see CLAUDE.md
 │   └── build-historical-data.mjs # ie_data.xls → crates/engine/data/
@@ -1276,7 +1278,7 @@ Every command is registered in `generate_handler!` in `src-tauri/src/lib.rs`. Gr
 
 - **One store.** `store/planStore.ts` (Zustand) holds the active scenario's plan and projection, the scenario list for the switcher, Monte Carlo state and UI state. Inputs and results are separate, so a stale projection is detectable. Edits debounce (300 ms) into a re-projection and an autosave, and the previous projection stays on screen while the next computes. Only the active scenario is held in memory; switching, duplicating and deleting round-trip through the backend.
 - **Monte Carlo runs beside the deterministic projection**, never awaited with it, on the path count and auto-run threshold the backend reports. The chart's Monte Carlo band toggle is session-only.
-- **Pure view-models.** Chart components draw from `*Data.ts` builders in `components/charts/` — plain functions from a `Projection` to chart rows, tested with vitest — so the charting library is not load-bearing.
+- **Pure view-models.** Chart components draw from `*Data.ts` builders in `components/charts/` — plain functions from a `Projection` to chart rows, tested with vitest — so the charting library is not load-bearing. What composes them is covered by one smoke suite (`components/layout/screens.smoke.test.tsx`): every screen is rendered in three states — the demo household with Monte Carlo finished, a household `create_plan` just made (people and nothing else), and a run in flight — and must not throw and must show its landmark. The data is `fixtures/demo/screens/*.json`, written by `demo_fixtures.rs` from the engine's own output and checked there, so it cannot drift from the shape the engine returns the way a hand-built projection does. It pins shape, not numbers; `golden-projections.csv` pins those.
 - **The rail is labelled, and collapses to icons.** `Rail.tsx` holds the destinations in two named groups (`NAV_GROUPS`, Plan and Setup) with Report and Settings below them; collapsing is the same component with the labels dropped, not a second one. Which destination is current is `Dashboard`'s `destination` state — there is no router. Whether the rail is collapsed is a per-user display preference kept in the webview's `localStorage` (`lib/railPreference.ts`), not in `settings.json`: it is read synchronously, so the first paint is already the right width, where a value fetched over IPC would arrive after the rail had rendered at the default. It holds no financial data, so it sits outside the `RETIREMENT_DATA_DIR` root on purpose.
 - **Real dollars are a division.** The today's-dollars toggle divides each flow by its snapshot's `deflator` and each balance or net worth by its `deflator_end` client-side (`lib/deflate.ts`); no engine round-trip.
 - **Warnings are text.** `src/lib/warnings.ts` renders each `SimWarning` from the numbers it carries.

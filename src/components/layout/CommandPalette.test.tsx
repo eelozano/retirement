@@ -1,22 +1,12 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { CommandPalette } from "./CommandPalette";
 
 // The palette is the escape hatch for depth the rail should not hold: type a
 // screen's name, land on it. These pin the shortcut, the filter, and that the
 // list is the rail's own.
-
-// jsdom has no layout engine behind <dialog>; see ReportView.test.tsx.
-beforeAll(() => {
-  HTMLDialogElement.prototype.showModal = function () {
-    this.setAttribute("open", "");
-  };
-  HTMLDialogElement.prototype.close = function () {
-    this.removeAttribute("open");
-  };
-});
 
 function setup() {
   const handlers = {
