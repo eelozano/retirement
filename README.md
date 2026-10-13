@@ -691,7 +691,8 @@ and reset is one command.
 The fixtures under `fixtures/demo/` are generated from
 `src-tauri/tests/demo_fixtures.rs`, which also asserts they still parse,
 validate, and simulate — so a schema change fails CI rather than quietly
-rotting them. Regenerate after an intentional change:
+rotting them. It also writes `fixtures/demo/screens/`, the engine's output the
+screen smoke tests render. Regenerate after an intentional change:
 
 ```bash
 UPDATE_FIXTURES=1 cargo test -p retirement --test demo_fixtures

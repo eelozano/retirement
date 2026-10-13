@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../lib/api", () => ({
   getTaxFigures: vi.fn(),
@@ -15,16 +15,6 @@ import { TaxFiguresEditor } from "./TaxFiguresEditor";
 // The editor is a draft over tax-figures.yaml: it opens on what the file
 // says, writes only on Save, and on a save the backend refuses it keeps the
 // draft and says why, so nothing typed is lost.
-
-// jsdom has no layout engine behind <dialog>; see ReportView.test.tsx.
-beforeAll(() => {
-  HTMLDialogElement.prototype.showModal = function () {
-    this.setAttribute("open", "");
-  };
-  HTMLDialogElement.prototype.close = function () {
-    this.removeAttribute("open");
-  };
-});
 
 const PATH = "/Users/me/Documents/Retirement Planner/tax-figures.yaml";
 const taxFiguresChanged = vi.fn();

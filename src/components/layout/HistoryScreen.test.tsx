@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BacktestResult } from "../../types/generated/BacktestResult";
 import type { CohortDetail } from "../../types/generated/CohortDetail";
 import type { CohortSummary } from "../../types/generated/CohortSummary";
@@ -15,18 +15,6 @@ vi.mock("../../lib/api", () => ({
 import * as api from "../../lib/api";
 import { usePlanStore } from "../../store/planStore";
 import { HistoryScreen } from "./HistoryScreen";
-
-// Recharts measures its container; jsdom has nothing to measure with.
-beforeAll(() => {
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
-});
 
 const rates = (r: number) => ({
   very_aggressive: r,

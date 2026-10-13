@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../lib/api", () => ({
   getStorageInfo: vi.fn(),
@@ -22,16 +22,6 @@ import { StorageSettings } from "./StorageSettings";
 // settings window is where they learn which year is in force, where the
 // file is, and — the part that matters most — that an edit could not be
 // used and the built-in figures are standing in.
-
-// jsdom has no layout engine behind <dialog>; see ReportView.test.tsx.
-beforeAll(() => {
-  HTMLDialogElement.prototype.showModal = function () {
-    this.setAttribute("open", "");
-  };
-  HTMLDialogElement.prototype.close = function () {
-    this.removeAttribute("open");
-  };
-});
 
 const FIGURES = taxFigures();
 const PATH = "/Users/me/Documents/Retirement Planner/tax-figures.yaml";

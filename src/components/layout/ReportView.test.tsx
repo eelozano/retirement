@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { usePlanStore } from "../../store/planStore";
 import type { Plan } from "../../types/generated/Plan";
 import type { Projection } from "../../types/generated/Projection";
@@ -8,17 +8,6 @@ import { ReportView } from "./ReportView";
 // A printed report outlives the session it came from — it has to say what
 // the balances behind it were as of, the same as the Plan screen's status
 // band and the comparison header (#110).
-
-// jsdom has no layout engine behind <dialog>, so showModal()/close() are
-// unimplemented rather than no-ops — Modal calls them unconditionally.
-beforeAll(() => {
-  HTMLDialogElement.prototype.showModal = function () {
-    this.setAttribute("open", "");
-  };
-  HTMLDialogElement.prototype.close = function () {
-    this.removeAttribute("open");
-  };
-});
 
 function makePlan(overrides: Partial<Plan> = {}): Plan {
   return {
