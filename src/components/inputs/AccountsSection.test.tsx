@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { usePlanStore } from "../../store/planStore";
@@ -138,8 +138,10 @@ describe("AccountsSection", () => {
     render(<AccountsSection />);
     await addAccount();
     await userEvent.selectOptions(screen.getByLabelText("Type"), "roth_ira");
-    usePlanStore.getState().updatePlan((d) => {
-      d.accounts[0].contributions[0].rule = "FederalMaximum";
+    act(() => {
+      usePlanStore.getState().updatePlan((d) => {
+        d.accounts[0].contributions[0].rule = "FederalMaximum";
+      });
     });
 
     await userEvent.selectOptions(screen.getByLabelText("Type"), "taxable");
@@ -807,20 +809,22 @@ describe("AccountsSection", () => {
     render(<AccountsSection />);
     await addAccount();
     const id = currentAccount()?.id ?? "";
-    usePlanStore.setState((s) => {
-      const draft = structuredClone(s.plan) as Plan;
-      draft.assumptions.drawdown = {
-        Phased: [
-          {
-            id: "only",
-            name: "Only",
-            start: { Boundary: "PlanStart" },
-            rule: "Stack",
-            stack: [{ source: { Account: id }, floor: 0 }],
-          },
-        ],
-      };
-      return { plan: draft };
+    act(() => {
+      usePlanStore.setState((s) => {
+        const draft = structuredClone(s.plan) as Plan;
+        draft.assumptions.drawdown = {
+          Phased: [
+            {
+              id: "only",
+              name: "Only",
+              start: { Boundary: "PlanStart" },
+              rule: "Stack",
+              stack: [{ source: { Account: id }, floor: 0 }],
+            },
+          ],
+        };
+        return { plan: draft };
+      });
     });
     await userEvent.click(screen.getByRole("button", { name: "Remove account" }));
     const drawdown = usePlanStore.getState().plan?.assumptions.drawdown;
