@@ -1,6 +1,7 @@
 import type { PlanSummary } from "../lib/api";
 import type { MonteCarloDiagnostics } from "../types/generated/MonteCarloDiagnostics";
 import type { PathGroupStats } from "../types/generated/PathGroupStats";
+import type { Plan } from "../types/generated/Plan";
 import type { Spread } from "../types/generated/Spread";
 import type { TaxFigures } from "../types/generated/TaxFigures";
 
@@ -116,6 +117,138 @@ export function taxFigures(): TaxFigures {
       simple_ira: 17_000,
       simple_ira_catch_up_50: 4_000,
       simple_ira_catch_up_60_63: 5_250,
+    },
+  };
+}
+
+/**
+ * A complete scenario — every field the engine writes, none cast away — for
+ * tests that read a whole plan. Alex retires Jun 2033 and pays into a 401(k)
+ * until then; a brokerage holds a house sale landing in Jun 2040.
+ */
+export function basePlan(): Plan {
+  return {
+    id: "base",
+    schema_version: 2,
+    name: "Base plan",
+    sample: false,
+    people: [
+      {
+        id: "alex",
+        name: "Alex",
+        birth: { year: 1975, month: 3 },
+        retirement: { year: 2033, month: 6 },
+        life_expectancy_age: 92,
+      },
+    ],
+    accounts: [
+      {
+        id: "k401",
+        owner: "alex",
+        kind: "TraditionalPreTax",
+        name: "Alex 401(k)",
+        balance: 400_000,
+        cost_basis: null,
+        allocation: "Aggressive",
+        plan_type: "EmployerPlan",
+        contributions: [
+          {
+            id: "k401-main",
+            name: "",
+            rule: { PercentOfSalary: { percent: 0.1, step_up: null } },
+            start: "PlanStart",
+            end: { AtRetirement: "alex" },
+          },
+          {
+            id: "k401-catchup",
+            name: "Catch-up",
+            rule: { FlatAmount: { amount: 7_500, growth: "Inflation" } },
+            start: { AtAge: ["alex", 50] },
+            end: { AtRetirement: "alex" },
+          },
+        ],
+        one_time_contributions: [],
+        employer_match: null,
+        rule_of_55: false,
+      },
+      {
+        id: "brokerage",
+        owner: "alex",
+        kind: "Taxable",
+        name: "Joint Brokerage",
+        balance: 150_000,
+        cost_basis: 100_000,
+        allocation: "Moderate",
+        plan_type: "None",
+        contributions: [],
+        one_time_contributions: [
+          {
+            id: "house-sale",
+            name: "House sale",
+            amount: 350_000,
+            growth: "Inflation",
+            date: { Date: { year: 2040, month: 6 } },
+          },
+        ],
+        employer_match: null,
+        rule_of_55: false,
+      },
+    ],
+    streams: [
+      {
+        id: "spending",
+        name: "Household spending",
+        owner: null,
+        direction: "Expense",
+        annual_amount: 90_000,
+        start: "PlanStart",
+        end: "PlanEnd",
+        growth: "Inflation",
+        survivor_percentage: null,
+        kind: "General",
+      },
+    ],
+    social_security: [
+      {
+        id: "alex-ss",
+        owner: "alex",
+        benefit_at_fra: 36_000,
+        full_retirement_age: null,
+        claiming_age: 67,
+        cola_override: null,
+      },
+    ],
+    assumptions: {
+      inflation: 0.03,
+      strategy_returns: {
+        very_aggressive: 0.09,
+        aggressive: 0.08,
+        moderate: 0.065,
+        conservative: 0.05,
+        very_conservative: 0.04,
+      },
+      strategy_volatility: {
+        very_aggressive: 0.18,
+        aggressive: 0.16,
+        moderate: 0.11,
+        conservative: 0.07,
+        very_conservative: 0.05,
+      },
+      filing_status: "Single",
+      state_tax: { state: "Other", brackets: [], standard_deduction: 0 },
+      plan_end_age: 95,
+      sweep_surplus_from: null,
+      survivor_expense_factor: 1,
+      social_security_cola: 0.025,
+      social_security_reduction: null,
+      reinvest_into: null,
+      drawdown: "Proportional",
+      dividend_yield: 0,
+    },
+    sim_config: {
+      start: { year: 2026, month: 10 },
+      period: "Year",
+      display_real_dollars: true,
     },
   };
 }
