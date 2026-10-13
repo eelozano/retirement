@@ -235,7 +235,7 @@ export function oneTimeName(entry: Pick<OneTimeContribution, "name">): string {
 }
 
 /** "in Jun 2031", "when Alex retires (Apr 2042)". */
-function landingPhrase(date: StreamBoundary, plan: Plan): string {
+export function landingPhrase(date: StreamBoundary, plan: Plan): string {
   const phrase = boundaryPhrase(date, plan);
   if (typeof date !== "object") return `at ${phrase}`;
   return "Date" in date ? `in ${phrase}` : `when ${phrase}`;

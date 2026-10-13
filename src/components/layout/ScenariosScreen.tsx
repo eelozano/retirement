@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import type { PlanSummary } from "../../lib/api";
 import { usePlanStore } from "../../store/planStore";
+import type { Plan } from "../../types/generated/Plan";
 import { InfoTooltip } from "../inputs/fields";
 import { ComparisonView } from "./ComparisonView";
+import { ScenarioChanges, useScenarioPlans } from "./ScenarioChanges";
 
 // The scenarios destination: manage the scenario list (switch, duplicate,
 // delete) and, once there's more than one to compare, the comparison view
@@ -40,6 +42,14 @@ export function groupByHousehold(scenarios: PlanSummary[]): HouseholdGroup[] {
   return groups;
 }
 
+/** A row's change summary, once both its plan and its household's first
+ * have loaded. */
+function Changes(props: { plan: Plan | undefined; reference: Plan | undefined }) {
+  const { plan, reference } = props;
+  if (!plan || !reference) return null;
+  return <ScenarioChanges plan={plan} reference={reference} />;
+}
+
 export function ScenariosScreen() {
   const scenarios = usePlanStore((s) => s.scenarios);
   const plan = usePlanStore((s) => s.plan);
@@ -48,6 +58,7 @@ export function ScenariosScreen() {
   const deleteScenario = usePlanStore((s) => s.deleteScenario);
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
+  const planFor = useScenarioPlans(scenarios, plan);
 
   useEffect(() => {
     if (plan) setNewName(`${plan.name} copy`);
@@ -93,9 +104,22 @@ export function ScenariosScreen() {
                 )}
               </h3>
               <ul className="scenario-list">
-                {group.scenarios.map((s) => (
+                {group.scenarios.map((s, i) => (
                   <li key={s.id} className={s.id === plan.id ? "scenario-active" : ""}>
-                    <span className="scenario-name">{s.name}</span>
+                    <div className="scenario-label">
+                      <span className="scenario-name">{s.name}</span>
+                      {group.scenarios.length > 1 &&
+                        (i === 0 ? (
+                          <span className="scenario-summary">
+                            The others are compared with this one
+                          </span>
+                        ) : (
+                          <Changes
+                            plan={planFor(s.id)}
+                            reference={planFor(group.scenarios[0].id)}
+                          />
+                        ))}
+                    </div>
                     {s.id === plan.id ? (
                       <span className="scenario-badge">Current</span>
                     ) : (
