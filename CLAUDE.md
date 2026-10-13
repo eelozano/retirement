@@ -24,7 +24,9 @@ asserts it still parses, composes, validates, and simulates, so a schema
 change fails CI rather than rotting the fixture. **Keep it invented.** The
 same rule covers `engine::presets::seed_plan`, the example household the
 welcome screen offers to load: both are public, and neither may be seeded
-from a real plan.
+from a real plan. So is `fixtures/demo/screens/`, the engine's output for the
+demo household and for its two people alone, which the frontend's screen smoke
+tests render and which is generated from the same file.
 
 A fresh install bootstraps *nothing* — it opens the welcome screen and the
 user either describes their household or asks for the example by name (#103).
@@ -154,7 +156,9 @@ demo run needs no caution at all; see `.claude/skills/run-app/SKILL.md`.
 - `cargo test -p engine` — engine tests alone (also exports ts-rs bindings).
 - `UPDATE_FIXTURES=1 cargo test -p retirement --test demo_fixtures` —
   regenerate `fixtures/demo/demo-household.yaml` after an intentional schema
-  change.
+  change, and `fixtures/demo/screens/*.json`, the engine output the frontend's
+  screen smoke tests render (`screens.smoke.test.tsx`). Those pin the shape of
+  what the engine returns, not its numbers; both fixtures are invented data.
 - `UPDATE_GOLDEN=1 cargo test -p retirement --test demo_fixtures` —
   regenerate `fixtures/demo/golden-projections.csv`, the demo scenarios'
   pinned projections. Only when a projection change is intended; the PR

@@ -21,6 +21,10 @@
 //! UPDATE_FIXTURES=1 cargo test -p retirement --test demo_fixtures
 //! ```
 //!
+//! `fixtures/demo/screens/` holds what the engine returns for two of those
+//! households — the demo's base scenario, and its two people with nothing else
+//! — as JSON, for the frontend's screen smoke tests (#196).
+//!
 //! PRIVACY: everything in this file is invented. Keep it that way — it is
 //! the only plan data in the repository, and it is public.
 
@@ -34,6 +38,9 @@ use engine::model::{
     SCHEMA_VERSION,
 };
 use engine::presets::{default_assumptions, presets};
+use engine::BacktestResult;
+use serde::Serialize;
+use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
 
@@ -811,9 +818,14 @@ fn same_row(actual: &str, expected: &str) -> bool {
             .iter()
             .zip(&expected)
             .all(|(a, e)| match (a.parse::<f64>(), e.parse::<f64>()) {
-                (Ok(a), Ok(e)) => (a - e).abs() <= 1e-9 * e.abs().max(1.0),
+                (Ok(a), Ok(e)) => close(a, e),
                 _ => a == e,
             })
+}
+
+/// Two figures agree when they are within a part in a billion of each other.
+fn close(actual: f64, expected: f64) -> bool {
+    (actual - expected).abs() <= 1e-9 * expected.abs().max(1.0)
 }
 
 /// Every demo scenario replays against the whole historical record (#178),
@@ -836,5 +848,211 @@ fn every_demo_scenario_replays_against_history() {
             scenario.id
         );
         assert!(result.success_rate.is_some(), "{}", scenario.id);
+    }
+}
+
+fn screens_dir() -> PathBuf {
+    fixtures_dir().join("screens")
+}
+
+/// What the frontend's screens are rendered from: one plan and every result
+/// the screens fetch for it, written in the shape Tauri's IPC hands the
+/// frontend. `strategy_stock_share` stands in for the whole `Presets` bundle,
+/// whose state-tax tables would be most of the file and which no screen under
+/// test reads.
+#[derive(Serialize)]
+struct ScreenFixture {
+    plan: Plan,
+    projection: engine::Projection,
+    /// `None` for a plan that has not run Monte Carlo, which is the state the
+    /// smoke test wants a household `create_plan` just made to be in.
+    monte_carlo: Option<engine::MonteCarloResult>,
+    backtest: BacktestResult,
+    /// The start year the History screen opens first: its worst.
+    cohort: engine::CohortDetail,
+    strategy_stock_share: engine::model::StrategyRates,
+}
+
+/// The start year History opens first — `rankedCohorts(...)[0]` in
+/// `backtestData.ts`: a run that ran out beats one that did not, sooner beats
+/// later, and survivors rank by what they end with. In-progress years have no
+/// outcome and are skipped.
+fn worst_start_year(result: &BacktestResult) -> Option<i32> {
+    let lasted = |c: &engine::CohortSummary| match (c.status, c.depleted_period) {
+        (engine::CohortStatus::Depleted, Some(period)) => period,
+        _ => c.periods_covered,
+    };
+    result
+        .cohorts
+        .iter()
+        .filter(|c| c.status != engine::CohortStatus::InProgress)
+        .min_by(|a, b| {
+            let (a_failed, b_failed) = (
+                a.status == engine::CohortStatus::Depleted,
+                b.status == engine::CohortStatus::Depleted,
+            );
+            b_failed
+                .cmp(&a_failed)
+                .then_with(|| {
+                    if a_failed {
+                        lasted(a).cmp(&lasted(b))
+                    } else {
+                        a.end_net_worth_real.total_cmp(&b.end_net_worth_real)
+                    }
+                })
+                .then_with(|| a.start_year.cmp(&b.start_year))
+        })
+        .map(|c| c.start_year)
+}
+
+fn screen_fixture(plan: Plan, monte_carlo: bool) -> ScreenFixture {
+    let figures = engine::model::TaxFigures::tax_year_2026();
+    let projection = engine::run_deterministic(&plan, &figures);
+    // Few paths: the result's size is the plan's periods, not the path count.
+    let monte_carlo = monte_carlo.then(|| {
+        engine::run_monte_carlo(
+            &plan,
+            &figures,
+            &engine::MonteCarloConfig {
+                n_paths: 500,
+                seed: 1,
+            },
+        )
+    });
+    let backtest = engine::run_backtest(&plan, &figures);
+    let year = worst_start_year(&backtest).expect("history has a start year with an outcome");
+    let cohort = engine::run_backtest_cohort(&plan, &figures, year)
+        .expect("the worst start year is inside the bundled history");
+    ScreenFixture {
+        plan,
+        projection,
+        monte_carlo,
+        backtest,
+        cohort,
+        strategy_stock_share: engine::presets::strategy_stock_share(),
+    }
+}
+
+/// The demo's two people and nothing else — what `create_plan` writes for a
+/// household that has just been described (#103), which is the state the
+/// welcome path lands the screens in.
+fn new_household_plan() -> Plan {
+    let base = demo_base();
+    let mut plan =
+        engine::presets::new_plan("New household", base.sim_config.start, base.people.clone());
+    // Assigned by the storage layer in the app.
+    plan.id = "new-household".to_string();
+    for person in &mut plan.people {
+        person.life_expectancy_age = default_assumptions().plan_end_age;
+    }
+    assert_eq!(plan.validate(), vec![], "a new household validates");
+    plan
+}
+
+fn screen_fixtures() -> Vec<(&'static str, String)> {
+    let base_file = demo_household_file();
+    let base = compose(
+        &base_file.household(),
+        base_file
+            .scenario("base-plan")
+            .expect("the demo has a base plan"),
+    )
+    .expect("composes");
+    [
+        ("demo-base.json", screen_fixture(base, true)),
+        (
+            "new-household.json",
+            screen_fixture(new_household_plan(), false),
+        ),
+    ]
+    .into_iter()
+    .map(|(name, fixture)| {
+        let mut json = serde_json::to_string_pretty(&fixture).expect("fixture serializes");
+        json.push('\n');
+        (name, json)
+    })
+    .collect()
+}
+
+/// The first place two JSON documents differ, or `None` if they agree: the
+/// same keys and lengths and strings, and every number within `close`.
+fn json_difference(path: &str, actual: &Value, expected: &Value) -> Option<String> {
+    match (actual, expected) {
+        (Value::Number(a), Value::Number(e)) => match (a.as_f64(), e.as_f64()) {
+            (Some(a), Some(e)) if close(a, e) => None,
+            _ => Some(format!("{path}: {a} against {e}")),
+        },
+        (Value::Array(a), Value::Array(e)) => {
+            if a.len() != e.len() {
+                return Some(format!("{path}: {} items against {}", a.len(), e.len()));
+            }
+            a.iter()
+                .zip(e)
+                .enumerate()
+                .find_map(|(i, (a, e))| json_difference(&format!("{path}[{i}]"), a, e))
+        }
+        (Value::Object(a), Value::Object(e)) => {
+            if let Some(key) = a.keys().find(|k| !e.contains_key(*k)) {
+                return Some(format!("{path}.{key}: not in the committed file"));
+            }
+            if let Some(key) = e.keys().find(|k| !a.contains_key(*k)) {
+                return Some(format!("{path}.{key}: missing from the regenerated file"));
+            }
+            a.iter()
+                .find_map(|(k, a)| json_difference(&format!("{path}.{k}"), a, &e[k]))
+        }
+        (a, e) if a == e => None,
+        (a, e) => Some(format!("{path}: {a} against {e}")),
+    }
+}
+
+/// The engine's output for the screens the frontend smoke-renders (#196).
+/// Hand-built projections in the TypeScript tests drift from what the engine
+/// returns; these cannot, because a change to the shape fails here until the
+/// files are regenerated.
+///
+/// This pins **shape**, not numbers — figures compare within `close`, and
+/// `golden-projections.csv` is what pins them. A deliberate projection change
+/// regenerates both (`UPDATE_GOLDEN=1` and `UPDATE_FIXTURES=1`), and the PR
+/// still measures the change from the CSV.
+///
+/// ```text
+/// UPDATE_FIXTURES=1 cargo test -p retirement --test demo_fixtures
+/// ```
+#[test]
+fn screen_fixtures_match_committed_json() {
+    let dir = screens_dir();
+    let update = std::env::var("UPDATE_FIXTURES").is_ok();
+    if update {
+        fs::create_dir_all(&dir).expect("creating screens dir");
+    }
+    for (name, actual) in screen_fixtures() {
+        let path = dir.join(name);
+        if update {
+            fs::write(&path, &actual).expect("writing screen fixture");
+            continue;
+        }
+        let expected = fs::read_to_string(&path).unwrap_or_else(|e| {
+            panic!(
+                "screen fixture {} missing ({e}) — regenerate with \
+                 UPDATE_FIXTURES=1 cargo test -p retirement --test demo_fixtures",
+                path.display()
+            )
+        });
+        let parse = |text: &str, what: &str| -> Value {
+            serde_json::from_str(text)
+                .unwrap_or_else(|e| panic!("{what} {} is not JSON: {e}", path.display()))
+        };
+        if let Some(difference) = json_difference(
+            "$",
+            &parse(&actual, "regenerated"),
+            &parse(&expected, "committed"),
+        ) {
+            panic!(
+                "screen fixture {} is stale at {difference} — regenerate with \
+                 UPDATE_FIXTURES=1 cargo test -p retirement --test demo_fixtures",
+                path.display()
+            );
+        }
     }
 }

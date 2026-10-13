@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { planSummary } from "../../test/fixtures";
 import type { Plan } from "../../types/generated/Plan";
 import type { Projection } from "../../types/generated/Projection";
@@ -30,20 +30,6 @@ vi.mock("../../lib/api", () => ({
 import * as api from "../../lib/api";
 import { usePlanStore } from "../../store/planStore";
 import { WhatIfScreen } from "./WhatIfScreen";
-
-// Recharts measures its container; jsdom has no ResizeObserver to measure
-// with. The chart renders at zero width, which is all this file needs — the
-// assertions are about what was called, not what was drawn.
-beforeAll(() => {
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
-});
 
 const plan = {
   id: "base-plan",
