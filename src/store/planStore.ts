@@ -258,10 +258,10 @@ async function startMonteCarlo(
 
   if (result === null) {
     // Cancelled, and not by a newer run of our own — that case returned
-    // above, superseded. So either the user pressed Cancel (which has already
-    // marked the previous result stale) or another screen claimed the
-    // backend's single run slot: the What-if sandbox and the comparison view
-    // both do, routinely. Either way what is on screen is not what was asked
+    // above, superseded. Usually the user pressed Cancel, which has already
+    // marked the previous result stale. The What-if sandbox and the comparison
+    // view wait for this run, so one taking the backend's single run slot from
+    // it is a rare race. Either way what is on screen is not what was asked
     // for, so say so rather than leave a figure looking current.
     set({ monteCarloStale: get().monteCarlo !== null, monteCarloRun: null });
   } else if (result === "failed") {
