@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { diagnostics, planSummary } from "../test/fixtures";
+import type { MonteCarloConfig } from "../types/generated/MonteCarloConfig";
 import type { MonteCarloResult } from "../types/generated/MonteCarloResult";
 import type { Plan } from "../types/generated/Plan";
 import type { Projection } from "../types/generated/Projection";
@@ -20,7 +21,7 @@ vi.mock("../lib/api", () => ({
   createPlan: vi.fn(),
   createSamplePlan: vi.fn(),
   getPresets: vi.fn(),
-  runMonteCarlo: vi.fn(),
+  runMonteCarlos: vi.fn(),
   cancelMonteCarlo: vi.fn(),
   getMonteCarloPaths: vi.fn(),
   setMonteCarloPaths: vi.fn(),
@@ -31,6 +32,26 @@ vi.mock("../lib/api", () => ({
 
 import * as api from "../lib/api";
 import { usePlanStore } from "./planStore";
+
+// The Plan screen's run is a batch of one. This presents the backend as that
+// one plan's result, so the tests below read in terms of the plan they run.
+const runMonteCarlo =
+  vi.fn<
+    (
+      plan: Plan,
+      config: MonteCarloConfig,
+      runId: number,
+      onProgress: (progress: api.MonteCarloProgress) => void,
+    ) => Promise<MonteCarloResult | null>
+  >();
+vi.mocked(api.runMonteCarlos).mockImplementation(
+  async (plans, config, runId, onProgress) => {
+    const plan = plans[0];
+    if (!plan) throw new Error("the Plan screen always runs one plan");
+    const result = await runMonteCarlo(plan, config, runId, onProgress);
+    return result ? [{ Ok: result }] : null;
+  },
+);
 
 function makePlan(overrides: Partial<Plan>): Plan {
   return {
@@ -414,7 +435,7 @@ describe("Monte Carlo decoupling", () => {
     });
     vi.mocked(api.runProjection).mockResolvedValue(projection);
     vi.mocked(api.savePlan).mockResolvedValue(undefined);
-    vi.mocked(api.runMonteCarlo).mockReturnValue(run.promise);
+    runMonteCarlo.mockReturnValue(run.promise);
 
     usePlanStore.getState().updatePlan((draft) => {
       draft.name = "Edited";
@@ -450,7 +471,7 @@ describe("Monte Carlo decoupling", () => {
     });
     vi.mocked(api.runProjection).mockResolvedValue(projection);
     vi.mocked(api.savePlan).mockResolvedValue(undefined);
-    vi.mocked(api.runMonteCarlo).mockReturnValue(run.promise);
+    runMonteCarlo.mockReturnValue(run.promise);
 
     usePlanStore.getState().updatePlan((draft) => {
       draft.name = "Edited once";
@@ -482,7 +503,7 @@ describe("Monte Carlo decoupling", () => {
     vi.mocked(api.loadPlanNamed).mockResolvedValue(sellHome);
     vi.mocked(api.runProjection).mockResolvedValue(projection);
     vi.mocked(api.setActivePlan).mockResolvedValue(undefined);
-    vi.mocked(api.runMonteCarlo).mockReturnValue(run.promise);
+    runMonteCarlo.mockReturnValue(run.promise);
 
     await usePlanStore.getState().switchScenario("sell-home");
 
@@ -503,14 +524,14 @@ describe("Monte Carlo decoupling", () => {
       monteCarloPaths: 5000,
     });
     vi.mocked(api.setMonteCarloPaths).mockResolvedValue(undefined);
-    vi.mocked(api.runMonteCarlo).mockResolvedValue(fresh);
+    runMonteCarlo.mockResolvedValue(fresh);
 
     await usePlanStore.getState().setMonteCarloPaths(25000);
     // Resolves once saved, not once the run lands.
     await vi.advanceTimersByTimeAsync(0);
 
     expect(api.setMonteCarloPaths).toHaveBeenCalledWith(25000);
-    expect(api.runMonteCarlo).toHaveBeenCalledWith(
+    expect(runMonteCarlo).toHaveBeenCalledWith(
       base,
       { n_paths: 25000, seed: expect.any(Number) },
       expect.any(Number),
@@ -526,12 +547,6 @@ describe("Monte Carlo decoupling", () => {
 /** The threshold as the backend would report it, with the path count set
  * either side of it. */
 const limits = { min_paths: 100, max_paths: 100_000, auto_run_max_paths: 5000 };
-
-/** The `onProgress` callback the store handed to the most recent run. */
-function lastProgressCallback() {
-  const calls = vi.mocked(api.runMonteCarlo).mock.calls;
-  return calls[calls.length - 1][3];
-}
 
 describe("Monte Carlo run control", () => {
   beforeEach(() => {
@@ -561,7 +576,7 @@ describe("Monte Carlo run control", () => {
 
     await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE_MS);
     expect(api.runProjection).toHaveBeenCalled();
-    expect(api.runMonteCarlo).not.toHaveBeenCalled();
+    expect(runMonteCarlo).not.toHaveBeenCalled();
     // The last figure stays on screen, flagged, rather than blanking.
     expect(usePlanStore.getState().monteCarlo).toBe(previous);
   });
@@ -578,7 +593,7 @@ describe("Monte Carlo run control", () => {
       monteCarloStale: false,
       monteCarloRun: null,
     });
-    vi.mocked(api.runMonteCarlo).mockResolvedValue(fresh);
+    runMonteCarlo.mockResolvedValue(fresh);
 
     usePlanStore.getState().updatePlan((draft) => {
       draft.name = "Edited";
@@ -586,7 +601,7 @@ describe("Monte Carlo run control", () => {
     expect(usePlanStore.getState().monteCarloStale).toBe(false);
 
     await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE_MS);
-    expect(api.runMonteCarlo).toHaveBeenCalledTimes(1);
+    expect(runMonteCarlo).toHaveBeenCalledTimes(1);
     expect(usePlanStore.getState().monteCarlo).toBe(fresh);
     expect(usePlanStore.getState().monteCarloRun).toBeNull();
   });
@@ -602,7 +617,7 @@ describe("Monte Carlo run control", () => {
       monteCarloLimits: limits,
       monteCarloRun: null,
     });
-    vi.mocked(api.runMonteCarlo).mockReturnValue(run.promise);
+    runMonteCarlo.mockReturnValue(run.promise);
 
     usePlanStore.getState().runMonteCarloNow();
     const runId = usePlanStore.getState().monteCarloRun?.runId;
@@ -633,7 +648,7 @@ describe("Monte Carlo run control", () => {
       monteCarloStale: false,
       monteCarloRun: null,
     });
-    vi.mocked(api.runMonteCarlo).mockReturnValue(run.promise);
+    runMonteCarlo.mockReturnValue(run.promise);
 
     usePlanStore.getState().runMonteCarloNow();
     usePlanStore.getState().cancelMonteCarlo();
@@ -645,73 +660,6 @@ describe("Monte Carlo run control", () => {
     // The old `.catch(() => null)` path would have blanked this to "—".
     expect(usePlanStore.getState().monteCarlo).toBe(previous);
     expect(usePlanStore.getState().monteCarloRun).toBeNull();
-  });
-
-  it("ignores the outcome of a superseded run, including its cancellation", async () => {
-    const base = makePlan({ id: "base-plan" });
-    const first = deferred<MonteCarloResult | null>();
-    const second = deferred<MonteCarloResult | null>();
-    usePlanStore.setState({
-      plan: base,
-      projection,
-      monteCarlo: null,
-      monteCarloPaths: 25000,
-      monteCarloLimits: limits,
-      monteCarloRun: null,
-    });
-    vi.mocked(api.runMonteCarlo)
-      .mockReturnValueOnce(first.promise)
-      .mockReturnValueOnce(second.promise);
-
-    usePlanStore.getState().runMonteCarloNow();
-    usePlanStore.getState().runMonteCarloNow();
-    const secondId = usePlanStore.getState().monteCarloRun?.runId;
-
-    // The backend cancelled the first run when the second started. Its null
-    // must not clear the second run's in-flight state...
-    first.resolve(null);
-    await vi.advanceTimersByTimeAsync(0);
-    expect(usePlanStore.getState().monteCarloRun?.runId).toBe(secondId);
-
-    // ...and a late progress tick from it is ignored too.
-    lastProgressCallback()({ run_id: (secondId ?? 0) - 1, completed: 99, total: 25000 });
-    expect(usePlanStore.getState().monteCarloRun?.completed).toBe(0);
-
-    const fresh = mcResult(0.91, 25000);
-    second.resolve(fresh);
-    await vi.advanceTimersByTimeAsync(0);
-    expect(usePlanStore.getState().monteCarlo).toBe(fresh);
-    expect(usePlanStore.getState().monteCarloRun).toBeNull();
-    expect(usePlanStore.getState().monteCarloStale).toBe(false);
-  });
-
-  it("applies progress ticks to the run in flight", async () => {
-    const base = makePlan({ id: "base-plan" });
-    const run = deferred<MonteCarloResult | null>();
-    usePlanStore.setState({
-      plan: base,
-      projection,
-      monteCarlo: null,
-      monteCarloPaths: 50000,
-      monteCarloLimits: limits,
-      monteCarloRun: null,
-    });
-    vi.mocked(api.runMonteCarlo).mockReturnValue(run.promise);
-
-    usePlanStore.getState().runMonteCarloNow();
-    const runId = usePlanStore.getState().monteCarloRun?.runId ?? 0;
-    expect(usePlanStore.getState().monteCarloRun).toEqual({
-      runId,
-      completed: 0,
-      total: 50000,
-    });
-
-    lastProgressCallback()({ run_id: runId, completed: 12400, total: 50000 });
-    expect(usePlanStore.getState().monteCarloRun).toEqual({
-      runId,
-      completed: 12400,
-      total: 50000,
-    });
   });
 
   it("re-roll draws a new session seed and runs with it", async () => {
@@ -726,13 +674,13 @@ describe("Monte Carlo run control", () => {
       monteCarloSeed: 1,
       monteCarloRun: null,
     });
-    vi.mocked(api.runMonteCarlo).mockResolvedValue(fresh);
+    runMonteCarlo.mockResolvedValue(fresh);
 
     usePlanStore.getState().rerollSeed();
     const seed = usePlanStore.getState().monteCarloSeed;
     expect(seed).not.toBe(1);
     expect(Number.isInteger(seed) && seed >= 0 && seed < 2 ** 32).toBe(true);
-    expect(api.runMonteCarlo).toHaveBeenCalledWith(
+    expect(runMonteCarlo).toHaveBeenCalledWith(
       base,
       { n_paths: 5000, seed },
       expect.any(Number),
@@ -754,7 +702,7 @@ describe("Monte Carlo run control", () => {
       monteCarloStale: true,
       monteCarloRun: null,
     });
-    vi.mocked(api.runMonteCarlo).mockRejectedValue(new Error("invalid plan"));
+    runMonteCarlo.mockRejectedValue(new Error("invalid plan"));
 
     usePlanStore.getState().runMonteCarloNow();
     await vi.advanceTimersByTimeAsync(0);
@@ -816,7 +764,7 @@ describe("a fresh install", () => {
     vi.mocked(api.listPlans).mockResolvedValue([planSummary("my-plan", "My plan")]);
     vi.mocked(api.runProjection).mockResolvedValue(projection);
     vi.mocked(api.setActivePlan).mockResolvedValue(undefined);
-    vi.mocked(api.runMonteCarlo).mockResolvedValue(mcResult(1, 1000));
+    runMonteCarlo.mockResolvedValue(mcResult(1, 1000));
 
     const people = [
       {
@@ -849,7 +797,7 @@ describe("a fresh install", () => {
     ]);
     vi.mocked(api.runProjection).mockResolvedValue(projection);
     vi.mocked(api.setActivePlan).mockResolvedValue(undefined);
-    vi.mocked(api.runMonteCarlo).mockResolvedValue(mcResult(1, 1000));
+    runMonteCarlo.mockResolvedValue(mcResult(1, 1000));
 
     await usePlanStore.getState().loadSample();
 
@@ -894,7 +842,7 @@ describe("deleteScenario", () => {
     vi.mocked(api.loadPlanNamed).mockResolvedValue(b);
     vi.mocked(api.runProjection).mockResolvedValue(projection);
     vi.mocked(api.setActivePlan).mockResolvedValue(undefined);
-    vi.mocked(api.runMonteCarlo).mockResolvedValue(mcResult(1, 1000));
+    runMonteCarlo.mockResolvedValue(mcResult(1, 1000));
 
     await usePlanStore.getState().deleteScenario("a");
 

@@ -10,7 +10,6 @@ import type { Projection } from "../../types/generated/Projection";
 vi.mock("../../lib/api", () => ({
   runProjection: vi.fn(),
   runProjections: vi.fn(),
-  runMonteCarlo: vi.fn(),
   runMonteCarlos: vi.fn(),
   cancelMonteCarlo: vi.fn(),
   savePlan: vi.fn(),
@@ -292,6 +291,18 @@ describe("the saved plan moving underneath", () => {
 });
 
 describe("the run control", () => {
+  it("at rest, Run runs the saved plan the columns are showing", async () => {
+    vi.mocked(api.runMonteCarlos).mockReturnValue(new Promise(() => {}));
+    usePlanStore.setState({ monteCarloStale: true });
+    render(<WhatIfScreen />);
+    await settle();
+
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+
+    expect(api.runMonteCarlos).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(api.runMonteCarlos).mock.lastCall?.[0]).toEqual([plan]);
+  });
+
   it("runs both sides in one batch, at one seed", async () => {
     render(<WhatIfScreen />);
     drag("Spending", 0.9);

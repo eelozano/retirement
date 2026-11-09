@@ -1,10 +1,5 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import {
-  cancelMonteCarlo,
-  type MonteCarloResultEntry,
-  runMonteCarlos,
-  runProjection,
-} from "../../lib/api";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { runProjection } from "../../lib/api";
 import { depletionYear as computeDepletionYear } from "../../lib/projection";
 import {
   SS_TRUST_FUND_DEPLETION_YEAR,
@@ -30,8 +25,8 @@ import {
   suggestScenarioName,
   type WhatIfOverrides,
 } from "../../lib/whatIf";
-import { nextRunId, usePlanStore } from "../../store/planStore";
-import type { MonteCarloResult } from "../../types/generated/MonteCarloResult";
+import { usePlanStore } from "../../store/planStore";
+import { useMonteCarloBatch } from "../../store/useMonteCarloBatch";
 import type { Plan } from "../../types/generated/Plan";
 import type { Projection } from "../../types/generated/Projection";
 import { ComparisonChart } from "../charts/ComparisonChart";
@@ -49,7 +44,7 @@ import { InfoTooltip } from "../inputs/fields";
 //
 // Everything on this screen is session state. The overrides live in
 // `useState`, the draft plan is built by a pure function (`lib/whatIf.ts`),
-// and the results come from `runProjection` / `runMonteCarlos` — none of
+// and the results come from `runProjection` / `useMonteCarloBatch` — none of
 // which can write a file. There is deliberately no store slice: `updatePlan`
 // debounces into `savePlan`, so anything that reached the store would be on
 // disk 300 ms later, and the one thing this screen promises is that it isn't.
@@ -93,18 +88,6 @@ function useSettled<T>(value: T, ms: number): T {
     return () => clearTimeout(timer);
   }, [value, ms]);
   return settled;
-}
-
-/** How many answers to keep. Dragging a slider back and forth should hit
- * cached results rather than re-run them, but a long session should not hold
- * every percentile fan it has ever computed. The two keys in play are never
- * evicted, so the cap only ever drops positions the user has left. */
-const CACHE_CAP = 12;
-
-type CacheEntry = MonteCarloResult | "failed";
-
-function resultOf(entry: CacheEntry | undefined): MonteCarloResult | null {
-  return entry === undefined || entry === "failed" ? null : entry;
 }
 
 /** One slider, with the saved plan's value marked on the track — the knob is
@@ -173,10 +156,8 @@ export function WhatIfScreen() {
   const baseMonteCarloStale = usePlanStore((s) => s.monteCarloStale);
   const realDollars = usePlanStore((s) => s.realDollars);
   const monteCarloPaths = usePlanStore((s) => s.monteCarloPaths);
-  const monteCarloLimits = usePlanStore((s) => s.monteCarloLimits);
-  const monteCarloSeed = usePlanStore((s) => s.monteCarloSeed);
   const rerollSeed = usePlanStore((s) => s.rerollSeed);
-  const storeRun = usePlanStore((s) => s.monteCarloRun);
+  const runMonteCarloNow = usePlanStore((s) => s.runMonteCarloNow);
   const promoteToScenario = usePlanStore((s) => s.promoteToScenario);
 
   const [overrides, setOverrides] = useState<WhatIfOverrides>(BASELINE);
@@ -189,19 +170,6 @@ export function WhatIfScreen() {
   const [draftProjection, setDraftProjection] = useState<Projection | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [projecting, setProjecting] = useState(false);
-
-  const [cache, setCache] = useState<ReadonlyMap<string, CacheEntry>>(new Map());
-  const [run, setRun] = useState<{
-    runId: number;
-    completed: number;
-    total: number;
-  } | null>(null);
-  const [mcStale, setMcStale] = useState(false);
-  // Bumped by Run, and the value the effect last acted on: "run now, whatever
-  // the threshold" has to be a one-shot, or the next knob move would inherit
-  // the click. Same pair as the comparison view.
-  const [runToken, setRunToken] = useState(0);
-  const consumedToken = useRef(0);
 
   const [showBand, setShowBand] = useState(false);
   const [name, setName] = useState("");
@@ -252,9 +220,8 @@ export function WhatIfScreen() {
     }
     revision = known;
   }
-  const runConfig = `${monteCarloSeed}:${monteCarloPaths ?? 0}`;
-  const baseKey = `${revision}:base:${runConfig}`;
-  const draftKey = `${revision}:${JSON.stringify(draftOverrides)}:${runConfig}`;
+  const baseKey = `${revision}:base`;
+  const draftKey = `${revision}:${JSON.stringify(draftOverrides)}`;
 
   // Deterministic first and on its own: it is milliseconds of work where the
   // Monte Carlo pair is seconds, and the table's four left-hand columns
@@ -285,117 +252,23 @@ export function WhatIfScreen() {
     };
   }, [draftPlan]);
 
-  useEffect(() => {
-    // At rest the draft *is* the saved plan: both columns read the store's
-    // own result, and the sandbox costs nothing until a knob moves.
-    if (atRest || !plan || !draftPlan) return;
-    if (monteCarloPaths === null || draftProjection === null || draftError !== null)
-      return;
-
-    // The backend keeps one run slot (`claim_slot`), so starting a batch here
-    // while the saved plan's own run is in flight would cancel it — and after
-    // a Re-roll, that run *is* the Plan screen's new number. Wait for it
-    // instead: this effect re-runs when the slot frees.
-    if (storeRun !== null) return;
-
-    const work: { key: string; plan: Plan }[] = [];
-    if (!cache.has(baseKey)) work.push({ key: baseKey, plan });
-    if (!cache.has(draftKey)) work.push({ key: draftKey, plan: draftPlan });
-    if (work.length === 0) {
-      setMcStale(false);
-      return;
-    }
-
-    // The threshold is a per-run test, and the first move of a knob is two
-    // runs: the draft, and the saved plan at this seed to weigh it against.
-    // Afterwards the saved plan's is cached and only the draft re-runs.
-    const forced = runToken !== consumedToken.current;
-    const cost = monteCarloPaths * work.length;
-    const auto = monteCarloLimits === null || cost <= monteCarloLimits.auto_run_max_paths;
-    if (!auto && !forced) {
-      setMcStale(true);
-      return;
-    }
-    consumedToken.current = runToken;
-
-    const runId = nextRunId();
-    const keys = work.map((w) => w.key);
-    let superseded = false;
-    setMcStale(false);
-    setRun({ runId, completed: 0, total: cost });
-
-    (async () => {
-      let entries: MonteCarloResultEntry[] | null;
-      try {
-        entries = await runMonteCarlos(
-          work.map((w) => w.plan),
-          { n_paths: monteCarloPaths, seed: monteCarloSeed },
-          runId,
-          (progress) => {
-            if (superseded || progress.run_id !== runId) return;
-            setRun({ runId, completed: progress.completed, total: progress.total });
-          },
-        );
-      } catch {
-        // A failed sampling run must not blank a good projection: the three
-        // Monte Carlo columns degrade to "—" and the four deterministic ones
-        // still stand.
-        entries = keys.map(() => ({ Err: "Monte Carlo run failed" }));
-      }
-      if (superseded) return;
-      setRun(null);
-      if (entries === null) {
-        // Cancelled, or superseded by a run started elsewhere in the app.
-        setMcStale(true);
-        return;
-      }
-      const landed = entries;
-      setCache((previous) => {
-        const next = new Map(previous);
-        keys.forEach((key, i) => {
-          const entry = landed[i];
-          next.set(key, entry && "Ok" in entry ? entry.Ok : "failed");
-        });
-        for (const key of [...next.keys()]) {
-          if (next.size <= CACHE_CAP) break;
-          if (key === baseKey || key === draftKey) continue;
-          next.delete(key);
-        }
-        return next;
-      });
-    })();
-
-    return () => {
-      superseded = true;
-      // Leaving the screen, or moving a knob again, should not leave paths
-      // burning: the batch is abandoned, not awaited.
-      void cancelMonteCarlo(runId).catch(() => {});
-    };
-  }, [
-    atRest,
-    plan,
-    draftPlan,
-    draftProjection,
-    draftError,
-    cache,
-    baseKey,
-    draftKey,
-    monteCarloPaths,
-    monteCarloLimits,
-    monteCarloSeed,
-    storeRun,
-    runToken,
-  ]);
-
-  const onCancel = useCallback(() => {
-    if (run) void cancelMonteCarlo(run.runId).catch(() => {});
-  }, [run]);
+  // At rest the draft *is* the saved plan: both columns read the store's own
+  // result, and the sandbox costs nothing until a knob moves.
+  const batch = useMonteCarloBatch(
+    plan && draftPlan
+      ? [
+          { key: baseKey, plan },
+          { key: draftKey, plan: draftPlan },
+        ]
+      : [],
+    !atRest && draftProjection !== null && draftError === null,
+  );
 
   if (!plan || !baseProjection) return null;
 
-  const baseMc = atRest ? baseMonteCarlo : resultOf(cache.get(baseKey));
-  const draftMc = atRest ? baseMonteCarlo : resultOf(cache.get(draftKey));
-  const stale = atRest ? baseMonteCarloStale : mcStale;
+  const baseMc = atRest ? baseMonteCarlo : batch.result(baseKey);
+  const draftMc = atRest ? baseMonteCarlo : batch.result(draftKey);
+  const stale = atRest ? baseMonteCarloStale : batch.needsRun;
 
   const changes = overrideLabels(plan, draftOverrides);
   const suggestedName = suggestScenarioName(plan, draftOverrides);
@@ -604,7 +477,7 @@ export function WhatIfScreen() {
           <button
             type="button"
             className="card-action"
-            disabled={run !== null || storeRun !== null}
+            disabled={batch.progress !== null || batch.waiting}
             title="Draw a fresh set of random paths — both sides at once, so the comparison holds"
             onClick={rerollSeed}
           >
@@ -651,18 +524,19 @@ export function WhatIfScreen() {
             <span className="what-if-basis">
               {realDollars ? "today's dollars · deflated" : "nominal dollars"}
             </span>
-            {run ? (
+            {batch.progress ? (
               <span className="compare-run">
                 <span
                   role="progressbar"
                   aria-label="Monte Carlo progress"
-                  aria-valuenow={run.completed}
+                  aria-valuenow={batch.progress.completed}
                   aria-valuemin={0}
-                  aria-valuemax={run.total}
+                  aria-valuemax={batch.progress.total}
                 >
-                  {run.completed.toLocaleString()} of {run.total.toLocaleString()} paths
+                  {batch.progress.completed.toLocaleString()} of{" "}
+                  {batch.progress.total.toLocaleString()} paths
                 </span>
-                <button type="button" className="tile-button" onClick={onCancel}>
+                <button type="button" className="tile-button" onClick={batch.cancel}>
                   Cancel
                 </button>
               </span>
@@ -676,7 +550,8 @@ export function WhatIfScreen() {
                   <button
                     type="button"
                     className="tile-button"
-                    onClick={() => setRunToken((t) => t + 1)}
+                    disabled={batch.waiting}
+                    onClick={atRest ? runMonteCarloNow : batch.run}
                   >
                     Run
                   </button>
@@ -691,7 +566,7 @@ export function WhatIfScreen() {
             showBand={bandOn}
             bandLabel="What-if: 10th–90th percentile"
           />
-          <ComparisonTable rows={summary} monteCarloPending={run !== null} />
+          <ComparisonTable rows={summary} monteCarloPending={batch.pending} />
         </div>
 
         <div className="what-if-promote">

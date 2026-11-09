@@ -1,5 +1,5 @@
 import { currencyCompact, successMarginPercent, successPercent } from "../../lib/format";
-import type { MonteCarloRun } from "../../store/planStore";
+import type { MonteCarloRun } from "../../lib/monteCarloRunner";
 import { successTone } from "./monteCarloData";
 import type { HeadlineMetrics } from "./planData";
 

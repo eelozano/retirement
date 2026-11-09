@@ -45,42 +45,23 @@ export interface MonteCarloProgress {
   total: number;
 }
 
-/** Starts a Monte Carlo run, superseding (cancelling) any run in flight.
- *
- * Resolves to the result, or to `null` if the run was cancelled — by
- * `cancelMonteCarlo` or by a later `runMonteCarlo`. Cancellation is not a
- * rejection: the caller asked for it and keeps its previous result.
- *
- * The Tauri `Channel` is built here so the store only ever sees a callback,
- * and its tests can mock this module without a transport. */
-export function runMonteCarlo(
-  plan: Plan,
-  config: MonteCarloConfig,
-  runId: number,
-  onProgress: (progress: MonteCarloProgress) => void,
-): Promise<MonteCarloResult | null> {
-  const channel = new Channel<MonteCarloProgress>();
-  channel.onmessage = onProgress;
-  return invoke<MonteCarloResult | null>("run_monte_carlo", {
-    plan,
-    config,
-    runId,
-    onProgress: channel,
-  });
-}
-
 /** One entry per scenario, in request order — same shape and same reasoning
  * as `ProjectionResult`: an invalid scenario gets its own Err rather than
  * blanking the comparison. */
 export type MonteCarloResultEntry = { Ok: MonteCarloResult } | { Err: string };
 
-/** Monte Carlo across several scenarios for the comparison table, at one
- * shared config — seed included, so the scenarios are measured against the
- * same draws and their *differences* are comparable.
+/** Starts a Monte Carlo run across `plans`, superseding (cancelling) any run
+ * in flight, at one shared config. The seed is part of it, so the plans are
+ * measured against the same draws and their *differences* are comparable.
+ * Callers go through `lib/monteCarloRunner`, which owns the run ids.
  *
- * Resolves to `null` if the batch was cancelled or superseded, exactly as
- * `runMonteCarlo` does. Progress is aggregated across the batch: one climbing
- * count over every scenario's paths, not a bar that restarts per scenario. */
+ * Resolves to `null` if the run was cancelled, by `cancelMonteCarlo` or by a
+ * later run. Cancellation is not a rejection: the caller asked for it and
+ * keeps its previous result. Progress is aggregated across the batch: one
+ * climbing count over every plan's paths, not a bar that restarts per plan.
+ *
+ * The Tauri `Channel` is built here so callers only ever see a callback, and
+ * tests can mock this module without a transport. */
 export function runMonteCarlos(
   plans: Plan[],
   config: MonteCarloConfig,
