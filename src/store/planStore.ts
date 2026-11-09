@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import {
-  cancelMonteCarlo as cancelMonteCarloApi,
   createPlan as createPlanApi,
   createSamplePlan as createSamplePlanApi,
   deletePlan,
@@ -19,11 +18,15 @@ import {
   type RefreshRequest,
   refreshHousehold as refreshHouseholdApi,
   restoreSnapshot as restoreSnapshotApi,
-  runMonteCarlo,
   runProjection,
   savePlan,
   setActivePlan,
 } from "../lib/api";
+import {
+  createMonteCarloRunner,
+  type MonteCarloRun,
+  withinAutoRun,
+} from "../lib/monteCarloRunner";
 import type { Household } from "../types/generated/Household";
 import type { MonteCarloResult } from "../types/generated/MonteCarloResult";
 import type { Plan } from "../types/generated/Plan";
@@ -63,27 +66,8 @@ const DEBOUNCE_MS = 300;
 // margin describes.
 const INITIAL_MC_SEED = 1;
 
-/** A Monte Carlo run in flight: which run, and how far along. */
-export interface MonteCarloRun {
-  runId: number;
-  completed: number;
-  total: number;
-}
-
-/** Monotonic across the session, so a result (or a cancellation, or an
- * error) can be matched to the run that produced it and ignored if that run
- * has since been superseded. Not in the store: nothing renders it. */
-let lastRunId = 0;
-
-/** The next run id, from the one counter every caller shares.
- *
- * Shared deliberately: the backend keeps a single run slot (see
- * `claim_slot`), so the comparison view's batch and this store's runs cancel
- * one another by id. Two counters could hand out the same id to two
- * different runs, and a Cancel would then stop the wrong one. */
-export function nextRunId(): number {
-  return ++lastRunId;
-}
+/** Runs the Plan screen's Monte Carlo. Not in the store: nothing renders it. */
+const planRunner = createMonteCarloRunner();
 
 /** A fresh `u32` seed that is not the one in use. `Math.random` is fine:
  * this is a sampling seed, not a secret. */
@@ -216,9 +200,8 @@ async function flushPendingSave(get: () => PlanStore) {
 
 /** Whether edits should mark the result stale rather than re-run. */
 function onDemand(state: PlanStore): boolean {
-  const limits = state.monteCarloLimits;
   const paths = state.monteCarloPaths;
-  return limits !== null && paths !== null && paths > limits.auto_run_max_paths;
+  return paths !== null && !withinAutoRun(paths, state.monteCarloLimits);
 }
 
 /** Starts a Monte Carlo run for `plan` and attaches the result when it
@@ -237,37 +220,30 @@ async function startMonteCarlo(
 ): Promise<void> {
   const n_paths = get().monteCarloPaths;
   if (n_paths === null) return;
-  const runId = nextRunId();
-  const seed = get().monteCarloSeed;
-  set({ monteCarloRun: { runId, completed: 0, total: n_paths } });
+  const ending = await planRunner.start(
+    [plan],
+    { n_paths, seed: get().monteCarloSeed },
+    (run) => set({ monteCarloRun: run }),
+  );
 
-  const current = () => get().monteCarloRun?.runId === runId;
-  let result: MonteCarloResult | null | "failed";
-  try {
-    result = await runMonteCarlo(plan, { n_paths, seed }, runId, (progress) => {
-      if (progress.run_id !== runId || !current()) return;
-      set({
-        monteCarloRun: { runId, completed: progress.completed, total: progress.total },
-      });
-    });
-  } catch {
-    result = "failed";
-  }
-  // Superseded: a newer run owns the slot and this outcome is nobody's.
-  if (!current()) return;
+  // A newer run owns the slot and this outcome is nobody's.
+  if (ending.ended === "replaced") return;
 
-  if (result === null) {
-    // Cancelled, and not by a newer run of our own — that case returned
-    // above, superseded. Usually the user pressed Cancel, which has already
-    // marked the previous result stale. The What-if sandbox and the comparison
-    // view wait for this run, so one taking the backend's single run slot from
-    // it is a rare race. Either way what is on screen is not what was asked
-    // for, so say so rather than leave a figure looking current.
+  if (ending.ended === "cancelled") {
+    // Usually the user pressed Cancel, which has already marked the previous
+    // result stale. The What-if sandbox and the comparison view wait for this
+    // run, so one taking the backend's single run slot from it is a rare
+    // race. Either way what is on screen is not what was asked for, so say so
+    // rather than leave a figure looking current.
     set({ monteCarloStale: get().monteCarlo !== null, monteCarloRun: null });
-  } else if (result === "failed") {
+    return;
+  }
+
+  const outcome = ending.outcomes[0];
+  if (outcome === undefined || outcome === "failed") {
     set({ monteCarlo: null, monteCarloStale: false, monteCarloRun: null });
   } else if (get().plan === plan) {
-    set({ monteCarlo: result, monteCarloStale: false, monteCarloRun: null });
+    set({ monteCarlo: outcome, monteCarloStale: false, monteCarloRun: null });
   } else {
     // An edit landed during the run and, in auto mode, is about to start
     // another. Drop this result rather than show it against the wrong plan.
@@ -506,13 +482,12 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
   },
 
   cancelMonteCarlo: () => {
-    const run = get().monteCarloRun;
-    if (!run) return;
+    if (get().monteCarloRun === null) return;
     // Stale as of the cancel, not as of the result arriving: whatever is on
     // screen is now known to be not what was asked for. The in-flight state
     // clears when the backend confirms with a null result.
     if (get().monteCarlo !== null) set({ monteCarloStale: true });
-    void cancelMonteCarloApi(run.runId).catch(() => {});
+    planRunner.cancel();
   },
 
   rerollSeed: () => {

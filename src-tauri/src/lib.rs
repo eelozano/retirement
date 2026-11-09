@@ -17,7 +17,6 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::run_projection,
             commands::run_projections,
-            commands::run_monte_carlo,
             commands::run_monte_carlos,
             commands::cancel_monte_carlo,
             commands::run_backtest,

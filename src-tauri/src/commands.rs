@@ -45,9 +45,9 @@ pub struct MonteCarloState(Mutex<Option<(u32, Arc<RunControl>)>>);
 
 impl MonteCarloState {
     /// Takes the single run slot for `run_id`, cancelling whatever held it.
-    /// One slot for both Monte Carlo commands, deliberately: a comparison
-    /// batch and the Plan screen's own run would otherwise compete for the
-    /// same rayon pool, each making the other look slow. Nothing here ranks
+    /// One slot for every caller, deliberately: a comparison batch and the
+    /// Plan screen's own run would otherwise compete for the same rayon
+    /// pool, each making the other look slow. Nothing here ranks
     /// the callers: the frontend's Scenarios and What-if screens hold their
     /// batches until the Plan screen's run has finished, so opening one
     /// doesn't leave that screen's number stale.
@@ -500,67 +500,34 @@ fn with_progress<T>(
     })
 }
 
-/// Monte Carlo run: N stochastic paths in parallel, returning a success rate
-/// and per-period net-worth percentiles — or `None` if the run was cancelled,
-/// which is not an error: the caller asked for it and keeps its last result.
+/// Monte Carlo across one or more plans: N stochastic paths each, in parallel,
+/// returning a success rate and per-period net-worth percentiles. The Plan
+/// screen sends a batch of one, and the Scenarios and What-if screens send
+/// several, which is the reason they can show probability of success at all.
 ///
-/// Async, with the engine on a blocking thread, so rayon's work never sits
-/// on the IPC thread and the window stays live for the duration. Starting a
-/// run cancels the one before it.
+/// Per-plan `Result`, like `run_projections`: one invalid plan gets its own
+/// error and the rest of the table still fills in. The outer `Option` is the
+/// batch's cancellation, and `None` is not an error: the caller asked for it
+/// and keeps its last result. A cancel abandons the whole batch, since a table
+/// half-measured against a superseded selection is worse than the previous one.
+///
+/// Async, with the engine on a blocking thread, so rayon's work never sits on
+/// the IPC thread and the window stays live for the duration. Starting a run
+/// cancels the one before it.
 ///
 /// The path count arrives from the frontend, so it is clamped here as well as
-/// in `settings::set_monte_carlo_paths` — this command is stateless and will
-/// run whatever it is handed.
-#[tauri::command]
-pub async fn run_monte_carlo(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, MonteCarloState>,
-    plan: Plan,
-    config: MonteCarloConfig,
-    run_id: u32,
-    on_progress: Channel<MonteCarloProgress>,
-) -> Result<Option<MonteCarloResult>, String> {
-    require_valid(&plan)?;
-    let config = MonteCarloConfig {
-        n_paths: settings::clamp_monte_carlo_paths(config.n_paths),
-        ..config
-    };
-    let figures = figures_in_force(&app)?;
-
-    let worker = state.claim(run_id);
-    let control = worker.clone();
-    let outcome = tauri::async_runtime::spawn_blocking(move || {
-        let total = config.n_paths;
-        with_progress(&control, run_id, total, on_progress, || {
-            engine::run_monte_carlo_with(&plan, &figures, &config, &control)
-        })
-    })
-    .await
-    .map_err(|e| format!("Monte Carlo worker failed: {e}"))?;
-
-    state.release(run_id);
-    Ok(outcome.ok())
-}
-
-/// Monte Carlo across several scenarios in one round-trip — the comparison
-/// view's counterpart to `run_projections`, and the reason the Scenarios
-/// table can show probability of success at all.
+/// in `settings::set_monte_carlo_paths`: this command is stateless and will run
+/// whatever it is handed.
 ///
-/// Per-scenario `Result`, like `run_projections`: one invalid scenario gets
-/// its own error and the rest of the table still fills in. The outer `Option`
-/// is the batch's cancellation, exactly as in `run_monte_carlo` — a cancel
-/// abandons the whole batch, since a table half-measured against a superseded
-/// selection is worse than the previous one.
+/// Every plan runs at the same `config`, seed included. That is the point:
+/// common random numbers mean two plans are measured against the same draws,
+/// so the *difference* between their success rates is far less noisy than
+/// either rate's own sampling margin.
 ///
-/// Every scenario runs at the same `config`, seed included. That is the point:
-/// common random numbers mean two scenarios are measured against the same
-/// draws, so the *difference* between their success rates is far less noisy
-/// than either rate's own sampling margin.
-///
-/// Scenarios run one after another rather than in parallel — each already
-/// saturates rayon across its own paths — and share one `RunControl`, whose
+/// Plans run one after another rather than in parallel, since each already
+/// saturates rayon across its own paths, and share one `RunControl`, whose
 /// counter never resets. That is what makes batch progress a single climbing
-/// number rather than a bar that restarts per scenario.
+/// number rather than a bar that restarts per plan.
 #[tauri::command]
 pub async fn run_monte_carlos(
     app: tauri::AppHandle,
