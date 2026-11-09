@@ -68,6 +68,7 @@ export function ComparisonView() {
   const monteCarloPaths = usePlanStore((s) => s.monteCarloPaths);
   const monteCarloLimits = usePlanStore((s) => s.monteCarloLimits);
   const monteCarloSeed = usePlanStore((s) => s.monteCarloSeed);
+  const planRunning = usePlanStore((s) => s.monteCarloRun !== null);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [results, setResults] = useState<ScenarioResult[]>([]);
@@ -192,6 +193,13 @@ export function ComparisonView() {
   // behind seconds of sampling.
   useEffect(() => {
     if (loading || monteCarloPaths === null) return;
+
+    // The backend keeps one run slot, so starting a batch here while the
+    // Plan screen's own run is in flight would cancel it and leave that
+    // screen's number stale. Wait instead: this effect re-runs when the slot
+    // frees.
+    if (planRunning) return;
+
     const work = pendingScenarios(results, mcCache, keyFor);
     if (work.length === 0) {
       setMcStale(false);
@@ -258,6 +266,9 @@ export function ComparisonView() {
 
     return () => {
       superseded = true;
+      // An abandoned batch never reaches the `setBatch(null)` above, and the
+      // next pass of this effect may have nothing to start.
+      setBatch(null);
       // Leaving the screen, or changing what is selected, should not leave
       // paths burning: the batch is abandoned, not awaited.
       void cancelMonteCarlo(runId).catch(() => {});
@@ -270,6 +281,7 @@ export function ComparisonView() {
     monteCarloPaths,
     monteCarloLimits,
     monteCarloSeed,
+    planRunning,
     runToken,
   ]);
 
@@ -394,7 +406,12 @@ export function ComparisonView() {
                     {monteCarloPaths !== null &&
                       `${(monteCarloPaths * pending.length).toLocaleString()} paths across ${pending.length} ${pending.length === 1 ? "scenario" : "scenarios"}.`}
                   </span>
-                  <button type="button" className="tile-button" onClick={onRun}>
+                  <button
+                    type="button"
+                    className="tile-button"
+                    disabled={planRunning}
+                    onClick={onRun}
+                  >
                     Run
                   </button>
                 </span>
@@ -402,7 +419,10 @@ export function ComparisonView() {
             )}
           </div>
           <ComparisonChart rows={rows} series={series} showBand={bandOn} />
-          <ComparisonTable rows={summary} monteCarloPending={batch !== null} />
+          <ComparisonTable
+            rows={summary}
+            monteCarloPending={batch !== null || (planRunning && pending.length > 0)}
+          />
         </div>
       )}
     </section>

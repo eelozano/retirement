@@ -47,9 +47,10 @@ impl MonteCarloState {
     /// Takes the single run slot for `run_id`, cancelling whatever held it.
     /// One slot for both Monte Carlo commands, deliberately: a comparison
     /// batch and the Plan screen's own run would otherwise compete for the
-    /// same rayon pool, each making the other look slow. The cost is that
-    /// opening Scenarios supersedes the active plan's run, which the store
-    /// then shows as stale.
+    /// same rayon pool, each making the other look slow. Nothing here ranks
+    /// the callers: the frontend's Scenarios and What-if screens hold their
+    /// batches until the Plan screen's run has finished, so opening one
+    /// doesn't leave that screen's number stale.
     fn claim(&self, run_id: u32) -> Arc<RunControl> {
         let control = Arc::new(RunControl::new());
         if let Some((_, previous)) = self.0.lock().unwrap().replace((run_id, control.clone())) {
