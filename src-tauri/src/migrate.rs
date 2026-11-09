@@ -392,6 +392,40 @@ fn set_aside(base: &Path, path: &Path) -> Result<(), String> {
     fs::rename(path, &dest).map_err(|e| format!("setting aside {}: {e}", path.display()))
 }
 
+/// What `load_plan` does at launch: run the two one-shot migrations, tidy the
+/// plans directory, and open the plan the user was last on.
+///
+/// The order is the contract. Legacy JSON comes first, and only when the
+/// plans directory does not exist yet — it is for a first launch after #13,
+/// and must never re-import into a directory the user already has.
+/// `legacy_plans` is a closure so that a path which cannot be resolved is an
+/// error only when it is needed. The version-1 migration follows, because
+/// the legacy one writes version-1 files for it to pick up; it takes
+/// `active` as it was **before** the migration, since that decides whose
+/// balances a joined household keeps. Cleanup comes last of the three.
+///
+/// Then the active scenario, if there is one and it still loads; otherwise
+/// the first stored one — an active id whose plan was deleted or moved must
+/// not keep the app from opening. `None` is a fresh install.
+pub fn open_at_startup(
+    base: &Path,
+    legacy_plans: impl FnOnce() -> Result<PathBuf, String>,
+    active: Option<&str>,
+) -> Result<Option<Plan>, String> {
+    if !storage::plans_dir(base).exists() {
+        let legacy_plans = legacy_plans()?;
+        if legacy_plans.exists() {
+            migrate_json_dir_to_yaml(&legacy_plans, base)?;
+        }
+    }
+    migrate_v1_plans(base, active)?;
+    storage::cleanup(base)?;
+    if let Some(plan) = active.and_then(|id| storage::load_plan(base, id).ok()) {
+        return Ok(Some(plan));
+    }
+    storage::load_first(base)
+}
+
 #[cfg(test)]
 mod tests {
     use engine::model::YearMonth;
@@ -743,5 +777,183 @@ mod tests {
                 .accounts
                 .len()
         );
+    }
+
+    // ---- open_at_startup: the order of the launch sequence ----
+
+    use std::cell::Cell;
+
+    /// A closure standing in for `legacy_data_dir(..).join("plans")` that
+    /// records whether it was asked.
+    fn legacy_at<'a>(
+        dir: &'a Path,
+        asked: &'a Cell<bool>,
+    ) -> impl FnOnce() -> Result<PathBuf, String> + 'a {
+        move || {
+            asked.set(true);
+            Ok(dir.to_path_buf())
+        }
+    }
+
+    fn write_legacy_json(legacy_plans: &Path, plan: &Plan) {
+        fs::create_dir_all(legacy_plans).unwrap();
+        fs::write(
+            legacy_plans.join(format!("{}.json", plan.id)),
+            v1_json(plan),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn startup_on_a_fresh_install_opens_nothing() {
+        let base = TempDir::new("startup-fresh");
+        let legacy = TempDir::new("startup-fresh-legacy");
+        let asked = Cell::new(false);
+
+        let opened =
+            open_at_startup(&base.0, legacy_at(&legacy.0.join("plans"), &asked), None).unwrap();
+
+        assert!(opened.is_none(), "a fresh install must not invent a plan");
+        assert!(asked.get(), "no plans directory yet, so legacy is checked");
+        assert!(!storage::plans_dir(&base.0).exists());
+    }
+
+    #[test]
+    fn startup_migrates_a_legacy_install_and_opens_it() {
+        let base = TempDir::new("startup-legacy");
+        let legacy = TempDir::new("startup-legacy-old");
+        let legacy_plans = legacy.0.join("plans");
+        write_legacy_json(&legacy_plans, &engine::presets::seed_plan());
+        let asked = Cell::new(false);
+
+        let opened = open_at_startup(&base.0, legacy_at(&legacy_plans, &asked), None)
+            .unwrap()
+            .expect("the legacy plan was carried over");
+
+        // Both migrations ran in one launch: JSON to a v1 file, then v1 to a
+        // household, so the plan opens as a version-2 scenario.
+        assert_eq!(opened.id, "base-plan");
+        assert_eq!(storage::list_plans(&base.0).unwrap().len(), 1);
+        assert!(
+            legacy_plans.join("base-plan.json").exists(),
+            "never deleted"
+        );
+    }
+
+    #[test]
+    fn startup_does_not_reimport_legacy_into_an_existing_plans_directory() {
+        let base = TempDir::new("startup-existing");
+        storage::create_plan(&base.0, engine::presets::seed_plan()).unwrap();
+        let legacy = TempDir::new("startup-existing-old");
+        let legacy_plans = legacy.0.join("plans");
+        write_legacy_json(&legacy_plans, &v1_scenario("stray", "Stray"));
+        let asked = Cell::new(false);
+
+        open_at_startup(&base.0, legacy_at(&legacy_plans, &asked), None).unwrap();
+
+        assert!(!asked.get(), "the legacy path is not even resolved");
+        let ids: Vec<String> = storage::list_plans(&base.0)
+            .unwrap()
+            .into_iter()
+            .map(|s| s.id)
+            .collect();
+        assert_eq!(ids, ["base-plan"]);
+    }
+
+    #[test]
+    fn startup_only_fails_on_an_unresolvable_legacy_path_when_it_is_needed() {
+        let unresolvable = || Err("no app data dir".to_string());
+
+        let existing = TempDir::new("startup-unresolvable-existing");
+        storage::create_plan(&existing.0, engine::presets::seed_plan()).unwrap();
+        assert!(open_at_startup(&existing.0, unresolvable, None).is_ok());
+
+        let fresh = TempDir::new("startup-unresolvable-fresh");
+        assert_eq!(
+            open_at_startup(&fresh.0, unresolvable, None).unwrap_err(),
+            "no app data dir"
+        );
+    }
+
+    #[test]
+    fn startup_opens_the_active_scenario() {
+        let base = TempDir::new("startup-active");
+        storage::create_plan(&base.0, engine::presets::seed_plan()).unwrap();
+        storage::duplicate_plan(&base.0, "base-plan", "Sell the home").unwrap();
+        let asked = Cell::new(false);
+
+        let opened = open_at_startup(
+            &base.0,
+            legacy_at(Path::new("/nonexistent"), &asked),
+            Some("sell-the-home"),
+        )
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(opened.id, "sell-the-home");
+    }
+
+    #[test]
+    fn startup_falls_back_to_the_first_plan_when_the_active_one_is_gone() {
+        let base = TempDir::new("startup-gone");
+        storage::create_plan(&base.0, engine::presets::seed_plan()).unwrap();
+        let asked = Cell::new(false);
+
+        let opened = open_at_startup(
+            &base.0,
+            legacy_at(Path::new("/nonexistent"), &asked),
+            Some("deleted-long-ago"),
+        )
+        .unwrap()
+        .expect("the app still opens");
+
+        assert_eq!(opened.id, "base-plan");
+    }
+
+    #[test]
+    fn startup_hands_the_active_id_to_the_v1_migration() {
+        // Two version-1 scenarios of one household that disagree about a
+        // balance. The household keeps the active scenario's, so which one is
+        // active when the migration runs decides what the user sees. The
+        // active one is the *older* file: with no active id, the migration
+        // would pick the other.
+        let base = TempDir::new("startup-active-wins");
+        let mut active = v1_scenario("retire-early", "Retire early");
+        active.accounts[0].balance = 1_000.0;
+        write_v1(&base.0, &active);
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        let mut newer = v1_scenario("base-plan", "Base plan");
+        newer.accounts[0].balance = 2_000.0;
+        write_v1(&base.0, &newer);
+        let asked = Cell::new(false);
+
+        let opened = open_at_startup(
+            &base.0,
+            legacy_at(Path::new("/nonexistent"), &asked),
+            Some("retire-early"),
+        )
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(opened.id, "retire-early");
+        assert_eq!(opened.accounts[0].balance, 1_000.0);
+        assert_eq!(
+            storage::load_plan(&base.0, "base-plan").unwrap().accounts[0].balance,
+            1_000.0,
+            "the sibling shares the household's one balance"
+        );
+    }
+
+    #[test]
+    fn startup_tidies_the_plans_directory() {
+        let base = TempDir::new("startup-cleanup");
+        storage::create_plan(&base.0, engine::presets::seed_plan()).unwrap();
+        let leftover = storage::plans_dir(&base.0).join("old.yaml.deleted");
+        fs::write(&leftover, "x").unwrap();
+        let asked = Cell::new(false);
+
+        open_at_startup(&base.0, legacy_at(Path::new("/nonexistent"), &asked), None).unwrap();
+
+        assert!(!leftover.exists(), "relocated into the trash");
     }
 }

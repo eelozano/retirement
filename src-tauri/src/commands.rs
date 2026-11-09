@@ -23,7 +23,17 @@ use crate::{migrate, refresh, settings, storage, tax_figures};
 /// once-per-session pre-edit snapshot (see `save_plan`) fires on the first
 /// save of a launch, not on every debounced autosave after that.
 #[derive(Default)]
-pub struct SnapshotState(pub Mutex<HashSet<String>>);
+pub struct SnapshotState(Mutex<HashSet<String>>);
+
+impl SnapshotState {
+    /// Whether this is the first call for `id` since launch — and records it,
+    /// so every later call says `false`. The one gate `save_plan` and
+    /// `refresh_household` share, so a refresh followed by an edit is one
+    /// "how the plan looked when I sat down" entry, not two.
+    fn first_this_session(&self, id: &str) -> bool {
+        self.0.lock().unwrap().insert(id.to_string())
+    }
+}
 
 /// The Monte Carlo run currently in flight, if any: its id and the handle
 /// that stops it. One slot, not a map — the app has one window and one
@@ -31,7 +41,43 @@ pub struct SnapshotState(pub Mutex<HashSet<String>>);
 /// what lets `cancel_monte_carlo` ignore a stale Cancel click aimed at a run
 /// that has already been replaced.
 #[derive(Default)]
-pub struct MonteCarloState(pub Mutex<Option<(u32, Arc<RunControl>)>>);
+pub struct MonteCarloState(Mutex<Option<(u32, Arc<RunControl>)>>);
+
+impl MonteCarloState {
+    /// Takes the single run slot for `run_id`, cancelling whatever held it.
+    /// One slot for both Monte Carlo commands, deliberately: a comparison
+    /// batch and the Plan screen's own run would otherwise compete for the
+    /// same rayon pool, each making the other look slow. The cost is that
+    /// opening Scenarios supersedes the active plan's run, which the store
+    /// then shows as stale.
+    fn claim(&self, run_id: u32) -> Arc<RunControl> {
+        let control = Arc::new(RunControl::new());
+        if let Some((_, previous)) = self.0.lock().unwrap().replace((run_id, control.clone())) {
+            previous.cancel();
+        }
+        control
+    }
+
+    /// Releases the slot, but only if it is still `run_id`'s: a newer run may
+    /// already have replaced it, and that one's handle must stay reachable.
+    fn release(&self, run_id: u32) {
+        let mut slot = self.0.lock().unwrap();
+        if matches!(&*slot, Some((id, _)) if *id == run_id) {
+            *slot = None;
+        }
+    }
+
+    /// Stops the in-flight run if it is still the one the caller means. A
+    /// Cancel aimed at a run that has since been replaced is a no-op rather
+    /// than a cancel of its successor.
+    fn cancel_if_current(&self, run_id: u32) {
+        if let Some((id, control)) = &*self.0.lock().unwrap() {
+            if *id == run_id {
+                control.cancel();
+            }
+        }
+    }
+}
 
 /// Where settings.json lives — fixed, not user-configurable (it's what
 /// makes the plans directory itself relocatable without a bootstrapping
@@ -156,23 +202,12 @@ pub async fn run_backtest_cohort(
 #[tauri::command]
 pub fn load_plan(app: tauri::AppHandle) -> Result<Option<Plan>, String> {
     let base = plans_base_dir(&app)?;
-    if !storage::plans_dir(&base).exists() {
-        let legacy_plans = legacy_data_dir(&app)?.join("plans");
-        if legacy_plans.exists() {
-            migrate::migrate_json_dir_to_yaml(&legacy_plans, &base)?;
-        }
-    }
     let active = settings::active_plan_id(&config_dir(&app)?);
-    migrate::migrate_v1_plans(&base, active.as_deref())?;
-    storage::cleanup(&base)?;
-    if let Some(id) = active {
-        if let Ok(plan) = storage::load_plan(&base, &id) {
-            return Ok(Some(plan));
-        }
-        // Active plan was deleted or moved out from under us — fall through
-        // to the default rather than erroring the whole app out.
-    }
-    storage::load_first(&base)
+    migrate::open_at_startup(
+        &base,
+        || Ok(legacy_data_dir(&app)?.join("plans")),
+        active.as_deref(),
+    )
 }
 
 /// First simulated month for a plan created today: **this** month.
@@ -224,26 +259,16 @@ pub fn create_plan(
     }
     let base = plans_base_dir(&app)?;
     let life_expectancy_age = engine::presets::default_assumptions().plan_end_age;
-    let mut ids = HashSet::new();
+    let ids = storage::person_ids(&people.iter().map(|p| p.name.as_str()).collect::<Vec<_>>());
     let people = people
         .into_iter()
-        .enumerate()
-        .map(|(i, p)| {
-            // Same shape as a person id the seed plan uses ("alex"), so a
-            // hand-edited plan file stays readable. Falls back to the index
-            // when two people share a name, or a name has no usable letters.
-            let mut id = storage::slugify(&p.name);
-            if id == "plan" || !ids.insert(id.clone()) {
-                id = format!("person-{}", i + 1);
-                ids.insert(id.clone());
-            }
-            engine::model::Person {
-                id,
-                name: p.name,
-                birth: p.birth,
-                retirement: p.retirement,
-                life_expectancy_age,
-            }
+        .zip(ids)
+        .map(|(p, id)| engine::model::Person {
+            id,
+            name: p.name,
+            birth: p.birth,
+            retirement: p.retirement,
+            life_expectancy_age,
         })
         .collect();
 
@@ -277,8 +302,7 @@ pub fn save_plan(
 ) -> Result<(), String> {
     require_valid(&plan)?;
     let base = plans_base_dir(&app)?;
-    let first_save_this_session = state.0.lock().unwrap().insert(plan.id.clone());
-    if first_save_this_session {
+    if state.first_this_session(&plan.id) {
         storage::snapshot_plan(&base, &plan.id)?;
     }
     storage::save_plan(&base, &plan)
@@ -403,8 +427,7 @@ pub fn refresh_household(
     request: refresh::RefreshRequest,
 ) -> Result<Plan, String> {
     let base = plans_base_dir(&app)?;
-    let first_save_this_session = state.0.lock().unwrap().insert(request.scenario_id.clone());
-    if first_save_this_session {
+    if state.first_this_session(&request.scenario_id) {
         storage::snapshot_plan(&base, &request.scenario_id)?;
     }
     refresh::refresh_household(&base, &request, new_plan_start())
@@ -439,28 +462,6 @@ pub struct MonteCarloProgress {
 /// paints a count, not an animation, and at the default path count the whole
 /// run is only a couple of ticks long.
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(150);
-
-/// Takes the single run slot for `run_id`, cancelling whatever held it. One
-/// slot for both Monte Carlo commands, deliberately: a comparison batch and
-/// the Plan screen's own run would otherwise compete for the same rayon pool,
-/// each making the other look slow. The cost is that opening Scenarios
-/// supersedes the active plan's run, which the store then shows as stale.
-fn claim_slot(state: &tauri::State<'_, MonteCarloState>, run_id: u32) -> Arc<RunControl> {
-    let control = Arc::new(RunControl::new());
-    if let Some((_, previous)) = state.0.lock().unwrap().replace((run_id, control.clone())) {
-        previous.cancel();
-    }
-    control
-}
-
-/// Releases the slot, but only if it is still ours: a newer run may already
-/// have replaced it, and that one's handle must stay reachable.
-fn release_slot(state: &tauri::State<'_, MonteCarloState>, run_id: u32) {
-    let mut slot = state.0.lock().unwrap();
-    if matches!(&*slot, Some((id, _)) if *id == run_id) {
-        *slot = None;
-    }
-}
 
 /// Runs `work` on this thread while a scoped ticker samples `control` and
 /// feeds `on_progress`. The engine itself never sees the channel — it only
@@ -525,7 +526,7 @@ pub async fn run_monte_carlo(
     };
     let figures = figures_in_force(&app)?;
 
-    let worker = claim_slot(&state, run_id);
+    let worker = state.claim(run_id);
     let control = worker.clone();
     let outcome = tauri::async_runtime::spawn_blocking(move || {
         let total = config.n_paths;
@@ -536,7 +537,7 @@ pub async fn run_monte_carlo(
     .await
     .map_err(|e| format!("Monte Carlo worker failed: {e}"))?;
 
-    release_slot(&state, run_id);
+    state.release(run_id);
     Ok(outcome.ok())
 }
 
@@ -585,7 +586,7 @@ pub async fn run_monte_carlos(
         .n_paths
         .saturating_mul(validated.iter().filter(|p| p.is_ok()).count() as u32);
 
-    let worker = claim_slot(&state, run_id);
+    let worker = state.claim(run_id);
     let control = worker.clone();
     let outcome = tauri::async_runtime::spawn_blocking(move || {
         with_progress(&control, run_id, total, on_progress, || {
@@ -607,20 +608,15 @@ pub async fn run_monte_carlos(
     .await
     .map_err(|e| format!("Monte Carlo worker failed: {e}"))?;
 
-    release_slot(&state, run_id);
+    state.release(run_id);
     Ok(outcome.ok())
 }
 
-/// Stops the in-flight run if it is still the one the caller means. A Cancel
-/// aimed at a run that has since been replaced is a no-op rather than a
-/// cancel of its successor.
+/// Stops the in-flight run if it is still the one the caller means; see
+/// [`MonteCarloState::cancel_if_current`].
 #[tauri::command]
 pub fn cancel_monte_carlo(state: tauri::State<'_, MonteCarloState>, run_id: u32) {
-    if let Some((id, control)) = &*state.0.lock().unwrap() {
-        if *id == run_id {
-            control.cancel();
-        }
-    }
+    state.cancel_if_current(run_id);
 }
 
 /// The path-count limits, defined once here and read by the frontend rather
@@ -848,4 +844,96 @@ pub fn save_tax_figures(app: tauri::AppHandle, figures: TaxFigures) -> Result<()
 #[tauri::command]
 pub fn engine_version() -> String {
     engine::version().to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // The Monte Carlo slot. `run_id`s come from the frontend, one per run it
+    // starts, and a Cancel or a finishing run names the id it means.
+
+    #[test]
+    fn claiming_hands_out_a_live_control() {
+        let state = MonteCarloState::default();
+        let control = state.claim(1);
+        assert!(!control.is_cancelled());
+    }
+
+    #[test]
+    fn claiming_cancels_the_run_it_supersedes() {
+        let state = MonteCarloState::default();
+        let first = state.claim(1);
+        let second = state.claim(2);
+        assert!(first.is_cancelled(), "the old run is told to stop");
+        assert!(!second.is_cancelled(), "the new run is not");
+    }
+
+    #[test]
+    fn cancelling_the_current_run_stops_it() {
+        let state = MonteCarloState::default();
+        let control = state.claim(7);
+        state.cancel_if_current(7);
+        assert!(control.is_cancelled());
+    }
+
+    #[test]
+    fn a_stale_cancel_does_not_stop_the_successor() {
+        let state = MonteCarloState::default();
+        let _old = state.claim(1);
+        let current = state.claim(2);
+        // A Cancel click aimed at run 1, arriving after run 2 replaced it.
+        state.cancel_if_current(1);
+        assert!(!current.is_cancelled());
+    }
+
+    #[test]
+    fn cancelling_with_nothing_running_is_a_no_op() {
+        let state = MonteCarloState::default();
+        state.cancel_if_current(1);
+        let control = state.claim(1);
+        assert!(
+            !control.is_cancelled(),
+            "an earlier cancel is not remembered"
+        );
+    }
+
+    #[test]
+    fn releasing_frees_the_slot_for_its_own_run() {
+        let state = MonteCarloState::default();
+        let control = state.claim(1);
+        state.release(1);
+        // Nothing is in the slot, so a Cancel for it reaches nobody.
+        state.cancel_if_current(1);
+        assert!(!control.is_cancelled());
+    }
+
+    #[test]
+    fn a_stale_release_leaves_the_new_run_reachable() {
+        let state = MonteCarloState::default();
+        let _old = state.claim(1);
+        let current = state.claim(2);
+        // Run 1 finishes after run 2 has taken the slot.
+        state.release(1);
+        state.cancel_if_current(2);
+        assert!(current.is_cancelled(), "run 2 can still be cancelled");
+    }
+
+    // The once-per-session snapshot gate.
+
+    #[test]
+    fn the_first_save_of_a_plan_is_the_only_one_that_snapshots() {
+        let state = SnapshotState::default();
+        assert!(state.first_this_session("base-plan"));
+        assert!(!state.first_this_session("base-plan"));
+        assert!(!state.first_this_session("base-plan"));
+    }
+
+    #[test]
+    fn each_plan_has_its_own_first_save() {
+        let state = SnapshotState::default();
+        assert!(state.first_this_session("base-plan"));
+        assert!(state.first_this_session("retire-early"));
+        assert!(!state.first_this_session("retire-early"));
+    }
 }

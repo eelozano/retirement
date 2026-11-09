@@ -95,6 +95,28 @@ pub(crate) fn slugify(name: &str) -> String {
     }
 }
 
+/// Ids for the people of a new household, one per name, in order.
+///
+/// The same shape as a person id the seed plan uses ("alex"), so a
+/// hand-edited plan file stays readable. A name falls back to its position —
+/// `person-1` for the first — when an earlier person already has its slug, or
+/// when it has no usable letters and slugs to the placeholder `plan`.
+pub(crate) fn person_ids(names: &[&str]) -> Vec<String> {
+    let mut taken = BTreeSet::new();
+    names
+        .iter()
+        .enumerate()
+        .map(|(i, name)| {
+            let mut id = slugify(name);
+            if id == "plan" || !taken.insert(id.clone()) {
+                id = format!("person-{}", i + 1);
+                taken.insert(id.clone());
+            }
+            id
+        })
+        .collect()
+}
+
 /// Every id already spoken for: household ids (which are file names) and
 /// scenario ids (which `settings.json` records as the active plan, and
 /// which the frontend passes back). One namespace, because a scenario id
@@ -1271,6 +1293,36 @@ mod tests {
         assert_eq!(slugify("Base plan"), "base-plan");
         assert_eq!(slugify("  Retire Early!! (v2)  "), "retire-early-v2");
         assert_eq!(slugify("///"), "plan");
+    }
+
+    #[test]
+    fn person_ids_are_the_slug_of_each_name() {
+        assert_eq!(person_ids(&["Alex"]), ["alex"]);
+        assert_eq!(person_ids(&["Alex", "Jordan Lee"]), ["alex", "jordan-lee"]);
+    }
+
+    #[test]
+    fn person_ids_fall_back_to_position_for_a_repeated_name() {
+        // The second Alex is the second person, so `person-2`; the first
+        // keeps the readable slug.
+        assert_eq!(person_ids(&["Alex", "Alex"]), ["alex", "person-2"]);
+        // The slug is compared, not the name: these are the same one.
+        assert_eq!(person_ids(&["Alex", "ALEX!"]), ["alex", "person-2"]);
+        assert_eq!(
+            person_ids(&["Sam", "Alex", "Sam", "Alex"]),
+            ["sam", "alex", "person-3", "person-4"]
+        );
+    }
+
+    #[test]
+    fn person_ids_fall_back_to_position_for_a_name_with_no_letters() {
+        // `slugify` gives such a name the placeholder "plan", which would be
+        // a poor id for a person.
+        assert_eq!(person_ids(&["???"]), ["person-1"]);
+        assert_eq!(
+            person_ids(&["Alex", "!!!", "   "]),
+            ["alex", "person-2", "person-3"]
+        );
     }
 
     #[test]
